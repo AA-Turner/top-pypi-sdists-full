@@ -20,6 +20,7 @@ Careful: This script will utilize all existing Discord users and make changes!
 # start django project
 import os
 import sys
+
 if not 'AUTH_PROJECT_PATH' in os.environ:
     print('AUTH_PROJECT_PATH is not set')
     exit(1)
@@ -28,14 +29,15 @@ if not 'DJANGO_SETTINGS_MODULE' in os.environ:
     exit(1)
 sys.path.insert(0, os.environ['AUTH_PROJECT_PATH'])
 import django
+
 django.setup()
 
 # normal imports
 import logging
-from uuid import uuid1
 import random
+from uuid import uuid1
 
-from django.contrib.auth.models import User, Group
+from django.contrib.auth.models import Group, User
 
 from allianceauth.services.modules.discord.models import DiscordUser
 from allianceauth.utils.cache import get_redis_client
@@ -51,7 +53,7 @@ def clear_cache():
 
 def run_many_updates(runs):
     logger.info('Starting piloting_tasks for %d runs', runs)
-    users = list()
+    users = []
     all_groups = Group.objects.all()
     for i in range(runs):
         if not users:

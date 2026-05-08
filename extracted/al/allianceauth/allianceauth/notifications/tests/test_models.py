@@ -1,10 +1,10 @@
 from unittest.mock import patch
 
 from django.test import TestCase
+
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..models import Notification
-
 
 MODULE_PATH = 'allianceauth.notifications.models'
 

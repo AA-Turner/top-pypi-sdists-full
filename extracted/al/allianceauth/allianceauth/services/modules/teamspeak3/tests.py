@@ -1,22 +1,22 @@
 from unittest import mock
 
-from django.test import TestCase, RequestFactory
 from django import urls
-from django.contrib.auth.models import User, Group, Permission
+from django.contrib.admin import AdminSite
+from django.contrib.auth.models import Group, Permission, User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import signals
-from django.contrib.admin import AdminSite
+from django.test import RequestFactory, TestCase
 
-from allianceauth.tests.auth_utils import AuthUtils
-from .auth_hooks import Teamspeak3Service
-from .models import Teamspeak3User, AuthTS, TSgroup, StateGroup
-from .tasks import Teamspeak3Tasks
-from .signals import m2m_changed_authts_group, post_save_authts, post_delete_authts
-from .admin import AuthTSgroupAdmin
-
-from .manager import Teamspeak3Manager
-from .util.ts3 import TeamspeakError
 from allianceauth.groupmanagement.models import ReservedGroupName
+from allianceauth.tests.auth_utils import AuthUtils
+
+from .admin import AuthTSgroupAdmin
+from .auth_hooks import Teamspeak3Service
+from .manager import Teamspeak3Manager
+from .models import AuthTS, StateGroup, Teamspeak3User, TSgroup
+from .signals import m2m_changed_authts_group, post_delete_authts, post_save_authts
+from .tasks import Teamspeak3Tasks
+from .util.ts3 import TeamspeakError
 
 MODULE_PATH = 'allianceauth.services.modules.teamspeak3'
 DEFAULT_AUTH_GROUP = 'Member'
@@ -31,7 +31,7 @@ def add_permissions():
 class Teamspeak3HooksTestCase(TestCase):
     def setUp(self):
         # Inert signals before setup begins
-        with mock.patch(MODULE_PATH + '.signals.trigger_all_ts_update') as trigger_all_ts_update:
+        with mock.patch(MODULE_PATH + '.signals.trigger_all_ts_update'):
             self.member = 'member_user'
             member = AuthUtils.create_member(self.member)
             Teamspeak3User.objects.create(user=member, uid=self.member, perm_key='123ABC')
@@ -104,7 +104,7 @@ class Teamspeak3HooksTestCase(TestCase):
         service.validate_user(none_user)
         self.assertTrue(manager.return_value.__enter__.return_value.delete_user.called)
         with self.assertRaises(ObjectDoesNotExist):
-            none_teamspeak3 = User.objects.get(username=self.none_user).teamspeak3
+            _ = User.objects.get(username=self.none_user).teamspeak3
 
     @mock.patch(MODULE_PATH + '.tasks.Teamspeak3Manager')
     def test_delete_user(self, manager):
@@ -116,7 +116,7 @@ class Teamspeak3HooksTestCase(TestCase):
         self.assertTrue(result)
         self.assertTrue(manager.return_value.__enter__.return_value.delete_user.called)
         with self.assertRaises(ObjectDoesNotExist):
-            teamspeak3_user = User.objects.get(username=self.member).teamspeak3
+            _ = User.objects.get(username=self.member).teamspeak3
 
     def test_render_services_ctrl(self):
         service = self.service()
@@ -140,7 +140,7 @@ class Teamspeak3HooksTestCase(TestCase):
 class Teamspeak3ViewsTestCase(TestCase):
     def setUp(self):
         # Inert signals before setup begins
-        with mock.patch(MODULE_PATH + '.signals.trigger_all_ts_update') as trigger_all_ts_update:
+        with mock.patch(MODULE_PATH + '.signals.trigger_all_ts_update'):
             self.member = AuthUtils.create_member('auth_member')
             self.member.email = 'auth_member@example.com'
             self.member.save()
@@ -177,7 +177,6 @@ class Teamspeak3ViewsTestCase(TestCase):
     @mock.patch(MODULE_PATH + '.tasks.Teamspeak3Manager')
     def test_verify_submit(self, manager, forms_manager):
         self.login()
-        expected_username = 'auth_member'
 
         forms_instance = manager.return_value.__enter__.return_value
         forms_instance._get_userid.return_value = '1234'
@@ -200,7 +199,8 @@ class Teamspeak3ViewsTestCase(TestCase):
         self.assertTrue(manager.return_value.__enter__.return_value.delete_user.called)
         self.assertRedirects(response, expected_url=urls.reverse('services:services'), target_status_code=200)
         with self.assertRaises(ObjectDoesNotExist):
-            teamspeak3_user = User.objects.get(pk=self.member.pk).teamspeak3
+            user = User.objects.get(pk=self.member.pk)
+            _ = user.teamspeak3
 
     @mock.patch(MODULE_PATH + '.tasks.Teamspeak3Manager')
     @mock.patch(MODULE_PATH + '.views.Teamspeak3Manager')
@@ -242,7 +242,7 @@ class Teamspeak3SignalsTestCase(TestCase):
         self.member = AuthUtils.create_member('auth_member')
 
         # Suppress signals action while setting up
-        with mock.patch(MODULE_PATH + '.signals.trigger_all_ts_update') as trigger_all_ts_update:
+        with mock.patch(MODULE_PATH + '.signals.trigger_all_ts_update'):
             ts_member_group = TSgroup.objects.create(ts_group_id=1, ts_group_name='Member')
             self.m2m_member = AuthTS.objects.create(auth_group=Group.objects.get(name='Member'))
             self.m2m_member.ts_group.add(ts_member_group)

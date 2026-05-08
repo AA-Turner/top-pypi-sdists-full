@@ -1,4 +1,5 @@
 from django.urls import path
+
 from . import views
 
 app_name = 'notifications'
@@ -10,7 +11,7 @@ urlpatterns = [
     path('notifications/', views.notification_list, name='list'),
     path('notifications/<int:notif_id>/', views.notification_view, name='view'),
     path(
-        'user_notifications_count/<int:user_pk>/',
+        'user_notifications_count/',
         views.user_notifications_count,
         name='user_notifications_count'
     ),

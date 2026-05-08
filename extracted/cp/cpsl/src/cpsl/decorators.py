@@ -25,6 +25,8 @@ _SHUTDOWN_ATTR = "_cpsl_shutdown"
 _ENTER_ATTR = "_cpsl_enter"
 _EXIT_ATTR = "_cpsl_exit"
 _MESSAGE_ATTR = "_cpsl_message"
+_MESSAGE_NAME_ATTR = "_cpsl_message_name"
+_MESSAGE_LABEL_ATTR = "_cpsl_message_label"
 _SCHEDULE_ATTR = "_cpsl_schedule"
 _ENDPOINT_ATTR = "_cpsl_endpoint"
 _ASGI_ATTR = "_cpsl_asgi"
@@ -54,8 +56,18 @@ def exit() -> Callable[[F], F]:
     return _hook(_EXIT_ATTR, "Runs when a session is closed.")
 
 
-def message() -> Callable[[F], F]:
-    return _hook(_MESSAGE_ATTR, "Handles every inbound message. Receives ``session, msg``.")
+def message(name: str | None = None, *, label: str | None = None) -> Callable[[F], F]:
+    """Register a chat message handler.
+
+    ``@cpsl.message()`` handles the default chat. ``@cpsl.message("name")``
+    handles a named chat selected by custom React pages via ``useChat("name")``.
+    """
+    def decorator(fn: F) -> F:
+        setattr(fn, _MESSAGE_ATTR, True)
+        setattr(fn, _MESSAGE_NAME_ATTR, name or "")
+        setattr(fn, _MESSAGE_LABEL_ATTR, label or name or "")
+        return fn
+    return decorator
 
 
 def task(

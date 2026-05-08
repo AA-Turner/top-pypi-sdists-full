@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 17.0.0
+Version: 18.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -283,19 +283,23 @@ Class | Method | HTTP request | Description
 *ComplianceApi* | [**activate_byork_config**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#activate_byork_config) | **POST** /screening/byork/config/activate | Activate BYORK Light
 *ComplianceApi* | [**add_address_registry_vault_opt_outs**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#add_address_registry_vault_opt_outs) | **POST** /address_registry/vaults | Add vault accounts to the address registry opt-out list
 *ComplianceApi* | [**assign_vaults_to_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#assign_vaults_to_legal_entity) | **POST** /legal_entities/{legalEntityId}/vaults | Assign vault accounts to a legal entity
+*ComplianceApi* | [**create_counterparty_group**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#create_counterparty_group) | **POST** /counterparty_groups | Create a counterparty group
 *ComplianceApi* | [**deactivate_byork_config**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#deactivate_byork_config) | **POST** /screening/byork/config/deactivate | Deactivate BYORK Light
+*ComplianceApi* | [**delete_counterparty_group**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#delete_counterparty_group) | **DELETE** /counterparty_groups/{groupId} | Delete a counterparty group
 *ComplianceApi* | [**get_address_registry_tenant_participation_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_address_registry_tenant_participation_status) | **GET** /address_registry/tenant | Get address registry participation status for the authenticated workspace
 *ComplianceApi* | [**get_address_registry_vault_opt_out**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_address_registry_vault_opt_out) | **GET** /address_registry/vaults/{vaultAccountId} | Get whether a vault account is opted out of the address registry
 *ComplianceApi* | [**get_aml_post_screening_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_aml_post_screening_policy) | **GET** /screening/aml/post_screening_policy | AML - View Post-Screening Policy
 *ComplianceApi* | [**get_aml_screening_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_aml_screening_policy) | **GET** /screening/aml/screening_policy | AML - View Screening Policy
 *ComplianceApi* | [**get_byork_config**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_byork_config) | **GET** /screening/byork/config | Get BYORK Light configuration
 *ComplianceApi* | [**get_byork_verdict**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_byork_verdict) | **GET** /screening/byork/verdict | Get BYORK Light verdict
+*ComplianceApi* | [**get_counterparty_group**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_counterparty_group) | **GET** /counterparty_groups/{groupId} | Get a counterparty group
 *ComplianceApi* | [**get_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_legal_entity) | **GET** /legal_entities/{legalEntityId} | Get a legal entity
 *ComplianceApi* | [**get_legal_entity_for_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_legal_entity_for_address) | **GET** /address_registry/legal_entities/{address} | Look up legal entity by blockchain address
 *ComplianceApi* | [**get_post_screening_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_post_screening_policy) | **GET** /screening/travel_rule/post_screening_policy | Travel Rule - View Post-Screening Policy
 *ComplianceApi* | [**get_screening_full_details**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_screening_full_details) | **GET** /screening/transaction/{txId} | Provides all the compliance details for the given screened transaction.
 *ComplianceApi* | [**get_screening_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_screening_policy) | **GET** /screening/travel_rule/screening_policy | Travel Rule - View Screening Policy
 *ComplianceApi* | [**list_address_registry_vault_opt_outs**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#list_address_registry_vault_opt_outs) | **GET** /address_registry/vaults | List vault-level address registry opt-outs (paginated)
+*ComplianceApi* | [**list_counterparty_groups**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#list_counterparty_groups) | **GET** /counterparty_groups | List counterparty groups
 *ComplianceApi* | [**list_legal_entities**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#list_legal_entities) | **GET** /legal_entities | List legal entities (Paginated)
 *ComplianceApi* | [**list_vaults_for_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#list_vaults_for_legal_entity) | **GET** /legal_entities/{legalEntityId}/vaults | List vault accounts for a legal entity (Paginated)
 *ComplianceApi* | [**opt_in_address_registry_tenant**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#opt_in_address_registry_tenant) | **POST** /address_registry/tenant | Opt the workspace in to the address registry
@@ -308,6 +312,7 @@ Class | Method | HTTP request | Description
 *ComplianceApi* | [**set_byork_timeouts**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#set_byork_timeouts) | **PUT** /screening/byork/config/timeouts | Set BYORK Light timeouts
 *ComplianceApi* | [**set_byork_verdict**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#set_byork_verdict) | **POST** /screening/byork/verdict | Set BYORK Light verdict
 *ComplianceApi* | [**update_aml_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_aml_screening_configuration) | **PUT** /screening/aml/policy_configuration | Update AML Configuration
+*ComplianceApi* | [**update_counterparty_group**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_counterparty_group) | **PATCH** /counterparty_groups/{groupId} | Update a counterparty group
 *ComplianceApi* | [**update_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_legal_entity) | **PUT** /legal_entities/{legalEntityId} | Update legal entity
 *ComplianceApi* | [**update_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_screening_configuration) | **PUT** /screening/configurations | Tenant - Screening Configuration
 *ComplianceApi* | [**update_travel_rule_config**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_travel_rule_config) | **PUT** /screening/travel_rule/policy_configuration | Update Travel Rule Configuration
@@ -523,6 +528,7 @@ Class | Method | HTTP request | Description
 *TRLinkApi* | [**connect_tr_link_integration**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#connect_tr_link_integration) | **PUT** /screening/trlink/customers/integration/{customerIntegrationId} | Connect customer integration
 *TRLinkApi* | [**create_tr_link_customer**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#create_tr_link_customer) | **POST** /screening/trlink/customers | Create customer
 *TRLinkApi* | [**create_tr_link_integration**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#create_tr_link_integration) | **POST** /screening/trlink/customers/integration | Create customer integration
+*TRLinkApi* | [**create_tr_link_manual_decision**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#create_tr_link_manual_decision) | **POST** /screening/trlink/customers/integration/{customerIntegrationId}/transactions/{txId}/manual_decision | Manual decision for missing TRM
 *TRLinkApi* | [**create_tr_link_trm**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#create_tr_link_trm) | **POST** /screening/trlink/customers/integration/{customerIntegrationId}/trm | Create Travel Rule Message
 *TRLinkApi* | [**delete_tr_link_customer**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#delete_tr_link_customer) | **DELETE** /screening/trlink/customers/{customerId} | Delete customer
 *TRLinkApi* | [**disconnect_tr_link_integration**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#disconnect_tr_link_integration) | **DELETE** /screening/trlink/customers/integration/{customerIntegrationId} | Disconnect customer integration
@@ -535,10 +541,12 @@ Class | Method | HTTP request | Description
 *TRLinkApi* | [**get_tr_link_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_policy) | **GET** /screening/trlink/policy | Get TRLink policy
 *TRLinkApi* | [**get_tr_link_supported_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_supported_asset) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/assets/{assetId} | Get supported asset by ID
 *TRLinkApi* | [**get_tr_link_trm_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_trm_by_id) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/trm/{trmId} | Get TRM by ID
+*TRLinkApi* | [**get_tr_link_trm_required_actions**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_trm_required_actions) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/trm/{trmId}/required_actions | Get required actions for a TRM
 *TRLinkApi* | [**get_tr_link_vasp_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#get_tr_link_vasp_by_id) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/vasps/{vaspId} | Get VASP by ID
 *TRLinkApi* | [**list_tr_link_supported_assets**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#list_tr_link_supported_assets) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/assets | List supported assets
 *TRLinkApi* | [**list_tr_link_vasps**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#list_tr_link_vasps) | **GET** /screening/trlink/customers/integration/{customerIntegrationId}/vasps | List VASPs
 *TRLinkApi* | [**redirect_tr_link_trm**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#redirect_tr_link_trm) | **POST** /screening/trlink/customers/integration/{customerIntegrationId}/trm/{trmId}/redirect | Redirect Travel Rule Message
+*TRLinkApi* | [**resolve_action_tr_link_trm**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#resolve_action_tr_link_trm) | **POST** /screening/trlink/customers/integration/{customerIntegrationId}/trm/{trmId}/resolve_action | Resolve action for a TRM
 *TRLinkApi* | [**set_tr_link_destination_travel_rule_message_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#set_tr_link_destination_travel_rule_message_id) | **POST** /screening/trlink/transaction/{txId}/destination/travel_rule_message_id | Set destination travel rule message ID
 *TRLinkApi* | [**set_tr_link_transaction_travel_rule_message_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#set_tr_link_transaction_travel_rule_message_id) | **POST** /screening/trlink/transaction/{txId}/travel_rule_message_id | Set transaction travel rule message ID
 *TRLinkApi* | [**test_tr_link_integration_connection**](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkApi.md#test_tr_link_integration_connection) | **POST** /screening/trlink/customers/integration/{customerIntegrationId}/test_connection | Test connection
@@ -610,6 +618,7 @@ Class | Method | HTTP request | Description
 *UserGroupsBetaApi* | [**update_user_group**](https://github.com/fireblocks/py-sdk/tree/master/docs/UserGroupsBetaApi.md#update_user_group) | **PUT** /management/user_groups/{groupId} | Update user group
 *UsersApi* | [**get_users**](https://github.com/fireblocks/py-sdk/tree/master/docs/UsersApi.md#get_users) | **GET** /users | List users
 *VaultsApi* | [**activate_asset_for_vault_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#activate_asset_for_vault_account) | **POST** /vault/accounts/{vaultAccountId}/{assetId}/activate | Activate a wallet in a vault account
+*VaultsApi* | [**activate_circle_gateway_wallet_beta**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#activate_circle_gateway_wallet_beta) | **POST** /vault/accounts/{vaultAccountId}/circle_gateway/activate | Activate a Circle Gateway wallet
 *VaultsApi* | [**attach_or_detach_tags_from_vault_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#attach_or_detach_tags_from_vault_accounts) | **POST** /vault/accounts/attached_tags | Attach or detach tags from vault accounts
 *VaultsApi* | [**create_legacy_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_legacy_address) | **POST** /vault/accounts/{vaultAccountId}/{assetId}/addresses/{addressId}/create_legacy | Convert a segwit address to legacy format
 *VaultsApi* | [**create_multiple_accounts**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_multiple_accounts) | **POST** /vault/accounts/bulk | Bulk creation of new vault accounts
@@ -617,7 +626,9 @@ Class | Method | HTTP request | Description
 *VaultsApi* | [**create_vault_account**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_vault_account) | **POST** /vault/accounts | Create a new vault account
 *VaultsApi* | [**create_vault_account_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_vault_account_asset) | **POST** /vault/accounts/{vaultAccountId}/{assetId} | Create a new vault wallet
 *VaultsApi* | [**create_vault_account_asset_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#create_vault_account_asset_address) | **POST** /vault/accounts/{vaultAccountId}/{assetId}/addresses | Create new asset deposit address
+*VaultsApi* | [**deactivate_circle_gateway_wallet_beta**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#deactivate_circle_gateway_wallet_beta) | **POST** /vault/accounts/{vaultAccountId}/circle_gateway/deactivate | Deactivate a Circle Gateway wallet
 *VaultsApi* | [**get_asset_wallets**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_asset_wallets) | **GET** /vault/asset_wallets | Get vault wallets (Paginated)
+*VaultsApi* | [**get_circle_gateway_wallet_info_beta**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_circle_gateway_wallet_info_beta) | **GET** /vault/accounts/{vaultAccountId}/circle_gateway | Get Circle Gateway wallet info
 *VaultsApi* | [**get_create_multiple_deposit_addresses_job_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_create_multiple_deposit_addresses_job_status) | **GET** /vault/accounts/addresses/bulk/{jobId} | Get the job status of the bulk deposit address creation
 *VaultsApi* | [**get_create_multiple_vault_accounts_job_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_create_multiple_vault_accounts_job_status) | **GET** /vault/accounts/bulk/{jobId} | Get job status of bulk creation of new vault accounts
 *VaultsApi* | [**get_max_bip_index_used**](https://github.com/fireblocks/py-sdk/tree/master/docs/VaultsApi.md#get_max_bip_index_used) | **GET** /vault/accounts/{vaultAccountId}/{assetId}/max_bip44_index_used | Get maximum BIP44 index used
@@ -817,6 +828,8 @@ Class | Method | HTTP request | Description
  - [ChapsAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/ChapsAddress.md)
  - [ChapsDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/ChapsDestination.md)
  - [ChapsPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/ChapsPaymentInfo.md)
+ - [CircleGatewayWalletInfoResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CircleGatewayWalletInfoResponse.md)
+ - [CircleGatewayWalletStatusResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CircleGatewayWalletStatusResponse.md)
  - [ClaimRewardsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ClaimRewardsRequest.md)
  - [CollectionBurnRequestDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionBurnRequestDto.md)
  - [CollectionBurnResponseDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionBurnResponseDto.md)
@@ -895,6 +908,8 @@ Class | Method | HTTP request | Description
  - [ConvertAssetsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ConvertAssetsResponse.md)
  - [Cosigner](https://github.com/fireblocks/py-sdk/tree/master/docs/Cosigner.md)
  - [CosignersPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CosignersPaginatedResponse.md)
+ - [CounterpartyGroup](https://github.com/fireblocks/py-sdk/tree/master/docs/CounterpartyGroup.md)
+ - [CounterpartyGroupsPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CounterpartyGroupsPaginatedResponse.md)
  - [CreateAPIUser](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateAPIUser.md)
  - [CreateAddressRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateAddressRequest.md)
  - [CreateAddressResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateAddressResponse.md)
@@ -905,6 +920,7 @@ Class | Method | HTTP request | Description
  - [CreateConsoleUser](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateConsoleUser.md)
  - [CreateContractRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateContractRequest.md)
  - [CreateConversionConfigOperationRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateConversionConfigOperationRequest.md)
+ - [CreateCounterpartyGroupRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateCounterpartyGroupRequest.md)
  - [CreateDisbursementConfigOperationRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateDisbursementConfigOperationRequest.md)
  - [CreateEarnActionRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateEarnActionRequest.md)
  - [CreateEarnActionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CreateEarnActionResponse.md)
@@ -1481,6 +1497,7 @@ Class | Method | HTTP request | Description
  - [TRLinkAssetData](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAssetData.md)
  - [TRLinkAssetFormat](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAssetFormat.md)
  - [TRLinkAssetsListPagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkAssetsListPagedResponse.md)
+ - [TRLinkBeneficiaryPii](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkBeneficiaryPii.md)
  - [TRLinkCancelTrmRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkCancelTrmRequest.md)
  - [TRLinkConnectIntegrationRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkConnectIntegrationRequest.md)
  - [TRLinkCreateCustomerRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkCreateCustomerRequest.md)
@@ -1492,10 +1509,16 @@ Class | Method | HTTP request | Description
  - [TRLinkDiscoverableStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkDiscoverableStatus.md)
  - [TRLinkFiatValue](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkFiatValue.md)
  - [TRLinkGeographicAddressRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkGeographicAddressRequest.md)
+ - [TRLinkGetRequiredActionsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkGetRequiredActionsResponse.md)
  - [TRLinkGetSupportedAssetResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkGetSupportedAssetResponse.md)
  - [TRLinkIvms](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkIvms.md)
  - [TRLinkIvmsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkIvmsResponse.md)
  - [TRLinkJwkPublicKey](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkJwkPublicKey.md)
+ - [TRLinkManualDecisionAction](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkManualDecisionAction.md)
+ - [TRLinkManualDecisionDestinationDetail](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkManualDecisionDestinationDetail.md)
+ - [TRLinkManualDecisionRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkManualDecisionRequest.md)
+ - [TRLinkManualDecisionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkManualDecisionResponse.md)
+ - [TRLinkManualDecisionSource](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkManualDecisionSource.md)
  - [TRLinkMissingTrmAction](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkMissingTrmAction.md)
  - [TRLinkMissingTrmAction2](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkMissingTrmAction2.md)
  - [TRLinkMissingTrmActionEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkMissingTrmActionEnum.md)
@@ -1525,6 +1548,11 @@ Class | Method | HTTP request | Description
  - [TRLinkRegistrationResultFullPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRegistrationResultFullPayload.md)
  - [TRLinkRegistrationStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRegistrationStatus.md)
  - [TRLinkRegistrationStatusEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRegistrationStatusEnum.md)
+ - [TRLinkRequiredAction](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRequiredAction.md)
+ - [TRLinkRequiredActionData](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRequiredActionData.md)
+ - [TRLinkRequiredField](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRequiredField.md)
+ - [TRLinkResolveActionData](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkResolveActionData.md)
+ - [TRLinkResolveActionRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkResolveActionRequest.md)
  - [TRLinkResult](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkResult.md)
  - [TRLinkResultFullPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkResultFullPayload.md)
  - [TRLinkRuleBase](https://github.com/fireblocks/py-sdk/tree/master/docs/TRLinkRuleBase.md)
@@ -1670,6 +1698,7 @@ Class | Method | HTTP request | Description
  - [UpdateAssetUserMetadataRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateAssetUserMetadataRequest.md)
  - [UpdateCallbackHandlerRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateCallbackHandlerRequest.md)
  - [UpdateCallbackHandlerResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateCallbackHandlerResponse.md)
+ - [UpdateCounterpartyGroupRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateCounterpartyGroupRequest.md)
  - [UpdateDraftRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateDraftRequest.md)
  - [UpdateLegalEntityRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateLegalEntityRequest.md)
  - [UpdateTagRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateTagRequest.md)

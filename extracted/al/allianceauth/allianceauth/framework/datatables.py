@@ -43,7 +43,7 @@ def defaultdict_to_dict(d):
 class DataTablesView(View):
 
     model: Model = None
-    columns: List[tuple] = []
+    columns: list[tuple] = []
 
     def get_model_qs(self, request: HttpRequest, *args, **kwargs):
         return self.model.objects

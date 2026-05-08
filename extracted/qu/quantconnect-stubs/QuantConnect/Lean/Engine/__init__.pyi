@@ -325,6 +325,11 @@ class LeanEngineAlgorithmHandlers(System.Object, System.IDisposable):
         """
         ...
 
+    @staticmethod
+    def initialize_auxiliary_data_providers(set_globals: bool = False) -> System.ValueTuple[QuantConnect.Interfaces.IMapFileProvider, QuantConnect.Interfaces.IFactorFileProvider, QuantConnect.Interfaces.IDataProvider]:
+        """Creates and initializes the auxiliary data providers from configuration"""
+        ...
+
 
 class Initializer(System.Object):
     """Helper class to initialize a Lean engine"""

@@ -30,12 +30,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Based on https://github.com/torchbox/wagtail/blob/master/wagtail/wagtailcore/hooks.py
 """
 
+import logging
 from importlib import import_module
 
 from django.apps import apps
 from django.utils.module_loading import module_has_submodule
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +63,7 @@ def register(name, fn=None):
     """
     def _hook_add(func):
         if name not in _hooks:
-            logger.debug("Creating new hook %s" % name)
+            logger.debug(f"Creating new hook {name}")
             _hooks[name] = []
 
         logger.debug(f'Registering hook {name} for function {fn}')
@@ -110,7 +109,7 @@ def register_all_hooks():
     if not _all_hooks_registered:
         logger.debug("Searching for hooks")
         hooks = list(get_app_submodules('auth_hooks'))
-        logger.debug("Got %s hooks" % len(hooks))
+        logger.debug(f"Got {len(hooks)} hooks")
         _all_hooks_registered = True
 
 
@@ -133,6 +132,6 @@ class DashboardItemHook:
         try:
             logger.debug(f"Rendering {self.view_function} to dashboard")
             return self.view_function(request)
-        except Exception as e:
+        except Exception:
             logger.exception(f"Rendering {self.view_function} failed!")
             return ""

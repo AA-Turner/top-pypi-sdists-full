@@ -90,6 +90,24 @@ def to_dict(schunk):
     }
 
 
+def test_vlmeta_supports_ref_roundtrip(tmp_path):
+    schunk = blosc2.SChunk()
+    array = blosc2.asarray(np.arange(5, dtype=np.int64), urlpath=str(tmp_path / "ref_array.b2nd"), mode="w")
+    ref = blosc2.Ref.from_object(array)
+
+    schunk.vlmeta["ref"] = ref
+
+    restored = schunk.vlmeta["ref"]
+    assert isinstance(restored, blosc2.Ref)
+    assert restored == ref
+    np.testing.assert_array_equal(restored.open()[:], array[:])
+
+    bulk = schunk.vlmeta[:]
+    assert isinstance(bulk["ref"], blosc2.Ref)
+    assert bulk["ref"] == ref
+    np.testing.assert_array_equal(bulk["ref"].open()[:], array[:])
+
+
 def delete(schunk):
     # Remove one of them
     assert "vlmeta2" in schunk.vlmeta
@@ -118,3 +136,12 @@ def clear(schunk):
 
     schunk.vlmeta.clear()
     assert schunk.vlmeta.__len__() == 0
+
+
+def test_vlmeta_empty_list_roundtrip():
+    schunk = blosc2.SChunk()
+    schunk.vlmeta["empty"] = []
+    schunk.vlmeta["nested"] = {"rows": [[], ["x"]]}
+
+    assert schunk.vlmeta["empty"] == []
+    assert schunk.vlmeta["nested"] == {"rows": [[], ["x"]]}

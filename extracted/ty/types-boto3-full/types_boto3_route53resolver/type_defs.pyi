@@ -285,6 +285,8 @@ class ResolverEndpointTypeDef(TypedDict):
     Protocols: NotRequired[list[ProtocolType]]
     RniEnhancedMetricsEnabled: NotRequired[bool]
     TargetNameServerMetricsEnabled: NotRequired[bool]
+    Dns64Enabled: NotRequired[bool]
+    Ipv6InternetAccessEnabled: NotRequired[bool]
 
 class AssociateResolverQueryLogConfigRequestTypeDef(TypedDict):
     ResolverQueryLogConfigId: str
@@ -922,6 +924,8 @@ class CreateResolverEndpointRequestTypeDef(TypedDict):
     Protocols: NotRequired[Sequence[ProtocolType]]
     RniEnhancedMetricsEnabled: NotRequired[bool]
     TargetNameServerMetricsEnabled: NotRequired[bool]
+    Dns64Enabled: NotRequired[bool]
+    Ipv6InternetAccessEnabled: NotRequired[bool]
 
 class CreateResolverQueryLogConfigResponseTypeDef(TypedDict):
     ResolverQueryLogConfig: ResolverQueryLogConfigTypeDef
@@ -1140,6 +1144,8 @@ class UpdateResolverEndpointRequestTypeDef(TypedDict):
     Protocols: NotRequired[Sequence[ProtocolType]]
     RniEnhancedMetricsEnabled: NotRequired[bool]
     TargetNameServerMetricsEnabled: NotRequired[bool]
+    Dns64Enabled: NotRequired[bool]
+    Ipv6InternetAccessEnabled: NotRequired[bool]
 
 class UpdateResolverRuleRequestTypeDef(TypedDict):
     ResolverRuleId: str

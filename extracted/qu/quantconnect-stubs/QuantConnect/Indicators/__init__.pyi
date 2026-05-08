@@ -9126,6 +9126,94 @@ class AwesomeOscillator(QuantConnect.Indicators.BarIndicator, QuantConnect.Indic
         ...
 
 
+class WaveTrendOscillator(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
+    """
+    The WaveTrend Oscillator (WTO) is a momentum indicator that highlights overbought
+    and oversold conditions by measuring how far the typical price has deviated from a
+    smoothed moving average, normalized by an exponentially smoothed mean absolute
+    deviation. The oscillator's main line (WT1) is an EMA of this normalized channel
+    index, and the signal line (WT2) is an SMA of WT1; crossovers between the two
+    lines are commonly used as entry and exit signals.
+    
+    Formula:
+        HLC3 = (High + Low + Close) / 3
+        ESA  = EMA(HLC3, channelPeriod)
+        D    = EMA(|HLC3 - ESA|, channelPeriod)
+        CI   = (HLC3 - ESA) / (0.015 * D)
+        WT1  = EMA(CI, averagePeriod)              (the indicator's Current.Value)
+        WT2  = SMA(WT1, signalPeriod)              (exposed via signal)
+    """
+
+    @property
+    def channel_average(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """Gets the EMA of the typical price (ESA in the original WaveTrend formulation)."""
+        ...
+
+    @property
+    def channel_deviation(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """Gets the EMA of the absolute deviation between the typical price and channel_average."""
+        ...
+
+    @property
+    def channel_index_average(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """Gets the smoothed channel index (WT1): an EMA of the normalized channel index."""
+        ...
+
+    @property
+    def signal(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """Gets the signal line (WT2): a simple moving average of channel_index_average."""
+        ...
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized."""
+        ...
+
+    @property
+    def warm_up_period(self) -> int:
+        """Required period, in data points, for the indicator to be ready and fully initialized."""
+        ...
+
+    @overload
+    def __init__(self, name: str, channel_period: int, average_period: int, signal_period: int) -> None:
+        """
+        Initializes a new instance of the WaveTrendOscillator class.
+        
+        :param name: The name of this indicator
+        :param channel_period: The smoothing period for the typical-price EMA and the deviation EMA (n1)
+        :param average_period: The EMA period applied to the channel index to produce WT1 (n2)
+        :param signal_period: The SMA period applied to WT1 to produce the WT2 signal line (n3)
+        """
+        ...
+
+    @overload
+    def __init__(self, channel_period: int, average_period: int, signal_period: int) -> None:
+        """
+        Initializes a new instance of the WaveTrendOscillator class with the default name.
+        
+        :param channel_period: The smoothing period for the typical-price EMA and the deviation EMA (n1)
+        :param average_period: The EMA period applied to the channel index to produce WT1 (n2)
+        :param signal_period: The SMA period applied to WT1 to produce the WT2 signal line (n3)
+        """
+        ...
+
+    def compute_next_value(self, input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given bar.
+        
+        
+        This codeEntityType is protected.
+        
+        :param input: The input bar
+        :returns: The next WT1 value (EMA of the channel index).
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state."""
+        ...
+
+
 class UltimateOscillator(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
     """
     This indicator computes the Ultimate Oscillator (ULTOSC)
@@ -11332,7 +11420,13 @@ class T3MovingAverage(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicat
 
 
 class StandardDeviation(QuantConnect.Indicators.Variance):
-    """This indicator computes the n-period population standard deviation."""
+    """
+    This indicator computes the n-period population standard deviation of its input.
+    When the input is a price series, the result is the dispersion of price levels, not
+    the asset's volatility. To compute volatility, chain this indicator onto a
+    LogReturn or RateOfChange indicator using
+    IndicatorExtensions.of.
+    """
 
     @overload
     def __init__(self, period: int) -> None:

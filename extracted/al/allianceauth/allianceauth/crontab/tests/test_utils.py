@@ -2,12 +2,14 @@
 
 import logging
 from unittest.mock import patch
-from django.test import TestCase
-from django.db import ProgrammingError
+
 from celery.schedules import crontab
 
-from allianceauth.crontab.utils import offset_cron
+from django.db import ProgrammingError
+from django.test import TestCase
+
 from allianceauth.crontab.models import CronOffset
+from allianceauth.crontab.utils import offset_cron
 
 logger = logging.getLogger(__name__)
 

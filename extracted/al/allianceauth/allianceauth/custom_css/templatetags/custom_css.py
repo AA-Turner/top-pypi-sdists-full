@@ -3,11 +3,13 @@ Custom template tags for custom_css app
 """
 
 # Alliance Auth Custom CSS
-from allianceauth.custom_css.models import CustomCSS
+from pathlib import Path
 
 # Django
 from django.template.defaulttags import register
 from django.utils.safestring import mark_safe
+
+from allianceauth.custom_css.models import CustomCSS
 
 
 @register.simple_tag

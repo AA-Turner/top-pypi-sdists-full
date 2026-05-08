@@ -165,6 +165,7 @@ files_require = [
 lint_require = (
     [
         "ruff>=0.14.1",
+        "vermin>=1.8.0",
     ]
     + _mypy_require
     + images_require

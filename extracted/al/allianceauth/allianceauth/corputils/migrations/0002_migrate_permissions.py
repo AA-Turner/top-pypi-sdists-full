@@ -66,7 +66,7 @@ def forward(apps, schema_editor):
         g.permissions.add(perm_dict['corpstats']['alliance_apis'].pk)
         g.permissions.add(perm_dict['corpstats']['view_alliance_corpstats'].pk)
 
-    for name, perm in perm_dict['user'].items():
+    for _name, perm in perm_dict['user'].items():
         perm.delete()
 
 

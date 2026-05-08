@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster"
-version = "1.13.3"
+version = "1.13.4"
 description = "Dagster is an orchestration platform for the development, production, and observation of data assets."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -59,8 +59,8 @@ dependencies = [
     "universal_pathlib>=0.2.0; python_version>='3.12'",
     "rich",
     "filelock",
-    "dagster-pipes==1.13.3",
-    "dagster-shared==1.13.3",
+    "dagster-pipes==1.13.4",
+    "dagster-shared==1.13.4",
     "antlr4-python3-runtime",
 ]
 
@@ -102,6 +102,7 @@ test = [
     "responses<=0.23.1",
     "syrupy>=4.0.0",
     "tox>=4",
+    "tox-uv>=1",
     "morefs[asynclocal]",
     "fsspec<2024.5.0",
     "rapidfuzz",
@@ -140,6 +141,29 @@ pyright = [
 ]
 ruff = [
     "ruff==0.15.0",
+]
+ty = [
+    "pandas-stubs",
+    "types-backports",
+    "types-certifi",
+    "types-chardet",
+    "types-cryptography",
+    "types-mock",
+    "types-paramiko",
+    "types-pyOpenSSL",
+    "types-python-dateutil~=2.9.0.20240316",
+    "types-PyYAML",
+    "types-pytz",
+    "types-requests",
+    "types-simplejson",
+    "types-six",
+    "types-tabulate",
+    "types-tzlocal",
+    "types-toml",
+    "types-protobuf",
+    "types-redis",
+    "boto3-stubs[essential]",
+    "types-freezegun",
 ]
 
 [tool.hatch.build]

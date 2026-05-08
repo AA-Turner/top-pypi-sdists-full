@@ -5,8 +5,8 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 
 from allianceauth.tests.auth_utils import AuthUtils
-from ..models import Notification
 
+from ..models import Notification
 
 MODULE_PATH = 'allianceauth.notifications.models'
 

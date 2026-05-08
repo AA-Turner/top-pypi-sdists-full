@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harbor
-Version: 0.6.5
+Version: 0.6.6
 Summary: A framework for evaluating and optimizing agents and models using sandboxed environments.
 Author: Alex Shaw
 Author-email: Alex Shaw <alexgshaw64@gmail.com>
@@ -36,7 +36,7 @@ Requires-Dist: harbor[modal] ; extra == 'cloud'
 Requires-Dist: harbor[runloop] ; extra == 'cloud'
 Requires-Dist: harbor[gke] ; extra == 'cloud'
 Requires-Dist: harbor[tensorlake] ; extra == 'cloud'
-Requires-Dist: daytona>=0.121.0 ; extra == 'daytona'
+Requires-Dist: daytona>=0.165.0 ; extra == 'daytona'
 Requires-Dist: e2b>=2.4.2 ; extra == 'e2b'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'e2b'
 Requires-Dist: kubernetes>=32.0.0 ; extra == 'gke'

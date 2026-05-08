@@ -275,8 +275,8 @@ def test_broadcast_params(axis, keepdims, reduce_op, shapes):
         res = expr2 - getattr(expr1, reduce_op)(**reduce_args)
         oploc = "npcumsum" if reduce_op == "cumulative_sum" else "npcumprod"
         expr = f"na2 * na3 + 1 - {oploc}(na1 + na2 - na3, axis={axis}"
-        include_inital = reduce_args.get("include_initial", False)
-        expr += f", include_initial={keepdims})" if include_inital else ")"
+        include_initial = reduce_args.get("include_initial", False)
+        expr += f", include_initial={keepdims})" if include_initial else ")"
     else:
         res = expr1 - getattr(expr2, reduce_op)(**reduce_args)
         expr = f"na1 + na2 - na3 - (na2 * na3 + 1).{reduce_op}(axis={axis}, keepdims={keepdims})"
@@ -427,7 +427,7 @@ def test_fast_path(chunks, blocks, disk, fill_value, reduce_op, axis):
     else:
         a = blosc2.zeros(shape, dtype=np.float64, chunks=chunks, blocks=blocks, urlpath=urlpath, mode="w")
     if disk:
-        a = blosc2.open(urlpath)
+        a = blosc2.open(urlpath, mode="r")
     na = a[:]
     if reduce_op in {"cumulative_sum", "cumulative_prod"}:
         axis = 0 if axis is None else axis
@@ -473,7 +473,7 @@ def test_miniexpr_slice(chunks, blocks, disk, fill_value, reduce_op):
     else:
         a = blosc2.zeros(shape, dtype=np.float64, chunks=chunks, blocks=blocks, urlpath=urlpath, mode="w")
     if disk:
-        a = blosc2.open(urlpath)
+        a = blosc2.open(urlpath, mode="r")
     na = a[:]
     # Test slice
     # TODO: Make this work with miniexpr (currently just skips to normal reduction eval)
@@ -520,8 +520,8 @@ def test_save_version1(disk, fill_value, reduce_op, axis):
         a = blosc2.zeros(shape, dtype=np.float64, urlpath=urlpath, mode="w")
         b = blosc2.zeros(shape, dtype=np.float64, urlpath="b.b2nd", mode="w") - 0.1
     if disk:
-        a = blosc2.open(urlpath)
-        b = blosc2.open("b.b2nd")
+        a = blosc2.open(urlpath, mode="r")
+        b = blosc2.open("b.b2nd", mode="r")
     na = a[:]
     nb = b[:]
 
@@ -531,7 +531,7 @@ def test_save_version1(disk, fill_value, reduce_op, axis):
     assert lexpr.shape == a.shape
     if disk:
         lexpr.save("out.b2nd")
-        lexpr = blosc2.open("out.b2nd")
+        lexpr = blosc2.open("out.b2nd", mode="r")
     res = lexpr.compute()
     if reduce_op in {"cumulative_sum", "cumulative_prod"}:
         oploc = "npcumsum" if reduce_op == "cumulative_sum" else "npcumprod"
@@ -581,8 +581,8 @@ def test_save_version2(disk, fill_value, reduce_op, axis):
         a = blosc2.zeros(shape, dtype=np.float64, urlpath=urlpath, mode="w")
         b = blosc2.zeros(shape, dtype=np.float64, urlpath="b.b2nd", mode="w") - 0.1
     if disk:
-        a = blosc2.open(urlpath)
-        b = blosc2.open("b.b2nd")
+        a = blosc2.open(urlpath, mode="r")
+        b = blosc2.open("b.b2nd", mode="r")
     na = a[:]
     nb = b[:]
 
@@ -591,7 +591,7 @@ def test_save_version2(disk, fill_value, reduce_op, axis):
     lexpr = blosc2.lazyexpr(expr, operands={"a": a, "b": b})
     if disk:
         lexpr.save("out.b2nd")
-        lexpr = blosc2.open("out.b2nd")
+        lexpr = blosc2.open("out.b2nd", mode="r")
     res = lexpr.compute()
     if reduce_op in {"cumulative_sum", "cumulative_prod"}:
         oploc = "npcumsum" if reduce_op == "cumulative_sum" else "npcumprod"
@@ -641,8 +641,8 @@ def test_save_version3(disk, fill_value, reduce_op, axis):
         a = blosc2.zeros(shape, dtype=np.float64, urlpath=urlpath, mode="w")
         b = blosc2.zeros(shape, dtype=np.float64, urlpath="b.b2nd", mode="w") - 0.1
     if disk:
-        a = blosc2.open(urlpath)
-        b = blosc2.open("b.b2nd")
+        a = blosc2.open(urlpath, mode="r")
+        b = blosc2.open("b.b2nd", mode="r")
     na = a[:]
     nb = b[:]
 
@@ -651,7 +651,7 @@ def test_save_version3(disk, fill_value, reduce_op, axis):
     lexpr = blosc2.lazyexpr(expr, operands={"a": a, "b": b})
     if disk:
         lexpr.save("out.b2nd")
-        lexpr = blosc2.open("out.b2nd")
+        lexpr = blosc2.open("out.b2nd", mode="r")
     res = lexpr.compute()
     if reduce_op in {"cumulative_sum", "cumulative_prod"}:
         oploc = "npcumsum" if reduce_op == "cumulative_sum" else "npcumprod"
@@ -701,8 +701,8 @@ def test_save_version4(disk, fill_value, reduce_op, axis):
         a = blosc2.zeros(shape, dtype=np.float64, urlpath=urlpath, mode="w")
         b = blosc2.zeros(shape, dtype=np.float64, urlpath="b.b2nd", mode="w") - 0.1
     if disk:
-        a = blosc2.open(urlpath)
-        b = blosc2.open("b.b2nd")
+        a = blosc2.open(urlpath, mode="r")
+        b = blosc2.open("b.b2nd", mode="r")
     na = a[:]
 
     # Just a single reduction
@@ -710,7 +710,7 @@ def test_save_version4(disk, fill_value, reduce_op, axis):
     lexpr = blosc2.lazyexpr(expr, operands={"a": a})
     if disk:
         lexpr.save("out.b2nd")
-        lexpr = blosc2.open("out.b2nd")
+        lexpr = blosc2.open("out.b2nd", mode="r")
     res = lexpr.compute()
     if reduce_op in {"cumulative_sum", "cumulative_prod"}:
         oploc = "npcumsum" if reduce_op == "cumulative_sum" else "npcumprod"
@@ -738,7 +738,7 @@ def test_save_constructor_reduce(shape, disk, compute):
     lexpr = blosc2.lazyexpr(expr)
     if disk:
         lexpr.save("out.b2nd")
-        lexpr = blosc2.open("out.b2nd")
+        lexpr = blosc2.open("out.b2nd", mode="r")
     if compute:
         res = lexpr.compute()
         res = res[()]  # for later comparison with nres
@@ -767,7 +767,7 @@ def test_save_constructor_reduce2(shape, disk, compute):
     lexpr = blosc2.lazyexpr(expr)
     if disk:
         lexpr.save("out.b2nd")
-        lexpr = blosc2.open("out.b2nd")
+        lexpr = blosc2.open("out.b2nd", mode="r")
     if compute:
         res = lexpr.compute()
         res = res[()]  # for later comparison with nres

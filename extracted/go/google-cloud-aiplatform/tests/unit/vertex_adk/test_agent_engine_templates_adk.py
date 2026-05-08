@@ -63,7 +63,7 @@ _TEST_AGENT_NAME = "test_agent"
 _TEST_AGENT = Agent(name=_TEST_AGENT_NAME, model=_TEST_MODEL)
 _TEST_SESSION = {
     "id": "ca18c25a-644b-4e13-9b24-78c150ec3eb9",
-    "app_name": "default-app-name",
+    "app_name": "default_app_name",
     "user_id": _TEST_USER_ID,
     "events": [
         {

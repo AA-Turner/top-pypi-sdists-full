@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-genai
-Version: 1.75.0
+Version: 2.0.0
 Summary: GenAI Python SDK
 Author-email: Google LLC <googleapis-packages@google.com>
 License-Expression: Apache-2.0
@@ -1525,8 +1525,6 @@ print(response.text)
 ```
 
 ## Interactions (Preview)
-
-> **Warning:** The Interactions API is in **Beta**. This is a preview of an experimental feature. Features and schemas are subject to **breaking changes**.
 
 The Interactions API is a unified interface for interacting with Gemini models and agents. It simplifies state management, tool orchestration, and long-running tasks.
 

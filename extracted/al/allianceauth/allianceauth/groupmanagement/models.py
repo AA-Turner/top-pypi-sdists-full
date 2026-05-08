@@ -1,5 +1,3 @@
-from typing import Set
-
 from django.conf import settings
 from django.contrib.auth.models import Group, User
 from django.db import models
@@ -17,7 +15,7 @@ class GroupRequest(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     group = models.ForeignKey(Group, on_delete=models.CASCADE)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.user.username + ":" + self.group.name
 
     @property
@@ -52,7 +50,10 @@ class RequestLog(models.Model):
     request_actor = models.ForeignKey(User, on_delete=models.CASCADE)
     date = models.DateTimeField(auto_now_add=True)
 
-    def requestor(self):
+    def __str__(self) -> str:
+        return self.pk
+
+    def requestor(self) -> str:
         return self.request_info.split(":")[0]
 
     def type_to_str(self):
@@ -175,13 +176,16 @@ class AuthGroup(models.Model):
     class Meta:
         permissions = (
             ("request_groups", _("Can request non-public groups")),
+            # Intentionally Commented out
+            # AAv0 has these in the Auth_ Content Type
+            # ('group_management', 'group_management'))
         )
-        default_permissions = tuple()
+        default_permissions = ()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.group.name
 
-    def group_request_approvers(self) -> Set[User]:
+    def group_request_approvers(self) -> set[User]:
         """Return all users who can approve a group request."""
         return set(
             self.group_leaders.all()

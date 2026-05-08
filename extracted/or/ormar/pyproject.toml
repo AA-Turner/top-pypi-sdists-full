@@ -3,7 +3,7 @@ name = "ormar"
 
 [tool.poetry]
 name = "ormar"
-version = "0.24.0"
+version = "0.25.0"
 description = "An async ORM with fastapi in mind and pydantic validation."
 authors = ["Radosław Drążkiewicz <collerek@gmail.com>"]
 license = "MIT"
@@ -45,7 +45,7 @@ classifiers = [
 python = "^3.10.0"
 pydantic = "^2.11.9"
 SQLAlchemy = {version = "^2.0.40", extras = ["asyncio"]}
-cryptography = { version = ">=44.0.1,<47.0.0", optional = true }
+cryptography = { version = ">=44.0.1,<49.0.0", optional = true }
 # Async database drivers
 aiosqlite = { version = ">=0.19,<0.23", optional = true }
 aiomysql = { version = ">=0.1.0", optional = true }
@@ -55,6 +55,7 @@ asyncpg = { version = ">=0.28,<0.32", optional = true }
 psycopg2-binary = { version = "^2.9.1", optional = true }
 mysqlclient = { version = "^2.1.0", optional = true }
 PyMySQL = { version = "^1.1.0", optional = true }
+ormar-utils = ">=0.1.1"
 
 
 [tool.poetry.dependencies.orjson]
@@ -90,12 +91,12 @@ codecov = "^2.1.13"
 pytest-asyncio = ">=1.1.0,<2.0"
 fastapi = ">=0.125.0"
 
-ruff = ">=0.5.1,<0.15.12"
+ruff = ">=0.5.1,<0.15.13"
 
 setuptools = ">=78.1.1,<83.0.0"
 
 # types
-mypy = "^1.8.0"
+mypy = ">=1.8,<3.0"
 types-ujson = "^5.7.0"
 types-PyMySQL = "^1.0.19"
 types-ipaddress = "^1.0.1"
@@ -157,7 +158,7 @@ module = "docs_src.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = ["sqlalchemy.*", "asyncpg", "nest_asyncio"]
+module = ["sqlalchemy.*", "asyncpg", "nest_asyncio", "ormar_rust_utils"]
 ignore_missing_imports = true
 
 [tool.yapf]

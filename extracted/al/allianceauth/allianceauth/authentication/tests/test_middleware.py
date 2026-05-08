@@ -1,9 +1,9 @@
-from unittest import mock
-from allianceauth.authentication.middleware import UserSettingsMiddleware
 from unittest.mock import Mock
-from django.http import HttpResponse
 
+from django.http import HttpResponse
 from django.test.testcases import TestCase
+
+from allianceauth.authentication.middleware import UserSettingsMiddleware
 
 
 class TestUserSettingsMiddlewareSaveLang(TestCase):
@@ -39,7 +39,7 @@ class TestUserSettingsMiddlewareSaveLang(TestCase):
         of a non-existent (anonymous) user
         """
         self.request.user.is_anonymous = True
-        response = self.middleware.process_response(
+        self.middleware.process_response(
             self.request,
             self.response
             )
@@ -52,7 +52,7 @@ class TestUserSettingsMiddlewareSaveLang(TestCase):
         does the middleware change a language not set in the DB
         """
         self.request.user.profile.language = None
-        response = self.middleware.process_response(
+        self.middleware.process_response(
             self.request,
             self.response
             )
@@ -64,7 +64,7 @@ class TestUserSettingsMiddlewareSaveLang(TestCase):
         """
         Tests the middleware will change a language setting
         """
-        response = self.middleware.process_response(
+        self.middleware.process_response(
             self.request,
             self.response
             )
@@ -159,7 +159,7 @@ class TestUserSettingsMiddlewareLoginFlow(TestCase):
         tests the middleware will set night_mode if not set
         """
         self.request.session = {}
-        response = self.middleware.process_response(
+        self.middleware.process_response(
             self.request,
             self.response
             )
@@ -169,7 +169,7 @@ class TestUserSettingsMiddlewareLoginFlow(TestCase):
         """
         tests the middleware will set night_mode if set.
         """
-        response = self.middleware.process_response(
+        self.middleware.process_response(
             self.request,
             self.response
             )

@@ -38,7 +38,6 @@ urlpatterns = [
         name='token_refresh'
     ),
     path('dashboard/', views.dashboard, name='dashboard'),
-    path('dashboard_bs3/', views.dashboard_bs3, name='dashboard_bs3'),
     path('task-counts/', views.task_counts, name='task_counts'),
     path('esi-check/', views.esi_check, name='esi_check'),
 ]

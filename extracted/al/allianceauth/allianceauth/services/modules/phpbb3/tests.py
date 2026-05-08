@@ -1,9 +1,9 @@
 from unittest import mock
 
-from django.test import TestCase, RequestFactory
 from django import urls
-from django.contrib.auth.models import User, Group, Permission
+from django.contrib.auth.models import Group, Permission, User
 from django.core.exceptions import ObjectDoesNotExist
+from django.test import RequestFactory, TestCase
 
 from allianceauth.tests.auth_utils import AuthUtils
 
@@ -27,7 +27,7 @@ class Phpbb3HooksTestCase(TestCase):
         member = AuthUtils.create_member(self.member)
         Phpbb3User.objects.create(user=member, username=self.member)
         self.none_user = 'none_user'
-        none_user = AuthUtils.create_user(self.none_user)
+        AuthUtils.create_user(self.none_user)
         self.service = Phpbb3Service
         add_permissions()
 
@@ -86,7 +86,8 @@ class Phpbb3HooksTestCase(TestCase):
         service.validate_user(none_user)
         self.assertTrue(manager.disable_user.called)
         with self.assertRaises(ObjectDoesNotExist):
-            none_phpbb3 = User.objects.get(username=self.none_user).phpbb3
+            user = User.objects.get(username=self.none_user)
+            _ = user.phpbb3
 
     @mock.patch(MODULE_PATH + '.tasks.Phpbb3Manager')
     def test_delete_user(self, manager):
@@ -98,7 +99,8 @@ class Phpbb3HooksTestCase(TestCase):
         self.assertTrue(result)
         self.assertTrue(manager.disable_user.called)
         with self.assertRaises(ObjectDoesNotExist):
-            phpbb3_user = User.objects.get(username=self.member).phpbb3
+            user = User.objects.get(username=self.member)
+            _ = user.phpbb3
 
     def test_render_services_ctrl(self):
         service = self.service()
@@ -158,7 +160,8 @@ class Phpbb3ViewsTestCase(TestCase):
         self.assertTrue(manager.disable_user.called)
         self.assertRedirects(response, expected_url=urls.reverse('services:services'), target_status_code=200)
         with self.assertRaises(ObjectDoesNotExist):
-            phpbb3_user = User.objects.get(pk=self.member.pk).phpbb3
+            user = User.objects.get(pk=self.member.pk)
+            _ = user.phpbb3
 
     @mock.patch(MODULE_PATH + '.views.Phpbb3Manager')
     def test_set_password(self, manager):

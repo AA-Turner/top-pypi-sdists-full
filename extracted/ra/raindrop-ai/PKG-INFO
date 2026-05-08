@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.46
+Version: 0.0.48
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -11,7 +11,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: opentelemetry-sdk (>=1.39.0)
+Requires-Dist: opentelemetry-sdk (>=1.36.0)
 Requires-Dist: protobuf (>=5.29.6,<7)
 Requires-Dist: pydantic (>=2.09,<3)
 Requires-Dist: requests (>=2.32.3,<3.0.0)

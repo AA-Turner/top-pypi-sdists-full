@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tidy3d
-Version: 2.11.1
+Version: 2.11.2
 Summary: A fast FDTD solver
 Project-URL: Homepage, https://github.com/flexcompute/tidy3d
 Project-URL: Repository, https://github.com/flexcompute/tidy3d
@@ -66,6 +66,7 @@ Requires-Dist: myst-parser<5.0.0,>=4.0.1; extra == 'dev'
 Requires-Dist: nbconvert<8.0.0,>=7.17.0; extra == 'dev'
 Requires-Dist: nbdime<5.0.0,>=4.0.2; extra == 'dev'
 Requires-Dist: nbsphinx<0.10.0,>=0.8.7; extra == 'dev'
+Requires-Dist: nest-asyncio<2.0.0,>=1.6.0; extra == 'dev'
 Requires-Dist: networkx<3.0.0,>=2.6.3; extra == 'dev'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'dev'
 Requires-Dist: optax<0.3.0,>=0.2.2; extra == 'dev'
@@ -84,7 +85,7 @@ Requires-Dist: pytest-xdist<4.0.0,>=3.6.1; extra == 'dev'
 Requires-Dist: pytest<10.0.0,>=8.1; extra == 'dev'
 Requires-Dist: pyvista<0.48.0,>=0.45; extra == 'dev'
 Requires-Dist: rtree==1.2.0; extra == 'dev'
-Requires-Dist: ruff==0.11.11; extra == 'dev'
+Requires-Dist: ruff==0.14.1; extra == 'dev'
 Requires-Dist: sax<0.12,>=0.11; extra == 'dev'
 Requires-Dist: scikit-rf<2.0.0,>=1.9.0; extra == 'dev'
 Requires-Dist: signac<3.0.0,>=2.3.0; extra == 'dev'
@@ -137,7 +138,7 @@ Requires-Dist: sphinx<9.0.0,>=6; extra == 'docs'
 Requires-Dist: sphinxemoji<0.4.0,>=0.3.2; extra == 'docs'
 Requires-Dist: tmm<0.3.0,>=0.2.0; extra == 'docs'
 Provides-Extra: extras
-Requires-Dist: tidy3d-extras==2.11.1; extra == 'extras'
+Requires-Dist: tidy3d-extras==2.11.2; extra == 'extras'
 Provides-Extra: gdstk
 Requires-Dist: gdstk<1.1,>=0.9.49; extra == 'gdstk'
 Provides-Extra: heatcharge
@@ -149,13 +150,14 @@ Provides-Extra: pytorch
 Requires-Dist: torch<3.0.0,>=2.2.0; (sys_platform != 'darwin') and extra == 'pytorch'
 Requires-Dist: torch<3.0.0,>=2.2.0; (sys_platform == 'darwin') and extra == 'pytorch'
 Provides-Extra: pyvista
+Requires-Dist: nest-asyncio<2.0.0,>=1.6.0; extra == 'pyvista'
 Requires-Dist: pyvista<0.48.0,>=0.45; extra == 'pyvista'
 Requires-Dist: trame-vtk<3.0.0,>=2.0.0; extra == 'pyvista'
 Requires-Dist: trame-vuetify<3.0.0,>=2.0.0; extra == 'pyvista'
 Requires-Dist: trame<4.0.0,>=3.0.0; extra == 'pyvista'
 Requires-Dist: vtk<10.0.0,>=9.6.0; extra == 'pyvista'
 Provides-Extra: ruff
-Requires-Dist: ruff==0.11.11; extra == 'ruff'
+Requires-Dist: ruff==0.14.1; extra == 'ruff'
 Provides-Extra: scikit-rf
 Requires-Dist: scikit-rf<2.0.0,>=1.9.0; extra == 'scikit-rf'
 Provides-Extra: tests
@@ -184,7 +186,7 @@ Description-Content-Type: text/markdown
 [![PyPI
 Name](https://img.shields.io/badge/pypi-tidy3d-blue?style=for-the-badge)](https://pypi.python.org/pypi/tidy3d)
 [![PyPI version shields.io](https://img.shields.io/pypi/v/tidy3d.svg?style=for-the-badge)](https://pypi.python.org/pypi/tidy3d/)
-[![Documentation Status](https://readthedocs.com/projects/flexcompute-tidy3ddocumentation/badge/?version=latest&style=for-the-badge)](https://flexcompute-tidy3ddocumentation.readthedocs-hosted.com/?badge=latest)
+[![Documentation](https://img.shields.io/badge/docs-flexcompute-00643C?style=for-the-badge)](https://docs.flexcompute.com/projects/tidy3d/en/latest/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/flexcompute/tidy3d/tidy3d-python-client-tests.yml?branch=develop&style=for-the-badge)](https://github.com/flexcompute/tidy3d/actions/workflows/tidy3d-python-client-tests.yml)
 [![License: LGPL-2.1](https://img.shields.io/badge/license-LGPL--2.1-blue?style=for-the-badge)](LICENSE)
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-5A4FCF?style=for-the-badge)](https://github.com/astral-sh/ruff)

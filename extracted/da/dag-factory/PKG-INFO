@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dag-factory
-Version: 1.0.1
+Version: 1.1.0
 Summary: Dynamically build Apache Airflow DAGs from YAML files
 Project-URL: Source, https://github.com/astronomer/dag-factory
 Author-email: Astronomer <humans@astronomer.io>
@@ -13,23 +13,24 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
-Requires-Python: >=3.9
-Requires-Dist: apache-airflow>=2.4
+Requires-Python: >=3.10
+Requires-Dist: apache-airflow>=2.9
 Requires-Dist: packaging
+Requires-Dist: pathspec
 Requires-Dist: pyyaml
 Requires-Dist: typer
 Provides-Extra: all
 Requires-Dist: apache-airflow-providers-cncf-kubernetes>=4.4.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-common-sql>=1.2.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-http>=4.0.0; extra == 'all'
-Requires-Dist: apache-airflow>=2.4; extra == 'all'
 Requires-Dist: packaging; extra == 'all'
 Requires-Dist: pyyaml; extra == 'all'
 Provides-Extra: common-sql
@@ -39,10 +40,7 @@ Requires-Dist: apache-airflow-providers-http>=4.0.0; extra == 'http'
 Provides-Extra: kubernetes
 Requires-Dist: apache-airflow-providers-cncf-kubernetes>=4.4.0; extra == 'kubernetes'
 Provides-Extra: tests
-Requires-Dist: apache-airflow-providers-cncf-kubernetes>=4.4.0; extra == 'tests'
-Requires-Dist: apache-airflow-providers-common-sql>=1.2.0; extra == 'tests'
-Requires-Dist: apache-airflow-providers-http>=4.0.0; extra == 'tests'
-Requires-Dist: apache-airflow-providers-slack; extra == 'tests'
+Requires-Dist: pandas; extra == 'tests'
 Requires-Dist: pre-commit; extra == 'tests'
 Requires-Dist: pytest-cov; extra == 'tests'
 Requires-Dist: pytest>=6.0; extra == 'tests'
@@ -63,11 +61,11 @@ declaratively via configuration files.
 
 The minimum requirements for **dag-factory** are:
 
-- Python 3.9.0+
-- [Apache Airflow®](https://airflow.apache.org) 2.4+
+- Python 3.10.0+
+- [Apache Airflow®](https://airflow.apache.org) 2.9+
 
 For a gentle introduction, please take a look at our [Quickstart Guide](https://astronomer.github.io/dag-factory/latest/getting-started/quick-start-airflow-standalone/). For more examples, please see the
-[examples](/examples) folder.
+[examples](/examples/dags/) folder.
 
 - Quickstart
     - [Astro CLI](https://astronomer.github.io/dag-factory/latest/getting-started/quick-start-astro-cli/)

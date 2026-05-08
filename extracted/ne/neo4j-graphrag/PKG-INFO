@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neo4j-graphrag
-Version: 1.15.0
+Version: 1.16.0
 Summary: Python package to allow easy integration to Neo4j's GraphRAG features
 Project-URL: Homepage, https://neo4j.com/
 Project-URL: Repository, https://github.com/neo4j/neo4j-graphrag-python
@@ -11,8 +11,8 @@ License-File: LICENSE.PYTHON.txt
 License-File: LICENSE.txt
 License-File: NOTICE.txt
 Requires-Python: <3.15,>=3.10.0
-Requires-Dist: fsspec<2025.0.0,>=2024.9.0
-Requires-Dist: json-repair<0.45.0,>=0.44.1
+Requires-Dist: fsspec>=2024.9.0
+Requires-Dist: json-repair<1.0.0,>=0.44.1
 Requires-Dist: neo4j<7.0.0,>=5.17.0
 Requires-Dist: numpy<3.0.0,>=2.0.0; python_version >= '3.9' and python_version < '3.13'
 Requires-Dist: numpy<3.0.0,>=2.1.0; python_version >= '3.13' and python_version < '3.15'
@@ -30,10 +30,10 @@ Requires-Dist: boto3<2.0.0,>=1.35.0; extra == 'bedrock'
 Provides-Extra: cohere
 Requires-Dist: cohere<6.0.0,>=5.9.0; extra == 'cohere'
 Provides-Extra: examples
-Requires-Dist: langchain-huggingface<0.2.0,>=0.1.0; extra == 'examples'
-Requires-Dist: langchain-openai<0.3.0,>=0.2.2; extra == 'examples'
+Requires-Dist: langchain-huggingface<2.0.0,>=0.1.0; extra == 'examples'
+Requires-Dist: langchain-openai<2.0.0,>=0.2.2; extra == 'examples'
 Provides-Extra: experimental
-Requires-Dist: langchain-text-splitters<0.4.0,>=0.3.0; extra == 'experimental'
+Requires-Dist: langchain-text-splitters<2.0.0,>=0.3.0; extra == 'experimental'
 Requires-Dist: llama-index<0.14.0,>=0.13.0; extra == 'experimental'
 Requires-Dist: neo4j-viz<0.5.0,>=0.4.2; extra == 'experimental'
 Requires-Dist: pyarrow>=20.0.0; extra == 'experimental'
@@ -466,6 +466,13 @@ docker compose -f tests/e2e/docker-compose.yml up
 ```
 
 _(tip: If you encounter any caching issues within the databases, you can completely remove them by running `docker compose -f tests/e2e/docker-compose.yml down`)_
+
+For SEARCH-clause e2e tests (`tests/e2e/test_search_clause_e2e.py`), use the Neo4j 2026 compose file instead. It pins Neo4j 2026.02.2 (required for the Cypher 25 `SEARCH` clause) and binds the same `7687`/`7474` ports — stop the default stack first:
+
+```bash
+docker compose -f tests/e2e/docker-compose.yml down
+docker compose -f tests/e2e/docker-compose.neo4j2026.yml up -d
+```
 
 Once all the services are running, execute the following command to run the e2e tests:
 

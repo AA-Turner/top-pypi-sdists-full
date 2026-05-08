@@ -4,12 +4,11 @@ from urllib.parse import urljoin
 
 from . import (
     _ESI_CATEGORY_ALLIANCE,
-    _ESI_CATEGORY_CORPORATION,
     _ESI_CATEGORY_CHARACTER,
+    _ESI_CATEGORY_CORPORATION,
     _ESI_CATEGORY_REGION,
-    _ESI_CATEGORY_SOLARSYSTEM
+    _ESI_CATEGORY_SOLARSYSTEM,
 )
-
 
 _BASE_URL = 'https://zkillboard.com'
 

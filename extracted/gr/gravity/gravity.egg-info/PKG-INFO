@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gravity
-Version: 1.2.1
+Version: 1.2.2
 Summary: Command-line utilities to assist in managing Galaxy servers
 Home-page: https://github.com/galaxyproject/gravity
 Author: The Galaxy Team
@@ -145,6 +145,12 @@ More detailed configuration and usage examples, especially those concerning prod
 =========
  History
 =========
+
+1.2.2
+=====
+
+- Use scripts/galaxy-main for source-mode standalone start by @mvdbeek in https://github.com/galaxyproject/gravity/pull/146
+- Make ``is_ready()`` abstract in new ``RollingRestartableService`` subclass by @nsoranzo in https://github.com/galaxyproject/gravity/pull/149
 
 1.2.1
 =====

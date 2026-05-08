@@ -6,15 +6,12 @@ from django.template.loader import render_to_string
 from allianceauth import hooks
 from allianceauth.services.hooks import ServicesHook
 
+from . import __title__, tasks
+from .app_settings import DISCORD_SYNC_NAMES
 from .core import server_name, user_formatted_nick
 from .models import DiscordUser
 from .urls import urlpatterns
 from .utils import LoggerAddTag
-from . import tasks, __title__
-from .app_settings import (
-    DISCORD_SYNC_NAMES
-)
-
 
 logger = LoggerAddTag(logging.getLogger(__name__), __title__)
 

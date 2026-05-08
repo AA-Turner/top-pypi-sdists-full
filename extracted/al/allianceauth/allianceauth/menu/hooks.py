@@ -1,8 +1,8 @@
 """Menu item hooks."""
 
-from typing import List, Optional
 
 from django.template.loader import render_to_string
+from django.utils.functional import Promise
 
 from allianceauth.menu.constants import DEFAULT_MENU_ITEM_ORDER
 
@@ -30,11 +30,11 @@ class MenuItemHook:
 
     def __init__(
         self,
-        text: str,
+        text: str | Promise,
         classes: str,
         url_name: str,
-        order: Optional[int] = None,
-        navactive: Optional[List[str]] = None,
+        order: int | None = None,
+        navactive: list[str] | None = None,
     ):
         self.text = text
         self.classes = classes

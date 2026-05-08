@@ -1,9 +1,9 @@
 from unittest import mock
 
-from django.test import TestCase, RequestFactory
 from django import urls
-from django.contrib.auth.models import User, Group, Permission
+from django.contrib.auth.models import Group, Permission, User
 from django.core.exceptions import ObjectDoesNotExist
+from django.test import RequestFactory, TestCase
 
 from allianceauth.tests.auth_utils import AuthUtils
 
@@ -27,7 +27,7 @@ class XenforoHooksTestCase(TestCase):
         member = AuthUtils.create_member(self.member)
         XenforoUser.objects.create(user=member, username=self.member)
         self.none_user = 'none_user'
-        none_user = AuthUtils.create_user(self.none_user)
+        AuthUtils.create_user(self.none_user)
         self.service = XenforoService
         add_permissions()
 
@@ -61,7 +61,7 @@ class XenforoHooksTestCase(TestCase):
         service.validate_user(none_user)
         self.assertTrue(manager.disable_user.called)
         with self.assertRaises(ObjectDoesNotExist):
-            none_xenforo = User.objects.get(username=self.none_user).xenforo
+            _ = User.objects.get(username=self.none_user).xenforo
 
     @mock.patch(MODULE_PATH + '.tasks.XenForoManager')
     def test_delete_user(self, manager):
@@ -74,7 +74,7 @@ class XenforoHooksTestCase(TestCase):
         self.assertTrue(result)
         self.assertTrue(manager.disable_user.called)
         with self.assertRaises(ObjectDoesNotExist):
-            xenforo_user = User.objects.get(username=self.member).xenforo
+            _ = User.objects.get(username=self.member).xenforo
 
     def test_render_services_ctrl(self):
         service = self.service()
@@ -139,7 +139,8 @@ class XenforoViewsTestCase(TestCase):
         self.assertTrue(manager.disable_user.called)
         self.assertRedirects(response, expected_url=urls.reverse('services:services'), target_status_code=200)
         with self.assertRaises(ObjectDoesNotExist):
-            xenforo_user = User.objects.get(pk=self.member.pk).xenforo
+            user = User.objects.get(username=self.member.pk)
+            _ = user.xenoforo
 
     @mock.patch(MODULE_PATH + '.views.XenForoManager')
     def test_set_password(self, manager):

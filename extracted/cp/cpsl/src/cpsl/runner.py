@@ -22,7 +22,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 import uuid
-from typing import Any
+from typing import Any, Callable
 
 from aiohttp import web
 
@@ -93,6 +93,8 @@ from .decorators import (
     _ENTER_ATTR,
     _EXIT_ATTR,
     _MESSAGE_ATTR,
+    _MESSAGE_LABEL_ATTR,
+    _MESSAGE_NAME_ATTR,
     _SCHEDULE_ATTR,
     _ENDPOINT_ATTR,
     _ASGI_ATTR,
@@ -338,6 +340,8 @@ class Runner:
 
         self._instance: Any = None
         self._hooks: dict[str, Any] = {}
+        self._message_handlers: dict[str, Callable] = {}
+        self._message_handler_labels: dict[str, str] = {}
         self._tasks: dict[str, TaskDescriptor] = {}
         self._schedules: dict[str, Any] = {}
         self._schedule_locks: dict[str, asyncio.Lock] = {}
@@ -431,20 +435,23 @@ class Runner:
             self._instance = self._app_obj
         else:
             self._instance = self._cls()
-        for key in (_BOOT_ATTR, _SHUTDOWN_ATTR, _ENTER_ATTR, _EXIT_ATTR, _MESSAGE_ATTR):
+        for key in (_BOOT_ATTR, _SHUTDOWN_ATTR, _ENTER_ATTR, _EXIT_ATTR):
             self._hooks[key] = _find_hook(self._instance, key)
 
-        msg_handlers = [
-            name
-            for name in dir(self._instance)
-            if callable(getattr(self._instance, name, None))
-            and getattr(getattr(self._instance, name, None), _MESSAGE_ATTR, False)
-        ]
-        if len(msg_handlers) > 1:
-            raise RuntimeError(
-                f"Only one @cpsl.message() handler allowed per app, "
-                f"found {len(msg_handlers)}: {', '.join(sorted(msg_handlers))}"
-            )
+        self._message_handlers = {}
+        self._message_handler_labels = {}
+        for name in dir(self._instance):
+            fn = getattr(self._instance, name, None)
+            if not callable(fn) or not getattr(fn, _MESSAGE_ATTR, False):
+                continue
+            msg_name = getattr(fn, _MESSAGE_NAME_ATTR, "")
+            if msg_name in self._message_handlers:
+                label = "default" if msg_name == "" else msg_name
+                raise RuntimeError(f"Duplicate @cpsl.message handler for {label!r}")
+            self._message_handlers[msg_name] = fn
+            if msg_name:
+                self._message_handler_labels[msg_name] = getattr(fn, _MESSAGE_LABEL_ATTR, "") or msg_name
+        self._hooks[_MESSAGE_ATTR] = self._message_handlers.get("")
 
         for name in dir(self._instance):
             attr = getattr(self._instance, name, None)
@@ -853,6 +860,15 @@ class Runner:
 
         try:
             session, is_new = await self._get_session(item)
+            if item.initial_data_json and is_new:
+                try:
+                    initial_data = json.loads(item.initial_data_json)
+                    if isinstance(initial_data, dict):
+                        session.data.update(initial_data)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            if item.chat_name:
+                session.data.setdefault("__chat_name__", item.chat_name)
 
             if is_new and self._hooks.get(_ENTER_ATTR):
                 await _maybe_await(self._hooks[_ENTER_ATTR](session))
@@ -923,7 +939,13 @@ class Runner:
             try:
                 wf_handled = await self._try_workflow_dispatch(session, item.text, _reply, _stream, _block, _stream_write, rid, sid)
                 if not wf_handled:
-                    handler = self._hooks.get(_MESSAGE_ATTR)
+                    chat_name = item.chat_name or session.data.get("__chat_name__", "")
+                    handler = self._message_handlers.get(chat_name)
+                    if handler is None and chat_name:
+                        _log(f"unknown chat handler {chat_name!r}; falling back to default")
+                        handler = self._hooks.get(_MESSAGE_ATTR)
+                    elif handler is None:
+                        handler = self._hooks.get(_MESSAGE_ATTR)
                     if handler:
                         await _maybe_await(handler(session, user_msg))
             finally:
@@ -1723,8 +1745,15 @@ class Runner:
         chat: dict | None = None
         shell: dict | None = None
         has_message_handler = bool(self._hooks.get(_MESSAGE_ATTR))
+        message_handlers = [
+            {"name": name, "label": label}
+            for name, label in sorted(self._message_handler_labels.items())
+        ]
         for reg in _REGISTERED_CLASSES:
             has_message_handler = has_message_handler or bool(reg.get("has_message_handler"))
+            for mh in reg.get("message_handlers", []):
+                if mh not in message_handlers:
+                    message_handlers.append(mh)
             for ch in reg.get("channels", []):
                 channels.append(ch if isinstance(ch, dict) else {"type": str(ch)})
             for p in reg.get("pages", []):
@@ -1825,6 +1854,7 @@ class Runner:
             "collections": [d.to_dict() for d in collections.values()],
             "settings": [s.to_dict() for s in settings.values()],
             "has_message_handler": has_message_handler,
+            "message_handlers": message_handlers,
         }
         if theme:
             meta["theme"] = theme
@@ -1852,7 +1882,8 @@ class Runner:
             _log(f"data source mounted: GET /data/{ds_name}")
 
         app.router.add_get("/collection/{name}", self._wrap_collection_query())
-        _log("collection query mounted: GET /collection/{name}")
+        app.router.add_delete("/collection/{name}", self._wrap_collection_delete())
+        _log("collection routes mounted: GET/DELETE /collection/{name}")
 
         if self._get_all_settings():
             app.router.add_get("/settings", self._handle_settings_list())
@@ -2101,6 +2132,49 @@ class Runner:
                 return web.json_response(response)
             except Exception as exc:
                 _log(f"collection query error: {exc}")
+                return web.json_response({"error": str(exc)}, status=500)
+
+        return handler
+
+    def _wrap_collection_delete(self):
+        async def handler(request: web.Request) -> web.Response:
+            name = request.match_info["name"]
+            try:
+                db = getattr(self._instance, "db", None)
+                if db is None:
+                    return web.json_response({"error": "database not available"}, status=503)
+
+                body = await request.json()
+                if not isinstance(body, dict):
+                    return web.json_response({"error": "invalid request body"}, status=400)
+
+                ids = body.get("ids")
+                raw_filter = body.get("filter")
+                if ids:
+                    if not isinstance(ids, list):
+                        return web.json_response({"error": "ids must be a list"}, status=400)
+                    query_filter: dict = {"_id": {"$in": ids}}
+                elif isinstance(raw_filter, dict) and raw_filter:
+                    query_filter = dict(raw_filter)
+                else:
+                    return web.json_response({"error": "ids or non-empty filter required"}, status=400)
+
+                collections = self._get_all_collections()
+                decl = collections.get(name)
+                scope = request.query.get("scope") or (decl.scope if decl else SCOPE_APP)
+                if scope != SCOPE_APP:
+                    scope_decl = decl or CollectionDecl(name=name, scope=scope)
+                    query_filter.update(scope_decl.scope_filter(
+                        user_id=request.headers.get(HEADER_USER_ID, ""),
+                        owner_id=request.headers.get(HEADER_ORG_ID, ""),
+                        session_id=request.headers.get(HEADER_SESSION_ID, ""),
+                    ))
+
+                col = getattr(db, name)
+                result = await col.delete_many(query_filter)
+                return web.json_response(result)
+            except Exception as exc:
+                _log(f"collection delete error: {exc}")
                 return web.json_response({"error": str(exc)}, status=500)
 
         return handler

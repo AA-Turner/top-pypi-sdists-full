@@ -1,5 +1,4 @@
 from datetime import datetime
-from dataclasses import InitVar
 from datamodel import Field
 from asyncdb.models import Model
 from uuid import UUID, uuid4

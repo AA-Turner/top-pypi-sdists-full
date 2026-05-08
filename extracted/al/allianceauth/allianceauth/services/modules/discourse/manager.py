@@ -1,10 +1,12 @@
 import logging
-import requests
 import re
+from hashlib import md5
+
 from django.conf import settings
 from django.core.cache import cache
-from hashlib import md5
+
 from . import providers
+
 logger = logging.getLogger(__name__)
 
 GROUP_CACHE_MAX_AGE = getattr(settings, 'DISCOURSE_GROUP_CACHE_MAX_AGE', 2 * 60 * 60)  # default 2 hours
@@ -15,7 +17,7 @@ class DiscourseError(Exception):
         self.endpoint = endpoint
         self.errors = errors
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"API execution failed.\nErrors: {self.errors}\nEndpoint: {self.endpoint}"
 
 
@@ -39,11 +41,11 @@ class DiscourseManager:
 
     @staticmethod
     def _generate_cache_group_name_key(name):
-        return 'DISCOURSE_GROUP_NAME__%s' % md5(name.encode('utf-8')).hexdigest()
+        return 'DISCOURSE_GROUP_NAME__{}'.format(md5(name.encode('utf-8')).hexdigest())
 
     @staticmethod
     def _generate_cache_group_id_key(g_id):
-        return 'DISCOURSE_GROUP_ID__%s' % g_id
+        return f'DISCOURSE_GROUP_ID__{g_id}'
 
     @staticmethod
     def __group_name_to_id(name):
@@ -66,7 +68,7 @@ class DiscourseManager:
             for g in groups:
                 if g['id'] == g_id:
                     return g['name']
-            raise KeyError("Group ID %s not found on Discourse" % g_id)
+            raise KeyError(f"Group ID {g_id} not found on Discourse")
 
         return cache.get_or_set(DiscourseManager._generate_cache_group_id_key(g_id), get_group_name,
                                 GROUP_CACHE_MAX_AGE)
@@ -106,9 +108,8 @@ class DiscourseManager:
         providers.discourse.client.activate(u_id)
 
     @staticmethod
-    def __update_user(username, **kwargs):
-        u_id = DiscourseManager.__user_name_to_id(username)
-        providers.discourse.client.update_user(endpoint, u_id, **kwargs)
+    def __update_user(username, **kwargs) -> None:
+        providers.discourse.client.update_user(username, **kwargs)
 
     @staticmethod
     def __create_user(username, email, password):
@@ -183,7 +184,7 @@ class DiscourseManager:
         username = discord_user['username']
         uid = discord_user['id']
         user_groups = DiscourseManager.__get_user_groups(username)
-        add_groups = [group_dict[x] for x in group_dict if not group_dict[x] in user_groups]
+        add_groups = [group_dict[x] for x in group_dict if group_dict[x] not in user_groups]
         rem_groups = [x for x in user_groups if x not in inv_group_dict]
         if add_groups:
             logger.info(
@@ -198,8 +199,8 @@ class DiscourseManager:
 
     @staticmethod
     def disable_user(user):
-        logger.debug("Disabling user %s Discourse access." % user)
+        logger.debug(f"Disabling user {user} Discourse access.")
         d_user = DiscourseManager.__get_user_by_external(user.pk)
         DiscourseManager.__logout(d_user['user']['id'])
-        logger.info("Disabled user %s Discourse access." % user)
+        logger.info(f"Disabled user {user} Discourse access.")
         return True

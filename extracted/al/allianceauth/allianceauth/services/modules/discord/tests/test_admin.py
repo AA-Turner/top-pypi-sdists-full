@@ -188,17 +188,15 @@ class TestColumnRendering(TestDataMixin, NoSocketsTestCase):
 
     def test_user_username_u1(self):
         expected = (
-            '<strong><a href="/admin/discord/discorduser/{}/change/">'
-            'Bruce_Wayne</a></strong><br>Bruce Wayne'.format(
-                self.user_1.discord.pk
-            )
+            f'<strong><a href="/admin/discord/discorduser/{self.user_1.discord.pk}/change/">'
+            'Bruce_Wayne</a></strong><br>Bruce Wayne'
         )
         self.assertEqual(user_username(self.user_1.discord), expected)
 
     def test_user_username_u3(self):
         expected = (
-            '<strong><a href="/admin/discord/discorduser/{}/change/">'
-            'Lex_Luthor</a></strong>'.format(self.user_3.discord.pk)
+            f'<strong><a href="/admin/discord/discorduser/{self.user_3.discord.pk}/change/">'
+            'Lex_Luthor</a></strong>'
         )
         self.assertEqual(user_username(self.user_3.discord), expected)
 

@@ -1,11 +1,12 @@
 import os
+
 from celery import Celery
 from celery.app import trace
 
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', '{{ project_name }}.settings.local')
 
-from django.conf import settings  # noqa
+from django.conf import settings
 
 app = Celery('{{ project_name }}')
 
@@ -28,6 +29,13 @@ app.conf.worker_prefetch_multiplier = 1  # only prefetch single tasks at a time 
 app.conf.ONCE = {
     'backend': 'allianceauth.services.tasks.DjangoBackend',
     'settings': {}
+}
+
+app.conf.task_routes = {
+    # Some AA Services are sensitive to threaded tasks
+    # Utilize a single threaded worker to process these tasks
+    # Discord: Multithreads can cause duplicate role creation.
+    "discord.*": {"queue": "services"},
 }
 
 # Load task modules from all registered Django app configs.

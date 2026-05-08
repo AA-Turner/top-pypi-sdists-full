@@ -14371,9 +14371,38 @@ def sms_logs() -> None:
         return
 
     renderer.console.print(f"[dim]Tailing {SMS_LOG_FILE} — Ctrl-C to stop[/dim]\n")
+    # Pure-Python tail-f. The previous implementation shelled out to
+    # `tail -f`, which doesn't exist on Windows (cmd/PowerShell). This
+    # works the same on macOS, Linux, and Windows: print the last ~200
+    # lines for context, then poll for new bytes every 0.5s.
     try:
-        import subprocess as _sp
-        _sp.run(["tail", "-f", str(SMS_LOG_FILE)])
+        # Show the tail (last ~200 lines) so the user has context
+        # immediately, matching `tail -f` behavior.
+        with SMS_LOG_FILE.open("r", encoding="utf-8", errors="replace") as f:
+            try:
+                f.seek(0, 2)            # end
+                size = f.tell()
+                # Read up to last 64 KB (cheap, plenty for ~200 lines)
+                f.seek(max(0, size - 65536))
+                tail = f.read()
+                # Drop a possibly-partial first line if we mid-line-seeked
+                if size > 65536 and "\n" in tail:
+                    tail = tail.split("\n", 1)[1]
+                lines = tail.splitlines()[-200:]
+                for line in lines:
+                    renderer.console.print(line, highlight=False)
+            except Exception:
+                pass
+
+        # Now follow.
+        with SMS_LOG_FILE.open("r", encoding="utf-8", errors="replace") as f:
+            f.seek(0, 2)  # seek to end
+            while True:
+                line = f.readline()
+                if line:
+                    renderer.console.print(line.rstrip("\n"), highlight=False)
+                else:
+                    time.sleep(0.5)
     except KeyboardInterrupt:
         pass
 
@@ -14534,6 +14563,157 @@ def sms_test() -> None:
     )
 
 
+@sms_app.command("kde-takeover")
+def sms_kde_takeover() -> None:
+    """Replace the OS KDE Connect daemon with SAGE's parallel listener.
+
+    The macOS Mac App Store build of KDE Connect has a broken DBus
+    registration that prevents inbound SMS from being read by anything
+    outside its own GUI. SAGE's listener handles both inbound AND outbound
+    SMS, but it can't run alongside the OS daemon (port 1716 conflict).
+
+    This command:
+      1. Asks KDE Connect.app to quit
+      2. Restarts the SAGE bridge so its listener can bind to port 1716
+      3. Prints the one-time pairing instructions for your Android phone
+
+    To revert: open KDE Connect.app from /Applications and restart the bridge.
+    """
+    import subprocess as _sp
+    import time as _t
+
+    renderer.console.print("\n[bold]SAGE — KDE Connect Takeover[/bold]\n")
+    # Step 1: quit KDE Connect.app
+    quit_script = 'tell application "KDE Connect" to quit'
+    try:
+        _sp.run(["osascript", "-e", quit_script],
+                capture_output=True, timeout=10)
+    except Exception as exc:
+        renderer.warning(f"Couldn't quit KDE Connect.app via AppleScript: {exc}")
+
+    # Pkill any leftover daemon (the GUI app's quit may not stop it)
+    for proc in ("kdeconnectd", "kdeconnect-app"):
+        try:
+            _sp.run(["pkill", "-x", proc], capture_output=True, timeout=5)
+        except Exception:
+            pass
+    _t.sleep(2)
+
+    # Verify port 1716 is now free
+    import socket as _s
+    sock = _s.socket(_s.AF_INET, _s.SOCK_DGRAM)
+    try:
+        sock.bind(("0.0.0.0", 1716))
+        sock.close()
+        renderer.success("Port 1716 free — OS daemon stopped")
+    except OSError as exc:
+        sock.close()
+        renderer.error(
+            f"Port 1716 still in use ({exc}). Quit KDE Connect.app manually "
+            "from the menu bar, then run this command again."
+        )
+        raise typer.Exit(1)
+
+    # Step 2: restart bridge so it picks up port 1716
+    renderer.console.print("[dim]Restarting bridge…[/dim]")
+    try:
+        _sp.run(["sage", "sms", "stop"], capture_output=True, timeout=10)
+        _t.sleep(2)
+        _sp.run(["sage", "sms", "start"], capture_output=True, timeout=15)
+        _t.sleep(5)
+    except Exception as exc:
+        renderer.error(f"Bridge restart failed: {exc}")
+        raise typer.Exit(1)
+
+    renderer.success("Bridge restarted with KDE Connect listener.")
+    renderer.console.print(
+        "\n[bold]Next:[/bold]\n"
+        "  1. On your Android phone, open the [bold]KDE Connect[/bold] app.\n"
+        "  2. Under [bold]Available devices[/bold], tap [bold]'SAGE Bridge'[/bold].\n"
+        "  3. Tap [bold]Pair[/bold] — SAGE auto-accepts on this end.\n"
+        "  4. Send any text from your Android — sage will reply to your phone.\n"
+        "\n[dim]To revert: open /Applications/KDE Connect.app and restart "
+        "the bridge.[/dim]\n"
+    )
+
+
+@sms_app.command("allow-firewall")
+def sms_allow_firewall() -> None:
+    """Open Windows Firewall on TCP+UDP 1716 so KDE Connect inbound works.
+
+    Adds two inbound allow rules to Windows Defender Firewall:
+      • TCP 1716  — phone reconnects to SAGE
+      • UDP 1716  — phone discovery broadcasts reach SAGE
+
+    Requires elevation (UAC prompt). On macOS / Linux this is a no-op
+    since neither blocks 1716 by default for the user's listening
+    process.
+
+    Without these rules, kdeconnectd's own firewall exception covers
+    only `kdeconnectd.exe`, NOT the Python process that takes over the
+    port — so SAGE binds 1716 successfully but the phone's traffic
+    never reaches it.
+    """
+    if sys.platform != "win32":
+        renderer.success(
+            f"No firewall changes needed on {sys.platform} — "
+            "the kernel doesn't block inbound on 1716 by default for user processes."
+        )
+        return
+
+    # Use netsh (every Windows build has it; PowerShell may be Constrained
+    # Language Mode on locked-down boxes). ShellExecuteW with "runas" verb
+    # triggers the UAC prompt — the only non-admin way to elevate from a
+    # non-admin shell on Windows.
+    rules = [
+        ('SAGE KDE Connect TCP', 'TCP'),
+        ('SAGE KDE Connect UDP', 'UDP'),
+    ]
+    netsh_cmds = []
+    for name, proto in rules:
+        netsh_cmds.append(
+            f'netsh advfirewall firewall delete rule name="{name}" >nul 2>&1 & '
+            f'netsh advfirewall firewall add rule name="{name}" '
+            f'dir=in protocol={proto} localport=1716 action=allow profile=any'
+        )
+    cmd_payload = " & ".join(netsh_cmds) + " & echo. & echo Done. & pause"
+
+    renderer.console.print(
+        "\n[bold]Adding Windows Firewall rules for KDE Connect (port 1716)…[/bold]\n"
+        "[dim]Click 'Yes' on the UAC prompt that appears.[/dim]\n"
+    )
+
+    try:
+        import ctypes
+        # ShellExecuteW returns >32 on success. SW_SHOWNORMAL = 1.
+        ret = ctypes.windll.shell32.ShellExecuteW(
+            None,           # parent HWND
+            "runas",        # request elevation
+            "cmd.exe",
+            f"/c {cmd_payload}",
+            None,           # cwd
+            1,              # SW_SHOWNORMAL
+        )
+        if int(ret) <= 32:
+            renderer.error(
+                f"Couldn't trigger UAC prompt (ShellExecuteW returned {ret}). "
+                "Run this in an Administrator PowerShell instead:\n\n"
+                '  netsh advfirewall firewall add rule name="SAGE KDE Connect TCP" '
+                'dir=in protocol=TCP localport=1716 action=allow\n'
+                '  netsh advfirewall firewall add rule name="SAGE KDE Connect UDP" '
+                'dir=in protocol=UDP localport=1716 action=allow'
+            )
+            raise typer.Exit(1)
+    except Exception as exc:
+        renderer.error(f"Couldn't add firewall rules: {exc}")
+        raise typer.Exit(1)
+
+    renderer.success(
+        "Firewall command launched. After the elevated window closes, "
+        "restart the bridge: sage sms stop && sage sms start"
+    )
+
+
 @sms_app.command("diagnose")
 def sms_diagnose() -> None:
     """Run health checks across the bridge — auth, WS, contacts, native delivery paths.
@@ -14629,10 +14809,9 @@ def sms_diagnose() -> None:
             line(WARN, "iMessage requires macOS — Apple-tagged contacts won't deliver from this OS",
                  "Run a SAGE bridge on a Mac, or remove --device apple from those contacts")
 
-    # Android → KDE Connect (any OS). Two-step check: CLI installed AND
-    # daemon responsive. The Mac App Store build of KDE Connect ships with
-    # a broken DBus registration so `--send-sms` silently fails even when
-    # `--list-devices` shows a paired phone — we surface that explicitly.
+    # Android → KDE Connect. We rely on `--list-available` which goes through
+    # the network discovery fallback and works even when DBus activation fails
+    # (the case on the Mac App Store build).
     if has_android:
         from sage.core.sms_bridge import _find_kdeconnect_cli, _kdeconnectd_running
         kdc = _find_kdeconnect_cli()
@@ -14642,32 +14821,77 @@ def sms_diagnose() -> None:
                  "Linux: apt install kdeconnect  |  "
                  "Windows: Microsoft Store 'KDE Connect'")
         else:
-            daemon_ok, reason = _kdeconnectd_running()
-            if not daemon_ok:
-                if platform.system() == "Darwin":
-                    line(BAD, f"KDE Connect daemon NOT running ({reason}) — SMS will SILENTLY FAIL",
-                         "The Mac App Store KDE Connect has broken DBus on most setups. "
-                         "Workaround: open Messages.app for iMessage, or run a Linux bridge for KDE Connect.")
-                else:
-                    line(BAD, f"KDE Connect daemon NOT running ({reason})",
-                         "Start kdeconnectd: `kdeconnectd &` or open the KDE Connect GUI")
-            else:
+            ok, reason = _kdeconnectd_running()
+            if ok:
                 try:
                     import subprocess as _sp
-                    r = _sp.run([kdc, "--list-devices", "--id-only"],
+                    r = _sp.run([kdc, "--list-available", "--id-only"],
                                 capture_output=True, text=True, timeout=5)
                     paired = [d for d in (r.stdout or "").splitlines() if d.strip()]
-                    if paired:
-                        line(OK, f"KDE Connect: {len(paired)} paired device(s), daemon healthy")
-                    else:
-                        line(BAD, "KDE Connect daemon up but no paired Android phone",
-                             "Open KDE Connect, scan from your phone, accept pairing")
+                    line(OK, f"KDE Connect: {len(paired)} paired+reachable device(s)")
                 except Exception as exc:
                     line(WARN, f"KDE Connect probe failed: {exc}")
+            else:
+                line(BAD, f"KDE Connect: {reason}",
+                     "Open the KDE Connect GUI app and ensure your Android phone is paired+reachable on the same Wi-Fi")
 
     if not phone_contacts:
         line(WARN, "No phone contacts registered",
              "sage sms contacts add <phone> --device apple|android")
+
+    # ── Inbound from Android (RCS detection) ───────────────────────────────────
+    # If the user has Android-tagged contacts and we see only RCS service in
+    # chat.db with is_from_me=1 (outbound), inbound from those numbers won't
+    # arrive — RCS messages aren't forwarded by iPhone Text Message Forwarding.
+    import re
+    if has_android and platform.system() == "Darwin":
+        chat_db = os.path.expanduser("~/Library/Messages/chat.db")
+        if os.path.exists(chat_db):
+            try:
+                import sqlite3 as _sql
+                with _sql.connect(f"file:{chat_db}?mode=ro", uri=True, timeout=2) as _db:
+                    rcs_problem_numbers = []
+                    # Check the last 30 days of activity per Android contact.
+                    # If there's been outbound RCS but no inbound in that window,
+                    # iPhone Text Message Forwarding isn't relaying inbound.
+                    cutoff_apple_epoch = (_time.time() - 30 * 86400 - 978307200) * 1_000_000_000
+                    for c in phone_contacts:
+                        if c.get("device_type") != "android":
+                            continue
+                        digits = re.sub(r"\D", "", (c.get("email") or "").replace("phone:", ""))
+                        if len(digits) == 11 and digits.startswith("1"):
+                            digits = digits[1:]
+                        if len(digits) != 10:
+                            continue
+                        e164 = f"+1{digits}"
+                        cur = _db.execute("""
+                            SELECT m.service, m.is_from_me
+                              FROM message m JOIN handle h ON m.handle_id = h.ROWID
+                             WHERE h.id = ? AND m.date > ?
+                          ORDER BY m.date DESC LIMIT 30
+                        """, (e164, int(cutoff_apple_epoch)))
+                        rows = cur.fetchall()
+                        if not rows:
+                            continue
+                        recent_inbound = [r for r in rows if r[1] == 0]
+                        recent_outbound = [r for r in rows if r[1] == 1]
+                        # Outbound exists but ZERO inbound in last 30d AND
+                        # outbound is RCS-only → iPhone is using RCS, no relay.
+                        if recent_outbound and not recent_inbound and \
+                           all(r[0] == "RCS" for r in recent_outbound):
+                            rcs_problem_numbers.append(e164)
+                    if rcs_problem_numbers:
+                        line(BAD,
+                             f"RCS detected for {', '.join(rcs_problem_numbers)} — "
+                             "inbound from these numbers will NOT reach SAGE",
+                             "iPhone Text Message Forwarding doesn't relay RCS. "
+                             "Fix on the Android phone: Google Messages → tap the "
+                             "conversation → ⋮ menu → Details → toggle 'Chat features' OFF. "
+                             "Then re-send the message — it'll go as plain SMS.")
+                    else:
+                        line(OK, "Android inbound path: SMS history present, no RCS-only blockers")
+            except Exception as exc:
+                line(WARN, f"Could not check chat.db for RCS: {exc}")
 
     # ── 6. Backend IMAP poller health ──────────────────────────────────────────
     try:
@@ -14675,9 +14899,18 @@ def sms_diagnose() -> None:
         if ps.get("error"):
             line(WARN, f"Couldn't reach backend poller status: {ps['error']}")
         elif not ps.get("imap_connected"):
+            # Brief disconnects (<30s) are normal — the IDLE timeout fires every
+            # ~25s and triggers a NOOP+reconnect cycle. Only alarm if the gap is
+            # genuinely long.
+            err_at = ps.get("last_error_at") or 0
             err = ps.get("last_error") or "unknown"
-            line(BAD, f"Backend IMAP poller is DISCONNECTED  (last error: {err})",
-                 "The bridge inbox can't receive mail right now — contact support if this persists")
+            gap = _time.time() - err_at if err_at else 999
+            if gap < 30:
+                line(WARN, f"IMAP poller reconnecting (gap {int(gap)}s, last: {err})")
+            else:
+                line(BAD, f"Backend IMAP poller DISCONNECTED for {int(gap)}s (last error: {err})",
+                     "Inbound mail is queued but not being processed. "
+                     "Re-deploy or contact support.")
         else:
             connected_at = ps.get("imap_connected_at")
             uptime = int(_time.time() - connected_at) if connected_at else 0

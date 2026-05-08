@@ -16,6 +16,22 @@ import blosc2
 from blosc2.dict_store import DictStore
 
 
+def _rename_store_member(store_path, old_name, new_name):
+    """Rename an external leaf inside a .b2d/.b2z store without changing its contents."""
+    if str(store_path).endswith(".b2d"):
+        old_path = os.path.join(store_path, old_name.replace("/", os.sep))
+        new_path = os.path.join(store_path, new_name.replace("/", os.sep))
+        os.rename(old_path, new_path)
+        return
+
+    tmp_zip = f"{store_path}.tmp"
+    with zipfile.ZipFile(store_path, "r") as src, zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_STORED) as dst:
+        for info in src.infolist():
+            arcname = new_name if info.filename == old_name else info.filename
+            dst.writestr(arcname, src.read(info.filename), compress_type=zipfile.ZIP_STORED)
+    os.replace(tmp_zip, store_path)
+
+
 @pytest.fixture(params=["b2d", "b2z"])
 def populated_dict_store(request):
     """Create and populate a DictStore for tests.
@@ -96,6 +112,141 @@ def test_to_b2z_and_reopen(populated_dict_store):
         assert "/nodeB" in dstore_read
         assert np.all(dstore_read["/nodeA"][:] == np.arange(5))
         assert np.all(dstore_read["/nodeB"][:] == np.arange(6))
+
+
+def test_extensionless_dict_store_defaults_to_directory(tmp_path):
+    path = tmp_path / "test_dstore_extless"
+
+    with DictStore(str(path), mode="w") as dstore:
+        dstore["/node1"] = np.arange(4)
+
+    assert path.is_dir()
+    assert (path / "embed.b2e").exists()
+
+    with DictStore(str(path), mode="r") as dstore:
+        assert np.array_equal(dstore["/node1"][:], np.arange(4))
+
+    opened = blosc2.open(str(path), mode="r")
+    assert isinstance(opened, DictStore)
+    assert np.array_equal(opened["/node1"][:], np.arange(4))
+
+
+def test_to_b2z_from_readonly_b2d():
+    b2d_path = "test_to_b2z_from_readonly.b2d"
+    b2z_path = "test_to_b2z_from_readonly.b2z"
+
+    if os.path.exists(b2d_path):
+        shutil.rmtree(b2d_path)
+    if os.path.exists(b2z_path):
+        os.remove(b2z_path)
+
+    with DictStore(b2d_path, mode="w") as dstore:
+        dstore["/nodeA"] = np.arange(5)
+        dstore["/nodeB"] = np.arange(6)
+
+    with DictStore(b2d_path, mode="r") as dstore:
+        packed = dstore.to_b2z(filename=b2z_path)
+        assert packed.endswith(b2z_path)
+
+    with DictStore(b2z_path, mode="r") as dstore:
+        assert np.all(dstore["/nodeA"][:] == np.arange(5))
+        assert np.all(dstore["/nodeB"][:] == np.arange(6))
+
+    shutil.rmtree(b2d_path)
+    os.remove(b2z_path)
+
+
+def test_to_b2z_accepts_positional_filename():
+    b2d_path = "test_to_b2z_positional_filename.b2d"
+    b2z_path = "test_to_b2z_positional_filename.b2z"
+
+    if os.path.exists(b2d_path):
+        shutil.rmtree(b2d_path)
+    if os.path.exists(b2z_path):
+        os.remove(b2z_path)
+
+    with DictStore(b2d_path, mode="w") as dstore:
+        dstore["/nodeA"] = np.arange(5)
+
+    with DictStore(b2d_path, mode="r") as dstore:
+        packed = dstore.to_b2z(b2z_path)
+        assert packed.endswith(b2z_path)
+
+    with DictStore(b2z_path, mode="r") as dstore:
+        assert np.all(dstore["/nodeA"][:] == np.arange(5))
+
+    shutil.rmtree(b2d_path)
+    os.remove(b2z_path)
+
+
+def test_to_b2d_from_readonly_b2z(tmp_path):
+    b2z_path = tmp_path / "test_to_b2d_src.b2z"
+    b2d_path = tmp_path / "test_to_b2d_dst.b2d"
+
+    with DictStore(str(b2z_path), mode="w") as dstore:
+        dstore["/nodeA"] = np.arange(5)
+        dstore["/nodeB"] = np.arange(6)
+
+    with DictStore(str(b2z_path), mode="r") as dstore:
+        unpacked = dstore.to_b2d(str(b2d_path))
+        assert unpacked == os.path.abspath(b2d_path)
+
+    with DictStore(str(b2d_path), mode="r") as dstore:
+        assert np.all(dstore["/nodeA"][:] == np.arange(5))
+        assert np.all(dstore["/nodeB"][:] == np.arange(6))
+
+
+def test_to_b2d_overwrite_existing_raises(tmp_path):
+    b2z_path = tmp_path / "test_to_b2d_existing.b2z"
+    b2d_path = tmp_path / "test_to_b2d_existing.b2d"
+
+    with DictStore(str(b2z_path), mode="w") as dstore:
+        dstore["/nodeA"] = np.arange(5)
+    b2d_path.mkdir()
+
+    with DictStore(str(b2z_path), mode="r") as dstore, pytest.raises(FileExistsError):
+        dstore.to_b2d(str(b2d_path))
+
+    with DictStore(str(b2z_path), mode="r") as dstore:
+        dstore.to_b2d(str(b2d_path), overwrite=True)
+
+    with DictStore(str(b2d_path), mode="r") as dstore:
+        assert np.all(dstore["/nodeA"][:] == np.arange(5))
+
+
+def test_to_b2d_accepts_non_b2z_urlpath_extension(tmp_path):
+    b2z_path = tmp_path / "test_to_b2d_src.b2z"
+    b2d_path = tmp_path / "test_to_b2d_dst.b2nd"
+
+    with DictStore(str(b2z_path), mode="w") as dstore:
+        dstore["/nodeA"] = np.arange(5)
+
+    with DictStore(str(b2z_path), mode="r") as dstore:
+        unpacked = dstore.to_b2d(str(b2d_path))
+        assert unpacked == os.path.abspath(b2d_path)
+
+    with DictStore(str(b2d_path), mode="r") as dstore:
+        assert np.all(dstore["/nodeA"][:] == np.arange(5))
+
+
+def test_to_b2z_from_readonly_b2z_raises():
+    b2z_path = "test_to_b2z_readonly_zip.b2z"
+    out_path = "test_to_b2z_readonly_zip_out.b2z"
+
+    for path in (b2z_path, out_path):
+        if os.path.exists(path):
+            os.remove(path)
+
+    with DictStore(b2z_path, mode="w") as dstore:
+        dstore["/nodeA"] = np.arange(5)
+
+    with (
+        DictStore(b2z_path, mode="r") as dstore,
+        pytest.raises(ValueError, match=r"\.b2z DictStore opened in read mode"),
+    ):
+        dstore.to_b2z(filename=out_path)
+
+    os.remove(b2z_path)
 
 
 def test_map_tree_precedence(populated_dict_store):
@@ -221,6 +372,121 @@ def test_external_schunk_file_and_reopen():
         os.remove(essch_extern)
     if os.path.exists(path):
         os.remove(path)
+
+
+def test_store_and_retrieve_objectarray_in_dict(tmp_path):
+    path = tmp_path / "test_dstore_objectarray_embed.b2z"
+    values = [{"name": "alpha", "count": 1}, None, ("tuple", 2), [1, "two", b"three"]]
+
+    oarr = blosc2.ObjectArray()
+    oarr.extend(values)
+
+    with DictStore(str(path), mode="w") as dstore:
+        dstore["/objectarray"] = oarr
+        value = dstore["/objectarray"]
+        assert isinstance(value, blosc2.ObjectArray)
+        assert list(value) == values
+
+    with DictStore(str(path), mode="r") as dstore_read:
+        value = dstore_read["/objectarray"]
+        assert isinstance(value, blosc2.ObjectArray)
+        assert list(value) == values
+
+
+def test_external_objectarray_file_and_reopen(tmp_path):
+    ext_path = tmp_path / "ext_objectarray.b2frame"
+    path = tmp_path / "test_dstore_objectarray_external.b2z"
+    values = ["alpha", {"nested": True}, None, (1, 2, 3)]
+
+    oarr = blosc2.ObjectArray(urlpath=str(ext_path), mode="w", contiguous=True)
+    oarr.extend(values)
+    oarr.vlmeta["description"] = "External ObjectArray"
+
+    with DictStore(str(path), mode="w", threshold=None) as dstore:
+        dstore["/dir1/objectarray_ext"] = oarr
+        assert "/dir1/objectarray_ext" in dstore.map_tree
+        assert dstore.map_tree["/dir1/objectarray_ext"].endswith(".b2f")
+
+    with zipfile.ZipFile(path, "r") as zf:
+        assert "dir1/objectarray_ext.b2f" in zf.namelist()
+
+    with DictStore(str(path), mode="r") as dstore_read:
+        value = dstore_read["/dir1/objectarray_ext"]
+        assert isinstance(value, blosc2.ObjectArray)
+        assert list(value) == values
+        assert value.vlmeta["description"] == "External ObjectArray"
+
+
+@pytest.mark.parametrize("storage_type", ["b2d", "b2z"])
+def test_metadata_discovery_reopens_renamed_external_ndarray(storage_type, tmp_path):
+    path = tmp_path / f"test_renamed_ndarray.{storage_type}"
+    ext_path = tmp_path / "renamed_array_source.b2nd"
+
+    with DictStore(str(path), mode="w", threshold=None) as dstore:
+        arr_external = blosc2.arange(5, urlpath=str(ext_path), mode="w")
+        arr_external.vlmeta["description"] = "Renamed NDArray"
+        dstore["/dir1/node3"] = arr_external
+
+    old_name = "dir1/node3.b2nd"
+    new_name = "dir1/node3.weird"
+    _rename_store_member(str(path), old_name, new_name)
+
+    with pytest.warns(UserWarning, match=r"node3\.weird'.*NDArray.*expected '\.b2nd'"):
+        dstore_read = DictStore(str(path), mode="r")
+    with dstore_read:
+        assert dstore_read.map_tree["/dir1/node3"] == new_name
+        node3 = dstore_read["/dir1/node3"]
+        assert isinstance(node3, blosc2.NDArray)
+        assert np.array_equal(node3[:], np.arange(5))
+        assert node3.vlmeta["description"] == "Renamed NDArray"
+
+
+@pytest.mark.parametrize("storage_type", ["b2d", "b2z"])
+def test_metadata_discovery_reopens_renamed_external_objectarray(storage_type, tmp_path):
+    path = tmp_path / f"test_renamed_objectarray.{storage_type}"
+    ext_path = tmp_path / "renamed_objectarray_source.b2frame"
+    values = ["alpha", {"nested": True}, None, (1, 2, 3)]
+
+    oarr = blosc2.ObjectArray(urlpath=str(ext_path), mode="w", contiguous=True)
+    oarr.extend(values)
+    oarr.vlmeta["description"] = "Renamed ObjectArray"
+
+    with DictStore(str(path), mode="w", threshold=None) as dstore:
+        dstore["/dir1/objectarray_ext"] = oarr
+
+    old_name = "dir1/objectarray_ext.b2f"
+    new_name = "dir1/objectarray_ext.renamed"
+    _rename_store_member(str(path), old_name, new_name)
+
+    with pytest.warns(UserWarning, match=r"objectarray_ext\.renamed'.*ObjectArray.*expected '\.b2f'"):
+        dstore_read = DictStore(str(path), mode="r")
+    with dstore_read:
+        assert dstore_read.map_tree["/dir1/objectarray_ext"] == new_name
+        value = dstore_read["/dir1/objectarray_ext"]
+        assert isinstance(value, blosc2.ObjectArray)
+        assert list(value) == values
+        assert value.vlmeta["description"] == "Renamed ObjectArray"
+
+
+def test_metadata_discovery_reopens_lazyexpr_leaf(tmp_path):
+    path = tmp_path / "test_unsupported_lazyexpr.b2d"
+
+    with DictStore(str(path), mode="w") as dstore:
+        dstore["/embedded"] = np.arange(3)
+
+    a = blosc2.asarray(np.arange(5), urlpath=str(tmp_path / "a.b2nd"), mode="w")
+    b = blosc2.asarray(np.arange(5), urlpath=str(tmp_path / "b.b2nd"), mode="w")
+    expr = a + b
+    expr_path = path / "unsupported_lazyexpr.b2nd"
+    expr.save(str(expr_path))
+
+    dstore_read = DictStore(str(path), mode="r")
+    with dstore_read:
+        assert "/unsupported_lazyexpr" in dstore_read
+        assert "/embedded" in dstore_read
+        value = dstore_read["/unsupported_lazyexpr"]
+        assert isinstance(value, blosc2.LazyExpr)
+        np.testing.assert_array_equal(value[:], np.arange(5) * 2)
 
 
 def _digest_value(value):
@@ -477,3 +743,25 @@ def test_mmap_mode_validation(tmp_path):
 
     with pytest.raises(ValueError, match="mmap_mode='r' requires mode='r'"):
         DictStore(str(path), mode="a", mmap_mode="r")
+
+
+def test_b2z_double_open_append_no_corruption(tmp_path):
+    """Opening a .b2z store twice in append mode must not corrupt the archive.
+
+    Regression test: previously, GC of the first open's DictStore triggered
+    ``to_b2z()`` which overwrote the archive with a near-empty ZIP, causing the
+    second open to fail with ``blosc2_schunk_open_offset`` returning NULL.
+    """
+    path = str(tmp_path / "double_open.b2z")
+
+    with DictStore(path, mode="w") as ds:
+        ds["/arr"] = blosc2.arange(20)
+
+    # First open — no explicit close (simulates the GC-triggered path)
+    ds1 = DictStore(path, mode="a")
+    assert np.array_equal(ds1["/arr"][:], np.arange(20))
+    del ds1  # GC; must NOT corrupt the archive
+
+    # Second open — must succeed and see correct data
+    with DictStore(path, mode="a") as ds2:
+        assert np.array_equal(ds2["/arr"][:], np.arange(20))

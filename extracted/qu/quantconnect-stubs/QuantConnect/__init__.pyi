@@ -11411,17 +11411,24 @@ class Messages(System.Object):
         SetAccountCurrency() should be moved before AddSecurity()
         """
 
-        cannot_change_account_currency_after_setting_cash: str = "Cannot change AccountCurrency after setting cash. Please move SetAccountCurrency() before SetCash()."
-        """
-        Returns a string message saying the AccountCurrency cannot be changed after setting cash and that the method
-        SetAccountCurrency() should be moved before SetCash()
-        """
-
         @staticmethod
         def account_currency_already_set(cash_book: QuantConnect.Securities.CashBook, new_account_currency: str) -> str:
             """
             Returns a string message saying the AccountCurrency has already been set and that the new value for this property
             will be ignored
+            """
+            ...
+
+        @staticmethod
+        def account_currency_cash_updated(account_currency: str, previous_amount: float, new_amount: float) -> str:
+            """Returns a string message saying the account currency starting cash has been updated from a previous amount to a new one"""
+            ...
+
+        @staticmethod
+        def account_currency_changed_after_setting_cash(previous_cash: QuantConnect.Securities.Cash) -> str:
+            """
+            Returns a string message saying the AccountCurrency has been changed after setting cash, reporting the
+            remaining amount held in the previous account currency
             """
             ...
 

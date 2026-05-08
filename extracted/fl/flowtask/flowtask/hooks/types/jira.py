@@ -1,14 +1,12 @@
-from typing import Optional, Any, List, Dict
+from typing import Optional, Dict
 from dataclasses import dataclass, field
 from aiohttp import web
 import hmac
 import hashlib
 from datamodel import BaseModel
-from datamodel.libs.mapping import ClassDict
-from datamodel.parsers.json import json_encoder, json_decoder
+from datamodel.parsers.json import json_decoder
 from ...conf import (
     JIRA_SECRET_TOKEN,
-    JIRA_API_TOKEN,
     JIRA_USERNAME,
     JIRA_INSTANCE,
     JIRA_PROJECT,

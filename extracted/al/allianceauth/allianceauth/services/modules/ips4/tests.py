@@ -1,9 +1,9 @@
 from unittest import mock
 
-from django.test import TestCase, RequestFactory
 from django import urls
-from django.contrib.auth.models import User, Group, Permission
+from django.contrib.auth.models import Group, Permission, User
 from django.core.exceptions import ObjectDoesNotExist
+from django.test import RequestFactory, TestCase
 
 from allianceauth.tests.auth_utils import AuthUtils
 
@@ -27,7 +27,7 @@ class Ips4HooksTestCase(TestCase):
         member = AuthUtils.create_member(self.member)
         Ips4User.objects.create(user=member, id='12345', username=self.member)
         self.none_user = 'none_user'
-        none_user = AuthUtils.create_user(self.none_user)
+        AuthUtils.create_user(self.none_user)
         self.service = Ips4Service
         add_permissions()
 
@@ -107,7 +107,8 @@ class Ips4ViewsTestCase(TestCase):
         self.assertTrue(manager.delete_user.called)
         self.assertRedirects(response, expected_url=urls.reverse('services:services'), target_status_code=200)
         with self.assertRaises(ObjectDoesNotExist):
-            ips4_user = User.objects.get(pk=self.member.pk).ips4
+            user = User.objects.get(pk=self.member.pk)
+            _ = user.ips4
 
     @mock.patch(MODULE_PATH + '.views.Ips4Manager')
     def test_set_password(self, manager):

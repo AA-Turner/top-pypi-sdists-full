@@ -142,6 +142,14 @@ class tGroup(FlowComponent):
                     fn = func.lower()
                     agg.pop(col)
                     alias = agg.pop("alias", f"{col}_{fn}")
+                    conditions = agg.pop("conditions", None)
+                    if conditions and isinstance(conditions, dict):
+                        mask = pd.Series(True, index=self.data.index)
+                        for k, v in conditions.items():
+                            mask &= (self.data[k] == v)
+                        temp_col = f"__tmp_{col}_{alias}"
+                        self.data[temp_col] = self.data[col].where(mask, np.nan)
+                        col = temp_col
                     args = agg
                     if fn == "count":
                         agg_dict[alias] = (col, 'count')

@@ -46,6 +46,66 @@ class CLIUpdateResult:
     scheduled: bool = False
 
 
+def _is_user_install() -> bool:
+    """Return True if the running `sage` package is installed in user-site.
+
+    On Windows, a `pip install --user sage-ai-cli` lands the package in
+    ``%APPDATA%\\Python\\PythonXX\\site-packages`` (Roaming), and the
+    user-site path comes BEFORE the system site-packages in
+    ``sys.path``. If we then run ``pip install --upgrade`` without
+    ``--user``, pip installs to system-site — which Python ignores
+    because user-site is found first. The user keeps loading the old
+    code despite "successful" upgrades.
+
+    Detect this so the upgrade command preserves the install location.
+    """
+    try:
+        import site
+        import sage  # the running package
+        sage_path = Path(sage.__file__).resolve()
+        try:
+            user_site = Path(site.getusersitepackages()).resolve()
+        except Exception:
+            user_site = None
+        if user_site is not None:
+            try:
+                sage_path.relative_to(user_site)
+                return True
+            except ValueError:
+                pass
+        # Path-based fallback for environments where site.getusersitepackages
+        # isn't reliable: look for canonical user-site markers in the path.
+        sage_str = str(sage_path).replace("\\", "/").lower()
+        markers = ("/roaming/python/", "/.local/lib/", "/library/python/")
+        return any(m in sage_str for m in markers)
+    except Exception:
+        return False
+
+
+def _pip_install_args(*, force: bool = True, upgrade: bool = True) -> list[str]:
+    """Build a pip install argv that preserves the running install location.
+
+    Adds ``--user`` only when sage is currently a user-install — passing
+    ``--user`` inside a virtualenv breaks pip ('--user not allowed in
+    virtualenv'), and most non-user installs don't need it.
+    """
+    args = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--disable-pip-version-check",
+        "--no-cache-dir",
+    ]
+    if upgrade:
+        args.append("--upgrade")
+    if force:
+        args.append("--force-reinstall")
+    if _is_user_install():
+        args.append("--user")
+    return args
+
+
 def build_sage_run_command() -> list[str]:
     """Build the most reliable `sage run` invocation for the current env."""
 
@@ -89,8 +149,33 @@ class CLIAutoUpdater:
             return __version__
 
     def get_latest_version(self) -> str:
-        """Check pip index for the newest published version."""
+        """Check PyPI for the newest published version.
 
+        Uses the PyPI JSON API as the primary source — it's stable and
+        always-available. Falls back to ``pip index versions`` if PyPI
+        is unreachable, since that's the previous behavior. The pip
+        command is experimental and its output format has changed
+        between pip versions, so we keep it as a fallback only.
+
+        Returning ``current`` on failure means `sage update` reports
+        "already up to date" when in fact we just couldn't reach PyPI —
+        not great, but matches historical behavior.
+        """
+        # Primary: PyPI JSON API.
+        try:
+            import json
+            import urllib.request
+            url = f"https://pypi.org/pypi/{self.PACKAGE_NAME}/json"
+            req = urllib.request.Request(url, headers={"User-Agent": "sage-cli-updater"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+                version = (data.get("info") or {}).get("version")
+                if version:
+                    return version
+        except Exception as exc:
+            logger.debug("PyPI JSON lookup failed: %s — falling back to pip index", exc)
+
+        # Fallback: `pip index versions` (experimental).
         try:
             result = subprocess.run(
                 [
@@ -201,21 +286,14 @@ class CLIAutoUpdater:
 
             # 3. Linux/macOS: in-process pip upgrade is fine — the executable
             # is loaded into memory and replacing the file on disk does not
-            # affect the running process.
+            # affect the running process. Use _pip_install_args so that
+            # --user is included when sage is in user-site (otherwise pip
+            # installs to system-site, which Python ignores because
+            # user-site comes first in sys.path).
             try:
+                cmd = _pip_install_args() + [self.PACKAGE_NAME]
                 result = subprocess.run(
-                    [
-                        sys.executable,
-                        "-m",
-                        "pip",
-                        "install",
-                        "--upgrade",
-                        "--disable-pip-version-check",
-                        self.PACKAGE_NAME,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=300,
+                    cmd, capture_output=True, text=True, timeout=300,
                 )
                 if result.returncode == 0:
                     self._cached_version = None
@@ -288,19 +366,28 @@ class CLIAutoUpdater:
                     ]
                 )
 
+            # Build the upgrade command preserving the install location.
+            # _pip_install_args adds --user when sage is in user-site, which
+            # is critical on Windows — without --user, the upgrade lands in
+            # system-site and Python keeps loading the OLD code from
+            # user-site (Roaming) because user-site comes first in sys.path.
+            upgrade_cmd_parts = _pip_install_args() + [self.PACKAGE_NAME]
+            # Replace `python.exe` with the resolved python_exe path used here
+            # for clarity inside the .bat output. Quote the python path.
+            quoted_python = f'"{python_exe}"'
+            tail = " ".join(
+                f'"{a}"' if " " in a else a
+                for a in upgrade_cmd_parts[1:]  # skip sys.executable, we'll prepend quoted
+            )
+            pip_install_line = f"{quoted_python} {tail}"
+
             bat_lines.extend(
                 [
                     "",
                     "echo Upgrading SAGE AI...",
                     "echo.",
-                    # --force-reinstall + --no-cache-dir: idempotent, safe when
-                    # a previous run aborted mid-install and left the package
-                    # half-removed (sage.exe present but `import sage` broken).
-                    # Without this, pip's "already up to date" short-circuit
-                    # would skip the install and leave the user permanently
-                    # broken — they had to know to manually pass --force.
-                    f'"{python_exe}" -m pip install --force-reinstall --no-cache-dir '
-                    f"--disable-pip-version-check {self.PACKAGE_NAME}",
+                    f"echo {pip_install_line}",
+                    pip_install_line,
                     "set RC=%ERRORLEVEL%",
                     "echo.",
                     "if %RC%==0 (",

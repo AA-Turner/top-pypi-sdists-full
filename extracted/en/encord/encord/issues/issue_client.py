@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from enum import auto
 from typing import Iterable, List, Literal, Optional, Union
@@ -15,6 +14,7 @@ class IssueAnchorType(CamelStrEnum):
     DATA_UNIT = auto()
     FRAME = auto()
     FRAME_COORDINATE = auto()
+    SCENE_COORDINATE = auto()
     FRAME_RANGE = auto()
     ANNOTATION = auto()
 
@@ -38,7 +38,16 @@ class _CoordinateIssueAnchor(BaseDTO):
     y: float
 
 
-_IssueAnchor = Union[_FileIssueAnchor, _FrameIssueAnchor, _CoordinateIssueAnchor]
+class _SceneCoordinateIssueAnchor(BaseDTO):
+    type: Literal[IssueAnchorType.SCENE_COORDINATE] = IssueAnchorType.SCENE_COORDINATE
+    data_uuid: UUID
+    frame_index: int
+    x: float
+    y: float
+    z: float
+
+
+_IssueAnchor = Union[_FileIssueAnchor, _FrameIssueAnchor, _CoordinateIssueAnchor, _SceneCoordinateIssueAnchor]
 
 
 class _NewIssue(BaseDTO):
@@ -54,6 +63,15 @@ class _CreateIssuesPayload(BaseDTO):
 class GetIssuesParam(BaseDTO):
     data_unit_id: UUID
     page_token: Optional[str] = None
+
+
+class _DeleteIssuesBody(BaseDTO):
+    issue_uuids: List[UUID]
+
+
+# Matches the back-end's per-request issue limit. Kept in sync manually; if the
+# back-end limit changes, this should change too.
+_MAX_DELETE_BATCH = 1000
 
 
 class IssueComment(BaseDTO):
@@ -79,6 +97,7 @@ class IssueResolution(BaseDTO):
 
 class _BaseIssue(BaseDTO):
     type: IssueAnchorType
+    uuid: UUID
     data_uuid: UUID
     comments: List[IssueComment]
     tags: List[IssueTag]
@@ -105,6 +124,20 @@ class CoordinateIssue(_BaseIssue):
     coordinate: IssueCoordinate
 
 
+class SceneIssueCoordinate(BaseDTO):
+    x: float
+    y: float
+    z: float
+
+
+class SceneCoordinateIssue(_BaseIssue):
+    """Issue anchored to a 3D coordinate within a scene on a specific frame."""
+
+    type: Literal[IssueAnchorType.SCENE_COORDINATE] = IssueAnchorType.SCENE_COORDINATE
+    frame_index: int
+    coordinate: SceneIssueCoordinate
+
+
 class IssueFrameRange(BaseDTO):
     """Represents a range of frames [start, end] inclusive"""
 
@@ -126,7 +159,7 @@ class AnnotationIssue(_BaseIssue):
     annotation_id: str
 
 
-Issue = Union[FileIssue, FrameIssue, CoordinateIssue, FrameRangeIssue, AnnotationIssue]
+Issue = Union[FileIssue, FrameIssue, CoordinateIssue, SceneCoordinateIssue, FrameRangeIssue, AnnotationIssue]
 
 
 class _IssueClient:
@@ -157,6 +190,19 @@ class _IssueClient:
             # Issue is a Pydantic discriminated union; type checker doesn't recognize it as Type[T] but it works correctly at runtime
         )
 
+    def delete_issues(self, project_uuid: UUID, issue_uuids: List[UUID]) -> None:
+        if not issue_uuids:
+            return
+
+        for chunk_start in range(0, len(issue_uuids), _MAX_DELETE_BATCH):
+            chunk = issue_uuids[chunk_start : chunk_start + _MAX_DELETE_BATCH]
+            self._api_client.post(
+                path=f"/projects/{project_uuid}/issues/delete",
+                params=None,
+                payload=_DeleteIssuesBody(issue_uuids=chunk),
+                result_type=None,
+            )
+
 
 class TaskIssues:
     def __init__(self, api_client: ApiClient, project_uuid: UUID, data_uuid: UUID):
@@ -170,7 +216,8 @@ class TaskIssues:
         Returns an iterator of issues anchored to different parts of the data unit:
         - FileIssue: Issues anchored to the entire data unit
         - FrameIssue: Issues anchored to a specific frame
-        - CoordinateIssue: Issues anchored to specific coordinates on a frame
+        - CoordinateIssue: Issues anchored to specific 2D coordinates on a frame
+        - SceneCoordinateIssue: Issues anchored to 3D scene coordinates on a frame
         - FrameRangeIssue: Issues anchored to a range of frames
         - AnnotationIssue: Issues anchored to a specific annotation
 
@@ -240,3 +287,60 @@ class TaskIssues:
             comment=comment,
             issue_tags=issue_tags,
         )
+
+    def add_scene_coordinate_issue(
+        self, frame_index: int, x: float, y: float, z: float, comment: str, issue_tags: List[str]
+    ) -> None:
+        """Adds an issue pinned to a 3D coordinate in a scene on a specific frame.
+
+        Args:
+            frame_index (int): The index of the frame to add the issue to.
+            x (float): The x coordinate (in scene space).
+            y (float): The y coordinate (in scene space).
+            z (float): The z coordinate (in scene space).
+            comment (str): The comment for the issue.
+            issue_tags (List[str]): The issue tags for the issue.
+        """
+        self._issue_client.add_issue(
+            project_uuid=self._project_uuid,
+            anchor=_SceneCoordinateIssueAnchor(
+                data_uuid=self._data_uuid,
+                frame_index=frame_index,
+                x=x,
+                y=y,
+                z=z,
+            ),
+            comment=comment,
+            issue_tags=issue_tags,
+        )
+
+    def delete(self, issues: List[Union[Issue, UUID]]) -> None:
+        """Deletes one or more issues from this task in a single request.
+
+        Accepts either `Issue` objects (as returned by `list()`) or raw UUIDs,
+        mixed freely. Empty input is a no-op.
+
+        Permissions: project admins can delete any issue. Issue authors can
+        delete their own general issues, but annotation issues (label
+        rejections) can only be deleted by project admins.
+
+        The back-end validates the entire batch before deleting anything: if
+        any issue cannot be deleted (because the caller is not the author and
+        not a project admin, or the issue doesn't belong to this task's
+        project), the request raises and NO issues in the batch are deleted.
+
+        Args:
+            issues: A list of `Issue` objects or `UUID`s to delete.
+
+        Example:
+            >>> # Delete a single issue:
+            >>> task.issues.delete([issue])
+            >>>
+            >>> # Or delete several at once:
+            >>> obsolete = [i for i in task.issues.list() if i.comments[0].content.startswith("[obsolete]")]
+            >>> task.issues.delete(obsolete)
+        """
+        if not issues:
+            return
+        issue_uuids: List[UUID] = [item if isinstance(item, UUID) else item.uuid for item in issues]
+        self._issue_client.delete_issues(project_uuid=self._project_uuid, issue_uuids=issue_uuids)

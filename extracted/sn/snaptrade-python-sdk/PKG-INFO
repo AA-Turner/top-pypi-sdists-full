@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: snaptrade-python-sdk
-Version: 11.0.190
+Version: 11.0.191
 Summary: Client for SnapTrade
 License: MIT
 Author: SnapTrade
@@ -30,7 +30,7 @@ Description-Content-Type: text/markdown
 Connect brokerage accounts to your app for live positions and trading
 
 
-[![PyPI](https://img.shields.io/badge/PyPI-v11.0.190-blue)](https://pypi.org/project/snaptrade-python-sdk/11.0.190)
+[![PyPI](https://img.shields.io/badge/PyPI-v11.0.191-blue)](https://pypi.org/project/snaptrade-python-sdk/11.0.191)
 [![README.md](https://img.shields.io/badge/README-Click%20Here-green)](https://github.com/passiv/snaptrade-sdks/tree/master/sdks/python#readme)
 [![More Info](https://img.shields.io/badge/More%20Info-Click%20Here-orange)](https://snaptrade.com/)
 
@@ -119,7 +119,7 @@ Python >=3.8
 ## Installation<a id="installation"></a>
 
 ```sh
-pip install snaptrade-python-sdk==11.0.190
+pip install snaptrade-python-sdk==11.0.191
 ```
 
 ## Getting Started<a id="getting-started"></a>
@@ -2284,7 +2284,7 @@ The OCC-formatted option symbol.
 
 ### `snaptrade.trading.get_user_account_quotes`<a id="snaptradetradingget_user_account_quotes"></a>
 
-Returns quotes from the brokerage for the specified symbols and account.
+Returns a maximum of 10 quotes from the brokerage for the specified symbols and account.
 
 The quotes returned can be delayed depending on the brokerage the account belongs to. It is highly recommended that you use your own market data provider for real-time quotes instead of relying on this endpoint.
 
@@ -2315,7 +2315,7 @@ get_user_account_quotes_response = snaptrade.trading.get_user_account_quotes(
 
 ##### symbols: `str`<a id="symbols-str"></a>
 
-List of Universal Symbol IDs or tickers to get quotes for. When providing multiple values, use a comma as separator
+List of Universal Symbol IDs or tickers to get quotes for. When providing multiple values, use a comma as separator. Maximum of 10 values allowed
 
 ##### account_id: `str`<a id="account_id-str"></a>
 

@@ -139,6 +139,7 @@ __all__ = [
     'ImageIamBindingCondition',
     'ImageIamMemberCondition',
     'ImageImageEncryptionKey',
+    'ImageParams',
     'ImageRawDisk',
     'ImageShieldedInstanceInitialState',
     'ImageShieldedInstanceInitialStateDb',
@@ -429,6 +430,7 @@ __all__ = [
     'RegionBackendServiceTlsSettings',
     'RegionBackendServiceTlsSettingsSubjectAltName',
     'RegionCommitmentLicenseResource',
+    'RegionCommitmentParams',
     'RegionCommitmentResource',
     'RegionDiskAsyncPrimaryDisk',
     'RegionDiskDiskEncryptionKey',
@@ -458,6 +460,7 @@ __all__ = [
     'RegionInstanceGroupManagerInstanceLifecyclePolicyOnRepair',
     'RegionInstanceGroupManagerNamedPort',
     'RegionInstanceGroupManagerParams',
+    'RegionInstanceGroupManagerResourcePolicies',
     'RegionInstanceGroupManagerStandbyPolicy',
     'RegionInstanceGroupManagerStatefulDisk',
     'RegionInstanceGroupManagerStatefulExternalIp',
@@ -1120,6 +1123,7 @@ __all__ = [
     'GetRegionInstanceGroupManagerInstanceLifecyclePolicyOnRepairResult',
     'GetRegionInstanceGroupManagerNamedPortResult',
     'GetRegionInstanceGroupManagerParamResult',
+    'GetRegionInstanceGroupManagerResourcePolicyResult',
     'GetRegionInstanceGroupManagerStandbyPolicyResult',
     'GetRegionInstanceGroupManagerStatefulDiskResult',
     'GetRegionInstanceGroupManagerStatefulExternalIpResult',
@@ -5441,6 +5445,7 @@ class DiskSourceImageEncryptionKey(dict):
                If absent, the Compute Engine Service Agent service account is used.
         :param _builtins.str raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in
                RFC 4648 base64 to either encrypt or decrypt this resource.
+               **Note**: This property is sensitive and will not be displayed in the plan.
         :param _builtins.str sha256: (Output)
                The RFC 4648 base64 encoded SHA-256 hash of the customer-supplied
                encryption key that protects this resource.
@@ -5481,6 +5486,7 @@ class DiskSourceImageEncryptionKey(dict):
         """
         Specifies a 256-bit customer-supplied encryption key, encoded in
         RFC 4648 base64 to either encrypt or decrypt this resource.
+        **Note**: This property is sensitive and will not be displayed in the plan.
         """
         return pulumi.get(self, "raw_key")
 
@@ -5533,6 +5539,7 @@ class DiskSourceSnapshotEncryptionKey(dict):
                If absent, the Compute Engine Service Agent service account is used.
         :param _builtins.str raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in
                RFC 4648 base64 to either encrypt or decrypt this resource.
+               **Note**: This property is sensitive and will not be displayed in the plan.
         :param _builtins.str sha256: (Output)
                The RFC 4648 base64 encoded SHA-256 hash of the customer-supplied
                encryption key that protects this resource.
@@ -5573,6 +5580,7 @@ class DiskSourceSnapshotEncryptionKey(dict):
         """
         Specifies a 256-bit customer-supplied encryption key, encoded in
         RFC 4648 base64 to either encrypt or decrypt this resource.
+        **Note**: This property is sensitive and will not be displayed in the plan.
         """
         return pulumi.get(self, "raw_key")
 
@@ -10709,6 +10717,54 @@ class ImageImageEncryptionKey(dict):
         **Note**: This property is sensitive and will not be displayed in the plan.
         """
         return pulumi.get(self, "rsa_encrypted_key")
+
+
+@pulumi.output_type
+class ImageParams(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "resourceManagerTags":
+            suggest = "resource_manager_tags"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ImageParams. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ImageParams.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ImageParams.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the image. Tag keys and values have the
+               same definition as resource manager tags. Keys and values can be either in numeric format,
+               such as tagKeys/{tag_key_id} and tagValues/{tag_value_id} or in namespaced format such as
+               {org_id|projectId}/{tag_key_short_name} and {tag_value_short_name}. The field is ignored when empty.
+               The field is immutable and causes resource replacement when mutated. This field is only
+               set at create time and modifying this field after creation will trigger recreation.
+               To apply tags to an existing resource, see the tags.TagBinding resource.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Resource manager tags to be bound to the image. Tag keys and values have the
+        same definition as resource manager tags. Keys and values can be either in numeric format,
+        such as tagKeys/{tag_key_id} and tagValues/{tag_value_id} or in namespaced format such as
+        {org_id|projectId}/{tag_key_short_name} and {tag_value_short_name}. The field is ignored when empty.
+        The field is immutable and causes resource replacement when mutated. This field is only
+        set at create time and modifying this field after creation will trigger recreation.
+        To apply tags to an existing resource, see the tags.TagBinding resource.
+        """
+        return pulumi.get(self, "resource_manager_tags")
 
 
 @pulumi.output_type
@@ -32103,6 +32159,46 @@ class RegionCommitmentLicenseResource(dict):
 
 
 @pulumi.output_type
+class RegionCommitmentParams(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "resourceManagerTags":
+            suggest = "resource_manager_tags"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionCommitmentParams. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionCommitmentParams.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionCommitmentParams.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the commitment. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Resource manager tags to be bound to the commitment. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
+
+
+@pulumi.output_type
 class RegionCommitmentResource(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -32382,6 +32478,7 @@ class RegionDiskSourceSnapshotEncryptionKey(dict):
                The name of the encryption key that is stored in Google Cloud KMS.
         :param _builtins.str raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in
                RFC 4648 base64 to either encrypt or decrypt this resource.
+               **Note**: This property is sensitive and will not be displayed in the plan.
         :param _builtins.str sha256: (Output)
                The RFC 4648 base64 encoded SHA-256 hash of the customer-supplied
                encryption key that protects this resource.
@@ -32408,6 +32505,7 @@ class RegionDiskSourceSnapshotEncryptionKey(dict):
         """
         Specifies a 256-bit customer-supplied encryption key, encoded in
         RFC 4648 base64 to either encrypt or decrypt this resource.
+        **Note**: This property is sensitive and will not be displayed in the plan.
         """
         return pulumi.get(self, "raw_key")
 
@@ -34394,6 +34492,8 @@ class RegionInstanceGroupManagerParams(dict):
                  resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None):
         """
         :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to bind to the managed instance group. The tags are key-value pairs. Keys must be in the format tagKeys/123 and values in the format tagValues/456. For more information, see [Manage tags for resources](https://cloud.google.com/compute/docs/tag-resources)
+               
+               - - -
         """
         if resource_manager_tags is not None:
             pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
@@ -34403,8 +34503,46 @@ class RegionInstanceGroupManagerParams(dict):
     def resource_manager_tags(self) -> Optional[Mapping[str, _builtins.str]]:
         """
         Resource manager tags to bind to the managed instance group. The tags are key-value pairs. Keys must be in the format tagKeys/123 and values in the format tagValues/456. For more information, see [Manage tags for resources](https://cloud.google.com/compute/docs/tag-resources)
+
+        - - -
         """
         return pulumi.get(self, "resource_manager_tags")
+
+
+@pulumi.output_type
+class RegionInstanceGroupManagerResourcePolicies(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workloadPolicy":
+            suggest = "workload_policy"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionInstanceGroupManagerResourcePolicies. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionInstanceGroupManagerResourcePolicies.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionInstanceGroupManagerResourcePolicies.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workload_policy: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str workload_policy: The URL of the workload policy that is specified for this managed instance group. It can be a full or partial URL.
+        """
+        if workload_policy is not None:
+            pulumi.set(__self__, "workload_policy", workload_policy)
+
+    @_builtins.property
+    @pulumi.getter(name="workloadPolicy")
+    def workload_policy(self) -> Optional[_builtins.str]:
+        """
+        The URL of the workload policy that is specified for this managed instance group. It can be a full or partial URL.
+        """
+        return pulumi.get(self, "workload_policy")
 
 
 @pulumi.output_type
@@ -81047,6 +81185,24 @@ class GetRegionInstanceGroupManagerParamResult(dict):
         Resource manager tags to bind to the managed instance group. The tags are key-value pairs. Keys must be in the format tagKeys/123 and values in the format tagValues/456.
         """
         return pulumi.get(self, "resource_manager_tags")
+
+
+@pulumi.output_type
+class GetRegionInstanceGroupManagerResourcePolicyResult(dict):
+    def __init__(__self__, *,
+                 workload_policy: _builtins.str):
+        """
+        :param _builtins.str workload_policy: The URL of the workload policy that is specified for this managed instance group. It can be a full or partial URL.
+        """
+        pulumi.set(__self__, "workload_policy", workload_policy)
+
+    @_builtins.property
+    @pulumi.getter(name="workloadPolicy")
+    def workload_policy(self) -> _builtins.str:
+        """
+        The URL of the workload policy that is specified for this managed instance group. It can be a full or partial URL.
+        """
+        return pulumi.get(self, "workload_policy")
 
 
 @pulumi.output_type

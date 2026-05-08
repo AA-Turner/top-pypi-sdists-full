@@ -1,9 +1,8 @@
 import urllib
 from unittest.mock import Mock, patch
 
-from requests.exceptions import HTTPError
-
 from django.contrib.auth.models import User
+from requests.exceptions import HTTPError
 
 from allianceauth.tests.auth_utils import AuthUtils
 from allianceauth.utils.testing import NoSocketsTestCase
@@ -438,6 +437,7 @@ class TestUserHasAccount(NoSocketsTestCase):
         self.assertFalse(DiscordUser.objects.user_has_account(self.user))
 
     def test_return_false_if_user_does_not_exist(self):
+        my_user = AuthUtils.create_user("test_return_false_if_user_does_not_exist")
         my_user = User(username='Dummy')
         my_user.save()
         self.assertFalse(DiscordUser.objects.user_has_account(my_user))

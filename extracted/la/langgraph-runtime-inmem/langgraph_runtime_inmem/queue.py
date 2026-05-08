@@ -102,9 +102,9 @@ async def queue():
         await logger.awarning(
             "Heads up: You've set --allow-blocking, which allows synchronous blocking I/O operations."
             " Be aware that blocking code in one run may tie up the shared event loop"
-            " and slow down ALL other server operations. For best performance, either convert blocking"
-            " code to async patterns or set BG_JOB_ISOLATED_LOOPS=true in production"
-            " to isolate each run in its own event loop."
+            " and slow down ALL other server operations. For best performance, use async drivers"
+            " (e.g., aiohttp instead of requests, asyncpg instead of psycopg2). If switching to an"
+            " async driver isn't possible, wrap the blocking call in asyncio.to_thread()."
         )
     else:
         bb = _enable_blockbuster()
@@ -369,13 +369,11 @@ def _patch_blocking_error():
             "Heads up! LangGraph dev identified a synchronous blocking call in your code. "
             "When running in an ASGI web server, blocking calls can degrade performance for everyone since they tie up the event loop.\n\n"
             "Here are your options to fix this:\n\n"
-            "1. Best approach: Convert any blocking code to use async/await patterns\n"
-            "   For example, use 'await aiohttp.get()' instead of 'requests.get()'\n\n"
-            "2. Quick fix: Move blocking operations to a separate thread\n"
+            "1. Best approach: Use an async driver so the call is non-blocking\n"
+            "   For example, use 'await aiohttp.get()' instead of 'requests.get()', or asyncpg instead of psycopg2.\n\n"
+            "2. If an async driver isn't available: wrap the blocking call in a thread\n"
             "   Example: 'await asyncio.to_thread(your_blocking_function)'\n\n"
-            "3. Override (if you can't change the code):\n"
-            "   - For development: Run 'langgraph dev --allow-blocking'\n"
-            "   - For deployment: Set 'BG_JOB_ISOLATED_LOOPS=true' environment variable\n\n"
+            "3. Dev-only override: run 'langgraph dev --allow-blocking'\n\n"
             "These blocking operations can prevent health checks and slow down other runs in your deployment. "
             "Following these recommendations will help keep your LangGraph application running smoothly!"
         )

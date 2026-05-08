@@ -4,6 +4,7 @@ from django.template.loader import render_to_string
 
 from allianceauth import hooks
 from allianceauth.services.hooks import ServicesHook
+
 from .tasks import XenforoTasks
 from .urls import urlpatterns
 

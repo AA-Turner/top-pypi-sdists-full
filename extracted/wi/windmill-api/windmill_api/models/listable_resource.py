@@ -33,6 +33,7 @@ class ListableResource:
         created_by (Union[Unset, str]):
         edited_at (Union[Unset, datetime.datetime]):
         labels (Union[Unset, List[str]]):
+        ws_specific (Union[Unset, bool]):
     """
 
     path: str
@@ -50,6 +51,7 @@ class ListableResource:
     created_by: Union[Unset, str] = UNSET
     edited_at: Union[Unset, datetime.datetime] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    ws_specific: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -76,6 +78,8 @@ class ListableResource:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        ws_specific = self.ws_specific
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -108,6 +112,8 @@ class ListableResource:
             field_dict["edited_at"] = edited_at
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if ws_specific is not UNSET:
+            field_dict["ws_specific"] = ws_specific
 
         return field_dict
 
@@ -156,6 +162,8 @@ class ListableResource:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        ws_specific = d.pop("ws_specific", UNSET)
+
         listable_resource = cls(
             path=path,
             resource_type=resource_type,
@@ -172,6 +180,7 @@ class ListableResource:
             created_by=created_by,
             edited_at=edited_at,
             labels=labels,
+            ws_specific=ws_specific,
         )
 
         listable_resource.additional_properties = d

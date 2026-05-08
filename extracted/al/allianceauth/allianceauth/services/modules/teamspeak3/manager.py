@@ -2,9 +2,10 @@ import logging
 
 from django.conf import settings
 
-from .util.ts3 import TS3Server, TeamspeakError
-from .models import TSgroup
 from allianceauth.groupmanagement.models import ReservedGroupName
+
+from .models import TSgroup
+from .util.ts3 import TeamspeakError, TS3Server
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ class Teamspeak3Manager:
         return sanatized
 
     def _get_userid(self, uid):
-        logger.debug("Looking for uid %s on TS3 server." % uid)
+        logger.debug(f"Looking for uid {uid} on TS3 server.")
         try:
             ret = self.server.send_command('customsearch', {'ident': 'sso_uid', 'pattern': uid})
             if ret and 'keys' in ret and 'cldbid' in ret['keys']:
@@ -64,21 +65,21 @@ class Teamspeak3Manager:
         return None
 
     def _group_id_by_name(self, groupname):
-        logger.debug("Looking for group %s on TS3 server." % groupname)
+        logger.debug(f"Looking for group {groupname} on TS3 server.")
         group_cache = self.server.send_command('servergrouplist')
-        logger.debug("Received group cache from server: %s" % group_cache)
+        logger.debug(f"Received group cache from server: {group_cache}")
         for group in group_cache:
             if group['keys']['type'] != '1':
                 continue
-            logger.debug("Checking group %s" % group)
+            logger.debug(f"Checking group {group}")
             if group['keys']['name'] == groupname:
                 logger.debug("Found group {}, returning id {}".format(groupname, group['keys']['sgid']))
                 return group['keys']['sgid']
-        logger.debug("Group %s not found on server." % groupname)
+        logger.debug(f"Group {groupname} not found on server.")
         return None
 
     def _create_group(self, groupname):
-        logger.debug("Creating group %s on TS3 server." % groupname)
+        logger.debug(f"Creating group {groupname} on TS3 server.")
         sgid = self._group_id_by_name(groupname)
         if not sgid:
             logger.debug("Group does not yet exist. Proceeding with creation.")
@@ -98,8 +99,8 @@ class Teamspeak3Manager:
         return sgid
 
     def _user_group_list(self, cldbid):
-        logger.debug("Retrieving group list for user with id %s" % cldbid)
-        server = Teamspeak3Manager.__get_created_server()
+        logger.debug(f"Retrieving group list for user with id {cldbid}")
+        Teamspeak3Manager.__get_created_server()
         try:
             groups = self.server.send_command('servergroupsbyclientid', {'cldbid': cldbid})
         except TeamspeakError as e:
@@ -107,23 +108,23 @@ class Teamspeak3Manager:
                 groups = []
             else:
                 raise e
-        logger.debug("Retrieved group list: %s" % groups)
+        logger.debug(f"Retrieved group list: {groups}")
         outlist = {}
 
-        if type(groups) == list:
+        if type(groups) is list:
             logger.debug("Received multiple groups. Iterating.")
             for group in groups:
                 outlist[group['keys']['name']] = group['keys']['sgid']
-        elif type(groups) == dict:
+        elif type(groups) is dict:
             logger.debug("Received single group.")
             outlist[groups['keys']['name']] = groups['keys']['sgid']
-        logger.debug("Returning name/id pairing: %s" % outlist)
+        logger.debug(f"Returning name/id pairing: {outlist}")
         return outlist
 
     def _group_list(self):
         logger.debug("Retrieving group list on TS3 server.")
         group_cache = self.server.send_command('servergrouplist')
-        logger.debug("Received group cache from server: %s" % group_cache)
+        logger.debug(f"Received group cache from server: {group_cache}")
         outlist = {}
         if group_cache:
             for group in group_cache:
@@ -133,7 +134,7 @@ class Teamspeak3Manager:
                 outlist[group['keys']['name']] = group['keys']['sgid']
         else:
             logger.error("Received empty group cache while retrieving group cache from TS3 server. 1024 error.")
-        logger.debug("Returning name/id pairing: %s" % outlist)
+        logger.debug(f"Returning name/id pairing: {outlist}")
         return outlist
 
     def _add_user_to_group(self, uid, groupid):
@@ -175,11 +176,11 @@ class Teamspeak3Manager:
         except TeamspeakError as e:
             logger.error(f"Error occurred while syncing TS group db: {str(e)}")
         except Exception:
-            logger.exception(f"An unhandled exception has occurred while syncing TS groups.")
+            logger.exception("An unhandled exception has occurred while syncing TS groups.")
 
     def add_user(self, user, fmt_name):
         username_clean = self.__santatize_username(fmt_name[:30])
-        logger.debug("Adding user to TS3 server with cleaned username %s" % username_clean)
+        logger.debug(f"Adding user to TS3 server with cleaned username {username_clean}")
         server_groups = self._group_list()
 
         state = user.profile.state.name
@@ -191,16 +192,16 @@ class Teamspeak3Manager:
         try:
             ret = self.server.send_command('tokenadd', {'tokentype': 0, 'tokenid1': state_group_id, 'tokenid2': 0,
                                                         'tokendescription': username_clean,
-                                                        'tokencustomset': "ident=sso_uid value=%s" % username_clean})
+                                                        'tokencustomset': f"ident=sso_uid value={username_clean}"})
         except TeamspeakError as e:
             logger.error(f"Failed to add teamspeak user {username_clean}: {str(e)}")
             return "",""
 
         try:
             token = ret['keys']['token']
-            logger.info("Created permission token for user %s on TS3 server" % username_clean)
+            logger.info(f"Created permission token for user {username_clean} on TS3 server")
             return username_clean, token
-        except:
+        except Exception:
             logger.exception(f"Failed to add teamspeak user {username_clean} - received response: {ret}")
             return "", ""
 
@@ -216,10 +217,10 @@ class Teamspeak3Manager:
             for client in clients:
                 try:
                     if client['keys']['client_database_id'] == user:
-                        logger.debug("Found user %s on TS3 server - issuing deletion command." % user)
+                        logger.debug(f"Found user {user} on TS3 server - issuing deletion command.")
                         self.server.send_command('clientkick', {'clid': client['keys']['clid'], 'reasonid': 5,
                                                                 'reasonmsg': 'Auth service deleted'})
-                except:
+                except Exception:
                     logger.exception(f"Failed to delete user id {uid} from TS3 - received response {client}")
                     return False
             try:
@@ -228,13 +229,13 @@ class Teamspeak3Manager:
                 logger.error(f"Failed to delete teamspeak user {uid}: {str(e)}")
                 return False
             if ret == '0':
-                logger.info("Deleted user with id %s from TS3 server." % uid)
+                logger.info(f"Deleted user with id {uid} from TS3 server.")
                 return True
             else:
                 logger.exception(f"Failed to delete user id {uid} from TS3 - received response {ret}")
                 return False
         else:
-            logger.warning("User with id %s not found on TS3 server. Assuming succesful deletion." % uid)
+            logger.warning(f"User with id {uid} not found on TS3 server. Assuming succesful deletion.")
             return True
 
     def check_user_exists(self, uid):
@@ -244,7 +245,7 @@ class Teamspeak3Manager:
         return False
 
     def generate_new_permissionkey(self, uid, user, username):
-        logger.debug("Re-issuing permission key for user id %s" % uid)
+        logger.debug(f"Re-issuing permission key for user id {uid}")
         self.delete_user(uid)
         return self.add_user(user, username)
 
@@ -255,11 +256,11 @@ class Teamspeak3Manager:
         remgroups = []
         if userid is not None:
             user_ts_groups = self._user_group_list(userid)
-            logger.debug("User has groups on TS3 server: %s" % user_ts_groups)
+            logger.debug(f"User has groups on TS3 server: {user_ts_groups}")
             for key in user_ts_groups:
                 user_ts_groups[key] = int(user_ts_groups[key])
             for ts_group_key in ts_groups:
-                logger.debug("Checking if user has group %s on TS3 server." % ts_group_key)
+                logger.debug(f"Checking if user has group {ts_group_key} on TS3 server.")
                 if ts_groups[ts_group_key] not in user_ts_groups.values():
                     addgroups.append(ts_groups[ts_group_key])
             for user_ts_group_key in user_ts_groups:

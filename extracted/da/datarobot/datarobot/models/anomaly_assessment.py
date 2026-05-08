@@ -15,9 +15,9 @@ from operator import itemgetter
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 import trafaret as t
-from typing_extensions import Literal, Unpack
+from typing_extensions import Unpack
 
-from datarobot._compat import Int, String
+from datarobot._compat import Int, Literal, String
 from datarobot.enums import DATA_SUBSET, SOURCE_TYPE, AnomalyAssessmentStatus
 from datarobot.models.api_object import APIObject
 from datarobot.models.types import (

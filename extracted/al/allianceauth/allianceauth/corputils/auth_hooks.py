@@ -1,8 +1,9 @@
-from allianceauth.menu.hooks import MenuItemHook
-from allianceauth.services.hooks import UrlHook
 from django.utils.translation import gettext_lazy as _
+
 from allianceauth import hooks
 from allianceauth.corputils import urls
+from allianceauth.menu.hooks import MenuItemHook
+from allianceauth.services.hooks import UrlHook
 
 
 class CorpStats(MenuItemHook):

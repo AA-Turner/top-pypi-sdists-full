@@ -1,6 +1,6 @@
 """
 Example
-=======
+-------
 
 .. code-block:: python
 

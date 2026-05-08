@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-ibm
-Version: 1.0.9
+Version: 1.0.10
 Summary: An integration package connecting IBM watsonx.ai and LangChain
 Author: IBM
 License: MIT

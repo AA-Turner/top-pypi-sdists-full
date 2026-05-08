@@ -616,6 +616,9 @@ class CbuildRun:
         if reset not in {'off', 'hardware', 'system', 'core'}:
             LOG.warning("Invalid post-reset type '%s' in cbuild-run, defaulting to 'hardware'", reset)
             reset = 'hardware'
+        # Check if ResetHardware is supported for the target, if not default to pin reset
+        if reset == 'hardware' and not any(elem.get('name') == 'ResetHardware' for elem in self.debug_sequences):
+            reset = 'n_srst'
         return reset
 
     @property
@@ -1098,11 +1101,12 @@ class CbuildRun:
                     ap_address = APv1Address(0, dpid, apid)
 
                 self._apids[apid] = ap_address
-                pname, reset_sequence = _processors.get(apid, (f'Unknown{apid}', 'ResetSystem'))
-                self._processors_map[pname] = ProcessorInfo(name=pname,
-                                                            ap_address=ap_address,
-                                                            svd_path=get_svd_path(pname),
-                                                            default_reset_sequence=reset_sequence)
+                if apid in _processors:
+                    pname, reset_sequence = _processors[apid]
+                    self._processors_map[pname] = ProcessorInfo(name=pname,
+                                                                ap_address=ap_address,
+                                                                svd_path=get_svd_path(pname),
+                                                                default_reset_sequence=reset_sequence)
         if not self._valid_dps:
             # Use default __dp of 0.
             self._valid_dps.append(0)
@@ -1183,12 +1187,7 @@ class CbuildRunDebugSequenceDelegate(DebugSequenceDelegate):
         self._functions = DebugSequenceCommonFunctions()
 
         self._all_sequences: Optional[Set[DebugSequence]] = None
-
-        self._generic_map = DefaultDebugSequences.get_sequences(self._session.probe)
-
-        generic_overrides = {seq.name: seq for seq in self._sequences if seq.pname is None}
-        if generic_overrides:
-            self._generic_map.update(generic_overrides)
+        self._generic_map: Optional[Dict[str, DebugSequence]] = None
 
         specific = {}
         for seq in self._sequences:
@@ -1204,7 +1203,7 @@ class CbuildRunDebugSequenceDelegate(DebugSequenceDelegate):
     def all_sequences(self) -> Set[DebugSequence]:
         """@brief Returns all available sequences (cbuild-run + defaults)."""
         if self._all_sequences is None:
-            self._all_sequences = set(self._generic_map.values())
+            self._all_sequences = set(self._get_generic_map().values())
             for pname_dict in self._specific_map_by_pname.values():
                 self._all_sequences.update(pname_dict.values())
         return self._all_sequences
@@ -1212,6 +1211,15 @@ class CbuildRunDebugSequenceDelegate(DebugSequenceDelegate):
     @property
     def cmsis_pack_device(self) -> CbuildRun:
         return self._device
+
+    def _get_generic_map(self) -> Dict[str, DebugSequence]:
+        """@brief Lazily load generic debug sequences with correct probe capabilities."""
+        if self._generic_map is None:
+            self._generic_map = DefaultDebugSequences.get_sequences(self._session.probe)
+            generic_overrides = {seq.name: seq for seq in self._sequences if seq.pname is None}
+            if generic_overrides:
+                self._generic_map.update(generic_overrides)
+        return self._generic_map
 
     def get_root_scope(self, context: DebugSequenceExecutionContext) -> Scope:
         if self._debugvars is not None:
@@ -1280,17 +1288,17 @@ class CbuildRunDebugSequenceDelegate(DebugSequenceDelegate):
             try:
                 executed_scope = seq.execute(context)
             except exceptions.Error as err:
+                prefix = f"Error while running debug sequence '{name}'"
                 if pname:
-                    LOG.error("Error while running debug sequence '%s' (core %s): %s", name, pname, err)
-                else:
-                    LOG.error("Error while running debug sequence '%s': %s", name, err)
+                    prefix += f" (core {pname})"
+                err.args = (f"{prefix}: {err}",)
                 raise
 
         return executed_scope
 
     def sequences_for_pname(self, pname: Optional[str]) -> Dict[str, DebugSequence]:
         # Start with generic sequences (defaults + cbuild-run generic)
-        result = self._generic_map.copy()
+        result = self._get_generic_map().copy()
 
         # If pname is specified, override with pname-specific sequences
         if pname is not None and pname in self._specific_map_by_pname:
@@ -1305,17 +1313,18 @@ class CbuildRunDebugSequenceDelegate(DebugSequenceDelegate):
                 return True
 
         # Check generic sequences
-        return name in self._generic_map
+        return name in self._get_generic_map()
 
     def get_sequence_with_name(self, name: str, pname: Optional[str] = None) -> DebugSequence:
+        generic_map = self._get_generic_map()
         # Check pname-specific sequences first (if pname provided)
         if pname is not None and pname in self._specific_map_by_pname:
             if name in self._specific_map_by_pname[pname]:
                 return self._specific_map_by_pname[pname][name]
 
         # Check generic sequences (defaults + cbuild-run generic)
-        if name in self._generic_map:
-            return self._generic_map[name]
+        if name in generic_map:
+            return generic_map[name]
 
         # Sequence not found
         raise KeyError(

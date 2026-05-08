@@ -1,5 +1,6 @@
-from django.db import models
 import logging
+
+from django.db import models
 
 logger = logging.getLogger(__name__)
 
@@ -8,7 +9,7 @@ class CorpStatsQuerySet(models.QuerySet):
     def visible_to(self, user):
         # superusers get all visible
         if user.is_superuser:
-            logger.debug('Returning all corpstats for superuser %s.' % user)
+            logger.debug(f'Returning all corpstats for superuser {user}.')
             return self
 
         try:
@@ -36,7 +37,7 @@ class CorpStatsQuerySet(models.QuerySet):
                 query |= q
             return self.filter(query)
         except AssertionError:
-            logger.debug('User %s has no main character. No corpstats visible.' % user)
+            logger.debug(f'User {user} has no main character. No corpstats visible.')
             return self.none()
 
 

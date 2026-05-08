@@ -4,7 +4,7 @@ from ..exceptions import (
     DiscordApiBackoff,
     DiscordClientException,
     DiscordRateLimitExhausted,
-    DiscordTooManyRequestsError
+    DiscordTooManyRequestsError,
 )
 
 

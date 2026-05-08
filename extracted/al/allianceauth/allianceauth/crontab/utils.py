@@ -1,8 +1,10 @@
-from celery.schedules import crontab
 import logging
-from allianceauth.crontab.models import CronOffset
+
+from celery.schedules import crontab
+
 from django.db import ProgrammingError
 
+from allianceauth.crontab.models import CronOffset
 
 logger = logging.getLogger(__name__)
 

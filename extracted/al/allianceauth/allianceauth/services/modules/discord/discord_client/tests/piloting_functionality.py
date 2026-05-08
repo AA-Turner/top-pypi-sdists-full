@@ -14,13 +14,13 @@ Since this may cause lots of 429s we'd recommend NOT to use your
 alliance Discord server for this.
 """
 
-from uuid import uuid1
 import os
-from unittest import TestCase
 from time import sleep
+from unittest import TestCase
+from uuid import uuid1
 
-from .. import DiscordClient
 from ...utils import set_logger_to_file
+from .. import DiscordClient
 
 logger = set_logger_to_file(
     'allianceauth.services.modules.discord.discord_self.client.client', __file__

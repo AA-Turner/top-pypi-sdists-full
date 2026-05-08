@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit-posthocs
-Version: 0.12.0
+Version: 0.13.0
 Summary: Statistical post-hoc analysis and outlier detection algorithms
 Author-email: Maksim Terpilovskii <maximtrp@gmail.com>
 License: Copyright (c) 2026 Maksim Terpilovskii
@@ -39,6 +39,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE

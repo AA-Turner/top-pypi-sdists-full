@@ -14,8 +14,8 @@
 
 from django import template
 
-from ..models import EveCharacter, EveCorporationInfo, EveAllianceInfo
-from ..evelinks import eveimageserver, evewho, dotlan, zkillboard
+from ..evelinks import dotlan, eveimageserver, evewho, zkillboard
+from ..models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 
 register = template.Library()
 
@@ -30,7 +30,7 @@ def _generic_character_url(
     eve_obj: EveCharacter
 ) -> str:
     """returns character URL for given provider and object"""
-    my_func = getattr(provider, 'character_url')
+    my_func = provider.character_url
     if isinstance(eve_obj, EveCharacter):
         return my_func(getattr(eve_obj, obj_prop))
 
@@ -47,8 +47,8 @@ def _generic_corporation_url(
     eve_obj: object
 ) -> str:
     """returns corporation URL for given provider and object"""
-    my_func = getattr(provider, 'corporation_url')
-    if isinstance(eve_obj, (EveCharacter, EveCorporationInfo)):
+    my_func = provider.corporation_url
+    if isinstance(eve_obj, EveCharacter | EveCorporationInfo):
         return my_func(getattr(eve_obj, obj_prop))
 
     elif eve_obj is None:
@@ -64,7 +64,7 @@ def _generic_alliance_url(
     eve_obj: object
 ) -> str:
     """returns alliance URL for given provider and object"""
-    my_func = getattr(provider, 'alliance_url')
+    my_func = provider.alliance_url
 
     if isinstance(eve_obj, EveCharacter):
         if eve_obj.alliance_id:

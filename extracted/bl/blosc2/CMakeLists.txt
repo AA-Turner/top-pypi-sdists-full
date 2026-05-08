@@ -14,6 +14,9 @@ endif()
 
 project(python-blosc2)
 
+set(BLOSC2_MIN_VERSION 3.0.0)
+set(BLOSC2_BUNDLED_VERSION v3.0.2)
+
 if(WIN32 AND NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
     message(FATAL_ERROR "Windows builds require clang-cl. Set CC/CXX to clang-cl or configure CMake with -T ClangCL.")
 endif()
@@ -41,11 +44,25 @@ add_custom_command(
   DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/blosc2/blosc2_ext.pyx"
   VERBATIM)
 
+add_custom_command(
+  OUTPUT indexing_ext.c
+  COMMAND Python::Interpreter -m cython
+          "${CMAKE_CURRENT_SOURCE_DIR}/src/blosc2/indexing_ext.pyx" --output-file indexing_ext.c
+  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/blosc2/indexing_ext.pyx"
+  VERBATIM)
+
 # ...and add it to the target
 Python_add_library(blosc2_ext MODULE blosc2_ext.c WITH_SOABI)
+target_sources(blosc2_ext PRIVATE src/blosc2/matmul_kernels.c)
+target_include_directories(blosc2_ext PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/blosc2)
+if(UNIX)
+  target_link_libraries(blosc2_ext PRIVATE ${CMAKE_DL_LIBS})
+endif()
+Python_add_library(indexing_ext MODULE indexing_ext.c WITH_SOABI)
 
 # We need to link against NumPy
 target_link_libraries(blosc2_ext PRIVATE Python::NumPy)
+target_link_libraries(indexing_ext PRIVATE Python::NumPy)
 
 # Fetch and build miniexpr library
 include(FetchContent)
@@ -63,15 +80,19 @@ endif()
 
 FetchContent_Declare(miniexpr
     GIT_REPOSITORY https://github.com/Blosc/miniexpr.git
-    GIT_TAG 37bf6982bf9619036b47f095b7005bc3c87a7447
+    GIT_TAG f2faef741c4c507bf6a03167c72ce7f92c6f0ae8
     # SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../miniexpr
 )
 FetchContent_MakeAvailable(miniexpr)
 
 # Link against miniexpr static library
 target_link_libraries(blosc2_ext PRIVATE miniexpr_static)
+if(APPLE)
+  target_link_libraries(blosc2_ext PRIVATE "-framework Accelerate")
+endif()
 
 target_compile_features(blosc2_ext PRIVATE c_std_11)
+target_compile_features(indexing_ext PRIVATE c_std_11)
 if(WIN32 AND CMAKE_C_COMPILER_ID STREQUAL "Clang")
     execute_process(
         COMMAND "${CMAKE_C_COMPILER}" -print-resource-dir
@@ -100,7 +121,7 @@ endif()
 if(USE_SYSTEM_BLOSC2)
     set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
     find_package(PkgConfig REQUIRED)
-    pkg_check_modules(Blosc2 REQUIRED IMPORTED_TARGET blosc2)
+    pkg_check_modules(Blosc2 REQUIRED IMPORTED_TARGET blosc2>=${BLOSC2_MIN_VERSION})
     target_link_libraries(blosc2_ext PRIVATE PkgConfig::Blosc2)
 else()
     set(STATIC_LIB ON CACHE BOOL "Build a static version of the blosc library.")
@@ -119,7 +140,8 @@ else()
     include(FetchContent)
     FetchContent_Declare(blosc2
         GIT_REPOSITORY https://github.com/Blosc/c-blosc2
-        GIT_TAG 1386ef42f58b61c876edf714a2af84bd7b59dc5d # v2.23.1
+        GIT_TAG ${BLOSC2_BUNDLED_VERSION}
+        # SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../c-blosc2
     )
     FetchContent_MakeAvailable(blosc2)
     include_directories("${blosc2_SOURCE_DIR}/include")
@@ -147,7 +169,7 @@ endif()
 
 # Python extension -> site-packages/blosc2
 install(
-  TARGETS blosc2_ext
+  TARGETS blosc2_ext indexing_ext
   LIBRARY DESTINATION ${SKBUILD_PLATLIB_DIR}/blosc2
 )
 

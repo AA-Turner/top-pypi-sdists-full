@@ -2,18 +2,19 @@
 
 import json
 import logging
+from collections.abc import Iterable
 from enum import IntEnum
 from hashlib import md5
 from http import HTTPStatus
 from time import sleep
-from typing import Iterable, List, Optional, Set, Tuple
 from urllib.parse import urljoin
 from uuid import uuid1
 
 import requests
-from requests.exceptions import HTTPError
 from redis import Redis
+from requests.exceptions import HTTPError
 
+from allianceauth import __title__ as AUTH_TITLE, __url__, __version__
 from allianceauth.utils.cache import get_redis_client
 
 from allianceauth import __title_useragent__, __url__, __version__
@@ -232,7 +233,7 @@ class DiscordClient:
 
     # guild roles
 
-    def guild_roles(self, guild_id: int, use_cache: bool = True) -> Set[Role]:
+    def guild_roles(self, guild_id: int, use_cache: bool = True) -> set[Role]:
         """Fetch all roles for this guild.
 
         Args:
@@ -267,7 +268,7 @@ class DiscordClient:
 
     def create_guild_role(
         self, guild_id: int, role_name: str, **kwargs
-    ) -> Optional[Role]:
+    ) -> Role | None:
         """Create a new guild role with the given name.
 
         See official documentation for additional optional parameters.
@@ -317,7 +318,7 @@ class DiscordClient:
         gen_key = cls._generate_hash(f'{guild_id}')
         return f'{cls._KEYPREFIX_GUILD_ROLES}__{gen_key}'
 
-    def match_role_from_name(self, guild_id: int, role_name: str) -> Optional[Role]:
+    def match_role_from_name(self, guild_id: int, role_name: str) -> Role | None:
         """Fetch Discord role matching the given name (cached).
 
         Args:
@@ -332,7 +333,7 @@ class DiscordClient:
 
     def match_or_create_roles_from_names(
         self, guild_id: int, role_names: Iterable[str]
-    ) -> List[Tuple[Role, bool]]:
+    ) -> list[tuple[Role, bool]]:
         """Fetch or create Discord roles matching the given names (cached).
 
         Will try to match with existing roles names
@@ -345,7 +346,7 @@ class DiscordClient:
         Returns:
             List of tuple of Role and created flag
         """
-        roles = list()
+        roles = []
         guild_roles = RolesSet(self.guild_roles(guild_id))
         role_names_cleaned = {Role.sanitize_name(name) for name in role_names}
         for role_name in role_names_cleaned:
@@ -360,7 +361,7 @@ class DiscordClient:
 
     def match_or_create_role_from_name(
         self, guild_id: int, role_name: str, guild_roles: RolesSet = None
-    ) -> Tuple[Role, bool]:
+    ) -> tuple[Role, bool]:
         """Fetch or create Discord role matching the given name.
 
         Will try to match with existing roles names
@@ -417,7 +418,7 @@ class DiscordClient:
         access_token: str,
         role_ids: list = None,
         nick: str = None
-    ) -> Optional[bool]:
+    ) -> bool | None:
         """Adds a user to the guild.
 
         Returns:
@@ -441,7 +442,7 @@ class DiscordClient:
             return None
         return False
 
-    def guild_member(self, guild_id: int, user_id: int) -> Optional[GuildMember]:
+    def guild_member(self, guild_id: int, user_id: int) -> GuildMember | None:
         """Fetch info for a guild member.
 
         Args:
@@ -460,8 +461,8 @@ class DiscordClient:
         return GuildMember.from_dict(r.json())
 
     def modify_guild_member(
-        self, guild_id: int, user_id: int, role_ids: List[int] = None, nick: str = None
-    ) -> Optional[bool]:
+        self, guild_id: int, user_id: int, role_ids: list[int] = None, nick: str = None
+    ) -> bool | None:
         """Set properties of a guild member.
 
         Args:
@@ -481,7 +482,7 @@ class DiscordClient:
         if role_ids and not isinstance(role_ids, list):
             raise TypeError('role_ids must be a list type')
 
-        data = dict()
+        data = {}
         if role_ids:
             data['roles'] = self._sanitize_role_ids(role_ids)
 
@@ -500,7 +501,7 @@ class DiscordClient:
             return True
         return False
 
-    def remove_guild_member(self, guild_id: int, user_id: int) -> Optional[bool]:
+    def remove_guild_member(self, guild_id: int, user_id: int) -> bool | None:
         """Remove a member from a guild.
 
         Args:
@@ -528,7 +529,7 @@ class DiscordClient:
 
     def add_guild_member_role(
         self, guild_id: int, user_id: int, role_id: int
-    ) -> Optional[bool]:
+    ) -> bool | None:
         """Adds a role to a guild member
 
         Returns:
@@ -548,7 +549,7 @@ class DiscordClient:
 
     def remove_guild_member_role(
         self, guild_id: int, user_id: int, role_id: int
-    ) -> Optional[bool]:
+    ) -> bool | None:
         """Remove a role to a guild member
 
         Args:
@@ -571,7 +572,7 @@ class DiscordClient:
             return True
         return False
 
-    def guild_member_roles(self, guild_id: int, user_id: int) -> Optional[RolesSet]:
+    def guild_member_roles(self, guild_id: int, user_id: int) -> RolesSet | None:
         """Fetch the current guild roles of a guild member.
 
         Args:
@@ -637,7 +638,7 @@ class DiscordClient:
         uid = uuid1().hex
 
         if not hasattr(requests, method):
-            raise ValueError('Invalid method: %s' % method)
+            raise ValueError(f'Invalid method: {method}')
 
         if not authorization:
             authorization = f'Bot {self.access_token}'
@@ -822,6 +823,6 @@ class DiscordClient:
         return md5(key.encode('utf-8')).hexdigest()
 
     @staticmethod
-    def _sanitize_role_ids(role_ids: Iterable[int]) -> List[int]:
+    def _sanitize_role_ids(role_ids: Iterable[int]) -> list[int]:
         """Sanitize a list of role IDs, i.e. make sure its a list of unique integers."""
         return [int(role_id) for role_id in set(role_ids)]

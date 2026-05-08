@@ -66,6 +66,7 @@ from .job_posting_site_parsers import (
     parse_job_posting_site_reference,
     parse_site_type_data
 )
+from .reference_parsers import parse_reference_data
 
 __all__ = [
     "parse_time_block_data",
@@ -127,5 +128,7 @@ __all__ = [
     # Job posting site parsers
     "parse_job_posting_site_data",
     "parse_job_posting_site_reference",
-    "parse_site_type_data"
+    "parse_site_type_data",
+    # Reference parsers
+    "parse_reference_data",
 ]

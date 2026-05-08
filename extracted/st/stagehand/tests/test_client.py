@@ -460,13 +460,12 @@ class TestStagehand:
         request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
         assert request.headers.get("x-bb-api-key") == browserbase_api_key
         request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
-        assert request.headers.get("x-bb-project-id") == browserbase_project_id
+        assert request.headers.get("x-bb-project-id") is None
         request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
         assert request.headers.get("x-model-api-key") == model_api_key
 
         with update_env(
             BROWSERBASE_API_KEY=Omit(),
-            BROWSERBASE_PROJECT_ID=Omit(),
         ):
             client2 = Stagehand(
                 base_url=base_url,
@@ -504,6 +503,30 @@ class TestStagehand:
         assert dict(url.params) == {"foo": "baz", "query_param": "overridden"}
 
         client.close()
+
+    def test_hardcoded_query_params_in_url(self, client: Stagehand) -> None:
+        request = client._build_request(FinalRequestOptions(method="get", url="/foo?beta=true"))
+        url = httpx.URL(request.url)
+        assert dict(url.params) == {"beta": "true"}
+
+        request = client._build_request(
+            FinalRequestOptions(
+                method="get",
+                url="/foo?beta=true",
+                params={"limit": "10", "page": "abc"},
+            )
+        )
+        url = httpx.URL(request.url)
+        assert dict(url.params) == {"beta": "true", "limit": "10", "page": "abc"}
+
+        request = client._build_request(
+            FinalRequestOptions(
+                method="get",
+                url="/files/a%2Fb?beta=true",
+                params={"limit": "10"},
+            )
+        )
+        assert request.url.raw_path == b"/files/a%2Fb?beta=true&limit=10"
 
     def test_request_extra_json(self, client: Stagehand) -> None:
         request = client._build_request(
@@ -771,7 +794,7 @@ class TestStagehand:
         client.close()
 
     def test_base_url_env(self) -> None:
-        with update_env(STAGEHAND_BASE_URL="http://localhost:5000/from/env"):
+        with update_env(STAGEHAND_API_URL="http://localhost:5000/from/env"):
             client = Stagehand(
                 browserbase_api_key=browserbase_api_key,
                 browserbase_project_id=browserbase_project_id,
@@ -779,6 +802,29 @@ class TestStagehand:
                 _strict_response_validation=True,
             )
             assert client.base_url == "http://localhost:5000/from/env/"
+
+    def test_base_url_legacy_env(self) -> None:
+        with update_env(STAGEHAND_BASE_URL="http://localhost:5000/from/legacy/env"):
+            client = Stagehand(
+                browserbase_api_key=browserbase_api_key,
+                browserbase_project_id=browserbase_project_id,
+                model_api_key=model_api_key,
+                _strict_response_validation=True,
+            )
+            assert client.base_url == "http://localhost:5000/from/legacy/env/"
+
+    def test_base_url_env_prefers_api_url(self) -> None:
+        with update_env(
+            STAGEHAND_API_URL="http://localhost:5000/from/api/env",
+            STAGEHAND_BASE_URL="http://localhost:5000/from/base/env",
+        ):
+            client = Stagehand(
+                browserbase_api_key=browserbase_api_key,
+                browserbase_project_id=browserbase_project_id,
+                model_api_key=model_api_key,
+                _strict_response_validation=True,
+            )
+            assert client.base_url == "http://localhost:5000/from/api/env/"
 
     @pytest.mark.parametrize(
         "client",
@@ -1507,13 +1553,12 @@ class TestAsyncStagehand:
         request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
         assert request.headers.get("x-bb-api-key") == browserbase_api_key
         request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
-        assert request.headers.get("x-bb-project-id") == browserbase_project_id
+        assert request.headers.get("x-bb-project-id") is None
         request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
         assert request.headers.get("x-model-api-key") == model_api_key
 
         with update_env(
             BROWSERBASE_API_KEY=Omit(),
-            BROWSERBASE_PROJECT_ID=Omit(),
         ):
             client2 = AsyncStagehand(
                 base_url=base_url,
@@ -1551,6 +1596,30 @@ class TestAsyncStagehand:
         assert dict(url.params) == {"foo": "baz", "query_param": "overridden"}
 
         await client.close()
+
+    async def test_hardcoded_query_params_in_url(self, async_client: AsyncStagehand) -> None:
+        request = async_client._build_request(FinalRequestOptions(method="get", url="/foo?beta=true"))
+        url = httpx.URL(request.url)
+        assert dict(url.params) == {"beta": "true"}
+
+        request = async_client._build_request(
+            FinalRequestOptions(
+                method="get",
+                url="/foo?beta=true",
+                params={"limit": "10", "page": "abc"},
+            )
+        )
+        url = httpx.URL(request.url)
+        assert dict(url.params) == {"beta": "true", "limit": "10", "page": "abc"}
+
+        request = async_client._build_request(
+            FinalRequestOptions(
+                method="get",
+                url="/files/a%2Fb?beta=true",
+                params={"limit": "10"},
+            )
+        )
+        assert request.url.raw_path == b"/files/a%2Fb?beta=true&limit=10"
 
     def test_request_extra_json(self, client: Stagehand) -> None:
         request = client._build_request(
@@ -1822,7 +1891,7 @@ class TestAsyncStagehand:
         await client.close()
 
     async def test_base_url_env(self) -> None:
-        with update_env(STAGEHAND_BASE_URL="http://localhost:5000/from/env"):
+        with update_env(STAGEHAND_API_URL="http://localhost:5000/from/env"):
             client = AsyncStagehand(
                 browserbase_api_key=browserbase_api_key,
                 browserbase_project_id=browserbase_project_id,
@@ -1830,6 +1899,29 @@ class TestAsyncStagehand:
                 _strict_response_validation=True,
             )
             assert client.base_url == "http://localhost:5000/from/env/"
+
+    async def test_base_url_legacy_env(self) -> None:
+        with update_env(STAGEHAND_BASE_URL="http://localhost:5000/from/legacy/env"):
+            client = AsyncStagehand(
+                browserbase_api_key=browserbase_api_key,
+                browserbase_project_id=browserbase_project_id,
+                model_api_key=model_api_key,
+                _strict_response_validation=True,
+            )
+            assert client.base_url == "http://localhost:5000/from/legacy/env/"
+
+    async def test_base_url_env_prefers_api_url(self) -> None:
+        with update_env(
+            STAGEHAND_API_URL="http://localhost:5000/from/api/env",
+            STAGEHAND_BASE_URL="http://localhost:5000/from/base/env",
+        ):
+            client = AsyncStagehand(
+                browserbase_api_key=browserbase_api_key,
+                browserbase_project_id=browserbase_project_id,
+                model_api_key=model_api_key,
+                _strict_response_validation=True,
+            )
+            assert client.base_url == "http://localhost:5000/from/api/env/"
 
     @pytest.mark.parametrize(
         "client",

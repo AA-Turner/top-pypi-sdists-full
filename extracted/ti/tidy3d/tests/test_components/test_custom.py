@@ -505,6 +505,19 @@ def test_medium_eps_model():
         med = make_custom_medium(make_scalar_data_multifreqs())
 
 
+def test_medium_eps_model_accepts_list_and_array():
+    """Evaluate custom medium permittivity for scalar and multi-frequency inputs."""
+    med = CustomMedium(
+        permittivity=make_spatial_data(value=2),
+        conductivity=make_spatial_data(value=0.1, random_magnitude=0),
+    )
+    freq_array = np.array([2e14, 3e14])
+    expected = np.array([med.eps_model(float(freq)) for freq in freq_array])
+
+    np.testing.assert_allclose(med.eps_model(freq_array.tolist()), expected)
+    np.testing.assert_allclose(med.eps_model(freq_array), expected)
+
+
 def test_nk_diff_coords():
     """Should error if N and K have different coords."""
     n = make_scalar_data().real
@@ -680,7 +693,7 @@ def test_custom_medium_validator_order():
     permittivity = make_spatial_data(value=0)
     conductivity = make_spatial_data(value=-0.5)
 
-    with pytest.raises(ValidationError, match="'permittivity' must be no less than one."):
+    with pytest.raises(ValidationError, match=r"'permittivity' must be no less than one."):
         _ = CustomMedium(permittivity=permittivity, conductivity=conductivity)
 
 
@@ -1252,7 +1265,7 @@ def test_custom_medium_duplicate_coords(custom_class, data_key):
     spatial_data = td.SpatialDataArray(data, coords=coords)
 
     if custom_class == CustomMedium:
-        with pytest.raises(ValidationError, match="duplicate coordinates"):
+        with pytest.raises(ValidationError, match=r"duplicate coordinates"):
             _ = custom_class(permittivity=spatial_data)
     else:
         field_components = {
@@ -1260,5 +1273,5 @@ def test_custom_medium_duplicate_coords(custom_class, data_key):
         }
         field_dataset = td.FieldDataset(**field_components)
 
-        with pytest.raises(ValidationError, match="duplicate coordinates"):
+        with pytest.raises(ValidationError, match=r"duplicate coordinates"):
             _ = custom_class(size=SIZE, source_time=ST, **{data_key: field_dataset})

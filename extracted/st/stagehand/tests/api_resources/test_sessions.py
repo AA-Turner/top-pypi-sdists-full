@@ -273,6 +273,7 @@ class TestSessions:
                 "max_steps": 20,
                 "tool_timeout": 30000,
                 "use_search": True,
+                "variables": {"foo": "string"},
             },
             frame_id="frameId",
             should_cache=True,
@@ -371,6 +372,7 @@ class TestSessions:
                 "max_steps": 20,
                 "tool_timeout": 30000,
                 "use_search": True,
+                "variables": {"foo": "string"},
             },
             stream_response=True,
             frame_id="frameId",
@@ -443,6 +445,7 @@ class TestSessions:
             frame_id="frameId",
             instruction="Extract all product names and prices from the page",
             options={
+                "ignore_selectors": ["nav", ".cookie-banner", "#sidebar-ads"],
                 "model": {
                     "model_name": "openai/gpt-5.4-mini",
                     "api_key": "sk-some-openai-api-key",
@@ -511,6 +514,7 @@ class TestSessions:
             frame_id="frameId",
             instruction="Extract all product names and prices from the page",
             options={
+                "ignore_selectors": ["nav", ".cookie-banner", "#sidebar-ads"],
                 "model": {
                     "model_name": "openai/gpt-5.4-mini",
                     "api_key": "sk-some-openai-api-key",
@@ -875,6 +879,8 @@ class TestSessions:
                 "browser_settings": {
                     "advanced_stealth": True,
                     "block_ads": True,
+                    "captcha_image_selector": "captchaImageSelector",
+                    "captcha_input_selector": "captchaInputSelector",
                     "context": {
                         "id": "id",
                         "persist": True,
@@ -894,8 +900,10 @@ class TestSessions:
                         },
                     },
                     "log_session": True,
+                    "os": "windows",
                     "record_session": True,
                     "solve_captchas": True,
+                    "verified": True,
                     "viewport": {
                         "height": 0,
                         "width": 0,
@@ -1199,6 +1207,7 @@ class TestAsyncSessions:
                 "max_steps": 20,
                 "tool_timeout": 30000,
                 "use_search": True,
+                "variables": {"foo": "string"},
             },
             frame_id="frameId",
             should_cache=True,
@@ -1297,6 +1306,7 @@ class TestAsyncSessions:
                 "max_steps": 20,
                 "tool_timeout": 30000,
                 "use_search": True,
+                "variables": {"foo": "string"},
             },
             stream_response=True,
             frame_id="frameId",
@@ -1369,6 +1379,7 @@ class TestAsyncSessions:
             frame_id="frameId",
             instruction="Extract all product names and prices from the page",
             options={
+                "ignore_selectors": ["nav", ".cookie-banner", "#sidebar-ads"],
                 "model": {
                     "model_name": "openai/gpt-5.4-mini",
                     "api_key": "sk-some-openai-api-key",
@@ -1437,6 +1448,7 @@ class TestAsyncSessions:
             frame_id="frameId",
             instruction="Extract all product names and prices from the page",
             options={
+                "ignore_selectors": ["nav", ".cookie-banner", "#sidebar-ads"],
                 "model": {
                     "model_name": "openai/gpt-5.4-mini",
                     "api_key": "sk-some-openai-api-key",
@@ -1801,6 +1813,8 @@ class TestAsyncSessions:
                 "browser_settings": {
                     "advanced_stealth": True,
                     "block_ads": True,
+                    "captcha_image_selector": "captchaImageSelector",
+                    "captcha_input_selector": "captchaInputSelector",
                     "context": {
                         "id": "id",
                         "persist": True,
@@ -1820,8 +1834,10 @@ class TestAsyncSessions:
                         },
                     },
                     "log_session": True,
+                    "os": "windows",
                     "record_session": True,
                     "solve_captchas": True,
+                    "verified": True,
                     "viewport": {
                         "height": 0,
                         "width": 0,

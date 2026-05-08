@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from .models import DiscourseUser
 from ...admin import ServicesUserAdmin
+from .models import DiscourseUser
 
 
 @admin.register(DiscourseUser)

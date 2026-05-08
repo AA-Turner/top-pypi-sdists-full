@@ -32,6 +32,7 @@ class GetVariableResponse200:
         is_refreshed (Union[Unset, bool]):
         expires_at (Union[Unset, datetime.datetime]):
         labels (Union[Unset, List[str]]):
+        ws_specific (Union[Unset, bool]):
     """
 
     workspace_id: str
@@ -48,6 +49,7 @@ class GetVariableResponse200:
     is_refreshed: Union[Unset, bool] = UNSET
     expires_at: Union[Unset, datetime.datetime] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    ws_specific: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -71,6 +73,8 @@ class GetVariableResponse200:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        ws_specific = self.ws_specific
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -102,6 +106,8 @@ class GetVariableResponse200:
             field_dict["expires_at"] = expires_at
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if ws_specific is not UNSET:
+            field_dict["ws_specific"] = ws_specific
 
         return field_dict
 
@@ -143,6 +149,8 @@ class GetVariableResponse200:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        ws_specific = d.pop("ws_specific", UNSET)
+
         get_variable_response_200 = cls(
             workspace_id=workspace_id,
             path=path,
@@ -158,6 +166,7 @@ class GetVariableResponse200:
             is_refreshed=is_refreshed,
             expires_at=expires_at,
             labels=labels,
+            ws_specific=ws_specific,
         )
 
         get_variable_response_200.additional_properties = d

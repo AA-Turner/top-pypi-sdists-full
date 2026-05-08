@@ -1,8 +1,8 @@
-from allianceauth.menu.hooks import MenuItemHook
-from . import urls
-
 from allianceauth import hooks
+from allianceauth.menu.hooks import MenuItemHook
 from allianceauth.services.hooks import UrlHook
+
+from . import urls
 
 
 class PermissionsTool(MenuItemHook):

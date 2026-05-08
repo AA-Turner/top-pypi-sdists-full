@@ -20,6 +20,8 @@ class CompareSummary:
         variables_changed (int): Number of variables with differences
         resource_types_changed (int): Number of resource types with differences
         folders_changed (int): Number of folders with differences
+        schedules_changed (int): Number of schedules with differences
+        triggers_changed (int): Number of triggers with differences (sum across all trigger kinds)
         conflicts (int): Number of items that are both ahead and behind (conflicts)
     """
 
@@ -33,6 +35,8 @@ class CompareSummary:
     variables_changed: int
     resource_types_changed: int
     folders_changed: int
+    schedules_changed: int
+    triggers_changed: int
     conflicts: int
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -47,6 +51,8 @@ class CompareSummary:
         variables_changed = self.variables_changed
         resource_types_changed = self.resource_types_changed
         folders_changed = self.folders_changed
+        schedules_changed = self.schedules_changed
+        triggers_changed = self.triggers_changed
         conflicts = self.conflicts
 
         field_dict: Dict[str, Any] = {}
@@ -63,6 +69,8 @@ class CompareSummary:
                 "variables_changed": variables_changed,
                 "resource_types_changed": resource_types_changed,
                 "folders_changed": folders_changed,
+                "schedules_changed": schedules_changed,
+                "triggers_changed": triggers_changed,
                 "conflicts": conflicts,
             }
         )
@@ -92,6 +100,10 @@ class CompareSummary:
 
         folders_changed = d.pop("folders_changed")
 
+        schedules_changed = d.pop("schedules_changed")
+
+        triggers_changed = d.pop("triggers_changed")
+
         conflicts = d.pop("conflicts")
 
         compare_summary = cls(
@@ -105,6 +117,8 @@ class CompareSummary:
             variables_changed=variables_changed,
             resource_types_changed=resource_types_changed,
             folders_changed=folders_changed,
+            schedules_changed=schedules_changed,
+            triggers_changed=triggers_changed,
             conflicts=conflicts,
         )
 

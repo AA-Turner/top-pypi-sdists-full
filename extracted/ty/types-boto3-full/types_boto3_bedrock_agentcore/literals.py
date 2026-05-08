@@ -28,6 +28,7 @@ __all__ = (
     "AutomationStreamStatusType",
     "BatchEvaluationStatusType",
     "BedrockAgentCoreServiceName",
+    "BlockchainChainIdType",
     "BrowserActionStatusType",
     "BrowserEnterprisePolicyTypeType",
     "BrowserSessionStatusType",
@@ -35,6 +36,8 @@ __all__ = (
     "CodeInterpreterSessionStatusType",
     "CommandExecutionStatusType",
     "ContentBlockTypeType",
+    "CryptoWalletNetworkType",
+    "CurrencyType",
     "DescriptorTypeType",
     "EventFilterConditionType",
     "ExtractionJobStatusType",
@@ -43,6 +46,7 @@ __all__ = (
     "HarnessToolTypeType",
     "HarnessToolUseStatusType",
     "HarnessToolUseTypeType",
+    "InstrumentBalanceTokenType",
     "LanguageRuntimeType",
     "ListABTestsPaginatorName",
     "ListActorsPaginatorName",
@@ -50,6 +54,8 @@ __all__ = (
     "ListEventsPaginatorName",
     "ListMemoryExtractionJobsPaginatorName",
     "ListMemoryRecordsPaginatorName",
+    "ListPaymentInstrumentsPaginatorName",
+    "ListPaymentSessionsPaginatorName",
     "ListRecommendationsPaginatorName",
     "ListSessionsPaginatorName",
     "MemoryRecordOperatorTypeType",
@@ -59,6 +65,12 @@ __all__ = (
     "Oauth2FlowTypeType",
     "OperatorTypeType",
     "PaginatorName",
+    "PaymentHttpMethodTypeType",
+    "PaymentInstrumentStatusType",
+    "PaymentInstrumentTypeType",
+    "PaymentSessionStatusType",
+    "PaymentStatusType",
+    "PaymentTypeType",
     "ProgrammingLanguageType",
     "RecommendationStatusType",
     "RecommendationTypeType",
@@ -98,6 +110,7 @@ BatchEvaluationStatusType = Literal[
     "STOPPED",
     "STOPPING",
 ]
+BlockchainChainIdType = Literal["BASE", "BASE_SEPOLIA", "ETHEREUM", "SOLANA", "SOLANA_DEVNET"]
 BrowserActionStatusType = Literal["FAILED", "SUCCESS"]
 BrowserEnterprisePolicyTypeType = Literal["MANAGED", "RECOMMENDED"]
 BrowserSessionStatusType = Literal["READY", "TERMINATED"]
@@ -114,6 +127,8 @@ CloudWatchLogsFilterOperatorType = Literal[
 CodeInterpreterSessionStatusType = Literal["READY", "TERMINATED"]
 CommandExecutionStatusType = Literal["COMPLETED", "TIMED_OUT"]
 ContentBlockTypeType = Literal["image", "resource", "resource_link", "text"]
+CryptoWalletNetworkType = Literal["ETHEREUM", "SOLANA"]
+CurrencyType = Literal["USD"]
 DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
 EventFilterConditionType = Literal["HAS_EVENTS"]
 ExtractionJobStatusType = Literal["FAILED"]
@@ -143,6 +158,7 @@ HarnessToolTypeType = Literal[
 ]
 HarnessToolUseStatusType = Literal["error", "success"]
 HarnessToolUseTypeType = Literal["mcp_tool_use", "server_tool_use", "tool_use"]
+InstrumentBalanceTokenType = Literal["USDC"]
 LanguageRuntimeType = Literal["deno", "nodejs", "python"]
 ListABTestsPaginatorName = Literal["list_ab_tests"]
 ListActorsPaginatorName = Literal["list_actors"]
@@ -150,6 +166,8 @@ ListBatchEvaluationsPaginatorName = Literal["list_batch_evaluations"]
 ListEventsPaginatorName = Literal["list_events"]
 ListMemoryExtractionJobsPaginatorName = Literal["list_memory_extraction_jobs"]
 ListMemoryRecordsPaginatorName = Literal["list_memory_records"]
+ListPaymentInstrumentsPaginatorName = Literal["list_payment_instruments"]
+ListPaymentSessionsPaginatorName = Literal["list_payment_sessions"]
 ListRecommendationsPaginatorName = Literal["list_recommendations"]
 ListSessionsPaginatorName = Literal["list_sessions"]
 MemoryRecordOperatorTypeType = Literal[
@@ -166,9 +184,15 @@ MemoryRecordOperatorTypeType = Literal[
 ]
 MemoryRecordStatusType = Literal["FAILED", "SUCCEEDED"]
 MouseButtonType = Literal["LEFT", "MIDDLE", "RIGHT"]
-OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS"]
+OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "TOKEN_EXCHANGE"]
 Oauth2FlowTypeType = Literal["M2M", "ON_BEHALF_OF_TOKEN_EXCHANGE", "USER_FEDERATION"]
 OperatorTypeType = Literal["EQUALS_TO", "EXISTS", "NOT_EXISTS"]
+PaymentHttpMethodTypeType = Literal["DELETE", "GET", "PATCH", "POST", "PUT"]
+PaymentInstrumentStatusType = Literal["ACTIVE", "DELETED", "FAILED", "INITIATED"]
+PaymentInstrumentTypeType = Literal["EMBEDDED_CRYPTO_WALLET"]
+PaymentSessionStatusType = Literal["ACTIVE", "DELETED", "EXPIRED"]
+PaymentStatusType = Literal["PROOF_GENERATED"]
+PaymentTypeType = Literal["CRYPTO_X402"]
 ProgrammingLanguageType = Literal["javascript", "python", "typescript"]
 RecommendationStatusType = Literal["COMPLETED", "DELETING", "FAILED", "IN_PROGRESS", "PENDING"]
 RecommendationTypeType = Literal["SYSTEM_PROMPT_RECOMMENDATION", "TOOL_DESCRIPTION_RECOMMENDATION"]
@@ -635,6 +659,8 @@ PaginatorName = Literal[
     "list_events",
     "list_memory_extraction_jobs",
     "list_memory_records",
+    "list_payment_instruments",
+    "list_payment_sessions",
     "list_recommendations",
     "list_sessions",
     "retrieve_memory_records",

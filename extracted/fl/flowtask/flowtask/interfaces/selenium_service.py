@@ -137,6 +137,78 @@ class VirtualDisplay:
             logger.info('[VirtualDisplay] Xvfb stopped')
 
 
+def _detect_browser_major_version() -> Optional[int]:
+    """Detect installed Chrome/Chromium major version by probing common paths.
+
+    Returns the integer major version (e.g. 147) or None if no binary is found
+    or its `--version` output cannot be parsed.
+    """
+    candidates = [
+        '/usr/bin/google-chrome',
+        '/bin/google-chrome',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser',
+        '/opt/google/chrome/google-chrome',
+    ]
+    for binary in candidates:
+        try:
+            result = subprocess.run(
+                [binary, '--version'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return int(result.stdout.strip().split()[-1].split('.')[0])
+        except (FileNotFoundError, ValueError, subprocess.TimeoutExpired, IndexError):
+            continue
+    return None
+
+
+def _resolve_chromedriver_path(browser_major: Optional[int], logger) -> str:
+    """Pick a chromedriver binary that matches the installed browser major version.
+
+    Strategy:
+      1. If /usr/bin/chromedriver exists and its major version matches the
+         browser, use it directly. Avoids touching the webdriver-manager cache,
+         which can hold a stale driver (e.g. v114 from 2023) that webdriver-manager
+         keeps reusing as long as the binary is on disk.
+      2. Otherwise, ask webdriver-manager for a driver. When the browser major
+         is known, pin it via `driver_version=str(major)` so a stale local cache
+         cannot serve a mismatched driver.
+    """
+    sys_driver = '/usr/bin/chromedriver'
+    if browser_major is not None and os.path.exists(sys_driver):
+        try:
+            result = subprocess.run(
+                [sys_driver, '--version'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                tokens = result.stdout.strip().split()
+                if len(tokens) >= 2:
+                    sys_major = int(tokens[1].split('.')[0])
+                    if sys_major == browser_major:
+                        logger.info(
+                            f'[SeleniumService] Using system chromedriver '
+                            f'{sys_major} from {sys_driver}'
+                        )
+                        return sys_driver
+                    logger.debug(
+                        f'[SeleniumService] System chromedriver major '
+                        f'({sys_major}) != browser major ({browser_major}); '
+                        f'falling back to webdriver-manager'
+                    )
+        except (ValueError, subprocess.TimeoutExpired, IndexError) as e:
+            logger.debug(f'[SeleniumService] System chromedriver probe failed: {e}')
+
+    cache_manager = DriverCacheManager(valid_range=1)
+    if browser_major is not None:
+        return ChromeDriverManager(
+            cache_manager=cache_manager,
+            driver_version=str(browser_major)
+        ).install()
+    return ChromeDriverManager(cache_manager=cache_manager).install()
+
+
 class SeleniumService(ABC):
     """SeleniumService.
 
@@ -430,22 +502,17 @@ class SeleniumService(ABC):
                 except Exception:
                     # If the browser does not support add_argument, skip it.
                     pass
-            # Detect installed Chrome major version to avoid ChromeDriver mismatch
-            chrome_version_main = None
-            try:
-                import subprocess
-                result = subprocess.run(
-                    ['/bin/google-chrome', '--version'],
-                    capture_output=True, text=True, timeout=5
-                )
-                version_str = result.stdout.strip()  # e.g. "Google Chrome 145.0.7632.159"
-                chrome_version_main = int(version_str.split()[-1].split('.')[0])
+            # Detect installed Chrome major version to avoid ChromeDriver mismatch.
+            # Probes multiple paths so containers using /usr/bin/chromium are covered.
+            chrome_version_main = _detect_browser_major_version()
+            if chrome_version_main:
                 self._logger.debug(
                     f'[SeleniumService] Detected Chrome version: {chrome_version_main}'
                 )
-            except Exception as e:
+            else:
                 self._logger.warning(
-                    f'[SeleniumService] Could not detect Chrome version: {e}'
+                    '[SeleniumService] Could not detect Chrome version; '
+                    'undetected_chromedriver will pick a default version'
                 )
             # Start an undetected Chrome instance
             self._options.headless = self.headless  # Run in visible mode to reduce bot detection
@@ -544,10 +611,12 @@ class SeleniumService(ABC):
                 self._options.add_argument(
                     f"--user-data-dir={self._userdata}"
                 )
+            # Resolve chromedriver: prefer system-installed driver when its major
+            # version matches the browser; otherwise webdriver-manager with the
+            # major pinned so a stale local cache cannot serve a wrong driver.
+            chrome_major = _detect_browser_major_version()
             service = ChromeService(
-                ChromeDriverManager(
-                    cache_manager=DriverCacheManager(valid_range=1)
-                ).install()
+                _resolve_chromedriver_path(chrome_major, self._logger)
             )
             for option in self.chrome_options:
                 try:

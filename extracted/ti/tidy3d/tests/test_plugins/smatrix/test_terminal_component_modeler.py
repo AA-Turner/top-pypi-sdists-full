@@ -25,6 +25,7 @@ from tidy3d.components.microwave.data.dataset import TransmissionLineDataset
 from tidy3d.components.microwave.data.monitor_data import MicrowaveModeData
 from tidy3d.components.mode.mode_solver import ModeSolver
 from tidy3d.components.mode.simulation import ModeSimulation
+from tidy3d.components.monitor import WARN_NUM_FREQS
 from tidy3d.exceptions import (
     SetupError,
     Tidy3dError,
@@ -84,7 +85,7 @@ def run_component_modeler(
     )
 
     def _mock_compute_F(Z_numpy, s_param_def, compute_Finv=False):
-        num_freqs, num_ports, _ = Z_numpy.shape
+        _num_freqs, num_ports, _ = Z_numpy.shape
         Z_diag = np.diagonal(Z_numpy, axis1=1, axis2=2)
         f_diag = 1.0 / (2.0 * np.sqrt(np.abs(Z_diag) + 1e-4))
         F = np.zeros_like(Z_numpy)
@@ -344,6 +345,47 @@ def test_validate_freqs():
         _ = modeler.updated_copy(freqs=freqs)
 
 
+def test_warn_too_many_freqs():
+    """Warn when the modeler's 'freqs' exceeds the FreqMonitor soft limit."""
+    modeler = make_component_modeler(planar_pec=False)
+    many_freqs = np.linspace(1e9, 2e9, WARN_NUM_FREQS + 1)
+    with AssertLogStr("WARNING", contains_str="TerminalComponentModeler"):
+        _ = modeler.updated_copy(freqs=many_freqs)
+
+    # No "large number of frequencies" warning when under the threshold.
+    few_freqs = np.linspace(1e9, 2e9, WARN_NUM_FREQS)
+    with AssertLogStr("WARNING", excludes_str="large number"):
+        _ = modeler.updated_copy(freqs=few_freqs)
+
+
+def test_port_name_in_monitor_name():
+    """Port-generated monitors embed the port name in the monitor's ``name``
+    so the freq warning surfaces the port context.
+    """
+    modeler = make_component_modeler(planar_pec=False)
+    port = modeler.ports[0]
+    freqs = np.array([1e9])
+    many_freqs = np.linspace(1e9, 2e9, WARN_NUM_FREQS + 1)
+
+    voltage_mon = port.to_voltage_monitor(freqs=freqs)
+    assert port.name in voltage_mon.name
+    with AssertLogStr("WARNING", contains_str=voltage_mon.name):
+        _ = port.to_voltage_monitor(freqs=many_freqs)
+
+    current_mon = port.to_current_monitor(freqs=freqs)
+    assert port.name in current_mon.name
+    with AssertLogStr("WARNING", contains_str=current_mon.name):
+        _ = port.to_current_monitor(freqs=many_freqs)
+
+    # Also verify for AbstractWavePort (WavePort subclass).
+    wave_modeler = make_coaxial_component_modeler(port_types=(WavePort, WavePort))
+    wave_port = wave_modeler.ports[0]
+    (mode_mon,) = wave_port.to_monitors(freqs=freqs)
+    assert wave_port.name in mode_mon.name
+    with AssertLogStr("WARNING", contains_str=mode_mon.name):
+        _ = wave_port.to_monitors(freqs=many_freqs)
+
+
 def test_validate_3D_sim(tmp_path):
     modeler = make_component_modeler(planar_pec=False)
     sim = td.Simulation(
@@ -575,7 +617,7 @@ def test_complex_reference_s_to_z_component_modeler():
     assert np.all(np.isclose(z_tidy3d.values, Z))
 
     # Check that invalid s_param_def raises ValueError
-    with pytest.raises(ValueError, match="Unsupported S-parameter definition"):
+    with pytest.raises(ValueError, match=r"Unsupported S-parameter definition"):
         s_to_z(smatrix, reference=z0_tidy3d, s_param_def="invalid")
 
 
@@ -1302,7 +1344,7 @@ def test_port_source_snapped_to_PML(tmp_path):
         modeler.sim_dict
 
     with pytest.raises(SetupError):
-        modeler._shift_value_signed(port)
+        modeler._shift_value_signed(port, simulation=modeler.simulation)
 
     # also validate the negative side
     voltage_path = voltage_path.updated_copy(center=(-port_pos, 0, 0))
@@ -1322,7 +1364,7 @@ def test_port_source_snapped_to_PML(tmp_path):
         modeler.sim_dict
 
     with pytest.raises(SetupError):
-        modeler._shift_value_signed(port)
+        modeler._shift_value_signed(port, simulation=modeler.simulation)
 
 
 def test_port_impedance_check():
@@ -1723,7 +1765,7 @@ def test_internal_construct_smatrix_with_port_vi(monkeypatch):
     check_S_matrix(S_computed, S_symmetric_pseudo)
 
     # Check that invalid s_param_def raises ValueError
-    with pytest.raises(ValueError, match="Unsupported S-parameter definition"):
+    with pytest.raises(ValueError, match=r"Unsupported S-parameter definition"):
         modeler_data.smatrix(s_param_def="invalid")
 
 
@@ -1814,12 +1856,12 @@ def test_low_freq_smoothing_spec_validation_sampling_times_invalid():
 
     # Test invalid range where min_sampling_time >= max_sampling_time
     with pytest.raises(
-        ValueError, match="The minimum sampling time must be less than the maximum sampling time"
+        ValueError, match=r"The minimum sampling time must be less than the maximum sampling time"
     ):
         ModelerLowFrequencySmoothingSpec(min_sampling_time=5, max_sampling_time=3)
 
     with pytest.raises(
-        ValueError, match="The minimum sampling time must be less than the maximum sampling time"
+        ValueError, match=r"The minimum sampling time must be less than the maximum sampling time"
     ):
         ModelerLowFrequencySmoothingSpec(min_sampling_time=3, max_sampling_time=3)
 
@@ -2256,7 +2298,7 @@ def test_validate_run_only_uniqueness():
     port1_idx = modeler.network_index(modeler.ports[1])
 
     # Test with duplicate entries - should raise ValidationError
-    with pytest.raises(ValidationError, match="duplicate entries"):
+    with pytest.raises(ValidationError, match=r"duplicate entries"):
         modeler.updated_copy(run_only=(port0_idx, port0_idx, port1_idx))
 
 
@@ -2265,12 +2307,12 @@ def test_validate_run_only_membership():
     modeler = make_component_modeler(planar_pec=True)
 
     # Test with invalid index - should raise ValidationError
-    with pytest.raises(ValidationError, match="not present in"):
+    with pytest.raises(ValidationError, match=r"not present in"):
         modeler.updated_copy(run_only=("invalid_port_name",))
 
     # Test with partially invalid indices
     port0_idx = modeler.network_index(modeler.ports[0])
-    with pytest.raises(ValidationError, match="not present in"):
+    with pytest.raises(ValidationError, match=r"not present in"):
         modeler.updated_copy(run_only=(port0_idx, "invalid_port"))
 
 
@@ -2293,7 +2335,7 @@ def test_validate_run_only_with_wave_ports():
     assert modeler_updated.run_only == (port0_idx,)
 
     # Invalid case
-    with pytest.raises(ValidationError, match="not present in"):
+    with pytest.raises(ValidationError, match=r"not present in"):
         modeler.updated_copy(run_only=("nonexistent_wave_port",))
 
 
@@ -2364,13 +2406,13 @@ def test_radiation_monitors_auto():
     assert "auto_2" in monitor_names
 
     # Test 5: Buffer distance validation - should raise error with insufficient padding
-    with pytest.raises(ValueError, match="Automatic construction of radiation monitors failed"):
+    with pytest.raises(ValueError, match=r"Automatic construction of radiation monitors failed"):
         tcm_small = make_patch_antenna_modeler(padding=(0.01, 0.01, 0.5))
         tcm_small_with_auto = tcm_small.updated_copy(radiation_monitors=(DirectivityMonitorSpec(),))
         _ = tcm_small_with_auto.sim_dict["lumped_port"]
 
     # Test 6: Custom buffer parameter - smaller buffer should fail with tight padding
-    with pytest.raises(ValueError, match="Automatic construction of radiation monitors failed"):
+    with pytest.raises(ValueError, match=r"Automatic construction of radiation monitors failed"):
         tcm_tight = make_patch_antenna_modeler(padding=(0.05, 0.05, 0.5))
         tcm_tight_with_auto = tcm_tight.updated_copy(
             radiation_monitors=(DirectivityMonitorSpec(buffer=5),)  # Require 5 cells
@@ -2467,7 +2509,7 @@ def test_wave_port_mode_index_validation():
     assert port._mode_indices() == (0, 1, 2)
 
     # Invalid: negative index
-    with pytest.raises(ValidationError, match="non-negative"):
+    with pytest.raises(ValidationError, match=r"non-negative"):
         WavePort(
             center=(0, 0, -10),
             size=(0, 2, 2),
@@ -2478,7 +2520,7 @@ def test_wave_port_mode_index_validation():
         )
 
     # Invalid: index >= num_modes
-    with pytest.raises(ValidationError, match="mode_spec.num_modes"):
+    with pytest.raises(ValidationError, match=r"mode_spec.num_modes"):
         WavePort(
             center=(0, 0, -10),
             size=(0, 2, 2),
@@ -2489,7 +2531,7 @@ def test_wave_port_mode_index_validation():
         )
 
     # Invalid: duplicate indices
-    with pytest.raises(ValidationError, match="duplicate"):
+    with pytest.raises(ValidationError, match=r"duplicate"):
         WavePort(
             center=(0, 0, -10),
             size=(0, 2, 2),
@@ -2621,7 +2663,7 @@ def test_get_task_name():
     assert task_name == "lumped1"
 
     # Test with lumped port and mode_index - should raise ValueError
-    with pytest.raises(ValueError, match="mode_index.*should not be specified.*lumped port"):
+    with pytest.raises(ValueError, match=r"mode_index.*should not be specified.*lumped port"):
         TerminalComponentModeler.get_task_name(port=lumped_port, mode_index=0)
 
     # Test with CoaxialLumpedPort as well
@@ -2639,7 +2681,7 @@ def test_get_task_name():
     assert task_name == "coax1"
 
     # Test with coaxial lumped port and mode_index - should raise ValueError
-    with pytest.raises(ValueError, match="mode_index.*should not be specified.*lumped port"):
+    with pytest.raises(ValueError, match=r"mode_index.*should not be specified.*lumped port"):
         TerminalComponentModeler.get_task_name(port=coax_port, mode_index=1)
 
     wave_port = WavePort(
@@ -2793,7 +2835,7 @@ def _make_renormalize_fixture(monkeypatch):
 
 def test_renormalize_identity(monkeypatch):
     """Renormalizing to the same reference impedance gives the same S-matrix."""
-    modeler_data, Zref, *_ = _make_renormalize_fixture(monkeypatch)
+    modeler_data, _Zref, *_ = _make_renormalize_fixture(monkeypatch)
     freqs, port_names = _[3], _[4]
 
     s_orig = modeler_data.smatrix().data.values
@@ -2808,7 +2850,7 @@ def test_renormalize_identity(monkeypatch):
 
 def test_renormalize_z_matrix_invariance(monkeypatch):
     """Z-matrix should be the same regardless of reference impedance renormalization."""
-    modeler_data, Zref, Z0, gamma, length, freqs, port_names = _make_renormalize_fixture(
+    modeler_data, _Zref, _Z0, _gamma, _length, _freqs, _port_names = _make_renormalize_fixture(
         monkeypatch
     )
 
@@ -2842,7 +2884,7 @@ def test_renormalize_scalar(monkeypatch):
 
 def test_renormalize_port_data_array(monkeypatch):
     """Renormalize with a per-port PortDataArray impedance."""
-    modeler_data, Zref, Z0, gamma, length, freqs, port_names = _make_renormalize_fixture(
+    modeler_data, _Zref, Z0, gamma, length, freqs, port_names = _make_renormalize_fixture(
         monkeypatch
     )
 
@@ -2862,7 +2904,7 @@ def test_renormalize_port_data_array(monkeypatch):
 
 def test_renormalize_terminal_port_data_array(monkeypatch):
     """Renormalize with a full TerminalPortDataArray impedance matrix."""
-    modeler_data, Zref, Z0, gamma, length, freqs, port_names = _make_renormalize_fixture(
+    modeler_data, _Zref, Z0, gamma, length, freqs, port_names = _make_renormalize_fixture(
         monkeypatch
     )
 
@@ -3056,7 +3098,7 @@ def test_wave_port_auto_num_modes_modeler_validates_mode_selection_bounds():
 
     with pytest.raises(
         ValidationError,
-        match="'mode_spec.mode_selection' contains indices \\[1\\].*for port 'wave_auto'",
+        match=r"'mode_spec.mode_selection' contains indices \[1\].*for port 'wave_auto'",
     ):
         TerminalComponentModeler(simulation=sim, ports=[port], freqs=freqs)
 
@@ -3066,7 +3108,7 @@ def test_wave_port_auto_num_modes_modeler_validates_mode_index_bounds():
     sim, port, freqs = _make_wave_port_auto_num_modes_setup()
     port = port.updated_copy(mode_index=1)
 
-    with pytest.raises(ValidationError, match="'mode_index' is >= .*for port 'wave_auto'"):
+    with pytest.raises(ValidationError, match=r"'mode_index' is >= .*for port 'wave_auto'"):
         TerminalComponentModeler(simulation=sim, ports=[port], freqs=freqs)
 
 
@@ -3098,7 +3140,7 @@ def test_wave_port_auto_num_modes_to_mode_simulation_validates_mode_selection_bo
     sim, port, freqs = _make_wave_port_auto_num_modes_setup()
     port = port.updated_copy(mode_selection=(1,))
 
-    with pytest.raises(Tidy3dValidationError, match="'mode_selection' contains indices \\[1\\]"):
+    with pytest.raises(Tidy3dValidationError, match=r"'mode_selection' contains indices \[1\]"):
         port.to_mode_simulation(sim, freqs=freqs)
 
 
@@ -3107,7 +3149,7 @@ def test_wave_port_auto_num_modes_to_mode_simulation_validates_mode_index_bounds
     sim, port, freqs = _make_wave_port_auto_num_modes_setup()
     port = port.updated_copy(mode_index=1)
 
-    with pytest.raises(Tidy3dValidationError, match="'mode_index' is >="):
+    with pytest.raises(Tidy3dValidationError, match=r"'mode_index' is >="):
         port.to_mode_simulation(sim, freqs=freqs)
 
 
@@ -3139,13 +3181,13 @@ def test_wave_port_validate_resolved_mode_spec_errors():
         name="wp_auto",
         mode_spec=auto_mode_spec,
     )
-    with pytest.raises(SetupError, match="num_modes='auto'"):
+    with pytest.raises(SetupError, match=r"num_modes='auto'"):
         port._validate_resolved_mode_spec(auto_mode_spec)
 
     # _mode_spec is None and no explicit mode_spec → SetupError
     # This happens when mode_spec.num_modes='auto' and impedance_specs is also 'auto'
     assert port._mode_spec is None
-    with pytest.raises(SetupError, match="cannot be resolved"):
+    with pytest.raises(SetupError, match=r"cannot be resolved"):
         port._validate_resolved_mode_spec()
 
 

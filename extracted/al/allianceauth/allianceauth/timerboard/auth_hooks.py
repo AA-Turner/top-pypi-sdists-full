@@ -1,8 +1,8 @@
+from allianceauth import hooks
 from allianceauth.menu.hooks import MenuItemHook
 from allianceauth.services.hooks import UrlHook
-
-from allianceauth import hooks
 from allianceauth.timerboard.views import dashboard_timers
+
 from . import urls
 
 

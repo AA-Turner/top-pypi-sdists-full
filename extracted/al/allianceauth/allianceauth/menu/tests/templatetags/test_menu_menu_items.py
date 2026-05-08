@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Optional
+from typing import NamedTuple
 from unittest.mock import patch
 
 from bs4 import BeautifulSoup
@@ -347,9 +347,9 @@ class TestRenderedMenuItem(TestCase):
 
 
 class _ParsedMenuItem(NamedTuple):
-    classes: List[str]
+    classes: list[str]
     text: str
-    count: Optional[int]
+    count: int | None
 
 
 def parse_html(obj: RenderedMenuItem) -> _ParsedMenuItem:

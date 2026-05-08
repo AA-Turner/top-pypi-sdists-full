@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from celery import shared_task, chain
+from celery import chain, shared_task
 from requests.exceptions import HTTPError
 
 from django.contrib.auth.models import User
@@ -10,13 +10,10 @@ from django.db.models.query import QuerySet
 from allianceauth.services.tasks import QueueOnce
 
 from . import __title__
-from .app_settings import (
-    DISCORD_TASKS_MAX_RETRIES, DISCORD_TASKS_RETRY_PAUSE, DISCORD_SYNC_NAMES
-)
+from .app_settings import DISCORD_SYNC_NAMES, DISCORD_TASKS_MAX_RETRIES, DISCORD_TASKS_RETRY_PAUSE
 from .discord_client import DiscordApiBackoff
 from .models import DiscordUser
 from .utils import LoggerAddTag
-
 
 logger = LoggerAddTag(logging.getLogger(__name__), __title__)
 
@@ -92,12 +89,12 @@ def _task_perform_user_action(self, user_pk: int, method: str, **kwargs) -> None
                 bo,
                 bo.retry_after_seconds
             )
-            raise self.retry(countdown=bo.retry_after_seconds)
+            raise self.retry(countdown=bo.retry_after_seconds) from bo
 
-        except AttributeError:
-            raise ValueError(f'{method} not a valid method for DiscordUser')
+        except AttributeError as e:
+            raise ValueError(f'{method} not a valid method for DiscordUser') from e
 
-        except (HTTPError, ConnectionError):
+        except (HTTPError, ConnectionError) as e:
             logger.warning(
                 '%s failed for user %s, retrying in %d secs',
                 method,
@@ -106,7 +103,7 @@ def _task_perform_user_action(self, user_pk: int, method: str, **kwargs) -> None
                 exc_info=True
             )
             if self.request.retries < DISCORD_TASKS_MAX_RETRIES:
-                raise self.retry(countdown=DISCORD_TASKS_RETRY_PAUSE)
+                raise self.retry(countdown=DISCORD_TASKS_RETRY_PAUSE) from e
             else:
                 logger.error(
                     '%s failed for user %s after max retries',
@@ -152,7 +149,7 @@ def _bulk_update_groups_for_users(discord_users_qs: QuerySet) -> None:
     logger.info(
         "Starting to bulk update discord roles for %d users", discord_users_qs.count()
     )
-    update_groups_chain = list()
+    update_groups_chain = []
     for discord_user in discord_users_qs:
         update_groups_chain.append(update_groups.si(discord_user.user.pk))
 
@@ -180,7 +177,7 @@ def _bulk_update_nicknames_for_users(discord_users_qs: QuerySet) -> None:
         "Starting to bulk update discord nicknames for %d users",
         discord_users_qs.count()
     )
-    update_nicknames_chain = list()
+    update_nicknames_chain = []
     for discord_user in discord_users_qs:
         update_nicknames_chain.append(update_nickname.si(discord_user.user.pk))
 
@@ -195,8 +192,8 @@ def _task_perform_users_action(self, method: str, **kwargs) -> Any:
     try:
         result = getattr(DiscordUser.objects, method)(**kwargs)
 
-    except AttributeError:
-        raise ValueError(f'{method} not a valid method for DiscordUser.objects')
+    except AttributeError as e:
+        raise ValueError(f'{method} not a valid method for DiscordUser.objects') from e
 
     except DiscordApiBackoff as bo:
         logger.info(
@@ -205,9 +202,9 @@ def _task_perform_users_action(self, method: str, **kwargs) -> Any:
             bo,
             bo.retry_after_seconds
         )
-        raise self.retry(countdown=bo.retry_after_seconds)
+        raise self.retry(countdown=bo.retry_after_seconds) from bo
 
-    except (HTTPError, ConnectionError):
+    except (HTTPError, ConnectionError) as e:
         logger.warning(
             '%s failed, retrying in %d secs',
             method,
@@ -215,7 +212,7 @@ def _task_perform_users_action(self, method: str, **kwargs) -> Any:
             exc_info=True
         )
         if self.request.retries < DISCORD_TASKS_MAX_RETRIES:
-            raise self.retry(countdown=DISCORD_TASKS_RETRY_PAUSE)
+            raise self.retry(countdown=DISCORD_TASKS_RETRY_PAUSE) from e
         else:
             logger.error('%s failed after max retries', method, exc_info=True)
 
@@ -257,7 +254,7 @@ def _bulk_update_usernames_for_users(discord_users_qs: QuerySet) -> None:
         "Starting to bulk update discord usernames for %d users",
         discord_users_qs.count()
     )
-    update_usernames_chain = list()
+    update_usernames_chain = []
     for discord_user in discord_users_qs:
         update_usernames_chain.append(update_username.si(discord_user.user.pk))
 
@@ -271,7 +268,7 @@ def update_all() -> None:
     logger.info(
         'Starting to bulk update all for %s Discord users', discord_users_qs.count()
     )
-    update_all_chain = list()
+    update_all_chain = []
     for discord_user in discord_users_qs:
         update_all_chain.append(update_groups.si(discord_user.user.pk))
         update_all_chain.append(update_username.si(discord_user.user.pk))

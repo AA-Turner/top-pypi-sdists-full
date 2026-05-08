@@ -1,14 +1,20 @@
+from types import SimpleNamespace
 from unittest import mock
 
-from django.test import TestCase
-from allianceauth.tests.auth_utils import AuthUtils
-from .models import CorpStats, CorpMember
-from allianceauth.eveonline.models import EveCorporationInfo, EveAllianceInfo, EveCharacter
-from esi.models import Token
-from esi.errors import TokenError
-from bravado.exception import HTTPForbidden
 from django.contrib.auth.models import Permission
+from django.test import TestCase
+
+from esi.errors import TokenError
+from esi.exceptions import HTTPClientError
+from esi.models import Token
+
 from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.eveonline.models import (
+    EveAllianceInfo, EveCharacter, EveCorporationInfo,
+)
+from allianceauth.tests.auth_utils import AuthUtils
+
+from .models import CorpMember, CorpStats
 
 
 class CorpStatsManagerTestCase(TestCase):
@@ -82,45 +88,83 @@ class CorpStatsUpdateTestCase(TestCase):
         self.user.refresh_from_db()
         self.corpstats.token.refresh_from_db()
 
-    @mock.patch('esi.clients.SwaggerClient')
-    def test_update_add_member(self, SwaggerClient):
-        SwaggerClient.from_spec.return_value.Character.get_characters_character_id.return_value.result.return_value = {'corporation_id': 2}
-        SwaggerClient.from_spec.return_value.Corporation.get_corporations_corporation_id_members.return_value.result.return_value = [1]
-        SwaggerClient.from_spec.return_value.Universe.post_universe_names.return_value.result.return_value = [{'id': 1, 'name': 'test character'}]
+    @mock.patch('allianceauth.corputils.models.post_universe_names')
+    @mock.patch('allianceauth.corputils.models.get_corporations_corporation_id_members')
+    @mock.patch('allianceauth.corputils.models.get_characters_character_id')
+    def test_update_add_member(
+        self,
+        mock_get_characters_character_id,
+        mock_get_corporations_corporation_id_members,
+        mock_post_universe_names,
+    ):
+        mock_get_characters_character_id.return_value = SimpleNamespace(corporation_id=2)
+        mock_get_corporations_corporation_id_members.return_value = [1]
+        mock_post_universe_names.return_value = [
+            SimpleNamespace(id=1, name='test character'),
+        ]
         self.corpstats.update()
         self.assertTrue(CorpMember.objects.filter(character_id=1, character_name='test character', corpstats=self.corpstats).exists())
 
-    @mock.patch('esi.clients.SwaggerClient')
-    def test_update_remove_member(self, SwaggerClient):
+    @mock.patch('allianceauth.corputils.models.post_universe_names')
+    @mock.patch('allianceauth.corputils.models.get_corporations_corporation_id_members')
+    @mock.patch('allianceauth.corputils.models.get_characters_character_id')
+    def test_update_remove_member(
+        self,
+        mock_get_characters_character_id,
+        mock_get_corporations_corporation_id_members,
+        mock_post_universe_names,
+    ):
         CorpMember.objects.create(character_id=2, character_name='old test character', corpstats=self.corpstats)
-        SwaggerClient.from_spec.return_value.Character.get_characters_character_id.return_value.result.return_value = {'corporation_id': 2}
-        SwaggerClient.from_spec.return_value.Corporation.get_corporations_corporation_id_members.return_value.result.return_value = [1]
-        SwaggerClient.from_spec.return_value.Universe.post_universe_names.return_value.result.return_value = [{'id': 1, 'name': 'test character'}]
+        mock_get_characters_character_id.return_value = SimpleNamespace(corporation_id=2)
+        mock_get_corporations_corporation_id_members.return_value = [1]
+        mock_post_universe_names.return_value = [
+            SimpleNamespace(id=1, name='test character'),
+        ]
         self.corpstats.update()
         self.assertFalse(CorpMember.objects.filter(character_id='2', corpstats=self.corpstats).exists())
 
     @mock.patch('allianceauth.corputils.models.notify')
-    @mock.patch('esi.clients.SwaggerClient')
-    def test_update_deleted_token(self, SwaggerClient, notify):
-        SwaggerClient.from_spec.return_value.Character.get_characters_character_id.return_value.result.return_value = {'corporation_id': 2}
-        SwaggerClient.from_spec.return_value.Corporation.get_corporations_corporation_id_members.return_value.result.side_effect = TokenError()
+    @mock.patch('allianceauth.corputils.models.get_corporations_corporation_id_members')
+    @mock.patch('allianceauth.corputils.models.get_characters_character_id')
+    def test_update_deleted_token(
+        self,
+        mock_get_characters_character_id,
+        mock_get_corporations_corporation_id_members,
+        notify,
+    ):
+        mock_get_characters_character_id.return_value = SimpleNamespace(corporation_id=2)
+        mock_get_corporations_corporation_id_members.side_effect = TokenError()
         self.corpstats.update()
         self.assertFalse(CorpStats.objects.filter(corp=self.corp).exists())
         self.assertTrue(notify.called)
 
     @mock.patch('allianceauth.corputils.models.notify')
-    @mock.patch('esi.clients.SwaggerClient')
-    def test_update_http_forbidden(self, SwaggerClient, notify):
-        SwaggerClient.from_spec.return_value.Character.get_characters_character_id.return_value.result.return_value = {'corporation_id': 2}
-        SwaggerClient.from_spec.return_value.Corporation.get_corporations_corporation_id_members.return_value.result.side_effect = HTTPForbidden(mock.Mock())
+    @mock.patch('allianceauth.corputils.models.get_corporations_corporation_id_members')
+    @mock.patch('allianceauth.corputils.models.get_characters_character_id')
+    def test_update_http_forbidden(
+        self,
+        mock_get_characters_character_id,
+        mock_get_corporations_corporation_id_members,
+        notify,
+    ):
+        mock_get_characters_character_id.return_value = SimpleNamespace(corporation_id=2)
+        mock_get_corporations_corporation_id_members.side_effect = HTTPClientError(
+            status_code=403,
+            headers={},
+            data=mock.Mock(),
+        )
         self.corpstats.update()
         self.assertFalse(CorpStats.objects.filter(corp=self.corp).exists())
         self.assertTrue(notify.called)
 
     @mock.patch('allianceauth.corputils.models.notify')
-    @mock.patch('esi.clients.SwaggerClient')
-    def test_update_token_character_corp_changed(self, SwaggerClient, notify):
-        SwaggerClient.from_spec.return_value.Character.get_characters_character_id.return_value.result.return_value = {'corporation_id': 3}
+    @mock.patch('allianceauth.corputils.models.get_characters_character_id')
+    def test_update_token_character_corp_changed(
+        self,
+        mock_get_characters_character_id,
+        notify,
+    ):
+        mock_get_characters_character_id.return_value = SimpleNamespace(corporation_id=3)
         self.corpstats.update()
         self.assertFalse(CorpStats.objects.filter(corp=self.corp).exists())
         self.assertTrue(notify.called)
@@ -227,12 +271,12 @@ class CorpMemberTestCase(TestCase):
         cls.corpstats = CorpStats.objects.create(token=cls.token, corp=cls.corp)
         cls.member = CorpMember.objects.create(corpstats=cls.corpstats, character_id=2, character_name='other test character')
 
-    def test_character(self):
+    def test_character(self) -> None:
         self.assertIsNone(self.member.character)
         character = EveCharacter.objects.create(character_id=2, character_name='other test character', corporation_id=2, corporation_name='test corp', corporation_ticker='TEST')
         self.assertEqual(self.member.character, character)
 
-    def test_main_character(self):
+    def test_main_character(self) -> None:
         AuthUtils.disconnect_signals()
 
         # test when member.character is None
@@ -258,14 +302,14 @@ class CorpMemberTestCase(TestCase):
         self.user.profile.save()
         AuthUtils.connect_signals()
 
-    def test_alts(self):
+    def test_alts(self) -> None:
         self.assertListEqual(self.member.alts, [])
 
         character = EveCharacter.objects.create(character_id=2, character_name='other test character', corporation_id=2, corporation_name='test corp', corporation_ticker='TEST')
         CharacterOwnership.objects.create(character=character, user=self.user, owner_hash='b')
         self.assertIn(character, self.member.alts)
 
-    def test_registered(self):
+    def test_registered(self) -> None:
         self.assertFalse(self.member.registered)
         AuthUtils.disconnect_signals()
         character = EveCharacter.objects.create(character_id=2, character_name='other test character', corporation_id=2, corporation_name='test corp', corporation_ticker='TEST')
@@ -273,7 +317,7 @@ class CorpMemberTestCase(TestCase):
         self.assertTrue(self.member.registered)
         AuthUtils.connect_signals()
 
-    def test_portrait_url(self):
+    def test_portrait_url(self) -> None:
         self.assertEqual(self.member.portrait_url(size=32), 'https://images.evetech.net/characters/2/portrait?size=32')
         self.assertEqual(self.member.portrait_url(size=32), self.member.portrait_url_32)
         self.assertEqual(self.member.portrait_url(size=64), self.member.portrait_url_64)

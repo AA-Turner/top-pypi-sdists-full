@@ -1,6 +1,3 @@
-from typing import List, Optional, Union
-
-
 class ThemeHook:
     """
     Theme hook for injecting a Bootstrap 5 Theme and associated JS into alliance auth.
@@ -10,13 +7,13 @@ class ThemeHook:
     def __init__(self,
         name: str,
         description: str,
-        css: List[dict],
-        js: List[dict],
-        css_template: Optional[str] = None,
-        js_template: Optional[str] = None,
-        js_type: Optional[str] = None,
-        html_tags: Optional[Union[dict, str]] = None,
-        header_padding: Optional[str] = "4em"
+        css: list[dict],
+        js: list[dict],
+        css_template: str | None = None,
+        js_template: str | None = None,
+        js_type: str | None = None,
+        html_tags: dict | str | None = None,
+        header_padding: str | None = "4em"
     ):
         """
         :param name: Theme python name

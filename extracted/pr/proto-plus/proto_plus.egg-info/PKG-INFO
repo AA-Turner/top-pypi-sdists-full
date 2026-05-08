@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: proto-plus
-Version: 1.27.2
+Version: 1.28.0
 Summary: Beautiful, Pythonic protocol buffers
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache 2.0
@@ -12,7 +12,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -21,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: protobuf<8.0.0,>=4.25.8

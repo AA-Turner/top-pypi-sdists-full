@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-cloud-cli
-Version: 1.13.3
+Version: 1.13.4
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-cloud-cli
 Author-email: Dagster Labs <hello@dagsterlabs.com>
 License-Expression: Apache-2.0
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: click
-Requires-Dist: dagster-shared==1.13.3
+Requires-Dist: dagster-shared==1.13.4
 Requires-Dist: github3-py
 Requires-Dist: jinja2
 Requires-Dist: packaging>=20.9
@@ -27,5 +27,6 @@ Provides-Extra: test
 Requires-Dist: flaky; extra == 'test'
 Requires-Dist: freezegun; extra == 'test'
 Requires-Dist: pex<2.60.0,>=2.1.132; extra == 'test'
+Requires-Dist: pip; extra == 'test'
 Requires-Dist: pytest-mock==3.14.0; extra == 'test'
 Requires-Dist: pytest>=8; extra == 'test'

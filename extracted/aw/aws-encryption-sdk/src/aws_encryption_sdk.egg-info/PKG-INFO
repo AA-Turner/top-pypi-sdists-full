@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-encryption-sdk
-Version: 4.0.5
+Version: 4.0.6
 Summary: AWS Encryption SDK implementation for Python
 Home-page: https://github.com/aws/aws-encryption-sdk-python
 Author: Amazon Web Services

@@ -1,28 +1,26 @@
-import inspect
 import json
 import os
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.utils.timezone import now
 from django.test import TestCase
+from django.utils.timezone import now
 
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..managers import SRPManager
-from ..models import SrpUserRequest, SrpFleetMain
+from ..models import SrpFleetMain, SrpUserRequest
 
 MODULE_PATH = 'allianceauth.srp.managers'
 
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(
-    inspect.currentframe()
-)))
+currentdir = os.path.dirname(os.path.abspath(__file__))
 
 
 def load_data(filename):
     """loads given JSON file from `testdata` sub folder and returns content"""
     with open(
-        currentdir + '/testdata/%s.json' % filename, encoding='utf-8'
+        currentdir + f'/testdata/{filename}.json', encoding='utf-8'
     ) as f:
         data = json.load(f)
 
@@ -31,22 +29,23 @@ def load_data(filename):
 
 class TestSrpManager(TestCase):
 
-    def test_can_extract_kill_id(self):
+    def test_can_extract_kill_id(self) -> None:
         link = 'https://zkillboard.com/kill/81973979/'
         expected = 81973979
         self.assertEqual(int(SRPManager.get_kill_id(link)), expected)
 
-    @patch(MODULE_PATH + '.esi')
+    @patch(MODULE_PATH + '.get_killmails_killmail_id_killmail_hash')
     @patch(MODULE_PATH + '.requests.get')
-    def test_can_get_kill_data(self, mock_get, mock_provider):
+    def test_can_get_kill_data(self, mock_get, mock_get_killmail) -> None:
         mock_get.return_value.json.return_value = load_data(
             'zkillboard_killmail_api_81973979'
         )
-        mock_provider.client.Killmails.\
-            get_killmails_killmail_id_killmail_hash.return_value.\
-            result.return_value = load_data(
-                'get_killmails_killmail_id_killmail_hash_81973979'
+        mock_get_killmail.return_value = SimpleNamespace(
+            victim=SimpleNamespace(
+                ship_type_id=19720,
+                character_id=93330670,
             )
+        )
 
         ship_type, ship_value, victim_id = SRPManager.get_kill_data(81973979)
         self.assertEqual(ship_type, 19720)
@@ -54,28 +53,26 @@ class TestSrpManager(TestCase):
         self.assertEqual(victim_id, 93330670)
 
     @patch(MODULE_PATH + '.requests.get')
-    def test_invalid_id_for_zkb_raises_exception(self, mock_get):
+    def test_invalid_id_for_zkb_raises_exception(self, mock_get) -> None:
         mock_get.return_value.json.return_value = ['']
 
         with self.assertRaises(ValueError):
             SRPManager.get_kill_data(81973979)
 
-    @patch(MODULE_PATH + '.esi')
+    @patch(MODULE_PATH + '.get_killmails_killmail_id_killmail_hash')
     @patch(MODULE_PATH + '.requests.get')
     def test_invalid_id_for_esi_raises_exception(
-        self, mock_get, mock_provider
+        self, mock_get, mock_get_killmail
     ):
         mock_get.return_value.json.return_value = load_data(
             'zkillboard_killmail_api_81973979'
         )
-        mock_provider.client.Killmails.\
-            get_killmails_killmail_id_killmail_hash.return_value.\
-            result.return_value = None
+        mock_get_killmail.return_value = None
 
         with self.assertRaises(ValueError):
             SRPManager.get_kill_data(81973979)
 
-    def test_pending_requests_count_for_user(self):
+    def test_pending_requests_count_for_user(self) -> None:
         user = AuthUtils.create_member("Bruce Wayne")
 
         # when no permission to approve SRP requests

@@ -1,9 +1,9 @@
-from django.contrib import admin
-from django.db import models
-from .models import AutogroupsConfig, ManagedCorpGroup, ManagedAllianceGroup
-
 import logging
 
+from django.contrib import admin
+from django.db import models
+
+from .models import AutogroupsConfig, ManagedAllianceGroup, ManagedCorpGroup
 
 logger = logging.getLogger(__name__)
 

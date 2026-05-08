@@ -4,10 +4,8 @@ import os
 from pathlib import Path
 
 REQUIRED_KEYS = {
-    "STAGEHAND_API_URL",
     "MODEL_API_KEY",
     "BROWSERBASE_API_KEY",
-    "BROWSERBASE_PROJECT_ID",
 }
 
 
@@ -43,9 +41,6 @@ def load_example_env() -> None:
             + ", ".join(missing)
             + " (from examples/.env)"
         )
-
-    # Normalize for SDKs that expect STAGEHAND_BASE_URL
-    os.environ.setdefault("STAGEHAND_BASE_URL", os.environ["STAGEHAND_API_URL"])
 
     # Use the repo-local SEA binary when available (avoid global installs).
     sea_binary = env_path.parent.parent / "bin" / "sea" / "stagehand-darwin-arm64"

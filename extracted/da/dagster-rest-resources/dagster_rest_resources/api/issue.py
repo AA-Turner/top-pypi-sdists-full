@@ -75,8 +75,12 @@ class DgApiIssueApi:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def create_issue(self, title: str, description: str) -> DgApiIssue:
-        result = self._client.create_issue(title=title, description=description).create_issue
+    def create_issue(
+        self, title: str, description: str, status: IssueStatus | None = None
+    ) -> DgApiIssue:
+        result = self._client.create_issue(title=title, description=description, status=status)
+
+        result = result.create_issue
 
         match result.typename__:
             case "CreateIssueSuccess":
@@ -114,7 +118,7 @@ class DgApiIssueApi:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def add_link_to_issue(
+    def create_link_on_issue(
         self,
         issue_id: str,
         run_id: str | None = None,
@@ -138,7 +142,7 @@ class DgApiIssueApi:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    def remove_link_from_issue(
+    def delete_link_from_issue(
         self,
         issue_id: str,
         run_id: str | None = None,

@@ -4,9 +4,9 @@ from django.contrib import admin
 
 from ...admin import ServicesUserAdmin
 from . import __title__
+from .auth_hooks import DiscordService
 from .models import DiscordUser
 from .utils import LoggerAddTag
-from .auth_hooks import DiscordService
 
 logger = LoggerAddTag(logging.getLogger(__name__), __title__)
 

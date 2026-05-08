@@ -1,13 +1,13 @@
 import logging
 
 from django.db import transaction
-from django.db.models.signals import m2m_changed
-from django.db.models.signals import post_delete
-from django.db.models.signals import post_save
+from django.db.models.signals import m2m_changed, post_delete, post_save
 from django.dispatch import receiver
+
 from allianceauth.authentication.signals import state_changed
-from .tasks import Teamspeak3Tasks
+
 from .models import AuthTS, StateGroup
+from .tasks import Teamspeak3Tasks
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +26,13 @@ def m2m_changed_authts_group(sender, instance, action, *args, **kwargs):
 
 @receiver(post_save, sender=AuthTS)
 def post_save_authts(sender, instance, *args, **kwargs):
-    logger.debug("Received post_save from %s" % instance)
+    logger.debug(f"Received post_save from {instance}")
     transaction.on_commit(trigger_all_ts_update)
 
 
 @receiver(post_delete, sender=AuthTS)
 def post_delete_authts(sender, instance, *args, **kwargs):
-    logger.debug("Received post_delete signal from %s" % instance)
+    logger.debug(f"Received post_delete signal from {instance}")
     transaction.on_commit(trigger_all_ts_update)
 
 

@@ -1,19 +1,14 @@
+from collections.abc import Iterable
 from string import Formatter
-from django.urls import include, re_path
-from typing import Iterable, Optional
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from django.template.loader import render_to_string
 from django.urls import include, re_path
 from django.utils.functional import cached_property
 
+from allianceauth.admin_status.hooks import AppAnnouncementHook
 from allianceauth.hooks import get_hooks
 from allianceauth.menu.hooks import MenuItemHook
-from django.conf import settings
-from django.urls import include, re_path
-from django.core.exceptions import ObjectDoesNotExist
-from django.utils.functional import cached_property
 
 from .models import NameFormatConfig
 
@@ -125,7 +120,7 @@ class ServicesHook:
         """
         return ''
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name or 'Unknown Service Module'
 
     class Urls:
@@ -147,6 +142,17 @@ class MenuItemHook(MenuItemHook):
 
     :param MenuItemHook: _description_
     :type MenuItemHook: _type_
+    """
+    def __init_subclass__(cls) -> None:
+        return super().__init_subclass__()
+
+
+class AppAnnouncementHook(AppAnnouncementHook):
+    """
+    AppAnnouncementHook shim to allianceauth.admin_status.hooks
+
+    :param AppAnnouncementHook: _description_
+    :type AppAnnouncementHook: _type_
     """
     def __init_subclass__(cls) -> None:
         return super().__init_subclass__()
@@ -175,8 +181,8 @@ class UrlHook:
             urls,
             namespace: str,
             base_url: str,
-            excluded_views : Optional[Iterable[str]] = None
-    ):
+            excluded_views: Iterable[str] | None = None
+    ) -> None:
         self.include_pattern = re_path(base_url, include(urls, namespace=namespace))
         self.excluded_views = set(excluded_views or [])
 

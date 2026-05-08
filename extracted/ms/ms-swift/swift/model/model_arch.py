@@ -55,11 +55,13 @@ class MLLMModelArch:
     internvl = 'internvl'
     interns1 = 'interns1'
     minicpmv = 'minicpmv'
+    minicpmo = 'minicpmo'
     deepseek_vl = 'deepseek_vl'
     deepseek_vl2 = 'deepseek_vl2'
     deepseek_janus = 'deepseek_janus'
     deepseek_ocr = 'deepseek_ocr'
     deepseek_ocr2 = 'deepseek_ocr2'
+    kimi_k25 = 'kimi_k25'
 
     mplug_owl2 = 'mplug_owl2'
     mplug_owl2_1 = 'mplug_owl2_1'
@@ -390,6 +392,14 @@ register_model_arch(
 
 register_model_arch(
     MultiModelKeys(
+        MLLMModelArch.kimi_k25,
+        language_model='language_model',
+        aligner='mm_projector',
+        vision_tower='vision_tower',
+    ))
+
+register_model_arch(
+    MultiModelKeys(
         MLLMModelArch.xcomposer,
         language_model='model',
         aligner='vision_proj',
@@ -474,6 +484,14 @@ register_model_arch(
         language_model='llm',
         aligner='resampler',
         vision_tower='vpm',
+    ))
+
+register_model_arch(
+    MultiModelKeys(
+        MLLMModelArch.minicpmo,
+        language_model='llm',
+        aligner='resampler',
+        vision_tower=['vpm', 'apm'],
     ))
 
 register_model_arch(

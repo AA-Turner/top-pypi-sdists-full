@@ -1,53 +1,90 @@
-from bravado.exception import HTTPNotFound
+from types import SimpleNamespace
+from typing import Any, NoReturn, Optional, cast
+
+from esi.exceptions import HTTPClientError
 
 
-class BravadoResponseStub:
-    """Stub for IncomingResponse in bravado, e.g. for HTTPError exceptions"""
-
-    def __init__(
-        self, status_code, reason="", text="", headers=None, raw_bytes=None
-    ) -> None:
-        self.reason = reason
-        self.status_code = status_code
-        self.text = text
-        self.headers = headers if headers else dict()
-        self.raw_bytes = raw_bytes
-
-    def __str__(self):
-        return f"{self.status_code} {self.reason}"
-
-
-class BravadoOperationStub:
-    """Stub to simulate the operation object return from bravado via django-esi"""
-
-    class RequestConfig:
-        def __init__(self, also_return_response):
-            self.also_return_response = also_return_response
+class OpenAPIOperationStub:
+    """Stub to simulate aiopenapi3 EsiOperation behavior used in tests."""
 
     class ResponseStub:
-        def __init__(self, headers):
+        def __init__(self, headers: dict, status_code: int = 200) -> None:
             self.headers = headers
+            self.status_code = status_code
 
-    def __init__(self, data, headers: dict = None, also_return_response: bool = False):
+    def __init__(
+        self,
+        data,
+        headers: dict | None = None,
+    ):
         self._data = data
         self._headers = headers if headers else {"x-pages": 1}
-        self.request_config = BravadoOperationStub.RequestConfig(also_return_response)
+        self._args = []
+        self._kwargs = {}
+
+    @classmethod
+    def _to_namespace(cls, value):
+        if isinstance(value, dict):
+            return SimpleNamespace(**{k: cls._to_namespace(v) for k, v in value.items()})
+        if isinstance(value, list):
+            return [cls._to_namespace(v) for v in value]
+        return value
+
+    def __call__(self, *args, **kwargs) -> "OpenAPIOperationStub":
+        self._args = args
+        self._kwargs = kwargs
+        return self
+
+    def _resolve_data(self):
+        data = self._data(*self._args, **self._kwargs) if callable(self._data) else self._data
+        return self._to_namespace(data)
 
     def result(self, **kwargs):
-        if self.request_config.also_return_response:
-            return [self._data, self.ResponseStub(self._headers)]
-        else:
-            return self._data
+        return_response = kwargs.pop("return_response", False)
+        _ = kwargs.pop("use_etag", None)
+        _ = kwargs.pop("force_refresh", None)
+        _ = kwargs.pop("use_cache", None)
+        _ = kwargs.pop("store_cache", None)
+        data = self._resolve_data()
+        response = self.ResponseStub(self._headers)
+        if return_response:
+            return data, response
+        return data
 
     def results(self, **kwargs):
-        return self.result(**kwargs)
+        return_response = kwargs.pop("return_response", False)
+        data = self.result(**kwargs)
+        if return_response:
+            results, response = data
+            if not isinstance(results, list):
+                results = [results]
+            return results, response
+        if not isinstance(data, list):
+            return [data]
+        return data
 
 
 class EsiClientStub:
     """Stub for an ESI client."""
+
+    @staticmethod
+    def _operation(data, headers: dict | None = None) -> OpenAPIOperationStub:
+        return OpenAPIOperationStub(data, headers=headers)
+
+    @staticmethod
+    def _raise_not_found(resource: str, resource_id: int) -> NoReturn:
+        raise HTTPClientError(
+            status_code=404,
+            headers={},
+            data=cast(
+                Any,
+                {"detail": f"{resource.title()} with ID {resource_id} not found"},
+            ),
+        )
+
     class Alliance:
         @staticmethod
-        def get_alliances_alliance_id(alliance_id):
+        def GetAlliancesAllianceId(alliance_id) -> OpenAPIOperationStub:
             data = {
                 3001: {
                     "name": "Wayne Enterprises",
@@ -56,21 +93,21 @@ class EsiClientStub:
                 }
             }
             try:
-                return BravadoOperationStub(data[int(alliance_id)])
+                return EsiClientStub._operation(data[int(alliance_id)])
             except KeyError:
-                response = BravadoResponseStub(
-                    404, f"Alliance with ID {alliance_id} not found"
-                )
-                raise HTTPNotFound(response)
+                EsiClientStub._raise_not_found("alliances", int(alliance_id))
 
         @staticmethod
-        def get_alliances_alliance_id_corporations(alliance_id):
+        def GetAlliancesAllianceIdCorporations(alliance_id) -> OpenAPIOperationStub:
             data = [2001, 2002, 2003]
-            return BravadoOperationStub(data)
+            return EsiClientStub._operation(data)
+
+        get_alliances_alliance_id = GetAlliancesAllianceId
+        get_alliances_alliance_id_corporations = GetAlliancesAllianceIdCorporations
 
     class Character:
         @staticmethod
-        def get_characters_character_id(character_id):
+        def GetCharactersCharacterId(character_id) -> OpenAPIOperationStub:
             data = {
                 1001: {
                     "corporation_id": 2001,
@@ -86,28 +123,31 @@ class EsiClientStub:
                 }
             }
             try:
-                return BravadoOperationStub(data[int(character_id)])
+                return EsiClientStub._operation(data[int(character_id)])
             except KeyError:
-                response = BravadoResponseStub(
-                    404, f"Character with ID {character_id} not found"
-                )
-                raise HTTPNotFound(response)
+                EsiClientStub._raise_not_found("characters", int(character_id))
 
         @staticmethod
-        def post_characters_affiliation(characters: list):
+        def PostCharactersAffiliation(body: list) -> OpenAPIOperationStub:
             data = [
                 {'character_id': 1001, 'corporation_id': 2001, 'alliance_id': 3001},
                 {'character_id': 1002, 'corporation_id': 2001, 'alliance_id': 3001},
                 {'character_id': 1011, 'corporation_id': 2011},
                 {'character_id': 1666, 'corporation_id': 1000001},
             ]
-            return BravadoOperationStub(
-                [x for x in data if x['character_id'] in characters]
+            return EsiClientStub._operation(
+                [x for x in data if x['character_id'] in body]
             )
+
+        @staticmethod
+        def post_characters_affiliation(characters: list) -> OpenAPIOperationStub:
+            return EsiClientStub.Character.PostCharactersAffiliation(body=characters)
+
+        get_characters_character_id = GetCharactersCharacterId
 
     class Corporation:
         @staticmethod
-        def get_corporations_corporation_id(corporation_id):
+        def GetCorporationsCorporationId(corporation_id) -> OpenAPIOperationStub:
             data = {
                 2001: {
                     "ceo_id": 1091,
@@ -146,23 +186,24 @@ class EsiClientStub:
                 }
             }
             try:
-                return BravadoOperationStub(data[int(corporation_id)])
+                return EsiClientStub._operation(data[int(corporation_id)])
             except KeyError:
-                response = BravadoResponseStub(
-                    404, f"Corporation with ID {corporation_id} not found"
-                )
-                raise HTTPNotFound(response)
+                EsiClientStub._raise_not_found("corporations", int(corporation_id))
+
+        get_corporations_corporation_id = GetCorporationsCorporationId
 
     class Universe:
         @staticmethod
-        def post_universe_names(ids: list):
+        def PostUniverseNames(body: list) -> OpenAPIOperationStub:
             data = [
                 {"category": "character", "id": 1001, "name": "Bruce Wayne"},
                 {"category": "character", "id": 1002, "name": "Peter Parker"},
                 {"category": "character", "id": 1011, "name": "Lex Luthor"},
                 {"category": "character", "id": 1666, "name": "Hal Jordan"},
                 {"category": "corporation", "id": 2001, "name": "Wayne Technologies"},
-                {"category": "corporation","id": 2002, "name": "Wayne Food"},
-                {"category": "corporation","id": 1000001, "name": "Doomheim"},
+                {"category": "corporation", "id": 2002, "name": "Wayne Food"},
+                {"category": "corporation", "id": 1000001, "name": "Doomheim"},
             ]
-            return BravadoOperationStub([x for x in data if x['id'] in ids])
+            return EsiClientStub._operation([x for x in data if x['id'] in body])
+
+        post_universe_names = PostUniverseNames

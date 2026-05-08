@@ -1,10 +1,10 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ._tile import Tile
-
 from .._internal import expect, positive
 from ..math import Point
+
+from ._tile import Tile
 
 from numbers import Real
 import numpy as np

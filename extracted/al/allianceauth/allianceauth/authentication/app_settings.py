@@ -25,7 +25,7 @@ def _clean_setting(
     if not required_type:
         required_type = type(default_value)
 
-    if min_value is None and required_type == int:
+    if min_value is None and required_type is int:
         min_value = 0
 
     if (hasattr(settings, name)

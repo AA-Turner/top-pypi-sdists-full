@@ -9,7 +9,7 @@ quickcheck = { git = "https://github.com/jakoschiko/quickcheck", rev = "6ecdf5bb
 debug = 1
 lto = true
 codegen-units = 1
-strip = false
+strip = "debuginfo"
 
 [workspace]
 members = ["crates/pyrefly_build", "crates/pyrefly_bundled", "crates/pyrefly_config", "crates/pyrefly_derive", "crates/pyrefly_graph", "crates/pyrefly_python", "crates/pyrefly_types", "crates/pyrefly_util", "crates/tsp_types", "pyrefly"]

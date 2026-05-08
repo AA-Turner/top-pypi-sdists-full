@@ -117,6 +117,8 @@ class AsyncRunners:
             "workload_key": workload_key,
             "request_id": stable_request_id,
         }
+        if workload_ref.config_id:
+            body["config_id"] = workload_ref.config_id
         if labels:
             body["labels"] = labels
         if session_id:
@@ -373,7 +375,7 @@ class AsyncRunners:
         budget = self._resolve_startup_timeout(startup_timeout)
         deadline = time.monotonic() + budget
         alloc = await self.allocate(
-            workload_key,
+            workload_ref,
             request_id=request_id,
             labels=labels,
             session_id=session_id,

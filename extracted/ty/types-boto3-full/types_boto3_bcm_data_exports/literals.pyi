@@ -59,7 +59,7 @@ ListExecutionsPaginatorName = Literal["list_executions"]
 ListExportsPaginatorName = Literal["list_exports"]
 ListTablesPaginatorName = Literal["list_tables"]
 OverwriteOptionType = Literal["CREATE_NEW_REPORT", "OVERWRITE_REPORT"]
-S3OutputTypeType = Literal["CUSTOM"]
+S3OutputTypeType = Literal["ATHENA", "CUSTOM", "REDSHIFT"]
 BillingandCostManagementDataExportsServiceName = Literal["bcm-data-exports"]
 ServiceName = Literal[
     "accessanalyzer",

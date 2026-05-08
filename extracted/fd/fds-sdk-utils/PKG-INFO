@@ -1,22 +1,22 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: fds.sdk.utils
-Version: 2.1.2
+Version: 3.0.0
 Summary: Utilities for interacting with FactSet APIs.
 License: Apache-2.0
+License-File: LICENSE
 Keywords: FactSet,API,SDK
 Author: FactSet Research Systems
-Requires-Python: >=3.8.0,<4.0.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: joserfc (>=0.9,<1.2)
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: joserfc (>=1.6.3,<2.0)
 Requires-Dist: oauthlib (>=3.2.2,<4.0.0)
-Requires-Dist: requests (>=2.28.2,<3.0.0)
+Requires-Dist: requests (>=2.33.0,<3.0.0)
 Requires-Dist: requests-oauthlib (>=2.0.0,<3.0.0)
 Project-URL: Homepage, https://developer.factset.com
 Description-Content-Type: text/markdown
@@ -28,9 +28,12 @@ Description-Content-Type: text/markdown
 [![PyPi](https://img.shields.io/pypi/v/fds.sdk.utils)](https://pypi.org/project/fds.sdk.utils/)
 [![Anaconda-Server Badge](https://anaconda.org/factset/fds.sdk.utils/badges/version.svg)](https://anaconda.org/factset/fds.sdk.utils)
 [![Apache-2 license](https://img.shields.io/badge/license-Apache2-brightgreen.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://pypi.org/project/fds.sdk.utils/)
 
 This repository contains a collection of utilities that supports FactSet's SDK in Python and facilitate usage of FactSet
 APIs.
+
+> **Requires Python 3.10 or higher.** Python 3.8 and 3.9 are end-of-life and no longer supported as of v3.0.0.
 
 ## Installation
 
@@ -218,7 +221,7 @@ Please refer to the [contributing guide](CONTRIBUTING.md).
 
 # Copyright
 
-Copyright 2022 FactSet Research Systems Inc
+Copyright 2026 FactSet Research Systems Inc
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

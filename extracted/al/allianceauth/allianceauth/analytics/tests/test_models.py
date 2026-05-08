@@ -1,9 +1,8 @@
-from allianceauth.analytics.models import AnalyticsIdentifier
+from uuid import uuid4
 
 from django.test.testcases import TestCase
 
-from uuid import uuid4
-
+from allianceauth.analytics.models import AnalyticsIdentifier
 
 # Identifiers
 uuid_1 = "ab33e241fbf042b6aa77c7655a768af7"

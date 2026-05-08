@@ -7,21 +7,21 @@ to use these views. You are free to build the internal structure
 of the service as you like.
 """
 
+import logging
 from collections import OrderedDict
-from django.views import View
-from django.urls import reverse_lazy
-from django.views.generic import UpdateView, DeleteView
-from django.views.generic.detail import SingleObjectMixin
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.db import models, IntegrityError
 from django.core.exceptions import ObjectDoesNotExist
-from django.shortcuts import render, Http404, redirect
+from django.db import IntegrityError, models
+from django.shortcuts import Http404, redirect, render
+from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
+from django.views import View
+from django.views.generic import DeleteView, UpdateView
+from django.views.generic.detail import SingleObjectMixin
 
 from .forms import ServicePasswordModelForm
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,9 @@ class AbstractServiceModel(models.Model):
                                 related_name='%(app_label)s'
                                 )
 
+    class Meta:
+        abstract = True
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.credentials = OrderedDict()
@@ -43,10 +46,6 @@ class AbstractServiceModel(models.Model):
 
     def reset_password(self):
         pass
-
-    class Meta:
-        abstract = True
-
 
 class BaseServiceView(LoginRequiredMixin, PermissionRequiredMixin, View):
     """
@@ -85,8 +84,8 @@ class ServicesCRUDMixin(SingleObjectMixin):
 
         try:
             return queryset.get(user__pk=self.request.user.pk)
-        except ObjectDoesNotExist:
-            raise Http404
+        except ObjectDoesNotExist as e:
+            raise Http404 from e
 
 
 class BaseDeactivateServiceAccountView(ServicesCRUDMixin, BaseServiceView, DeleteView):

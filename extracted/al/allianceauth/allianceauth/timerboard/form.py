@@ -23,7 +23,7 @@ class TimerForm(forms.ModelForm):
             # for appropriate fields
             current_time = timezone.now()
             td = kwargs['instance'].eve_time - current_time
-            initial = kwargs.pop('initial', dict())
+            initial = kwargs.pop('initial', {})
             if 'days_left' not in initial:
                 initial.update({'days_left': td.days})
             if 'hours_left' not in initial:

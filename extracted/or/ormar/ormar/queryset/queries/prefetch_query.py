@@ -3,6 +3,8 @@ import logging
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Sequence, Union, cast
 
+import ormar_rust_utils
+
 import ormar  # noqa:  I100, I202
 from ormar.queryset.clause import QueryClause
 from ormar.queryset.queries.query import Query
@@ -15,16 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 
-
-class UniqueList(list):
-    """
-    Simple subclass of list that prevents the duplicates
-    Cannot use set as the order is important
-    """
-
-    def append(self, item: Any) -> None:
-        if item not in self:
-            super().append(item)
+UniqueList = ormar_rust_utils.UniqueList
 
 
 class Node(abc.ABC):
@@ -276,7 +269,7 @@ class LoadNode(Node):
             if model_excludable.include and not model_excludable.is_included(
                 related_name
             ):
-                model_excludable.set_values({related_name}, is_exclude=False)
+                model_excludable.set_values({related_name}, slot="include")
 
     def _build_relation_string(self) -> str:
         node: Union[LoadNode, Node] = self
@@ -384,14 +377,15 @@ class LoadNode(Node):
         fields_to_exclude = self.relation_field.to.get_names_to_exclude(
             excludable=self.excludable, alias=self.exclude_prefix
         )
+        # ``self.table_prefix`` and ``self.exclude_prefix`` can differ, so the
+        # plan only amortizes the column mapping work — exclude set is reused
+        # from above. Build once before the loop.
+        row_plan = self.relation_field.to.build_row_extraction_plan(
+            self.table_prefix, self.excludable
+        )
         parsed_rows: dict[tuple, "Model"] = {}
         for row in self.rows:
-            item = self.relation_field.to.extract_prefixed_table_columns(
-                item={},
-                row=row,
-                table_prefix=self.table_prefix,
-                excludable=self.excludable,
-            )
+            item = self.relation_field.to.apply_row_plan(row_plan, row, {})
             hashable_item = self._hash_item(item)
             instance = parsed_rows.setdefault(
                 hashable_item,
@@ -411,15 +405,7 @@ class LoadNode(Node):
         :return: tuple out of model dictionary or list
         :rtype: tuple
         """
-        result = []
-        for key, value in (
-            sorted(item.items()) if isinstance(item, dict) else enumerate(item)
-        ):
-            if isinstance(value, (dict, list)):
-                value = self._hash_item(value)
-            result.append((key, value))
-
-        return tuple(result)
+        return ormar_rust_utils.hash_item(item)
 
     def _group_models_by_relation_key(self) -> None:
         """

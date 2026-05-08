@@ -11,8 +11,8 @@ from ..discord_client.tests.factories import (
     TEST_USER_NAME,
     create_guild_member,
     create_role,
+    create_user as create_guild_user,
 )
-from ..discord_client.tests.factories import create_user as create_guild_user
 from ..models import DiscordUser
 from ..utils import set_logger_to_file
 from . import MODULE_PATH, TEST_MAIN_ID, TEST_MAIN_NAME

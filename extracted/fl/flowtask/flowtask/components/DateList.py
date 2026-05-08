@@ -2,6 +2,7 @@ import asyncio
 import logging
 import datetime
 import builtins
+from dateutil.relativedelta import relativedelta
 from numbers import Number
 from collections.abc import Callable
 from asyncdb.exceptions import NoDataFound, ProviderError
@@ -78,6 +79,7 @@ class DateList(IteratorBase):
         self._increment = 1
         self._iterator = None
         self._format = "%Y-%m-%d"
+        self._monthly = False
         super(DateList, self).__init__(loop=loop, job=job, stat=stat, **kwargs)
 
     async def start(self, **kwargs):
@@ -100,6 +102,10 @@ class DateList(IteratorBase):
         self.setVar("inc", self._increment)
         if hasattr(self, "format"):
             self._format = self.format
+        if hasattr(self, "monthly"):
+            self._monthly = self.monthly
+        elif "monthly" in self._args:
+            self._monthly = self._args["monthly"]
         # set the start:end of the range
         if "start" in self._args:
             range_start = self._args["start"]
@@ -120,10 +126,18 @@ class DateList(IteratorBase):
             self._logger.debug(f"RANGE> {start!s} - {end!s}")
             self._logger.debug(f'INCREMENT> {self._increment}')
         # define the generator
-        self._iterator = (
-            start + datetime.timedelta(days=x)
-            for x in range(0, (end - start).days + 1, self._increment)
-        )
+        if self._monthly:
+            def month_generator(start_date, end_date, inc):
+                current = start_date
+                while current <= end_date:
+                    yield current
+                    current += relativedelta(months=inc)
+            self._iterator = month_generator(start, end, self._increment)
+        else:
+            self._iterator = (
+                start + datetime.timedelta(days=x)
+                for x in range(0, (end - start).days + 1, self._increment)
+            )
         self.add_metric("RANGE", f"{start!s} - {end!s}")
         self.add_metric("INCREMENT", self._increment)
         return True

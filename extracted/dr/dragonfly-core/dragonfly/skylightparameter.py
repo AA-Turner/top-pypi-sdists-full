@@ -736,7 +736,9 @@ class DetailedSkylights(_SkylightParameterBase):
         # create the final window parameters
         new_s_par = None
         if len(new_polygons) != 0:
-            new_s_par = DetailedSkylights(new_polygons)
+            are_doors = [False] * len(new_polygons) \
+                if windows else [True] * len(new_polygons)
+            new_s_par = DetailedSkylights(new_polygons, are_doors)
         # update user_data lists if some windows were not added
         if new_s_par is not None and self.user_data is not None:
             clean_u = self.user_data
@@ -1245,7 +1247,7 @@ class DetailedSkylights(_SkylightParameterBase):
             self._reassign_are_doors(new_polys, tolerance)
             self._polygons = tuple(new_polys)
 
-    def merge_and_simplify(self, max_separation, tolerance=0.01):
+    def merge_and_simplify(self, max_separation, tolerance=0.01, ignore_doors=False):
         """Merge skylight polygons that are close to one another into a single polygon.
 
         This can be used to create a simpler set of skylights that is easier to
@@ -1259,23 +1261,59 @@ class DetailedSkylights(_SkylightParameterBase):
                 simply join neighboring skylights together.
             tolerance: The maximum difference between point values for them to be
                 considered distinct. (Default: 0.01, suitable for objects in meters).
+            ignore_doors: Boolean to note whether all doors should be left
+                exactly as they are (True) or doors that are next to one
+                another should be merged into one door (False).
         """
         # gather a clean version of the polygons with colinear vertices removed
-        clean_polys = []
-        for poly in self.polygons:
+        clean_polys, door_polys = [], []
+        for poly, is_dr in zip(self.polygons, self.are_doors):
             try:
-                clean_polys.append(poly.remove_colinear_vertices(tolerance))
+                c_poly = poly.remove_colinear_vertices(tolerance)
+                if is_dr:
+                    door_polys.append(c_poly)
+                else:
+                    clean_polys.append(c_poly)
             except AssertionError:  # degenerate geometry to ignore
                 pass
+
         # join the polygons together
+        new_polys = self._merge_polygons(clean_polys, max_separation, tolerance)
+        if not ignore_doors:
+            door_polys = self._merge_polygons(door_polys, max_separation, tolerance)
+
+        # bring everything together and reassign the door property
+        new_polys = new_polys + door_polys
+        self._reassign_are_doors(new_polys, tolerance)
+        self._polygons = tuple(new_polys)
+
+    @staticmethod
+    def _merge_polygons(clean_polys, max_separation, tolerance):
+        """Join polygons together and resolve resulting intersections."""
         if max_separation <= tolerance:
-            new_polys = Polygon2D.joined_intersected_boundary(
-                clean_polys, tolerance)
+            new_polys = Polygon2D.joined_intersected_boundary(clean_polys, tolerance)
         else:
             new_polys = Polygon2D.gap_crossing_boundary(
                 clean_polys, max_separation, tolerance)
-        self._reassign_are_doors(new_polys, tolerance)
-        self._polygons = tuple(new_polys)
+            is_self_intersect = False
+            for poly in new_polys:
+                if poly.is_self_intersecting:
+                    is_self_intersect = True
+            if is_self_intersect:  # we hit the frame distance exactly in float tolerance
+                max_separation = max_separation - tolerance
+                if max_separation <= tolerance:
+                    new_polys = Polygon2D.joined_intersected_boundary(
+                        clean_polys, tolerance)
+                else:
+                    new_polys = Polygon2D.gap_crossing_boundary(
+                        clean_polys, max_separation, tolerance)
+                is_self_intersect = False
+                for poly in new_polys:
+                    if poly.is_self_intersecting:
+                        is_self_intersect = True
+                if is_self_intersect:
+                    new_polys = clean_polys
+        return new_polys
 
     def merge_to_bounding_rectangle(self, tolerance=0.01):
         """Merge skylight polygons that touch or overlap with one another to a rectangle.
@@ -1389,7 +1427,7 @@ class DetailedSkylights(_SkylightParameterBase):
             "type": "DetailedSkylights",
             "polygons": [((0.5, 0.5), (2, 0.5), (2, 2), (0.5, 2)),
                          ((3, 1), (4, 1), (4, 2))],
-            "are_doors": [False]
+            "are_doors": [False, False]
             }
         """
         assert data['type'] == 'DetailedSkylights', \
@@ -1418,13 +1456,17 @@ class DetailedSkylights(_SkylightParameterBase):
     def _reassign_are_doors(self, new_polys, tolerance=0.01):
         """Reset the are_doors property using a set of new polygons."""
         if len(new_polys) != len(self._polygons):
+            # get the centers of the original polygons
+            o_poly_pts = []
+            for o_poly in self.polygons:
+                op_center = o_poly.center if o_poly.is_convex else \
+                    o_poly.pole_of_inaccessibility(tolerance)
+                o_poly_pts.append(op_center)
             # match the new polygons to the existing ones
             new_are_doors, kept_i = [], []
             for n_poly in new_polys:
-                np_center = n_poly.center if n_poly.is_convex else \
-                    n_poly.pole_of_inaccessibility(tolerance)
-                for i, (o_poly, is_door) in enumerate(zip(self.polygons, self.are_doors)):
-                    if o_poly.is_point_inside_bound_rect(np_center):
+                for i, (o_pt, is_door) in enumerate(zip(o_poly_pts, self.are_doors)):
+                    if n_poly.is_point_inside_bound_rect(o_pt):
                         new_are_doors.append(is_door)
                         kept_i.append(i)
                         break

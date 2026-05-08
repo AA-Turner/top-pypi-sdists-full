@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 from numpy.typing import NDArray
@@ -17,7 +17,7 @@ from .base import DATA_ARRAY_MAP
 from .geometry.base import Box
 
 if TYPE_CHECKING:
-    from typing import Callable, Optional
+    from collections.abc import Callable
 
     from pydantic import FieldValidationInfo
 
@@ -55,7 +55,7 @@ T = TypeVar("T")
 # Lowest frequency supported (Hz)
 MIN_FREQUENCY = 1e5
 
-FloatArray = Union[Sequence[float], NDArray]
+FloatArray = Sequence[float] | NDArray
 
 
 def wrapped_angle_distance(angle: float, target: float, period: float) -> float:
@@ -146,12 +146,12 @@ def assert_volumetric() -> Callable[[type, tuple[float, ...]], tuple[float, ...]
 
 
 # FIXME: this validator doesn't do anything
-def validate_name_str() -> Callable[[type, Optional[str]], Optional[str]]:
+def validate_name_str() -> Callable[[type, str | None], str | None]:
     """make sure the name does not include [, ] (used for default names)"""
 
     @field_validator("name")
     @classmethod
-    def field_has_unique_names(cls: type, val: Optional[str]) -> Optional[str]:
+    def field_has_unique_names(cls: type, val: str | None) -> str | None:
         """raise exception if '[' or ']' in name"""
         # if val and ('[' in val or ']' in val):
         #     raise SetupError(f"'[' or ']' not allowed in name: {val} (used for defaults)")
@@ -214,7 +214,7 @@ def validate_mode_objects_symmetry(field_name: str) -> Callable[[T], T]:
 def validate_field_projection_monitors_2d(
     monitors: Sequence[Any] | None,
     sim_size: tuple[float, float, float],
-    raise_error: Optional[Callable[[str, int], None]] = None,
+    raise_error: Callable[[str, int], None] | None = None,
 ) -> None:
     """Validate lower-dimensional field projection monitor settings."""
 
@@ -451,12 +451,12 @@ def required_if_symmetry_present(field_name: str) -> Callable[[T], T]:
 
 def warn_if_dataset_none(
     field_name: str,
-) -> Callable[[type, Optional[dict[str, Any]]], Optional[dict[str, Any]]]:
+) -> Callable[[type, dict[str, Any] | None], dict[str, Any] | None]:
     """Warn if a Dataset field has None in its dictionary."""
 
     @field_validator(field_name, mode="before")
     @classmethod
-    def _warn_if_none(cls: type, val: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    def _warn_if_none(cls: type, val: dict[str, Any] | None) -> dict[str, Any] | None:
         """Warn if the DataArrays fail to load."""
         if isinstance(val, dict):
             if any((v in DATA_ARRAY_MAP for _, v in val.items() if isinstance(v, str))):
@@ -632,6 +632,37 @@ def validate_freqs_unique() -> Callable[[AbstractComponentModeler, FreqArray], F
         return val
 
     return freqs_unique
+
+
+def validate_freqs_num_not_too_many(
+    warn_num_freqs: int,
+) -> Callable[[type, FreqArray, FieldValidationInfo], FreqArray]:
+    """Warn if the number of ``freqs`` exceeds ``warn_num_freqs``.
+
+    When the instance has a non-empty ``name`` available on ``info.data``, it
+    is used in the warning message; otherwise the class name is used.
+    """
+
+    @field_validator("freqs")
+    @classmethod
+    def _warn_num_freqs(cls: type, val: FreqArray, info: FieldValidationInfo) -> FreqArray:
+        """Warn if number of frequencies is too large."""
+        if len(val) > warn_num_freqs:
+            # Prefer the instance's ``name`` so the warning identifies the specific
+            # offending instance; fall back to the class name when ``name`` is
+            # absent or empty.
+            name = info.data.get("name")
+            identifier = f"'{name}'" if name else f"'{cls.__name__}'"
+            log.warning(
+                f"A large number ({len(val)}) of frequencies detected in {identifier}. "
+                "This can lead to solver slow-down and increased cost. "
+                "Consider decreasing the number of frequencies. This may become a "
+                "hard limit in future Tidy3D versions.",
+                custom_loc=["freqs"],
+            )
+        return val
+
+    return _warn_num_freqs
 
 
 def _warn_unsupported_traced_argument(

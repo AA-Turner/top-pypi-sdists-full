@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from allianceauth import hooks
 from allianceauth.menu.hooks import MenuItemHook
 from allianceauth.services.hooks import ServicesHook
+
 from .tasks import OpenfireTasks
 from .urls import urlpatterns
 
@@ -41,7 +42,7 @@ class OpenfireService(ServicesHook):
             OpenfireTasks.update_groups.delay(user.pk)
 
     def update_all_groups(self):
-        logger.debug('Update all %s groups called' % self.name)
+        logger.debug(f'Update all {self.name} groups called')
         OpenfireTasks.update_all_groups.delay()
 
     def service_active_for_user(self, user):

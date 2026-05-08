@@ -3,6 +3,10 @@ name = "chalk-lsp"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "chalk_lsp"
+path = "src/lib.rs"
+
 [[bin]]
 name = "chalk-lsp"
 path = "src/main.rs"

@@ -33,6 +33,8 @@ from .paginator import (
     ListEventsPaginator,
     ListMemoryExtractionJobsPaginator,
     ListMemoryRecordsPaginator,
+    ListPaymentInstrumentsPaginator,
+    ListPaymentSessionsPaginator,
     ListRecommendationsPaginator,
     ListSessionsPaginator,
     RetrieveMemoryRecordsPaginator,
@@ -49,6 +51,10 @@ from .type_defs import (
     CreateABTestResponseTypeDef,
     CreateEventInputTypeDef,
     CreateEventOutputTypeDef,
+    CreatePaymentInstrumentRequestTypeDef,
+    CreatePaymentInstrumentResponseTypeDef,
+    CreatePaymentSessionRequestTypeDef,
+    CreatePaymentSessionResponseTypeDef,
     DeleteABTestRequestTypeDef,
     DeleteABTestResponseTypeDef,
     DeleteBatchEvaluationRequestTypeDef,
@@ -57,6 +63,10 @@ from .type_defs import (
     DeleteEventOutputTypeDef,
     DeleteMemoryRecordInputTypeDef,
     DeleteMemoryRecordOutputTypeDef,
+    DeletePaymentInstrumentRequestTypeDef,
+    DeletePaymentInstrumentResponseTypeDef,
+    DeletePaymentSessionRequestTypeDef,
+    DeletePaymentSessionResponseTypeDef,
     DeleteRecommendationRequestTypeDef,
     DeleteRecommendationResponseTypeDef,
     EvaluateRequestTypeDef,
@@ -75,12 +85,20 @@ from .type_defs import (
     GetEventOutputTypeDef,
     GetMemoryRecordInputTypeDef,
     GetMemoryRecordOutputTypeDef,
+    GetPaymentInstrumentBalanceRequestTypeDef,
+    GetPaymentInstrumentBalanceResponseTypeDef,
+    GetPaymentInstrumentRequestTypeDef,
+    GetPaymentInstrumentResponseTypeDef,
+    GetPaymentSessionRequestTypeDef,
+    GetPaymentSessionResponseTypeDef,
     GetRecommendationRequestTypeDef,
     GetRecommendationResponseTypeDef,
     GetResourceApiKeyRequestTypeDef,
     GetResourceApiKeyResponseTypeDef,
     GetResourceOauth2TokenRequestTypeDef,
     GetResourceOauth2TokenResponseTypeDef,
+    GetResourcePaymentTokenRequestTypeDef,
+    GetResourcePaymentTokenResponseTypeDef,
     GetWorkloadAccessTokenForJWTRequestTypeDef,
     GetWorkloadAccessTokenForJWTResponseTypeDef,
     GetWorkloadAccessTokenForUserIdRequestTypeDef,
@@ -113,10 +131,16 @@ from .type_defs import (
     ListMemoryExtractionJobsOutputTypeDef,
     ListMemoryRecordsInputTypeDef,
     ListMemoryRecordsOutputTypeDef,
+    ListPaymentInstrumentsRequestTypeDef,
+    ListPaymentInstrumentsResponseTypeDef,
+    ListPaymentSessionsRequestTypeDef,
+    ListPaymentSessionsResponseTypeDef,
     ListRecommendationsRequestTypeDef,
     ListRecommendationsResponseTypeDef,
     ListSessionsInputTypeDef,
     ListSessionsOutputTypeDef,
+    ProcessPaymentRequestTypeDef,
+    ProcessPaymentResponseTypeDef,
     RetrieveMemoryRecordsInputTypeDef,
     RetrieveMemoryRecordsOutputTypeDef,
     SaveBrowserSessionProfileRequestTypeDef,
@@ -271,6 +295,26 @@ class BedrockAgentCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#create_event)
         """
 
+    def create_payment_instrument(
+        self, **kwargs: Unpack[CreatePaymentInstrumentRequestTypeDef]
+    ) -> CreatePaymentInstrumentResponseTypeDef:
+        """
+        Create a new payment instrument for a connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/create_payment_instrument.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#create_payment_instrument)
+        """
+
+    def create_payment_session(
+        self, **kwargs: Unpack[CreatePaymentSessionRequestTypeDef]
+    ) -> CreatePaymentSessionResponseTypeDef:
+        """
+        Create a new payment manager session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/create_payment_session.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#create_payment_session)
+        """
+
     def delete_ab_test(
         self, **kwargs: Unpack[DeleteABTestRequestTypeDef]
     ) -> DeleteABTestResponseTypeDef:
@@ -307,6 +351,26 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_memory_record.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#delete_memory_record)
+        """
+
+    def delete_payment_instrument(
+        self, **kwargs: Unpack[DeletePaymentInstrumentRequestTypeDef]
+    ) -> DeletePaymentInstrumentResponseTypeDef:
+        """
+        Delete a payment instrument.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_payment_instrument.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#delete_payment_instrument)
+        """
+
+    def delete_payment_session(
+        self, **kwargs: Unpack[DeletePaymentSessionRequestTypeDef]
+    ) -> DeletePaymentSessionResponseTypeDef:
+        """
+        Delete a payment manager session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_payment_session.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#delete_payment_session)
         """
 
     def delete_recommendation(
@@ -397,6 +461,36 @@ class BedrockAgentCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_memory_record)
         """
 
+    def get_payment_instrument(
+        self, **kwargs: Unpack[GetPaymentInstrumentRequestTypeDef]
+    ) -> GetPaymentInstrumentResponseTypeDef:
+        """
+        Get a payment instrument by ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_payment_instrument.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_payment_instrument)
+        """
+
+    def get_payment_instrument_balance(
+        self, **kwargs: Unpack[GetPaymentInstrumentBalanceRequestTypeDef]
+    ) -> GetPaymentInstrumentBalanceResponseTypeDef:
+        """
+        Get the balance of a payment instrument.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_payment_instrument_balance.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_payment_instrument_balance)
+        """
+
+    def get_payment_session(
+        self, **kwargs: Unpack[GetPaymentSessionRequestTypeDef]
+    ) -> GetPaymentSessionResponseTypeDef:
+        """
+        Get a payment session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_payment_session.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_payment_session)
+        """
+
     def get_recommendation(
         self, **kwargs: Unpack[GetRecommendationRequestTypeDef]
     ) -> GetRecommendationResponseTypeDef:
@@ -426,6 +520,17 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_resource_oauth2_token.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_resource_oauth2_token)
+        """
+
+    def get_resource_payment_token(
+        self, **kwargs: Unpack[GetResourcePaymentTokenRequestTypeDef]
+    ) -> GetResourcePaymentTokenResponseTypeDef:
+        """
+        Generates authentication tokens for payment providers that use vendor-specific
+        authentication mechanisms.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_resource_payment_token.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_resource_payment_token)
         """
 
     def get_workload_access_token(
@@ -596,6 +701,26 @@ class BedrockAgentCoreClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#list_memory_records)
         """
 
+    def list_payment_instruments(
+        self, **kwargs: Unpack[ListPaymentInstrumentsRequestTypeDef]
+    ) -> ListPaymentInstrumentsResponseTypeDef:
+        """
+        List payment instruments for a manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_payment_instruments.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#list_payment_instruments)
+        """
+
+    def list_payment_sessions(
+        self, **kwargs: Unpack[ListPaymentSessionsRequestTypeDef]
+    ) -> ListPaymentSessionsResponseTypeDef:
+        """
+        List payment manager sessions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_payment_sessions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#list_payment_sessions)
+        """
+
     def list_recommendations(
         self, **kwargs: Unpack[ListRecommendationsRequestTypeDef]
     ) -> ListRecommendationsResponseTypeDef:
@@ -614,6 +739,16 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_sessions.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#list_sessions)
+        """
+
+    def process_payment(
+        self, **kwargs: Unpack[ProcessPaymentRequestTypeDef]
+    ) -> ProcessPaymentResponseTypeDef:
+        """
+        Process a payment transaction.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/process_payment.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#process_payment)
         """
 
     def retrieve_memory_records(
@@ -823,6 +958,28 @@ class BedrockAgentCoreClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_memory_records"]
     ) -> ListMemoryRecordsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_payment_instruments"]
+    ) -> ListPaymentInstrumentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_payment_sessions"]
+    ) -> ListPaymentSessionsPaginator:
         """
         Create a paginator for an operation.
 

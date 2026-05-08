@@ -4593,17 +4593,155 @@ class WorkflowCallOptions:
 
 
 @jsii.data_type(
-    jsii_type="projen.github.workflows.WorkflowDispatchOptions",
+    jsii_type="projen.github.workflows.WorkflowDispatchInput",
     jsii_struct_bases=[],
-    name_mapping={},
+    name_mapping={
+        "description": "description",
+        "default": "default",
+        "options": "options",
+        "required": "required",
+        "type": "type",
+    },
 )
-class WorkflowDispatchOptions:
-    def __init__(self) -> None:
-        '''(experimental) The Workflow dispatch event accepts no options.
+class WorkflowDispatchInput:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        default: typing.Optional[builtins.str] = None,
+        options: typing.Optional[typing.Sequence[builtins.str]] = None,
+        required: typing.Optional[builtins.bool] = None,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) An input for a workflow_dispatch event.
+
+        :param description: (experimental) A description of the input.
+        :param default: (experimental) The default value of the input. Default: - no default
+        :param options: (experimental) Options for the input if type is 'choice'. Default: - no options
+        :param required: (experimental) Whether the input is required. Default: false
+        :param type: (experimental) The type of the input. Default: "string"
 
         :stability: experimental
         '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a95de5e460993bc70b63421d08851ac8e507749f482e0c5edc3f7ed60924b8b3)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument default", value=default, expected_type=type_hints["default"])
+            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+            check_type(argname="argument required", value=required, expected_type=type_hints["required"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+        }
+        if default is not None:
+            self._values["default"] = default
+        if options is not None:
+            self._values["options"] = options
+        if required is not None:
+            self._values["required"] = required
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''(experimental) A description of the input.
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The default value of the input.
+
+        :default: - no default
+
+        :stability: experimental
+        '''
+        result = self._values.get("default")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def options(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Options for the input if type is 'choice'.
+
+        :default: - no options
+
+        :stability: experimental
+        '''
+        result = self._values.get("options")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def required(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the input is required.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("required")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The type of the input.
+
+        :default: "string"
+
+        :stability: experimental
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkflowDispatchInput(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.github.workflows.WorkflowDispatchOptions",
+    jsii_struct_bases=[],
+    name_mapping={"inputs": "inputs"},
+)
+class WorkflowDispatchOptions:
+    def __init__(
+        self,
+        *,
+        inputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["WorkflowDispatchInput", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''(experimental) The Workflow dispatch event options.
+
+        :param inputs: (experimental) Inputs for the workflow_dispatch event.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1854d364ee5a58da38224f0d29cdc8b9c8fb024625b20e677e0087b97d8f49e3)
+            check_type(argname="argument inputs", value=inputs, expected_type=type_hints["inputs"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if inputs is not None:
+            self._values["inputs"] = inputs
+
+    @builtins.property
+    def inputs(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "WorkflowDispatchInput"]]:
+        '''(experimental) Inputs for the workflow_dispatch event.
+
+        :stability: experimental
+        '''
+        result = self._values.get("inputs")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "WorkflowDispatchInput"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5560,6 +5698,7 @@ __all__ = [
     "Triggers",
     "WatchOptions",
     "WorkflowCallOptions",
+    "WorkflowDispatchInput",
     "WorkflowDispatchOptions",
     "WorkflowRunOptions",
 ]
@@ -5971,6 +6110,24 @@ def _typecheckingstub__252f759e84d601d9474266ff1dc7b2c70bc4a30664c418991e9d2b002
 def _typecheckingstub__5b802e2c64940a026e155d7eed07be19bc7ff95ded67b900f0ebb5c8ebaf2e0a(
     *,
     types: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a95de5e460993bc70b63421d08851ac8e507749f482e0c5edc3f7ed60924b8b3(
+    *,
+    description: builtins.str,
+    default: typing.Optional[builtins.str] = None,
+    options: typing.Optional[typing.Sequence[builtins.str]] = None,
+    required: typing.Optional[builtins.bool] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1854d364ee5a58da38224f0d29cdc8b9c8fb024625b20e677e0087b97d8f49e3(
+    *,
+    inputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[WorkflowDispatchInput, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

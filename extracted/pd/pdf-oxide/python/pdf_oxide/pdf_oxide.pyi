@@ -10,9 +10,13 @@ __all__ = [
     "set_log_level",
     "get_log_level",
     "disable_logging",
+    "py_sign_pdf_bytes",
     "generate_barcode_svg",
     "generate_qr_svg",
     "VERSION",
+    "crypto_active_provider",
+    "crypto_available_providers",
+    "crypto_use_fips",
     "PdfDocument",
     "Pdf",
     "PdfPage",
@@ -98,6 +102,29 @@ def disable_logging() -> None:
     `set_log_level("off")`.
     """
 
+def py_sign_pdf_bytes(
+    pdf_data: bytes, cert: Certificate, reason: str | None = None, location: str | None = None
+) -> bytes:
+    """
+    Sign raw PDF bytes and return the signed PDF as `bytes`.
+
+    `cert` must be a :class:`Certificate` loaded via
+    :meth:`Certificate.load_pem` or :meth:`Certificate.load_pkcs12`
+    (i.e. it must carry a private key, not just a certificate).
+
+    # Example
+
+    ```python
+    from pdf_oxide import Certificate, sign_pdf_bytes
+
+    cert = Certificate.load_pem(open("cert.pem").read(), open("key.pem").read())
+    with open("input.pdf", "rb") as f:
+    signed = sign_pdf_bytes(f.read(), cert, reason="Approved", location="HQ")
+    with open("signed.pdf", "wb") as f:
+    f.write(signed)
+    ```
+    """
+
 def generate_barcode_svg(barcode_type: int, data: str) -> str:
     """
     Bridge Rust `log` macros into Python's `logging` module.
@@ -125,6 +152,45 @@ def generate_qr_svg(data: str, error_correction: int, size: int) -> str:
     """
 
 VERSION: t.Final[str]
+
+def crypto_active_provider() -> str:
+    """
+    Return the name of the currently active cryptographic provider
+    (``"rust-crypto"`` for the default permissive provider, or
+    ``"aws-lc-rs"`` for the FIPS-validated provider once installed via
+    :func:`crypto_use_fips`).
+
+    **Non-initializing** — if no provider has been installed yet, this
+    returns ``"rust-crypto (default, lazy)"`` *without* committing the
+    process-wide registry. That means calling this for display/audit
+    before :func:`crypto_use_fips` is safe and won't lock the FIPS
+    opt-in out. Issue #236.
+    """
+
+def crypto_available_providers() -> list[str]:
+    """
+    List the cryptographic providers compiled into this build.
+
+    Always contains ``"rust-crypto"`` (the default permissive
+    provider). Also contains ``"aws-lc-rs"`` when the wheel was built
+    with ``--features fips`` — the FIPS 140-3 validated path.
+    """
+
+def crypto_use_fips() -> None:
+    """
+    Install the FIPS-validated ``aws-lc-rs`` provider as the
+    process-wide active cryptographic backend.
+
+    Must be called before any PDF operation that uses crypto (open
+    encrypted document, verify signature). Set-once: a second call,
+    or any call after a default provider was lazily-installed,
+    raises ``RuntimeError`` (the message is forwarded from
+    ``SetProviderError::to_string()`` and is not part of the public
+    contract — match on the exception type, not its text).
+
+    Raises ``RuntimeError("FIPS feature not compiled in")`` when the
+    wheel was built without ``--features fips``.
+    """
 
 @t.final
 class PdfDocument:
@@ -1899,19 +1965,13 @@ class PatternPresets:
 class OfficeConverter:
     def __init__(self) -> None: ...
     @staticmethod
-    def from_docx(path: str) -> Pdf: ...
+    def convert(*_args, **_kwargs) -> t.Any: ...
     @staticmethod
-    def from_docx_bytes(data: bytes) -> Pdf: ...
+    def from_docx(*_args, **_kwargs) -> t.Any: ...
     @staticmethod
-    def from_xlsx(path: str) -> Pdf: ...
+    def from_xlsx(*_args, **_kwargs) -> t.Any: ...
     @staticmethod
-    def from_xlsx_bytes(data: bytes) -> Pdf: ...
-    @staticmethod
-    def from_pptx(path: str) -> Pdf: ...
-    @staticmethod
-    def from_pptx_bytes(data: bytes) -> Pdf: ...
-    @staticmethod
-    def convert(path: str) -> Pdf: ...
+    def from_pptx(*_args, **_kwargs) -> t.Any: ...
 
 @t.final
 class Signature:

@@ -4,6 +4,7 @@ Maps all the MQTT topics to either attributes or metrics.
 
 from ._victron_enums import (
     ACActiveInputSource,
+    AcInputTypeEnum,
     ACSystemMode,
     ActiveInputEnum,
     BatteryState,
@@ -1978,6 +1979,14 @@ topics: list[TopicDescriptor] = [
         value_type=ValueType.ENUM,
         enum=GenericOnOff,
     ),
+    TopicDescriptor(
+        topic="N/{installation_id}/settings/{device_id}/Settings/CGwacs/PreventFeedback",
+        message_type=MetricKind.SWITCH,
+        short_id="system_settings_prevent_ac_feedin",
+        name="ESS prevent AC feed-in",
+        value_type=ValueType.ENUM,
+        enum=GenericOnOff,
+    ),
     # Dynamic ESS settings topics
     TopicDescriptor(
         topic="N/{installation_id}/settings/{device_id}/Settings/DynamicEss/Mode",
@@ -2219,6 +2228,22 @@ topics: list[TopicDescriptor] = [
         value_type=ValueType.STRING,
     ),
     # System Setup topics
+    TopicDescriptor(
+        topic="N/{installation_id}/settings/{device_id}/Settings/SystemSetup/AcInput1",
+        message_type=MetricKind.SELECT,
+        short_id="system_ac_input_1_type",
+        name="AC input 1 source type",
+        value_type=ValueType.ENUM,
+        enum=AcInputTypeEnum,
+    ),
+    TopicDescriptor(
+        topic="N/{installation_id}/settings/{device_id}/Settings/SystemSetup/AcInput2",
+        message_type=MetricKind.SELECT,
+        short_id="system_ac_input_2_type",
+        name="AC input 2 source type",
+        value_type=ValueType.ENUM,
+        enum=AcInputTypeEnum,
+    ),
     TopicDescriptor(
         topic="N/{installation_id}/settings/{device_id}/Settings/SystemSetup/MaxChargeCurrent",
         message_type=MetricKind.NUMBER,
@@ -2482,10 +2507,28 @@ topics: list[TopicDescriptor] = [
         name="Dimming",
         value_type=ValueType.INT,
         metric_type=MetricType.PERCENTAGE,
-        min=0,
-        max=100,
+        min="switch_{output}_dimming_min:0",
+        max="switch_{output}_dimming_max:100",
         step="switch_{output}_step_size:1",
-        unit_of_measurement="%",
+        unit_of_measurement="switch_{output}_unit:%",
+        sub_device_key="output",
+    ),
+    TopicDescriptor(
+        topic="N/{installation_id}/switch/{device_id}/SwitchableOutput/{output}/Settings/DimmingMax",
+        message_type=MetricKind.SENSOR,
+        short_id="switch_{output}_dimming_max",
+        name="Dimming max",
+        value_type=ValueType.INT,
+        hidden=True,
+        sub_device_key="output",
+    ),
+    TopicDescriptor(
+        topic="N/{installation_id}/switch/{device_id}/SwitchableOutput/{output}/Settings/DimmingMin",
+        message_type=MetricKind.SENSOR,
+        short_id="switch_{output}_dimming_min",
+        name="Dimming min",
+        value_type=ValueType.INT,
+        hidden=True,
         sub_device_key="output",
     ),
     TopicDescriptor(
@@ -2494,6 +2537,15 @@ topics: list[TopicDescriptor] = [
         short_id="switch_{output}_step_size",
         name="Step size",
         value_type=ValueType.INT,
+        hidden=True,
+        sub_device_key="output",
+    ),
+    TopicDescriptor(
+        topic="N/{installation_id}/switch/{device_id}/SwitchableOutput/{output}/Settings/Unit",
+        message_type=MetricKind.SENSOR,
+        short_id="switch_{output}_unit",
+        name="Unit",
+        value_type=ValueType.STRING,
         hidden=True,
         sub_device_key="output",
     ),

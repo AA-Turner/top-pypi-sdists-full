@@ -761,7 +761,7 @@ def test_validate_symmetry_boundaries():
             z=td.Boundary.pml(),
         ),
     )
-    with pytest.raises(ValidationError) as excinfo:
+    with pytest.raises(ValidationError, match=r"Symmetry") as excinfo:
         td.Simulation(
             size=(1, 1, 1),
             symmetry=(1, 1, 1),
@@ -1577,7 +1577,7 @@ def test_sim_monitor_homogeneous():
         phi=[0],
     )
 
-    with pytest.raises(SetupError, match="zero-measure sets"):
+    with pytest.raises(SetupError, match=r"zero-measure sets"):
         _ = td.Simulation._projection_monitor_mediums_in_bounds(
             center=(0, 0, 0),
             size=(1, 1, 1),
@@ -1617,7 +1617,7 @@ def test_proj_monitor_periodic_bloch_boundaries_3d():
             z=td.Boundary.pml(),
         ),
     ):
-        with pytest.raises(ValidationError, match="periodic/Bloch boundaries"):
+        with pytest.raises(ValidationError, match=r"periodic/Bloch boundaries"):
             _ = td.Simulation(
                 size=(2.2, 2.2, 2),
                 structures=(),
@@ -1891,7 +1891,7 @@ def test_diffraction_monitor_order_grid_size():
         normal_dir="+",
     )
 
-    with pytest.raises(ValidationError, match="100000000"):
+    with pytest.raises(ValidationError, match=r"100000000"):
         _ = td.Simulation(
             size=(2000, 2000, 1),
             medium=td.Medium(permittivity=16),
@@ -1922,7 +1922,7 @@ def test_diffraction_monitor_storage_size():
         boundary_spec=td.BoundarySpec.all_sides(boundary=td.Periodic()),
     )
 
-    with pytest.raises(SetupError, match="maximum of 50.00GB"):
+    with pytest.raises(SetupError, match=r"maximum of 50.00GB"):
         sim.validate_pre_upload(source_required=False)
 
 
@@ -2527,6 +2527,44 @@ def test_tfsf_boundaries():
         )
 
 
+def test_tfsf_requires_nonzero_in_domain_tangential_extent():
+    """Test that a TFSF source must retain at least one nonzero tangential dimension in-domain."""
+    source = td.TFSF(
+        center=(0, 0, 0),
+        size=(2, 1, 1),
+        source_time=td.GaussianPulse(freq0=2e14, fwidth=1e13),
+        injection_axis=0,
+        direction="+",
+    )
+
+    boundary_spec = td.BoundarySpec(
+        x=td.Boundary.pml(),
+        y=td.Boundary.periodic(),
+        z=td.Boundary.periodic(),
+    )
+
+    # A 2D simulation is still allowed because the clipped TFSF region retains one
+    # nonzero tangential dimension in-domain.
+    _ = td.Simulation(
+        size=(4, 2, 0),
+        grid_spec=td.GridSpec.auto(wavelength=1.0),
+        boundary_spec=boundary_spec,
+        run_time=1e-12,
+        sources=(source,),
+    )
+
+    # A 1D simulation collapses both tangential directions after clipping the TFSF box
+    # to the simulation domain and must be rejected.
+    with pytest.raises(ValidationError, match="nonzero in-domain tangential extent"):
+        _ = td.Simulation(
+            size=(4, 0, 0),
+            grid_spec=td.GridSpec.auto(wavelength=1.0),
+            boundary_spec=boundary_spec,
+            run_time=1e-12,
+            sources=(source,),
+        )
+
+
 def test_tfsf_structures_grid():
     """Test that a TFSF source is allowed to intersect structures only in particular cases."""
     src_time = td.GaussianPulse(freq0=td.C_0, fwidth=0.1e12)
@@ -3106,6 +3144,82 @@ def test_sim_volumetric_structures(tmp_path):
                 z=td.Boundary.pml(num_layers=6),
             ),
             grid_spec=td.GridSpec.uniform(dl=grid_dl),
+            run_time=1e-12,
+        )
+
+
+def test_warn_3d_structure_missing_2d_yee_sampling_plane():
+    """Warn when a 3D structure in a 2D simulation misses the tangential E-field Yee plane."""
+
+    src = td.PointDipole(
+        center=(0, 0, 0),
+        polarization="Ey",
+        source_time=td.GaussianPulse(freq0=2e14, fwidth=1e13),
+    )
+    boundary_spec = td.BoundarySpec(
+        x=td.Boundary.pml(num_layers=6),
+        y=td.Boundary.pml(num_layers=6),
+        z=td.Boundary.periodic(),
+    )
+    common_kwargs = {
+        "size": (3, 3, 0),
+        "sources": (src,),
+        "boundary_spec": boundary_spec,
+        "grid_spec": td.GridSpec.auto(wavelength=td.C_0 / src.source_time.freq0),
+        "run_time": 1e-12,
+    }
+
+    thin_centered = td.Structure(
+        geometry=td.Box(center=(0, 0, 0), size=(0.2, 0.2, 0.01)),
+        medium=td.Medium(permittivity=12),
+        name="thin_centered",
+    )
+    with AssertLogLevel("WARNING", contains_str="collapsed-axis Yee sampling plane"):
+        _ = td.Simulation(structures=(thin_centered,), **common_kwargs)
+
+    thick_centered = td.Structure(
+        geometry=td.Box(center=(0, 0, 0), size=(0.2, 0.2, 0.16)),
+        medium=td.Medium(permittivity=12),
+        name="thick_centered",
+    )
+    with AssertLogStr("WARNING", excludes_str="collapsed-axis Yee sampling plane"):
+        _ = td.Simulation(structures=(thick_centered,), **common_kwargs)
+
+    thick_shifted = td.Structure(
+        geometry=td.Box(center=(0, 0, 0.08), size=(0.2, 0.2, 0.12)),
+        medium=td.Medium(permittivity=12),
+        name="thick_shifted",
+    )
+    with AssertLogLevel("WARNING", contains_str="collapsed-axis Yee sampling plane"):
+        _ = td.Simulation(structures=(thick_shifted,), **common_kwargs)
+
+
+def test_warn_medium2d_in_matching_2d_simulation_plane():
+    """Warn when a Medium2D lies in the same plane as a 2D simulation."""
+
+    src = td.PointDipole(
+        center=(0, 0, 0),
+        polarization="Ey",
+        source_time=td.GaussianPulse(freq0=2e14, fwidth=1e13),
+    )
+    medium2d = td.Medium2D.from_medium(td.Medium(permittivity=12), thickness=0.01)
+    sheet = td.Structure(
+        geometry=td.Box(center=(0, 0, 0), size=(0.2, 0.2, 0)),
+        medium=medium2d,
+        name="sheet",
+    )
+
+    with AssertLogLevel("WARNING", contains_str="uses a 'Medium2D' in a 2D simulation"):
+        _ = td.Simulation(
+            size=(3, 3, 0),
+            structures=(sheet,),
+            sources=(src,),
+            boundary_spec=td.BoundarySpec(
+                x=td.Boundary.pml(num_layers=6),
+                y=td.Boundary.pml(num_layers=6),
+                z=td.Boundary.periodic(),
+            ),
+            grid_spec=td.GridSpec.uniform(dl=0.1),
             run_time=1e-12,
         )
 
@@ -4509,7 +4623,7 @@ def test_structures_per_medium(monkeypatch):
     monkeypatch.setattr(scene, "MAX_STRUCTURES_PER_MEDIUM", 3, raising=False)
     structs = [td.Structure(geometry=td.Box(size=(1, 1, 1)), medium=shared_med) for _ in range(4)]
 
-    with pytest.raises(ValidationError, match="use the same medium"):
+    with pytest.raises(ValidationError, match=r"use the same medium"):
         _ = td.Simulation(
             size=(10, 10, 10),
             run_time=1e-12,

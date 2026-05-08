@@ -190,10 +190,11 @@ evaluation_extra_require = [
 ]
 
 langchain_extra_require = [
-    "langchain >= 0.3, < 0.4",
-    "langchain-core >= 0.3, < 0.4",
-    "langchain-google-vertexai >= 2.0.22, < 3",
-    "langgraph >= 0.2.45, < 0.4",
+    "langchain >= 1.0.0, < 2.0.0",
+    "langchain-classic",
+    "langchain-core >= 1.0.0, < 2.0.0",
+    "langchain-google-genai >= 4.0.0, < 5.0.0",
+    "langgraph >= 1.0.0, < 2.0.0",
     "openinference-instrumentation-langchain >= 0.1.19, < 0.2",
 ]
 

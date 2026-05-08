@@ -1,32 +1,23 @@
 import logging
-import os
 
-from bravado.exception import HTTPNotFound, HTTPUnprocessableEntity, HTTPError
-from jsonschema.exceptions import RefResolutionError
+from esi.exceptions import HTTPClientError
+from esi.openapi_clients import ESIClientProvider
 
-from django.conf import settings
-from esi.clients import esi_client_factory
-
-from allianceauth import __version__, __title_useragent__, __url__
-from allianceauth.utils.django import StartupCommand
-
-
-SWAGGER_SPEC_PATH = os.path.join(os.path.dirname(
-    os.path.abspath(__file__)), 'swagger.json'
+from allianceauth import (
+    __esi_compatibility_date__, __title_useragent__, __url__, __version__,
 )
 
 # for the love of Bob please add operations you use here. I'm tired of breaking undocumented things.
-ESI_OPERATIONS=[
-    'get_alliances_alliance_id',
-    'get_alliances_alliance_id_corporations',
-    'get_corporations_corporation_id',
-    'get_characters_character_id',
-    'post_characters_affiliation',
-    'get_universe_types_type_id',
-    'get_universe_factions',
-    'post_universe_names',
+# Open API
+OPEN_API_OPERATIONS = [
+    "GetAlliancesAllianceId",
+    "GetAlliancesAllianceIdCorporations",
+    "GetCorporationsCorporationId",
+    "PostCharactersAffiliation",
+    "PostUniverseNames",
+    "GetUniverseFactions",
+    "GetUniverseTypesTypeId"
 ]
-
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +27,7 @@ class ObjectNotFound(Exception):
         self.id = obj_id
         self.type = type_name
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.type} with ID {self.id} not found.'
 
 
@@ -46,13 +37,13 @@ class Entity:
         self.id = id
         self.name = name
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<{self.__class__.__name__} ({self.id}): {self.name}>"
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return bool(self.id)
 
     def __eq__(self, other):
@@ -69,7 +60,7 @@ class AllianceMixin:
     def alliance(self):
         if self.alliance_id:
             if not self._alliance:
-                self._alliance = provider.get_alliance(self.alliance_id)
+                self._alliance = open_api_provider.get_alliance(self.alliance_id, use_etag=False)  # ETAG False, We need response data to create the alliance object.
             return self._alliance
         return Entity(None, None)
 
@@ -84,7 +75,7 @@ class FactionMixin:
     def faction(self):
         if self.faction_id:
             if not self._faction:
-                self._faction = provider.get_faction(self.faction_id)
+                self._faction = open_api_provider.get_faction(self.faction_id)
             return self._faction
         return Entity(None, None)
 
@@ -100,7 +91,7 @@ class Corporation(Entity, AllianceMixin, FactionMixin):
     @property
     def ceo(self):
         if not self._ceo:
-            self._ceo = provider.get_character(self.ceo_id)
+            self._ceo = open_api_provider.get_character(self.ceo_id)
         return self._ceo
 
 
@@ -115,7 +106,7 @@ class Alliance(Entity, FactionMixin):
     def corp(self, id):
         assert id in self.corp_ids
         if id not in self._corps:
-            self._corps[id] = provider.get_corp(id)
+            self._corps[id] = open_api_provider.get_corp(id, use_etag=False)  # ETAG False, We need response data to create the corp object.
             self._corps[id]._alliance = self
         return self._corps[id]
 
@@ -137,9 +128,9 @@ class Character(Entity, AllianceMixin, FactionMixin):
         self._corp = None
 
     @property
-    def corp(self):
+    def corp(self) -> Corporation:
         if not self._corp:
-            self._corp = provider.get_corp(self.corp_id)
+            self._corp = open_api_provider.get_corp(self.corp_id, use_etag=False)  # ETAG False, We need response data to create the corp object.
         return self._corp
 
 
@@ -148,162 +139,169 @@ class ItemType(Entity):
         super().__init__(**kwargs)
 
 
-class EveProvider:
-    def get_alliance(self, alliance_id):
-        """
-        :return: an Alliance object for the given ID
-        """
-        raise NotImplementedError()
+class EveOpenAPIProvider(ESIClientProvider):
+    # most operations used here have `use_cache = False` this is cause we don't
+    # want to use the space in ram for mostly useless data. We are using etags tho.
 
-    def get_corp(self, corp_id):
-        """
-        :return: a Corporation object for the given ID
-        """
-        raise NotImplementedError()
+    def __init__(self):
+        super().__init__(
+            __esi_compatibility_date__,
+            __title_useragent__,
+            __version__,
+            __url__,
+            operations=OPEN_API_OPERATIONS
+        )
+        self._faction_list = None
 
-    def get_character(self, character_id):
-        """
-        :return: a Character object for the given ID
-        """
-        raise NotImplementedError()
-
-    def get_itemtype(self, type_id):
-        """
-        :return: an ItemType object for the given ID
-        """
-        raise NotImplementedError()
-
-
-class EveSwaggerProvider(EveProvider):
-    def __init__(self, token=None, adapter=None):
-        if settings.DEBUG or StartupCommand().is_management_command:
-            self._client = None
-            logger.info('ESI client will be loaded on-demand')
-        else:
-            logger.info('Loading ESI client')
-            try:
-                self._client = esi_client_factory(
-                    token=token,
-                    spec_file=SWAGGER_SPEC_PATH,
-                    ua_appname=__title_useragent__,
-                    ua_version=__version__,
-                    ua_url=__url__
-                )
-            except (HTTPError, RefResolutionError):
-                logger.exception(
-                    'Failed to load ESI client on startup. '
-                    'Switching to on-demand loading for ESI client.'
-                )
-                self._client = None
-
-        self._token = token
-        self.adapter = adapter or self
-        self._faction_list = None  # what are the odds this will change? could cache forever!
-
-    @property
-    def client(self):
-        if self._client is None:
-            self._client = esi_client_factory(
-                token=self._token,
-                spec_file=SWAGGER_SPEC_PATH,
-                ua_appname=__title_useragent__,
-                ua_version=__version__,
-                ua_url=__url__
-            )
-        return self._client
-
-    def __str__(self):
-        return 'esi'
-
-    def get_alliance(self, alliance_id: int) -> Alliance:
+    def get_alliance_corps(self, alliance_id: int, force_refresh=False, use_etag: bool = True) -> list:
         """Fetch alliance from ESI."""
         try:
-            data = self.client.Alliance.get_alliances_alliance_id(alliance_id=alliance_id).result()
-            corps = self.client.Alliance.get_alliances_alliance_id_corporations(alliance_id=alliance_id).result()
+            corps = self.client.Alliance.GetAlliancesAllianceIdCorporations(
+                alliance_id=alliance_id
+            ).result(
+                force_refresh=force_refresh,
+                use_cache=False,
+                use_etag=use_etag
+            )
+            return corps
+        except HTTPClientError as e:
+            if e.status_code == 404:
+                ### check this
+                raise ObjectNotFound(alliance_id, 'alliance')
+            else:
+                raise e
+
+    def get_alliance(self, alliance_id: int, force_refresh=False, use_etag: bool = True) -> Alliance:
+        """Fetch alliance from ESI."""
+        try:
+            data = self.client.Alliance.GetAlliancesAllianceId(
+                alliance_id=alliance_id
+            ).result(
+                force_refresh=force_refresh,
+                use_cache=False,
+                use_etag=use_etag
+            )
+            corps = self.get_alliance_corps(alliance_id, force_refresh=force_refresh, use_etag=False)  # ETAG False, We need response data to create the child objects
             model = Alliance(
                 id=alliance_id,
-                name=data['name'],
-                ticker=data['ticker'],
+                name=data.name,
+                ticker=data.ticker,
                 corp_ids=corps,
-                executor_corp_id=data['executor_corporation_id'] if 'executor_corporation_id' in data else None,
-                faction_id=data['faction_id'] if 'faction_id' in data else None,
+                executor_corp_id=data.executor_corporation_id,
+                faction_id=getattr(data, "faction_id", None),
             )
             return model
-        except HTTPNotFound:
-            raise ObjectNotFound(alliance_id, 'alliance')
+        except HTTPClientError as e:
+            if e.status_code == 404:
+                raise ObjectNotFound(alliance_id, 'alliance')
+            else:
+                raise e
 
-    def get_corp(self, corp_id: int) -> Corporation:
+    def get_corp(self, corp_id: int, force_refresh=False, use_etag: bool = True) -> Corporation:
         """Fetch corporation from ESI."""
         try:
-            data = self.client.Corporation.get_corporations_corporation_id(corporation_id=corp_id).result()
+            data = self.client.Corporation.GetCorporationsCorporationId(
+                corporation_id=corp_id
+            ).result(
+                force_refresh=force_refresh,
+                use_cache=False,
+                use_etag=use_etag
+            )
             model = Corporation(
                 id=corp_id,
-                name=data['name'],
-                ticker=data['ticker'],
-                ceo_id=data['ceo_id'],
-                members=data['member_count'],
-                alliance_id=data['alliance_id'] if 'alliance_id' in data else None,
-                faction_id=data['faction_id'] if 'faction_id' in data else None,
+                name=data.name,
+                ticker=data.ticker,
+                ceo_id=data.ceo_id,
+                members=data.member_count,
+                alliance_id=getattr(data, "alliance_id", None),
+                faction_id=getattr(data, "faction_id", None),
             )
             return model
-        except HTTPNotFound:
-            raise ObjectNotFound(corp_id, 'corporation')
+        except HTTPClientError as e:
+            logger.error(e)
+            if e.status_code == 404:
+                raise ObjectNotFound(corp_id, 'corporation')
+            else:
+                raise e
 
-    def get_character(self, character_id: int) -> Character:
+    def get_character(self, character_id: int, force_refresh=False, use_etag: bool = True) -> Character:
         """Fetch character from ESI."""
         try:
             character_name = self._fetch_character_name(character_id)
-            affiliation = self.client.Character.post_characters_affiliation(characters=[character_id]).result()[0]
+            affiliation = self.client.Character.PostCharactersAffiliation(
+                body=[character_id]
+            ).result(
+                force_refresh=force_refresh,
+                use_cache=False
+            )[0]
             model = Character(
                 id=character_id,
                 name=character_name,
-                corp_id=affiliation['corporation_id'],
-                alliance_id=affiliation['alliance_id'] if 'alliance_id' in affiliation else None,
-                faction_id=affiliation['faction_id'] if 'faction_id' in affiliation else None,
+                corp_id=affiliation.corporation_id,
+                alliance_id=getattr(affiliation, "alliance_id", None),
+                faction_id=getattr(affiliation, "faction_id", None),
             )
             return model
-        except (HTTPNotFound, HTTPUnprocessableEntity, ObjectNotFound):
+        except (HTTPClientError, ObjectNotFound) as e:
+            logger.error(e)
             raise ObjectNotFound(character_id, 'character')
 
     def _fetch_character_name(self, character_id: int) -> str:
         """Fetch character name from ESI."""
-        data = self.client.Universe.post_universe_names(ids=[character_id]).result()
+        data = self.client.Universe.PostUniverseNames(body=[character_id]).result()
         character = data.pop() if data else None
         if (
             not character
-            or character["category"] != "character"
-            or character["id"] != character_id
+            or character.category != "character"
+            or character.id != character_id
         ):
             raise ObjectNotFound(character_id, 'character')
-        return character["name"]
+        return character.name
 
-    def get_all_factions(self):
+    def get_all_factions(self, force_refresh=False, use_cache=True, use_etag=True) -> list:
         """Fetch all factions from ESI."""
         if not self._faction_list:
-            self._faction_list = self.client.Universe.get_universe_factions().result()
+            self._faction_list = self.client.Universe.GetUniverseFactions(
+            ).result(
+                force_refresh=force_refresh,
+                use_cache=use_cache,
+                use_etag=use_etag
+            )
         return self._faction_list
 
-    def get_faction(self, faction_id: int):
+    def get_faction(self, faction_id: int, force_refresh=False, use_etag: bool = True):
         """Fetch faction from ESI."""
         faction_id = int(faction_id)
         try:
             if not self._faction_list:
-                _ = self.get_all_factions()
+                _ = self.get_all_factions(
+                    force_refresh=force_refresh,
+                    use_cache=False,
+                    use_etag=use_etag,
+                )
             for f in self._faction_list:
-                if f['faction_id'] == faction_id:
-                    return Entity(id=f['faction_id'], name=f['name'])
+                if f.faction_id == faction_id:
+                    return Entity(id=f.faction_id, name=f.name)
             else:
                 raise KeyError()
-        except (HTTPNotFound, HTTPUnprocessableEntity, KeyError):
+        except (HTTPClientError, KeyError) as ex:
+            if isinstance(ex, HTTPClientError) and ex.status_code not in {404, 422}:
+                raise
             raise ObjectNotFound(faction_id, 'faction')
 
-    def get_itemtype(self, type_id: int) -> ItemType:
+    def get_itemtype(self, type_id: int, force_refresh=False) -> ItemType:
         """Fetch inventory item from ESI."""
         try:
-            data = self.client.Universe.get_universe_types_type_id(type_id=type_id).result()
-            return ItemType(id=type_id, name=data['name'])
-        except (HTTPNotFound, HTTPUnprocessableEntity):
+            data = self.client.Universe.GetUniverseTypesTypeId(
+                type_id=type_id
+            ).result(
+                force_refresh=force_refresh,
+                use_cache=False
+            )
+            return ItemType(id=type_id, name=data.name)
+        except HTTPClientError as ex:
+            if ex.status_code not in {404, 422}:
+                raise
             raise ObjectNotFound(type_id, 'type')
 
-
-provider = EveSwaggerProvider()
+open_api_provider = EveOpenAPIProvider()

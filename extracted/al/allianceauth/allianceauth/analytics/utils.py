@@ -1,7 +1,10 @@
 import os
+
 from django.apps import apps
-from allianceauth.authentication.models import User
+
 from esi.models import Token
+
+from allianceauth.authentication.models import User
 
 
 def install_stat_users() -> int:

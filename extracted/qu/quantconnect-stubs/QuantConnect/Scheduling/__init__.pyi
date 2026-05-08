@@ -580,6 +580,76 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         """
         ...
 
+    @overload
+    def quarter_end(self, days_offset: int = 0) -> QuantConnect.Scheduling.IDateRule:
+        """
+        Specifies an event should fire on the last of each quarter
+        
+        :param days_offset: The amount of days to offset the schedule by; must be between 0 and 92
+        :returns: A date rule that fires on the last of each quarter - offset.
+        """
+        ...
+
+    @overload
+    def quarter_end(self, symbol: str, days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+        """
+        Specifies an event should fire on the last tradable date - offset for the specified symbol of each quarter
+        
+        :param symbol: The symbol whose exchange is used to determine the last tradable date of the quarter
+        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 92.
+        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
+        :returns: A date rule that fires on the last tradable date - offset for the specified security each quarter.
+        """
+        ...
+
+    @overload
+    def quarter_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+        """
+        Specifies an event should fire on the last tradable date - offset for the specified symbol of each quarter
+        
+        :param symbol: The symbol whose exchange is used to determine the last tradable date of the quarter
+        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 92.
+        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
+        :returns: A date rule that fires on the last tradable date - offset for the specified security each quarter.
+        """
+        ...
+
+    @overload
+    def quarter_start(self, days_offset: int = 0) -> QuantConnect.Scheduling.IDateRule:
+        """
+        Specifies an event should fire on the first of each quarter + offset
+        
+        :param days_offset: The amount of days to offset the schedule by; must be between 0 and 92.
+        :returns: A date rule that fires on the first of each quarter + offset.
+        """
+        ...
+
+    @overload
+    def quarter_start(self, symbol: str, days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+        """
+        Specifies an event should fire on the first tradable date + offset for the specified symbol of each quarter
+        
+        :param symbol: The symbol whose exchange is used to determine the first tradable date of the quarter
+        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 92
+        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
+        :returns: A date rule that fires on the first tradable date + offset for the
+        specified security each quarter.
+        """
+        ...
+
+    @overload
+    def quarter_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+        """
+        Specifies an event should fire on the first tradable date + offset for the specified symbol of each quarter
+        
+        :param symbol: The symbol whose exchange is used to determine the first tradable date of the quarter
+        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 92
+        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
+        :returns: A date rule that fires on the first tradable date + offset for the
+        specified security each quarter.
+        """
+        ...
+
     def set_default_time_zone(self, time_zone: typing.Any) -> None:
         """
         Sets the default time zone

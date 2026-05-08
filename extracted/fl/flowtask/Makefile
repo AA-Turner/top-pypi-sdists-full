@@ -37,7 +37,7 @@ endif
 
 # Install all dependencies including dev dependencies
 develop:
-	uv sync --frozen --extra dev
+	uv sync --frozen --all-extras
 
 # Alternative: install without lock file (faster for development)
 develop-fast:

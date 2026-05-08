@@ -2,23 +2,23 @@ import logging
 import uuid
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.humanize.templatetags.humanize import intcomma
-from django.http import JsonResponse, Http404
-from django.shortcuts import render, redirect, get_object_or_404
+from django.db.models import Sum
+from django.http import Http404, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django.db.models import Sum
+
 from allianceauth.authentication.decorators import permissions_required
-from allianceauth.srp.providers import esi
 from allianceauth.notifications import notify
-from .form import SrpFleetMainForm
-from .form import SrpFleetMainUpdateForm
-from .form import SrpFleetUserRequestForm
-from .models import SrpFleetMain
-from .models import SrpUserRequest
+
+from .form import (
+    SrpFleetMainForm, SrpFleetMainUpdateForm, SrpFleetUserRequestForm,
+)
 from .managers import SRPManager
+from .models import SrpFleetMain, SrpUserRequest
+from .providers import get_universe_types_type_id
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ def random_string(string_length=10):
 @login_required
 @permission_required('srp.access_srp')
 def srp_management(request, all=False):
-    logger.debug("srp_management called by user %s" % request.user)
+    logger.debug(f"srp_management called by user {request.user}")
     fleets = SrpFleetMain.objects.select_related('fleet_commander').prefetch_related('srpuserrequest_set').all()
     if not all:
         fleets = fleets.filter(fleet_srp_status="")
@@ -44,14 +44,15 @@ def srp_management(request, all=False):
     context = {"srpfleets": fleets, "totalcost": totalcost}
     return render(request, 'srp/management.html', context=context)
 
+
 @login_required
 @permission_required('srp.access_srp')
 def srp_fleet_view(request, fleet_id):
     logger.debug(f"srp_fleet_view called by user {request.user} for fleet id {fleet_id}")
     try:
         fleet_main = SrpFleetMain.objects.get(id=fleet_id)
-    except SrpFleetMain.DoesNotExist:
-        raise Http404
+    except SrpFleetMain.DoesNotExist as e:
+        raise Http404 from e
     context = {"fleet_id": fleet_id, "fleet_status": fleet_main.fleet_srp_status,
                 "srpfleetrequests": fleet_main.srpuserrequest_set.select_related('character'),
                 "totalcost": fleet_main.total_cost}
@@ -62,13 +63,13 @@ def srp_fleet_view(request, fleet_id):
 @login_required
 @permissions_required(('auth.srp_management', 'srp.add_srpfleetmain'))
 def srp_fleet_add_view(request):
-    logger.debug("srp_fleet_add_view called by user %s" % request.user)
+    logger.debug(f"srp_fleet_add_view called by user {request.user}")
     completed = False
     completed_srp_code = ""
 
     if request.method == 'POST':
         form = SrpFleetMainForm(request.POST)
-        logger.debug("Request type POST contains form valid: %s" % form.is_valid())
+        logger.debug(f"Request type POST contains form valid: {form.is_valid()}")
         if form.is_valid():
             srp_fleet_main = SrpFleetMain()
             srp_fleet_main.fleet_name = form.cleaned_data['fleet_name']
@@ -167,7 +168,7 @@ def srp_request_view(request, fleet_srp):
 
     if request.method == 'POST':
         form = SrpFleetUserRequestForm(request.POST)
-        logger.debug("Request type POST contains form valid: %s" % form.is_valid())
+        logger.debug(f"Request type POST contains form valid: {form.is_valid()}")
 
         if form.is_valid():
             request_killboard_link = form.cleaned_data['killboard_link']
@@ -193,21 +194,19 @@ def srp_request_view(request, fleet_srp):
                 srp_kill_link = SRPManager.get_kill_id(srp_request.killboard_link)
                 (ship_type_id, ship_value, victim_id) = SRPManager.get_kill_data(srp_kill_link)
             except ValueError:
-                logger.debug("User {} Submitted Invalid Killmail Link {} or server could not be reached".format(
-                    request.user, srp_request.killboard_link))
+                logger.debug(f"User {request.user} Submitted Invalid Killmail Link {srp_request.killboard_link} or server could not be reached")
                 # THIS SHOULD BE IN FORM VALIDATION
                 messages.error(request,
                                 _("Your SRP request Killmail link is invalid. Please make sure you are using zKillboard."))
                 return redirect("srp:management")
 
             if request.user.character_ownerships.filter(character__character_id=str(victim_id)).exists():
-                item_type = esi.client.Universe.get_universe_types_type_id(type_id=ship_type_id).result()
-                srp_request.srp_ship_name = item_type['name']
+                item_type = get_universe_types_type_id(ship_type_id)
+                srp_request.srp_ship_name = item_type.name
                 srp_request.kb_total_loss = ship_value
                 srp_request.post_time = post_time
                 srp_request.save()
-                logger.info("Created SRP Request on behalf of user {} for fleet name {}".format(
-                    request.user, srp_fleet_main.fleet_name))
+                logger.info(f"Created SRP Request on behalf of user {request.user} for fleet name {srp_fleet_main.fleet_name}")
                 messages.success(request,
                                 _('Submitted SRP request for your %(ship)s.') % {"ship": srp_request.srp_ship_name})
                 return redirect("srp:management")
@@ -243,7 +242,7 @@ def srp_request_remove(request):
             srpuserrequest.delete()
             logger.info(f"Deleted SRP request id {srp_request_id} for user {request.user}")
     if stored_fleet_view is None:
-        logger.error("Unable to delete srp requests for user %s - request matching id not found." % (request.user))
+        logger.error(f"Unable to delete srp requests for user {request.user} - request matching id not found.")
         messages.error(request, _('Unable to locate selected SRP request.'))
         return redirect("srp:management")
     else:
@@ -270,18 +269,15 @@ def srp_request_approve(request):
             if srpuserrequest.srp_total_amount == 0:
                 srpuserrequest.srp_total_amount = srpuserrequest.kb_total_loss
             srpuserrequest.save()
-            logger.info("Approved SRP request id {} for character {} by user {}".format(
-                srp_request_id, srpuserrequest.character, request.user))
+            logger.info(f"Approved SRP request id {srp_request_id} for character {srpuserrequest.character} by user {request.user}")
             notify(
                 srpuserrequest.character.character_ownership.user,
                 'SRP Request Approved',
                 level='success',
-                message='Your SRP request for a {} lost during {} has been approved for {} ISK.'.format(
-                    srpuserrequest.srp_ship_name, srpuserrequest.srp_fleet_main.fleet_name,
-                    intcomma(srpuserrequest.srp_total_amount))
+                message=f'Your SRP request for a {srpuserrequest.srp_ship_name} lost during {srpuserrequest.srp_fleet_main.fleet_name} has been approved for {intcomma(srpuserrequest.srp_total_amount)} ISK.'
             )
     if stored_fleet_view is None:
-        logger.error("Unable to approve srp request on behalf of user %s - request matching id not found." % (request.user))
+        logger.error(f"Unable to approve srp request on behalf of user {request.user} - request matching id not found.")
         messages.error(request, _('Unable to locate selected SRP request.'))
         return redirect("srp:management")
     else:
@@ -306,17 +302,15 @@ def srp_request_reject(request):
             stored_fleet_view = srpuserrequest.srp_fleet_main.id
             srpuserrequest.srp_status = "Rejected"
             srpuserrequest.save()
-            logger.info("SRP request id {} for character {} rejected by {}".format(
-                srp_request_id, srpuserrequest.character, request.user))
+            logger.info(f"SRP request id {srp_request_id} for character {srpuserrequest.character} rejected by {request.user}")
             notify(
                 srpuserrequest.character.character_ownership.user,
                 'SRP Request Rejected',
                 level='danger',
-                message='Your SRP request for a {} lost during {} has been rejected.'.format(
-                    srpuserrequest.srp_ship_name, srpuserrequest.srp_fleet_main.fleet_name)
+                message=f'Your SRP request for a {srpuserrequest.srp_ship_name} lost during {srpuserrequest.srp_fleet_main.fleet_name} has been rejected.'
             )
     if stored_fleet_view is None:
-        logger.error("Unable to reject SRP request on behalf of user %s - request matching id not found." % (request.user))
+        logger.error(f"Unable to reject SRP request on behalf of user {request.user} - request matching id not found.")
         messages.error(request, _('Unable to locate selected SRP request'))
         return redirect("srp:management")
     else:
@@ -327,8 +321,7 @@ def srp_request_reject(request):
 @login_required
 @permission_required('auth.srp_management')
 def srp_request_update_amount(request, fleet_srp_request_id):
-    logger.debug("srp_request_update_amount called by user {} for fleet srp request id {}".format(
-        request.user, fleet_srp_request_id))
+    logger.debug(f"srp_request_update_amount called by user {request.user} for fleet srp request id {fleet_srp_request_id}")
 
     if SrpUserRequest.objects.filter(id=fleet_srp_request_id).exists() is False:
         logger.error(f"Unable to locate SRP request id {fleet_srp_request_id} for user {request.user}")
@@ -351,7 +344,7 @@ def srp_fleet_edit_view(request, fleet_id):
     srpfleetmain = get_object_or_404(SrpFleetMain, id=fleet_id)
     if request.method == 'POST':
         form = SrpFleetMainUpdateForm(request.POST)
-        logger.debug("Request type POST contains form valid: %s" % form.is_valid())
+        logger.debug(f"Request type POST contains form valid: {form.is_valid()}")
         if form.is_valid():
             srpfleetmain.fleet_srp_aar_link = form.cleaned_data['fleet_aar_link']
             srpfleetmain.save()

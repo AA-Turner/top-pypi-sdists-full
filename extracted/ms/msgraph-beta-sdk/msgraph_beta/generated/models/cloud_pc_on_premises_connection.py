@@ -23,13 +23,13 @@ class CloudPcOnPremisesConnection(Entity, Parsable):
     ad_domain_password: Optional[str] = None
     # The username of an Active Directory account (user or service account) that has permissions to create computer objects in Active Directory. Required format: admin@contoso.com. Optional.
     ad_domain_username: Optional[str] = None
-    # The interface URL of the partner service's resource that links to this Azure network connection. Returned only on $select.
+    # The interface URL of the partner service's resource that links to this Azure network connection. Requires $select to retrieve.
     alternate_resource_url: Optional[str] = None
     # Specifies the method by which a provisioned Cloud PC is joined to Microsoft Entra. The azureADJoin option indicates the absence of an on-premises Active Directory (AD) in the current tenant which results in the Cloud PC device only joining to Microsoft Entra. The hybridAzureADJoin option indicates the presence of an on-premises AD in the current tenant and that the Cloud PC joins both the on-premises AD and Microsoft Entra. The selected option also determines the types of users who can be assigned and can sign into a Cloud PC. The azureADJoin option allows both cloud-only and hybrid users to be assigned and sign in, whereas hybridAzureADJoin is restricted to hybrid users only. The default value is hybridAzureADJoin. The possible values are: hybridAzureADJoin, azureADJoin, unknownFutureValue.
     connection_type: Optional[CloudPcOnPremisesConnectionType] = None
     # The display name for the Azure network connection.
     display_name: Optional[str] = None
-    # false if the regular health checks on the network/domain configuration are currently active. true if the checks are paused. If you perform a create or update operation on a onPremisesNetworkConnection resource, this value is set to false for 4 weeks. If you retry a health check on network/domain configuration, this value is set to false for two weeks. If the onPremisesNetworkConnection resource is attached in a provisioningPolicy or used by a Cloud PC in the past 4 weeks, healthCheckPaused is set to false. Read-only. Default is false.
+    # Indicates whether regular health checks on the network or domain configuration are paused or active. false if the regular health checks on the network or domain configuration are currently active. true if the checks are paused. If you perform a create or update operation on a onPremisesNetworkConnection resource, this value is set to false for four weeks. If you retry a health check on network or domain configuration, this value is set to false for two weeks. If the onPremisesNetworkConnection resource is attached in a provisioningPolicy or used by a Cloud PC in the past four weeks, healthCheckPaused is set to false. Read-only. Default is false.
     health_check_paused: Optional[bool] = None
     # The healthCheckStatus property
     health_check_status: Optional[CloudPcOnPremisesConnectionStatus] = None
@@ -49,11 +49,11 @@ class CloudPcOnPremisesConnection(Entity, Parsable):
     organizational_unit: Optional[str] = None
     # The ID of the target resource group. Required format: /subscriptions/{subscription-id}/resourceGroups/{resourceGroupName}.
     resource_group_id: Optional[str] = None
-    # The scopeIds property
+    # The scope IDs of the corresponding permission. Currently, it's the Intune scope tag ID.
     scope_ids: Optional[list[str]] = None
     # The ID of the target subnet. Required format: /subscriptions/{subscription-id}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkId}/subnets/{subnetName}.
     subnet_id: Optional[str] = None
-    # The subnetPrivateIpDetail property
+    # Contains detailed information about the private IP addresses associated with the subnet. Returned only on $select. For an example that shows how to retrieve specific properties using $select, see Example 2: Get the selected properties of an Azure network connection, including healthCheckStatusDetails. Read-only.
     subnet_private_ip_detail: Optional[CloudPcOnPremisesConnectionSubnetIpDetail] = None
     # The ID of the target Azure subscription associated with your tenant.
     subscription_id: Optional[str] = None

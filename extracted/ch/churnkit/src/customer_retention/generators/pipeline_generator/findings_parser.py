@@ -392,6 +392,7 @@ class FindingsParser:
             self._apply_recommendations_to_config(config, recommendations_registry, multi_dataset, source_findings)
             self._apply_event_recommendations(config, recommendations_registry)
         self._apply_landing_overrides(config)
+        self._apply_sample_filters(config)
         config.gold.feature_exclusion_prefixes = self._collect_leakage_exclusion_prefixes(source_findings, multi_dataset)
         self._reconcile_discovered_event_transforms(config, discovered_events)
         self._reconcile_event_post_shaping(config)
@@ -1309,6 +1310,241 @@ class FindingsParser:
                     target.drop_columns.append(col)
                     existing.add(col)
 
+    _SAMPLE_FILTER_SIBLING_RE = __import__("re").compile(
+        r"\b(?:from|join)\s+([A-Za-z_][A-Za-z0-9_]*)",
+        flags=__import__("re").IGNORECASE,
+    )
+
+    def _apply_sample_filters(self, config: PipelineConfig) -> None:
+        """Replay the operator's NB00 cohort-scope predicates as production
+        landing filters.
+
+        ``ProjectContext.sample_filters`` (set in NB00's ``sampling_config``
+        cell as ``SAMPLE_FILTER_COLUMNS``) is a per-dataset map of Spark-SQL
+        predicate strings that NB00 / NB01 apply during exploration via
+        `analysis.auto_explorer.sampling.resolve_segment_entity_ids`. Without
+        replay in production, the generated `landing_<ds>.py` reads the
+        full upstream and the cohort scope drifts between exploration and
+        prod (the spschurn-e34b8ec5 cycle 25 sample_filter gate).
+
+        The predicate is reused verbatim — exploration and prod must match
+        character-for-character. Sibling dataset references in the
+        predicate (e.g. ``... in (select X from contract where ...)``) are
+        detected via the SQL ``FROM <name>`` / ``JOIN <name>`` pattern and
+        recorded as ``sibling_views``; the landing template registers the
+        sibling Delta tables as bare-name temp views before applying the
+        filter, so the operator's bare ``from contract`` resolves at
+        runtime exactly as it did in NB00 (where ``_expose_frames_as_views``
+        registered the same bare names).
+
+        ``config.landing`` is reordered so siblings precede dependents —
+        the runner iterates the dict in order, and a sibling temp view can
+        only point at populated data once that sibling's landing has run.
+        """
+        if self._namespace is None:
+            return
+        ctx_path = self._namespace.project_context_path
+        if not ctx_path.exists():
+            return
+        from customer_retention.analysis.auto_explorer.project_context import ProjectContext
+        ctx = ProjectContext.load(ctx_path)
+        sample_filters = getattr(ctx, "sample_filters", None) or {}
+        if not sample_filters:
+            return
+        deps: Dict[str, List[str]] = {}
+        for dataset, predicate in sample_filters.items():
+            if not predicate:
+                continue
+            target = config.landing.get(dataset)
+            if target is None:
+                # Entity-level target datasets (e.g. account in a churn run)
+                # bypass the landing stage in `_build_landing_configs` —
+                # the loop there iterates ``multi.event_datasets`` only.
+                # Lazily synthesize a minimal LandingLayerConfig so the
+                # cohort-scope predicate has a place to land. Bronze
+                # entity scripts already read from `landing_<name>`
+                # (FW-19), so a generated `landing_<dataset>.py` that
+                # reads upstream and applies the filter integrates with
+                # the existing wiring without renderer changes.
+                if dataset == config.target_dataset:
+                    target = self._synthesize_target_landing_config(
+                        config, dataset
+                    )
+                    if target is None:
+                        logger.warning(
+                            "sample_filters: cannot synthesize landing for "
+                            "target dataset %r (no source_findings); skipping.",
+                            dataset,
+                        )
+                        continue
+                else:
+                    logger.warning(
+                        "sample_filters: dataset %r not in pipeline landing config "
+                        "(known: %s); skipping.",
+                        dataset, sorted(config.landing.keys()),
+                    )
+                    continue
+            siblings = []
+            seen: set = set()
+            for match in self._SAMPLE_FILTER_SIBLING_RE.finditer(predicate):
+                name = match.group(1)
+                if name == dataset or name in seen:
+                    continue
+                if name in config.landing:
+                    siblings.append(name)
+                    seen.add(name)
+            target.filters.append(TransformationStep(
+                type=PipelineTransformationType.LANDING_FILTER,
+                column=dataset,
+                parameters={
+                    "predicate": str(predicate),
+                    "sibling_views": list(siblings),
+                },
+                rationale="NB00 SAMPLE_FILTER_COLUMNS (cohort scope)",
+                source_notebook="NB00",
+            ))
+            deps[dataset] = list(siblings)
+        if deps:
+            self._reorder_landing_for_sibling_deps(config, deps)
+
+    def _synthesize_target_landing_config(
+        self, config: PipelineConfig, dataset: str
+    ) -> Optional[LandingLayerConfig]:
+        """Build a minimal ``LandingLayerConfig`` for an entity-level
+        target dataset that ``_build_landing_configs`` skipped (its loop
+        only handles event-level datasets). Used by FW-18 sample-filter
+        replay so the cohort predicate can attach somewhere when the
+        target dataset is entity-level.
+
+        The synthesized config carries enough to render a working
+        landing script: source binding, raw_source_path, entity / time
+        column hints. No lifecycle enrichments, no datetime_derivation —
+        FW-18 only needs a place to drop the filter step. The downstream
+        bronze_entity script already reads from ``landing_<dataset>``
+        (FW-19), so adding this entry to ``config.landing`` causes a
+        ``landing_<dataset>.py`` script to be generated that the
+        existing bronze step picks up automatically.
+        """
+        source_cfg = next((s for s in config.sources if s.name == dataset), None)
+        if source_cfg is None:
+            return None
+        # `parse()` does not stash source_findings on `self`, so reload the
+        # target dataset's findings from disk on the namespace path. The
+        # cost is one YAML read per synthesized entity-level target (≤1).
+        # Used to populate entity_column / time_column hints AND build the
+        # datetime_derivation config so `landing_<target>.py` produces the
+        # *_delta_hours / *_dow / *_is_weekend columns the FeatureSpec
+        # selected (otherwise bronze_entity_<target>.py reads landing
+        # via FW-19 but the derived columns are absent — every windowed
+        # datetime feature downstream falls into PARITY_IGNORED_FEATURES).
+        findings_obj = None
+        if self._namespace is not None:
+            try:
+                ds_dir = self._namespace.dataset_findings_dir(dataset)
+                for fname in (f"{dataset}_findings.yaml",
+                              f"{dataset}_aggregated_findings.yaml"):
+                    fpath = ds_dir / fname
+                    if fpath.exists():
+                        from customer_retention.analysis.auto_explorer import (
+                            ExplorationFindings,
+                        )
+                        findings_obj = ExplorationFindings.load(fpath)
+                        break
+            except Exception as exc:
+                logger.warning(
+                    "sample_filters: could not load findings for synthesized "
+                    "landing[%r]: %s: %s",
+                    dataset, type(exc).__name__, exc,
+                )
+
+        ts = getattr(findings_obj, "time_series_metadata", None) if findings_obj else None
+        original_target = (
+            self._resolve_original_target(findings_obj, config.target_column)
+            if findings_obj is not None else None
+        )
+        raw_time_col = (
+            self._resolve_raw_time_column(findings_obj)
+            if findings_obj is not None else None
+        )
+        entity_col = (
+            getattr(ts, "entity_column", None)
+            or source_cfg.entity_key
+            or "entity_id"
+        )
+        time_col = (
+            getattr(ts, "time_column", None)
+            or source_cfg.time_column
+            or "as_of_date"
+        )
+        raw_source = self._resolve_raw_source(
+            dataset,
+            getattr(source_cfg, "raw_source_path", None) or source_cfg.path,
+        )
+        datetime_derivation = None
+        if findings_obj is not None:
+            try:
+                datetime_derivation = self._build_datetime_derivation_config(
+                    findings_obj, "feature_timestamp", mask_future=True,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "sample_filters: could not build datetime_derivation for "
+                    "synthesized landing[%r]: %s: %s",
+                    dataset, type(exc).__name__, exc,
+                )
+        landing_cfg = LandingLayerConfig(
+            source=source_cfg,
+            raw_source_path=raw_source,
+            raw_source_format=self._infer_format(raw_source),
+            entity_column=entity_col,
+            time_column=time_col,
+            target_column=config.target_column or "target",
+            original_target_column=original_target,
+            raw_time_column=raw_time_col if raw_time_col and raw_time_col != time_col else None,
+            datetime_derivation=datetime_derivation,
+        )
+        config.landing[dataset] = landing_cfg
+        logger.info(
+            "sample_filters: synthesized landing config for entity-level "
+            "target dataset %r so the cohort predicate has a target step "
+            "(datetime_derivation_sources=%r).",
+            dataset,
+            getattr(datetime_derivation, "source_columns", None),
+        )
+        return landing_cfg
+
+    @staticmethod
+    def _reorder_landing_for_sibling_deps(
+        config: PipelineConfig, deps: Dict[str, List[str]]
+    ) -> None:
+        """Topologically reorder ``config.landing`` so every dataset's
+        sibling dependencies appear before it. Stable: datasets without
+        deps keep their original relative order. Cycles fail-fast.
+        """
+        original_order = list(config.landing.keys())
+        ordered: List[str] = []
+        emitted: set = set()
+
+        def emit(name: str, stack: List[str]) -> None:
+            if name in emitted:
+                return
+            if name in stack:
+                cycle = " -> ".join(stack[stack.index(name):] + [name])
+                raise ValueError(
+                    f"sample_filters: cycle in cohort-scope sibling dependencies: {cycle}"
+                )
+            for dep in deps.get(name, []):
+                if dep in config.landing:
+                    emit(dep, stack + [name])
+            emitted.add(name)
+            ordered.append(name)
+
+        for name in original_order:
+            emit(name, [])
+        # Rebuild config.landing in the new order. Preserves the same
+        # LandingLayerConfig values; just changes dict iteration order.
+        config.landing = {name: config.landing[name] for name in ordered}
+
     def _apply_landing_recommendations(
         self, config: PipelineConfig, registry: RecommendationRegistry
     ) -> None:
@@ -1549,9 +1785,117 @@ class FindingsParser:
             source_notebook=rec.source_notebook,
         )
 
+    def _augment_value_counts_from_silver_recs(
+        self, registry: RecommendationRegistry
+    ) -> None:
+        """Back-fill ``_value_counts_by_source`` from silver_derived
+        recommendation ``source_columns``.
+
+        The augment-from-spec pass (``_augment_value_counts_from_spec``)
+        only sees values that appear in ``selected_features``. When the
+        feature spec carries ``event_type_start_count_*`` but not
+        ``event_type_terminate_count_*`` (because terminate is the
+        DENOMINATOR of a ratio, not a feature in itself), the unique_map
+        for ``event_type`` ends up with ``['start']`` only, and the
+        bronze-event predictor never emits ``event_type_terminate_count_*``.
+        ``_resolve_silver_derived_source`` then drops every
+        ``contract_terminate_to_start_ratio_*`` rec because its declared
+        source columns aren't in the predicted set.
+
+        This pass walks ``registry.silver.derived_columns[*].source_columns``,
+        parses each name as ``[<src>__]<col>_<val>_count_<window>``, and
+        adds the harvested ``<val>`` to ``_value_counts_by_source[<src>][<col>]``.
+        Same value-counts target column allow-list as the spec pass — only
+        columns the operator declared as ``value_counts_columns`` for that
+        source contribute. Idempotent: skips already-present values.
+        """
+        if registry is None:
+            return
+        silver = getattr(registry, "silver", None)
+        if silver is None:
+            return
+        recs = getattr(silver, "derived_columns", None) or []
+        if not recs:
+            return
+        # Build per-source vc-targets the same way _augment_value_counts_from_spec
+        # does so the heuristics match: only declared value_counts columns
+        # contribute. This time the lookup also folds in registry-side
+        # bronze_aggregations, so values from declarative `add_bronze_value_counts`
+        # cells that NB10 didn't repeat in `BRONZE_AGGREGATIONS` still count.
+        vc_targets_by_source: Dict[str, Set[str]] = {}
+        overrides = getattr(self, "_bronze_aggregation_overrides", None) or {}
+        for src, override in overrides.items():
+            cols = override.get("value_counts_columns") if isinstance(override, dict) else None
+            if cols:
+                vc_targets_by_source[src] = set(cols)
+        ba = getattr(registry, "bronze_aggregations", None) or {}
+        if isinstance(ba, dict):
+            for src, entry in ba.items():
+                if isinstance(entry, dict):
+                    cols = entry.get("value_counts_columns") or []
+                    if cols:
+                        vc_targets_by_source.setdefault(src, set()).update(cols)
+        if not vc_targets_by_source:
+            return
+        # Ensure _value_counts_by_source exists for the back-fill below.
+        if not hasattr(self, "_value_counts_by_source"):
+            self._value_counts_by_source = {}
+        candidates: List[Tuple[str, str]] = sorted(
+            ((src, col) for src, cols in vc_targets_by_source.items() for col in cols),
+            key=lambda pair: (-len(pair[1]), pair[0], pair[1]),
+        )
+        for rec in recs:
+            params = getattr(rec, "parameters", None) or {}
+            sources = list(params.get("source_columns") or [])
+            for src_col in sources:
+                if not isinstance(src_col, str):
+                    continue
+                # When the source name carries a `<dataset>__` prefix,
+                # anchor the value-counts lookup on that dataset only —
+                # otherwise candidates iterate alphabetically and the
+                # first declared dataset wins every parse, dropping
+                # values for siblings (the `subscription__event_type_*`
+                # case landed on `contract` before this fix).
+                explicit_src: Optional[str] = None
+                if "__" in src_col:
+                    head_src, bare = src_col.split("__", 1)
+                    if head_src in vc_targets_by_source:
+                        explicit_src = head_src
+                else:
+                    bare = src_col
+                m = FindingsParser._SPEC_TRAILING_WINDOW_RE.match(bare)
+                if m is None:
+                    continue
+                head = m.group("head")
+                if explicit_src is not None:
+                    # Only consider candidates tied to the prefix-named source.
+                    src_candidates = [
+                        (s, c) for (s, c) in candidates if s == explicit_src
+                    ]
+                else:
+                    src_candidates = candidates
+                for src, col in src_candidates:
+                    prefix = f"{col}_"
+                    if not head.startswith(prefix):
+                        continue
+                    val = head[len(prefix):]
+                    if not val:
+                        continue
+                    bucket = self._value_counts_by_source.setdefault(src, {})
+                    values = bucket.setdefault(col, [])
+                    if val not in values:
+                        values.append(val)
+                    break
+
     def _apply_silver_recommendations(self, config: PipelineConfig, registry: RecommendationRegistry) -> None:
         if not hasattr(registry, "silver") or registry.silver is None:
             return
+        # FW-A4: back-fill value-counts unique_map from silver_derived
+        # source_columns BEFORE the predictor runs. Without this, recs
+        # like `contract_terminate_to_start_ratio_*` whose denominator
+        # (`event_type_terminate_count_*`) isn't in selected_features
+        # are silently dropped.
+        self._augment_value_counts_from_silver_recs(registry)
         predicted_silver, _ = self._predict_silver_post_merge_columns(config)
         per_source_names = list(config.bronze.keys()) + [
             n for n in config.bronze_event.keys() if n not in config.bronze
@@ -1568,7 +1912,18 @@ class FindingsParser:
     def _map_silver_derived(self, rec) -> Optional[TransformationStep]:
         action = rec.action
         params = dict(rec.parameters)
-        if action in ("ratio", "interaction", "composite"):
+        # Datetime-derived feature_types (`recency`, `duration`, `cyclical`,
+        # `tenure`, `extraction`) are produced by NB04's
+        # `temporal_analyzer.recommend_features` via `add_silver_derived(
+        # feature_type=rec.category)`. Source columns are resolvable from
+        # the column-name pattern alone (e.g. `days_since_<src>`) so the
+        # renderer dispatcher does not require explicit `source_columns`
+        # in the rec — see `databricks_renderer._resolve_derived_sources` /
+        # `renderer._resolve_local_derived_source`. Pre-Phase-3, these
+        # were silently dropped here, leaving 24-43 declared features
+        # absent from the generated silver script.
+        if action in ("ratio", "interaction", "composite",
+                      "recency", "duration", "cyclical", "tenure", "extraction"):
             return TransformationStep(
                 type=PipelineTransformationType.DERIVED_COLUMN,
                 column=rec.target_column,

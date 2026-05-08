@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: mitreattack-python
-Version: 5.7.0
+Version: 6.0.1
 Summary: MITRE ATT&CK python library
 Author: MITRE ATT&CK
 Author-email: MITRE ATT&CK <attack@mitre.org>
@@ -9,6 +9,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Security
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
+Requires-Dist: click>=8.1.8
 Requires-Dist: colour>=0.1.5
 Requires-Dist: deepdiff>=6.6.0
 Requires-Dist: drawsvg>=2.4.0
@@ -33,7 +34,7 @@ Requires-Dist: uv>=0.10.4 ; extra == 'ci'
 Requires-Dist: check-wheel-contents>=0.6.1 ; extra == 'dev'
 Requires-Dist: commitizen>=4.9.1 ; extra == 'dev'
 Requires-Dist: pre-commit>=4.0.0 ; extra == 'dev'
-Requires-Dist: pytest>=8.4.2 ; extra == 'dev'
+Requires-Dist: pytest>=9.0 ; extra == 'dev'
 Requires-Dist: pytest-cov>=7.0.0 ; extra == 'dev'
 Requires-Dist: pytest-dotenv>=0.5.2 ; extra == 'dev'
 Requires-Dist: python-semantic-release>=10.5.0 ; extra == 'dev'
@@ -51,6 +52,8 @@ Provides-Extra: docs
 Description-Content-Type: text/markdown
 
 # mitreattack-python
+
+[![PyPI version](https://img.shields.io/pypi/v/mitreattack-python.svg)](https://pypi.org/project/mitreattack-python/) [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/) [![License](https://img.shields.io/pypi/l/mitreattack-python.svg)](https://github.com/mitre-attack/mitreattack-python/blob/main/LICENSE) [![Docs](https://img.shields.io/readthedocs/mitreattack-python.svg)](https://mitreattack-python.readthedocs.io/) [![Lint and Test](https://img.shields.io/github/actions/workflow/status/mitre-attack/mitreattack-python/lint-and-test.yml?label=lint%20%26%20test)](https://github.com/mitre-attack/mitreattack-python/actions/workflows/lint-and-test.yml) [![Release and Publish](https://img.shields.io/github/actions/workflow/status/mitre-attack/mitreattack-python/release-and-publish.yml?branch=main&label=release)](https://github.com/mitre-attack/mitreattack-python/actions/workflows/release-and-publish.yml)
 
 This repository contains a library of Python tools and utilities for working with ATT&CK data.
 For more information, see the [full documentation](https://mitreattack-python.readthedocs.io/) on ReadTheDocs.

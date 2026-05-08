@@ -1,6 +1,5 @@
 """Counters."""
 
-from typing import Optional
 
 from redis import Redis
 
@@ -22,7 +21,7 @@ class ItemCounter:
     DEFAULT_CACHE_TIMEOUT = 24 * 3600
 
     def __init__(
-        self, name: str, minimum: Optional[int] = None, redis: Optional[Redis] = None
+        self, name: str, minimum: int | None = None, redis: Redis | None = None
     ) -> None:
         if not name:
             raise ValueError("Must define a name")
@@ -60,6 +59,6 @@ class ItemCounter:
             except ValueError:
                 pass
 
-    def value(self) -> Optional[int]:
+    def value(self) -> int | None:
         """Return current value or None if not yet initialized."""
         return cache.get(self._cache_key)

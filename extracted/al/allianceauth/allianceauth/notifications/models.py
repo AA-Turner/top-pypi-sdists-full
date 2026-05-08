@@ -1,8 +1,8 @@
 import logging
 from typing import ClassVar
 
-from django.db import models
 from django.contrib.auth.models import User
+from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from .managers import NotificationManager
@@ -59,22 +59,29 @@ class Notification(models.Model):
 
     objects: ClassVar[NotificationManager] = NotificationManager()
 
+    class Meta:
+        permissions = (
+            # Intentionally Commented out
+            # AAv0 has these in the Auth_ Content Type
+            # ('logging_notifications', 'logging_notifications')
+        )
+
     def __str__(self) -> str:
         return f"{self.user}: {self.title}"
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         # overriden save to ensure cache is invaidated on very call
         super().save(*args, **kwargs)
         Notification.objects.invalidate_user_notification_cache(self.user.pk)
 
-    def delete(self, *args, **kwargs):
+    def delete(self, *args, **kwargs) -> None:
         # overriden delete to ensure cache is invaidated on very call
         super().delete(*args, **kwargs)
         Notification.objects.invalidate_user_notification_cache(self.user.pk)
 
     def mark_viewed(self) -> None:
         """Mark notification as viewed."""
-        logger.info("Marking notification as viewed: %s" % self)
+        logger.info(f"Marking notification as viewed: {self}")
         self.viewed = True
         self.save()
 

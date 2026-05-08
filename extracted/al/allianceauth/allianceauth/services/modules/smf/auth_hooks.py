@@ -5,6 +5,7 @@ from django.template.loader import render_to_string
 
 from allianceauth import hooks
 from allianceauth.services.hooks import ServicesHook
+
 from .tasks import SmfTasks
 from .urls import urlpatterns
 
@@ -45,7 +46,7 @@ class SmfService(ServicesHook):
             SmfTasks.update_display_name.apply_async(args=[user.pk], countdown=5) # cooldown on this task to ensure DB clean when syncing
 
     def update_all_groups(self):
-        logger.debug('Update all %s groups called' % self.name)
+        logger.debug(f'Update all {self.name} groups called')
         SmfTasks.update_all_groups.delay()
 
     def service_active_for_user(self, user):

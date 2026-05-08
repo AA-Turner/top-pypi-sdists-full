@@ -93,7 +93,7 @@ if TYPE_CHECKING:
         SynchronousMultiSpanProcessor = Any
 
 
-_DEFAULT_APP_NAME = "default-app-name"
+_DEFAULT_APP_NAME = "default_app_name"
 _DEFAULT_USER_ID = "default-user-id"
 _TELEMETRY_API_DISABLED_WARNING = (
     "Tracing integration for Agent Engine has migrated to a new API.\n"
@@ -818,11 +818,6 @@ class AdkApp:
         from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
 
         os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
-        # --- BEGIN BOUND TOKEN PATCH ---
-        # Set GOOGLE_API_PREVENT_AGENT_TOKEN_SHARING_FOR_GCP_SERVICES to false
-        # to disable bound token sharing.
-        os.environ["GOOGLE_API_PREVENT_AGENT_TOKEN_SHARING_FOR_GCP_SERVICES"] = "false"
-        # --- END BOUND TOKEN PATCH ---
         project = self._tmpl_attrs.get("project")
         if project:
             os.environ["GOOGLE_CLOUD_PROJECT"] = project

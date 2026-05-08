@@ -812,6 +812,7 @@ class NonPersistableProjectOptions:
     )
     CHUNK_DEFINITION_ID = "chunk_definition_id"
     INCREMENTAL_LEARNING_EARLY_STOPPING_ROUNDS = "incremental_learning_early_stopping_rounds"
+    CUSTOM_METRICS_LOSSES_INFO = "custom_metrics_losses_info"
     ALL = set([
         WEIGHTS,
         RESPONSE_CAP,
@@ -851,6 +852,7 @@ class NonPersistableProjectOptions:
         NUMBER_OF_INCREMENTAL_LEARNING_ITERATIONS_BEFORE_BEST_MODEL_SELECTION,
         CHUNK_DEFINITION_ID,
         INCREMENTAL_LEARNING_EARLY_STOPPING_ROUNDS,
+        CUSTOM_METRICS_LOSSES_INFO,
     ])
 
 
@@ -1634,6 +1636,9 @@ class RecipeType(StrEnum):
     SQL = "SQL"
     WRANGLING = "WRANGLING"
     FEATURE_DISCOVERY = "FEATURE_DISCOVERY"
+    # Legacy recipe types that couldn't be migrated to the new version
+    # keeping it here for backward compatibility
+    FEATURE_DISCOVERY_PRIVATE_PREVIEW = "FEATURE_DISCOVERY_PRIVATE_PREVIEW"
 
 
 class WranglingOperations(StrEnum):

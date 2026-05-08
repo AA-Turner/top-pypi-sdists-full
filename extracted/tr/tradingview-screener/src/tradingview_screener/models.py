@@ -84,9 +84,12 @@ class QueryDict(TypedDict, total=False):
     ignore_unknown_fields: bool  # default false
     preset: Literal['index_components_market_pages', 'pre-market-gainers']  # there are many
     # other presets (these are just some a examples)
-    price_conversion: dict[Literal['to_symbol'], bool] | dict[
-        Literal['to_currency'], str  # this string should be the currency in lower-case
-    ]
+    price_conversion: (
+        dict[Literal['to_symbol'], bool]
+        | dict[
+            Literal['to_currency'], str  # this string should be the currency in lower-case
+        ]
+    )
 
 
 class ScreenerRowDict(TypedDict):
@@ -97,3 +100,15 @@ class ScreenerRowDict(TypedDict):
 class ScreenerDict(TypedDict):
     totalCount: int
     data: list[ScreenerRowDict]
+
+
+class ScreenerRowDictV2(TypedDict):
+    s: str  # for options: 'OPRA:AAPL260821C200.0'
+    f: list  # data, list of values
+
+
+class ScreenerDictV2(TypedDict):
+    totalCount: int
+    fields: list[str]
+    symbols: list[ScreenerRowDictV2]
+    time: str  # '2026-04-24T13:45:37Z'

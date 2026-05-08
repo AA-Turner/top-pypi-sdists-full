@@ -80,13 +80,17 @@ class TestFlowtaskComponentHandler:
         handler = MagicMock(spec=handler_class)
         handler.docs_dir = mock_docs_dir
         handler.logger = MagicMock()
+        handler.DEFAULT_CATEGORY = handler_class.DEFAULT_CATEGORY
 
         # Bind the actual methods to use with our mock
         handler._load_index = lambda: handler_class._load_index(handler)
         handler._load_component_doc = lambda name: handler_class._load_component_doc(handler, name)
+        handler._read_description = lambda doc_rel_path: handler_class._read_description(handler, doc_rel_path)
+        handler._component_entry = lambda name, info: handler_class._component_entry(handler, name, info)
         handler._filter_components = lambda c, category=None, tag=None: handler_class._filter_components(
             handler, c, category, tag
         )
+        handler._group_by_category = lambda entries: handler_class._group_by_category(handler, entries)
 
         return handler
 
@@ -169,8 +173,13 @@ class TestFlowtaskComponentHandler:
         result = mock_handler._filter_components(components)
 
         assert len(result) == 2
-        assert "TestComponent" in result
-        assert "AnotherComponent" in result
+        for entry in result:
+            assert set(entry.keys()) == {"name", "description", "category"}
+        by_name = {c["name"]: c for c in result}
+        assert by_name["TestComponent"]["description"] == "Test component description"
+        assert by_name["TestComponent"]["category"] == "data"
+        assert by_name["AnotherComponent"]["description"] == "Another component description"
+        assert by_name["AnotherComponent"]["category"] == "io"
 
     def test_filter_components_by_category(self, mock_handler):
         """_filter_components filters by category."""
@@ -180,7 +189,9 @@ class TestFlowtaskComponentHandler:
         result = mock_handler._filter_components(components, category="data")
 
         assert len(result) == 1
-        assert "TestComponent" in result
+        assert result[0]["name"] == "TestComponent"
+        assert result[0]["description"] == "Test component description"
+        assert result[0]["category"] == "data"
 
     def test_filter_components_by_tag(self, mock_handler):
         """_filter_components filters by tag."""
@@ -190,7 +201,9 @@ class TestFlowtaskComponentHandler:
         result = mock_handler._filter_components(components, tag="file")
 
         assert len(result) == 1
-        assert "AnotherComponent" in result
+        assert result[0]["name"] == "AnotherComponent"
+        assert result[0]["description"] == "Another component description"
+        assert result[0]["category"] == "io"
 
     def test_filter_components_case_insensitive(self, mock_handler):
         """_filter_components performs case-insensitive filtering."""
@@ -200,7 +213,37 @@ class TestFlowtaskComponentHandler:
         result = mock_handler._filter_components(components, category="DATA")
 
         assert len(result) == 1
-        assert "TestComponent" in result
+        assert result[0]["name"] == "TestComponent"
+
+    def test_component_entry_uses_default_category(self, mock_handler):
+        """_component_entry falls back to DEFAULT_CATEGORY when missing."""
+        info = {"doc": "components/TestComponent.doc.json"}
+
+        entry = mock_handler._component_entry("TestComponent", info)
+
+        assert entry["category"] == "Other"
+
+    def test_component_entry_reads_description_from_doc_when_absent(self, mock_handler):
+        """_component_entry reads description from doc file if not in index."""
+        info = {"doc": "components/TestComponent.doc.json", "category": "data"}
+
+        entry = mock_handler._component_entry("TestComponent", info)
+
+        assert entry["description"] == "Test component description"
+
+    def test_group_by_category(self, mock_handler):
+        """_group_by_category buckets entries and sorts categories."""
+        entries = [
+            {"name": "B", "description": "", "category": "Sources"},
+            {"name": "A", "description": "", "category": "Outputs"},
+            {"name": "C", "description": "", "category": "Sources"},
+        ]
+
+        groups = mock_handler._group_by_category(entries)
+
+        assert [g["category"] for g in groups] == ["Outputs", "Sources"]
+        assert [c["name"] for c in groups[0]["components"]] == ["A"]
+        assert [c["name"] for c in groups[1]["components"]] == ["B", "C"]
 
     def test_filter_components_no_matches_returns_empty(self, mock_handler):
         """_filter_components returns empty list when no matches."""
@@ -265,12 +308,15 @@ class TestFlowtaskComponentHandlerIntegration:
         handler.docs_dir = mock_docs_dir
         handler.logger = MagicMock()
         handler.request = mock_request
+        handler.DEFAULT_CATEGORY = FlowtaskComponentHandler.DEFAULT_CATEGORY
 
         # Setup match_parameters to return empty (list mode)
         handler.match_parameters = MagicMock(return_value={})
 
         # Bind actual methods
         handler._load_index = lambda: FlowtaskComponentHandler._load_index(handler)
+        handler._read_description = lambda doc_rel_path: FlowtaskComponentHandler._read_description(handler, doc_rel_path)
+        handler._component_entry = lambda name, info: FlowtaskComponentHandler._component_entry(handler, name, info)
         handler._filter_components = lambda c, category=None, tag=None: FlowtaskComponentHandler._filter_components(
             handler, c, category, tag
         )
@@ -302,8 +348,11 @@ class TestFlowtaskComponentHandlerIntegration:
 
         assert response_data is not None
         assert "components" in response_data
-        assert "TestComponent" in response_data["components"]
         assert response_data["count"] == 1
+        entry = response_data["components"][0]
+        assert entry["name"] == "TestComponent"
+        assert entry["description"] == "Test description"
+        assert entry["category"] == "Other"
 
     @pytest.mark.asyncio
     async def test_get_specific_component(self, mock_docs_dir):

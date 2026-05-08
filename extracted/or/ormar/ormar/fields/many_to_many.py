@@ -133,6 +133,11 @@ def ManyToMany(  # type: ignore
         "through_reverse_foreign_key_name", None
     )
 
+    through_relation_nullable = kwargs.pop("through_relation_nullable", True)
+    through_reverse_relation_nullable = kwargs.pop(
+        "through_reverse_relation_nullable", True
+    )
+
     if through is not None and through.__class__ != ForwardRef:
         forbid_through_relations(cast(type["Model"], through))
 
@@ -178,6 +183,9 @@ def ManyToMany(  # type: ignore
         through_reverse_relation_name=through_reverse_relation_name,
         through_foreign_key_name=through_foreign_key_name,
         through_reverse_foreign_key_name=through_reverse_foreign_key_name,
+        through_relation_nullable=through_relation_nullable,
+        through_reverse_relation_nullable=through_reverse_relation_nullable,
+        **kwargs,
     )
 
     Field = type("ManyToMany", (ManyToManyField, BaseField), {})
@@ -330,10 +338,14 @@ class ManyToManyField(  # type: ignore
             "__module__": self.owner.__module__,
             "__qualname__": f"{self.owner.__qualname__}.{class_name}",
         }
+        # Default through tables live in the owner's schema (the side declaring
+        # the M2M). User-supplied through models can override by configuring
+        # their own OrmarConfig.schema.
         new_config = ormar.models.ormar_config.OrmarConfig(
             tablename=table_name,
             database=self.owner.ormar_config.database,
             metadata=self.owner.ormar_config.metadata,
+            schema=self.owner.ormar_config.schema,
         )
         through_model = type(
             class_name,

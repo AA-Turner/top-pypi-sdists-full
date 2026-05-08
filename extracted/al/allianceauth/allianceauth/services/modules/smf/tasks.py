@@ -1,11 +1,14 @@
 import logging
 
+from celery import shared_task
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
-from celery import shared_task
-from allianceauth.services.tasks import QueueOnce
+
 from allianceauth.notifications import notify
 from allianceauth.services.hooks import NameFormatter
+from allianceauth.services.tasks import QueueOnce
+
 from .manager import SmfManager
 from .models import SmfUser
 
@@ -42,7 +45,7 @@ class SmfTasks:
     @shared_task(bind=True, name="smf.update_groups", base=QueueOnce)
     def update_groups(self, pk):
         user = User.objects.get(pk=pk)
-        logger.debug("Updating smf groups for user %s" % user)
+        logger.debug(f"Updating smf groups for user {user}")
         if SmfTasks.has_account(user):
             groups = [user.profile.state.name]
             for group in user.groups.all():
@@ -50,10 +53,10 @@ class SmfTasks:
             logger.debug(f"Updating user {user} smf groups to {groups}")
             try:
                 SmfManager.update_groups(user.smf.username, groups)
-            except:
-                logger.exception("smf group sync failed for %s, retrying in 10 mins" % user)
-                raise self.retry(countdown=60 * 10)
-            logger.debug("Updated user %s smf groups." % user)
+            except Exception as e:
+                logger.exception(f"smf group sync failed for {user}, retrying in 10 mins")
+                raise self.retry(exc=e, countdown=60 * 10) from e
+            logger.debug(f"Updated user {user} smf groups.")
         else:
             logger.debug("User does not have an smf account")
 
@@ -74,11 +77,11 @@ class SmfTasks:
                     f"SMF displayed name sync failed for {user}, "
                     "user does not have a SMF account"
                 )
-            except:
+            except Exception as e:
                 logger.exception(
                     f"SMF displayed name sync failed for {user}, retrying in 10 mins"
                 )
-                raise self.retry(countdown=60 * 10)
+                raise self.retry(exc=e, countdown=60 * 10) from e
         else:
             logger.debug(f"User {user} does not have a SMF account, skipping")
 

@@ -7132,7 +7132,11 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
 
     def std(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.StandardDeviation:
         """
-        Creates a new StandardDeviation indicator. This will return the population standard deviation of samples over the specified period.
+        Creates a new StandardDeviation indicator. This will return the population standard
+        deviation of samples over the specified period. By default, it consumes the security's
+        price, so the result is the dispersion of price levels, not the asset's volatility.
+        To compute volatility, chain this indicator onto a logr or
+        roc indicator using IndicatorExtensions.of.
         
         :param symbol: The symbol whose STD we want
         :param period: The period over which to compute the STD
@@ -7832,6 +7836,21 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param resolution: The resolution
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
         :returns: The Williams %R indicator for the requested symbol over the specified period.
+        """
+        ...
+
+    def wto(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], channel_period: int, average_period: int, signal_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.WaveTrendOscillator:
+        """
+        Creates a new WaveTrend Oscillator (WTO) indicator for the symbol.
+        The indicator will be automatically updated on the given resolution.
+        
+        :param symbol: The symbol whose WaveTrend Oscillator we want
+        :param channel_period: The smoothing period for the typical-price EMA and the deviation EMA
+        :param average_period: The EMA period applied to the channel index to produce the WT1 line
+        :param signal_period: The SMA period applied to WT1 to produce the WT2 signal line
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
+        :returns: The WaveTrendOscillator indicator for the requested symbol.
         """
         ...
 

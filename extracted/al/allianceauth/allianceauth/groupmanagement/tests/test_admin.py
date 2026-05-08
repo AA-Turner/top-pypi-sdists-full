@@ -10,7 +10,9 @@ from django.test import Client, RequestFactory, TestCase, override_settings
 
 from allianceauth.authentication.models import CharacterOwnership, State
 from allianceauth.eveonline.models import (
-    EveAllianceInfo, EveCharacter, EveCorporationInfo,
+    EveAllianceInfo,
+    EveCharacter,
+    EveCorporationInfo,
 )
 from allianceauth.tests.auth_utils import AuthUtils
 

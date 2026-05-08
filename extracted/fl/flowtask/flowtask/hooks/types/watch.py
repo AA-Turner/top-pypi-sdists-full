@@ -48,11 +48,11 @@ class BaseWatchdog(BaseTrigger):
         pass
 
     async def on_startup(self, app: WebApp = None) -> None:
-        print("CALLING SETUP for Watcher Trigger")
+        self._logger.info("Trigger %s on_startup: starting watcher", self._name_)
         self.watcher.start()
 
     async def on_shutdown(self, app: WebApp = None) -> None:
-        print("CALLING STOP Watcher Trigger")
+        self._logger.info("Trigger %s on_shutdown: stopping watcher", self._name_)
         self.watcher.stop()
 
     def set_credentials(self, credentials: dict):

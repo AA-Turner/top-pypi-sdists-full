@@ -1,4 +1,5 @@
 from django.test import TestCase
+
 from allianceauth.tests.auth_utils import AuthUtils
 
 from .. import notify

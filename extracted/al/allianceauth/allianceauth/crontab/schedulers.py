@@ -1,12 +1,10 @@
-from django.core.exceptions import ObjectDoesNotExist
-from django_celery_beat.schedulers import (
-    DatabaseScheduler
-)
-from django_celery_beat.models import CrontabSchedule
-from django.db.utils import OperationalError, ProgrammingError
-
 from celery import schedules
 from celery.utils.log import get_logger
+from django_celery_beat.models import CrontabSchedule
+from django_celery_beat.schedulers import DatabaseScheduler
+
+from django.core.exceptions import ObjectDoesNotExist
+from django.db.utils import OperationalError, ProgrammingError
 
 from allianceauth.crontab.models import CronOffset
 from allianceauth.crontab.utils import offset_cron
@@ -28,7 +26,7 @@ class OffsetDatabaseScheduler(DatabaseScheduler):
         s = {}
 
         try:
-            cron_offset = CronOffset.get_solo()
+            cron_offset = CronOffset.get_solo()  # noqa: F841
         except (OperationalError, ProgrammingError, ObjectDoesNotExist) as exc:
             # This is just incase we haven't migrated yet or something
             logger.warning(

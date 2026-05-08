@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-""" module allocating nodes to Ray's cluster.
- used by the Ray framework as an external connector to IBM provider. """
+"""module allocating nodes to Ray's cluster.
+used by the Ray framework as an external connector to IBM provider."""
 
 import concurrent.futures as cf
 import inspect
@@ -141,7 +141,7 @@ class IBMVPCNodeProvider(NodeProvider):
                     # remote head node will calculate 2 hash values below
                     ray_bootstrap_config = Path.home() / "ray_bootstrap_config.yaml"
                     config = json.loads(ray_bootstrap_config.read_text())
-                    (runtime_hash, mounts_contents_hash) = hash_runtime_conf(
+                    runtime_hash, mounts_contents_hash = hash_runtime_conf(
                         config["file_mounts"], None, config
                     )
 

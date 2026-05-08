@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: notebooklm-mcp-cli
-Version: 0.6.5
+Version: 0.6.6
 Summary: Unified CLI and MCP server for Google NotebookLM
 Project-URL: Homepage, https://github.com/jacob-bd/notebooklm-mcp-cli
 Project-URL: Repository, https://github.com/jacob-bd/notebooklm-mcp-cli
@@ -42,7 +42,7 @@ Description-Content-Type: text/markdown
 
 **Programmatic access to Google NotebookLM** — via command-line interface (CLI) or Model Context Protocol (MCP) server.
 
-> **Note:** Tested with Pro/free tier accounts. May work with NotebookLM Enterprise accounts but has not been tested.
+> **Note:** Tested with Pro/free and Google AI Ultra ($249/mo) tier accounts. May work with NotebookLM Enterprise accounts but has not been tested.
 
 📺 **Watch the Demos**
 

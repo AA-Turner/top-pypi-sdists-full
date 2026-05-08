@@ -2,8 +2,8 @@ from typing import Union, Any
 from collections.abc import Callable, Awaitable
 import importlib
 from navconfig.logging import logging
-from ..exceptions import ConfigError, FlowTaskError, ComponentError, NotSupported
-from ..components import getComponent, importComponent
+from ..exceptions import ConfigError, FlowTaskError, NotSupported
+from ..components import importComponent
 from ..components.abstract import AbstractFlow
 from .actions.abstract import AbstractAction
 

@@ -78,6 +78,9 @@ __all__ = (
     "ListMemoriesPaginatorName",
     "ListOauth2CredentialProvidersPaginatorName",
     "ListOnlineEvaluationConfigsPaginatorName",
+    "ListPaymentConnectorsPaginatorName",
+    "ListPaymentCredentialProvidersPaginatorName",
+    "ListPaymentManagersPaginatorName",
     "ListPoliciesPaginatorName",
     "ListPolicyEnginesPaginatorName",
     "ListPolicyGenerationAssetsPaginatorName",
@@ -99,6 +102,11 @@ __all__ = (
     "OnlineEvaluationExecutionStatusType",
     "OverrideTypeType",
     "PaginatorName",
+    "PaymentConnectorStatusType",
+    "PaymentConnectorTypeType",
+    "PaymentCredentialProviderVendorTypeType",
+    "PaymentManagerStatusType",
+    "PaymentsAuthorizerTypeType",
     "PolicyActiveWaiterName",
     "PolicyDeletedWaiterName",
     "PolicyEngineActiveWaiterName",
@@ -248,6 +256,9 @@ ListHarnessesPaginatorName = Literal["list_harnesses"]
 ListMemoriesPaginatorName = Literal["list_memories"]
 ListOauth2CredentialProvidersPaginatorName = Literal["list_oauth2_credential_providers"]
 ListOnlineEvaluationConfigsPaginatorName = Literal["list_online_evaluation_configs"]
+ListPaymentConnectorsPaginatorName = Literal["list_payment_connectors"]
+ListPaymentCredentialProvidersPaginatorName = Literal["list_payment_credential_providers"]
+ListPaymentManagersPaginatorName = Literal["list_payment_managers"]
 ListPoliciesPaginatorName = Literal["list_policies"]
 ListPolicyEnginesPaginatorName = Literal["list_policy_engines"]
 ListPolicyGenerationAssetsPaginatorName = Literal["list_policy_generation_assets"]
@@ -278,6 +289,15 @@ OverrideTypeType = Literal[
     "SUMMARY_OVERRIDE",
     "USER_PREFERENCE_OVERRIDE",
 ]
+PaymentConnectorStatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
+PaymentConnectorTypeType = Literal["CoinbaseCDP", "StripePrivy"]
+PaymentCredentialProviderVendorTypeType = Literal["CoinbaseCDP", "StripePrivy"]
+PaymentManagerStatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
+PaymentsAuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT"]
 PolicyActiveWaiterName = Literal["policy_active"]
 PolicyDeletedWaiterName = Literal["policy_deleted"]
 PolicyEngineActiveWaiterName = Literal["policy_engine_active"]
@@ -779,6 +799,9 @@ PaginatorName = Literal[
     "list_memories",
     "list_oauth2_credential_providers",
     "list_online_evaluation_configs",
+    "list_payment_connectors",
+    "list_payment_credential_providers",
+    "list_payment_managers",
     "list_policies",
     "list_policy_engines",
     "list_policy_generation_assets",

@@ -1,11 +1,11 @@
-from typing import List, Iterable, Callable
+from collections.abc import Callable, Iterable
 
-from django.urls import include
-import esi.urls
 from django.conf import settings
 from django.contrib import admin
 from django.urls import URLPattern, include, path
 from django.views.generic.base import TemplateView
+
+import esi.urls
 
 import allianceauth.authentication.urls
 import allianceauth.authentication.views
@@ -14,18 +14,15 @@ import allianceauth.notifications.urls
 import allianceauth.services.urls
 from allianceauth import NAME, views
 from allianceauth.authentication import hmac_urls
-from allianceauth.authentication.decorators import (
-    decorate_url_patterns,
-    main_character_required
-)
+from allianceauth.authentication.decorators import decorate_url_patterns, main_character_required
 from allianceauth.hooks import get_hooks
 
 admin.site.site_header = NAME
 
 
 def urls_from_apps(
-    apps_hook_functions: Iterable[Callable], public_views_allowed: List[str]
-) -> List[URLPattern]:
+    apps_hook_functions: Iterable[Callable], public_views_allowed: list[str]
+) -> list[URLPattern]:
     """Return urls from apps and add default decorators."""
 
     url_patterns = []

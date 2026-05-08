@@ -19,6 +19,7 @@ from ...conf import (
     WORKDAY_WSDL_ABSENCE_MANAGEMENT,
     WORKDAY_WSDL_TIME_BLOCK_REPORT,
     WORKDAY_WSDL_CUSTOM_PUNCH_FIELD_REPORT,
+    WORKDAY_WSDL_INTEGRATIONS,
     WORKDAY_REFRESH_TOKEN,
     WORKDAY_REPORT_USERNAME,
     WORKDAY_REPORT_PASSWORD,
@@ -40,7 +41,8 @@ from .types import (
     CustomReportType,
     CustomPunchFieldReportType,
     CustomPunchFieldReportRestType,
-    RecruitingAgencyUsersType
+    RecruitingAgencyUsersType,
+    ReferencesType,
 )
 from .types.organization_single import GetOrganization
 from .types.location_hierarchy_assignments import LocationHierarchyAssignmentsType
@@ -312,6 +314,9 @@ class Workday(SOAPClient, FlowComponent):
         # Job Posting Site parameters
         self.is_active = kwargs.get('is_active')
 
+        # References (Integrations service) parameters
+        self.reference_id_type = kwargs.get('reference_id_type')
+
         # Debug parameters
         self.zeep_debug = kwargs.get('zeep_debug', False)
 
@@ -349,6 +354,7 @@ class Workday(SOAPClient, FlowComponent):
             'get_time_off_balances': WORKDAY_WSDL_ABSENCE_MANAGEMENT,
             'extract_time_blocks_report': WORKDAY_WSDL_TIME_BLOCK_REPORT,
             'custom_punch_field_report': WORKDAY_WSDL_CUSTOM_PUNCH_FIELD_REPORT,
+            'get_references': WORKDAY_WSDL_INTEGRATIONS,
             # Add more mappings as needed
         }
         wsdl_path = wsdl_mapping.get(self.type, WORKDAY_WSDL_PATH)
@@ -465,7 +471,8 @@ class Workday(SOAPClient, FlowComponent):
             "extract_time_blocks_report": TimeBlockReportType(self),
             "custom_report": CustomReportType(self),
             "custom_punch_field_report": CustomPunchFieldReportType(self),
-            "custom_punch_field_report_rest": CustomPunchFieldReportRestType(self)
+            "custom_punch_field_report_rest": CustomPunchFieldReportRestType(self),
+            "get_references": ReferencesType(self),
         }
 
         # Initialize metrics
@@ -772,6 +779,11 @@ class Workday(SOAPClient, FlowComponent):
                 kwargs['job_posting_site_id'] = self.job_posting_site_id
             if hasattr(self, 'is_active') and self.is_active is not None:
                 kwargs['is_active'] = self.is_active
+
+        # Add references parameters (Integrations service: Get_References)
+        if self.type == 'get_references':
+            if getattr(self, 'reference_id_type', None):
+                kwargs['reference_id_type'] = self.reference_id_type
 
         # Add time off balance parameters if they exist in the component (only for time_off_balances type)
         if self.type == 'get_time_off_balances':

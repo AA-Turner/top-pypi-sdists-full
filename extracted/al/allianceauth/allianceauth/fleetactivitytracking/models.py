@@ -13,7 +13,15 @@ class Fatlink(models.Model):
     hash = models.CharField(max_length=254, unique=True)
     creator = models.ForeignKey(User, on_delete=models.SET(get_sentinel_user))
 
-    def __str__(self):
+    class Meta:
+        permissions = (
+            # Intentionally Commented out
+            # AAv0 has these in the Auth_ Content Type
+            # ('fleetactivitytracking', 'fleetactivitytracking'),
+            # ('fleetactivitytracking_statistics', 'fleetactivitytracking_statistics'),
+        )
+
+    def __str__(self) -> str:
         return self.fleet
 
 
@@ -26,7 +34,8 @@ class Fat(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = (('character', 'fatlink'),)
+        default_permissions = ()
+        unique_together = (("character", "fatlink"),)
 
-    def __str__(self):
-        return "Fat-link for %s" % self.character.character_name
+    def __str__(self) -> str:
+        return f"Fat-link for {self.character.character_name}"

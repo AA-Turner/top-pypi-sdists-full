@@ -7,7 +7,6 @@ Discord's snowflake type (used by Discord IDs) is implemented as int.
 """
 
 from dataclasses import asdict, dataclass
-from typing import FrozenSet
 
 
 @dataclass(frozen=True)
@@ -69,7 +68,7 @@ class Guild:
 
     id: int
     name: str
-    roles: FrozenSet[Role]
+    roles: frozenset[Role]
 
     def __post_init__(self):
         object.__setattr__(self, "id", int(self.id))
@@ -95,7 +94,7 @@ class GuildMember:
 
     _NICK_MAX_CHARS = 32
 
-    roles: FrozenSet[int]
+    roles: frozenset[int]
     nick: str = None
     user: User = None
 

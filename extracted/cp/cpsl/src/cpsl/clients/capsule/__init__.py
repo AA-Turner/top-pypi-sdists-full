@@ -120,6 +120,8 @@ class InboundMessage(betterproto.Message):
     """
 
     attachments: List["ChatAttachment"] = betterproto.message_field(9)
+    chat_name: str = betterproto.string_field(10)
+    initial_data_json: str = betterproto.string_field(11)
 
 
 @dataclass(eq=False, repr=False)
@@ -866,6 +868,18 @@ class DeleteOneResponse(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class DeleteManyRequest(betterproto.Message):
+    app_id: str = betterproto.string_field(1)
+    collection: str = betterproto.string_field(2)
+    filter_json: bytes = betterproto.bytes_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class DeleteManyResponse(betterproto.Message):
+    deleted: int = betterproto.int64_field(1)
+
+
+@dataclass(eq=False, repr=False)
 class CountRequest(betterproto.Message):
     app_id: str = betterproto.string_field(1)
     collection: str = betterproto.string_field(2)
@@ -1313,6 +1327,15 @@ class DataServiceStub(SyncServiceStub):
             DeleteOneRequest,
             DeleteOneResponse,
         )(delete_one_request)
+
+    def delete_many(
+        self, delete_many_request: "DeleteManyRequest"
+    ) -> "DeleteManyResponse":
+        return self._unary_unary(
+            "/capsule.DataService/DeleteMany",
+            DeleteManyRequest,
+            DeleteManyResponse,
+        )(delete_many_request)
 
     def count(self, count_request: "CountRequest") -> "CountResponse":
         return self._unary_unary(

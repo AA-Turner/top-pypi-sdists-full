@@ -1,7 +1,6 @@
 """Core functionality of the Discord service not directly related to models."""
 
 import logging
-from typing import List, Optional, Tuple
 
 from requests.exceptions import HTTPError
 
@@ -12,7 +11,7 @@ from allianceauth.services.hooks import NameFormatter
 
 from . import __title__
 from .app_settings import DISCORD_BOT_TOKEN, DISCORD_GUILD_ID
-from .discord_client import DiscordClient, RolesSet, Role
+from .discord_client import DiscordClient, Role, RolesSet
 from .discord_client.exceptions import DiscordClientException
 from .utils import LoggerAddTag
 
@@ -36,7 +35,7 @@ def calculate_roles_for_user(
     client: DiscordClient,
     discord_uid: int,
     state_name: str = None,
-) -> Tuple[RolesSet, Optional[bool]]:
+) -> tuple[RolesSet, bool | None]:
     """Calculate current Discord roles for an Auth user.
 
     Takes into account reserved groups and existing managed roles (e.g. nitro).
@@ -68,7 +67,7 @@ def calculate_roles_for_user(
     return roles_calculated.union(roles_persistent), True
 
 
-def _user_group_names(user: User, state_name: str = None) -> List[str]:
+def _user_group_names(user: User, state_name: str = None) -> list[str]:
     """Names of groups and state the given user is a member of."""
     if not state_name:
         state_name = user.profile.state.name
@@ -77,7 +76,7 @@ def _user_group_names(user: User, state_name: str = None) -> List[str]:
     return group_names
 
 
-def user_formatted_nick(user: User) -> Optional[str]:
+def user_formatted_nick(user: User) -> str | None:
     """Name of the given user's main character with name formatting applied.
 
     Returns:
@@ -90,7 +89,7 @@ def user_formatted_nick(user: User) -> Optional[str]:
     return None
 
 
-def group_to_role(group: Group) -> Optional[Role]:
+def group_to_role(group: Group) -> Role | None:
     """Fetch the Discord role matching the given Django group by name.
 
     Returns:

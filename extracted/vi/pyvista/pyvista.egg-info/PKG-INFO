@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvista
-Version: 0.48.0
+Version: 0.48.1
 Summary: Easier Pythonic interface to VTK
 Author-email: PyVista Developers <info@pyvista.org>
 License-Expression: MIT

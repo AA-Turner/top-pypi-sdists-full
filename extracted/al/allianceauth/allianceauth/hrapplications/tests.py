@@ -4,7 +4,7 @@ from django.test import TestCase
 from allianceauth.eveonline.models import EveCorporationInfo
 from allianceauth.tests.auth_utils import AuthUtils
 
-from .models import Application, ApplicationForm, ApplicationQuestion, ApplicationChoice
+from .models import Application, ApplicationChoice, ApplicationForm, ApplicationQuestion
 
 
 class TestApplicationManagersPendingRequestsCountForUser(TestCase):

@@ -5,7 +5,8 @@ from amqp.exceptions import ChannelError
 from django.test import TestCase
 
 from allianceauth.authentication.core.celery_workers import (
-    active_tasks_count, queued_tasks_count,
+    active_tasks_count,
+    queued_tasks_count,
 )
 
 MODULE_PATH = "allianceauth.authentication.core.celery_workers"

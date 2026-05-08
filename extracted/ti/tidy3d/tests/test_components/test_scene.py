@@ -11,6 +11,7 @@ from pydantic import ValidationError
 import tidy3d as td
 import tidy3d.components.scene as scene_mod
 from tidy3d.components import scene
+from tidy3d.components.geometry.float_utils import increment_float
 from tidy3d.components.viz import STRUCTURE_EPS_CMAP, STRUCTURE_EPS_CMAP_R
 from tidy3d.exceptions import SetupError
 
@@ -105,6 +106,49 @@ def test_plot_bounds():
     plt.close()
     _ = SCENE_FULL.plot(x=0, hlim=[-0.45, 0.45], vlim=[-0.45, 0.45])
     plt.close()
+
+
+def test_plot_structures_relaxed_for_small_2d_plane_offset():
+    z_expected = 0.3
+    z_offset = float(increment_float(z_expected, 1.0))
+    structure = td.Structure(
+        geometry=td.Box(center=(0, 0, z_expected), size=(2, 1, 0)),
+        medium=td.Medium2D(ss=td.Medium(permittivity=4.0), tt=td.Medium(permittivity=4.0)),
+    )
+    test_scene = td.Scene(structures=[structure])
+
+    fig, ax = plt.subplots()
+    test_scene.plot_structures(z=z_offset, ax=ax)
+    structure_patches = [patch for patch in ax.patches if isinstance(patch, mpl.patches.PathPatch)]
+
+    assert len(structure.geometry.intersections_plane(z=z_offset)) == 0
+    assert len(structure_patches) > 0, "2D structure should still plot within float precision."
+    plt.close(fig)
+
+
+def test_plot_transformed_2d_structure_relaxed_for_small_plane_offset():
+    z_expected = 0.3
+    z_offset = float(increment_float(z_expected, 1.0))
+    geometry = td.Transformed(
+        geometry=td.Transformed(
+            geometry=td.Box(center=(0, 0, z_expected), size=(2, 1, 0)),
+            transform=td.Transformed.rotation(0.37, 2),
+        ),
+        transform=td.Transformed.translation(0.0, 0.0, z_offset - z_expected),
+    )
+    structure = td.Structure(
+        geometry=geometry,
+        medium=td.Medium2D(ss=td.Medium(permittivity=4.0), tt=td.Medium(permittivity=4.0)),
+    )
+    test_scene = td.Scene(structures=[structure])
+
+    fig, ax = plt.subplots()
+    test_scene.plot_structures(z=z_expected, ax=ax)
+    structure_patches = [patch for patch in ax.patches if isinstance(patch, mpl.patches.PathPatch)]
+
+    assert len(geometry.intersections_plane(z=z_expected)) == 0
+    assert len(structure_patches) > 0, "Transformed 2D structure should still plot within fp_eps."
+    plt.close(fig)
 
 
 def test_structure_alpha():
@@ -562,20 +606,20 @@ def test_log_scale_with_custom_limits():
     _ = scene.plot_eps(x=0, scale="log", eps_lim=(1e-5, 100))
     plt.close()
 
-    with pytest.raises(SetupError, match="Log scale cannot be used with non-positive values."):
+    with pytest.raises(SetupError, match=r"Log scale cannot be used with non-positive values."):
         _ = scene.plot_eps(x=0, scale="log", eps_lim=(-1e-2, 100))
         plt.close()
 
     _ = scene.plot_structures_property(x=0, property="eps", scale="log", limits=(1e-2, 100))
     plt.close()
 
-    with pytest.raises(SetupError, match="Log scale cannot be used with non-positive values."):
+    with pytest.raises(SetupError, match=r"Log scale cannot be used with non-positive values."):
         _ = scene.plot_structures_property(x=0, property="eps", scale="log", limits=(-2e-2, 100))
         plt.close()
 
     # Test that invalid scale raises error
     with pytest.raises(
-        SetupError, match="The scale 'invalid' is not supported for plotting structures property."
+        SetupError, match=r"The scale 'invalid' is not supported for plotting structures property."
     ):
         _ = scene.plot_structures_property(x=0, property="eps", scale="invalid")
     plt.close()

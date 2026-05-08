@@ -1,12 +1,15 @@
 import json
+from unittest.mock import MagicMock, patch
+
 import requests_mock
-from unittest.mock import patch
 
-from django.test import RequestFactory, TestCase
+from django.contrib.sessions.backends.db import SessionStore
+from django.test import RequestFactory, TestCase, override_settings
+from django.urls import reverse
 
-from allianceauth.authentication.views import task_counts, esi_check
-from allianceauth.tests.auth_utils import AuthUtils
 from allianceauth.authentication.constants import ESI_ERROR_MESSAGE_OVERRIDES
+from allianceauth.authentication.views import esi_check, sso_login, task_counts
+from allianceauth.tests.auth_utils import AuthUtils
 
 MODULE_PATH = "allianceauth.authentication.views"
 TEMPLATETAGS_PATH = "allianceauth.templatetags.admin_status"
@@ -230,3 +233,64 @@ class TestEsiCheck(TestCase):
         response = esi_check(request)
         # then
         self.assertEqual(response.status_code, 302)
+
+
+@override_settings(ALLOWED_HOSTS=["example.com"])
+@patch(MODULE_PATH + ".authenticate")
+@patch(MODULE_PATH + ".login")
+class TestSsoLoginRedirect(TestCase):
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.factory = RequestFactory()
+        cls.user = AuthUtils.create_user("sso_user")
+        cls.user.is_active = True
+        cls.user.save()
+
+    def _make_token(self):
+        token = MagicMock()
+        token.character_id = 12345
+        token.character_name = "Test Char"
+        token.character_owner_hash = "abc123"
+        # Make equivalent_to chain return a queryset-like that says no dupes
+        token.pk = 1
+        qs = MagicMock()
+        qs.equivalent_to.return_value = qs
+        qs.require_valid.return_value = qs
+        qs.exists.return_value = False
+        return token, qs
+
+    @patch(MODULE_PATH + ".Token")
+    def test_should_redirect_to_dashboard_when_no_next(self, mock_token_cls, mock_login, mock_auth):
+        mock_auth.return_value = self.user
+        token, qs = self._make_token()
+        mock_token_cls.objects.exclude.return_value = qs
+        request = self.factory.get("/")
+        request.user = self.user
+        request.session = SessionStore()
+        response = sso_login.__wrapped__(request, token)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("authentication:dashboard"))
+
+    @patch(MODULE_PATH + ".Token")
+    def test_should_redirect_to_safe_next_url(self, mock_token_cls, mock_login, mock_auth):
+        mock_auth.return_value = self.user
+        token, qs = self._make_token()
+        mock_token_cls.objects.exclude.return_value = qs
+        request = self.factory.get("/?next=/groups/")
+        request.user = self.user
+        request.session = SessionStore()
+        response = sso_login.__wrapped__(request, token)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "/groups/")
+
+    @patch(MODULE_PATH + ".Token")
+    def test_should_block_redirect_to_external_url(self, mock_token_cls, mock_login, mock_auth):
+        mock_auth.return_value = self.user
+        token, qs = self._make_token()
+        mock_token_cls.objects.exclude.return_value = qs
+        request = self.factory.get("/?next=https://evil.com")
+        request.user = self.user
+        request.session = SessionStore()
+        response = sso_login.__wrapped__(request, token)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("authentication:dashboard"))

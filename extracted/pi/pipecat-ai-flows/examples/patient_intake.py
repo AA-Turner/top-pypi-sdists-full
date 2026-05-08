@@ -28,7 +28,7 @@ Requirements:
 """
 
 import os
-from typing import List, TypedDict
+from typing import TypedDict
 
 from dotenv import load_dotenv
 from loguru import logger
@@ -55,7 +55,6 @@ from pipecat_flows import (
     ContextStrategyConfig,
     FlowArgs,
     FlowManager,
-    FlowResult,
     FlowsFunctionSchema,
     NodeConfig,
 )
@@ -97,23 +96,23 @@ class VisitReason(TypedDict):
 
 
 # Result types for each handler
-class BirthdayVerificationResult(FlowResult):
+class BirthdayVerificationResult(TypedDict):
     verified: bool
 
 
-class PrescriptionRecordResult(FlowResult):
+class PrescriptionRecordResult(TypedDict):
     count: int
 
 
-class AllergyRecordResult(FlowResult):
+class AllergyRecordResult(TypedDict):
     count: int
 
 
-class ConditionRecordResult(FlowResult):
+class ConditionRecordResult(TypedDict):
     count: int
 
 
-class VisitReasonRecordResult(FlowResult):
+class VisitReasonRecordResult(TypedDict):
     count: int
 
 
@@ -137,7 +136,7 @@ async def record_prescriptions(
     args: FlowArgs, flow_manager: FlowManager
 ) -> tuple[PrescriptionRecordResult, NodeConfig]:
     """Handler for recording prescriptions."""
-    prescriptions: List[Prescription] = args["prescriptions"]
+    prescriptions: list[Prescription] = args["prescriptions"]
 
     # Store prescriptions in flow state
     flow_manager.state["prescriptions"] = prescriptions
@@ -150,7 +149,7 @@ async def record_allergies(
     args: FlowArgs, flow_manager: FlowManager
 ) -> tuple[AllergyRecordResult, NodeConfig]:
     """Handler for recording allergies."""
-    allergies: List[Allergy] = args["allergies"]
+    allergies: list[Allergy] = args["allergies"]
 
     # Store allergies in flow state
     flow_manager.state["allergies"] = allergies
@@ -163,7 +162,7 @@ async def record_conditions(
     args: FlowArgs, flow_manager: FlowManager
 ) -> tuple[ConditionRecordResult, NodeConfig]:
     """Handler for recording medical conditions."""
-    conditions: List[Condition] = args["conditions"]
+    conditions: list[Condition] = args["conditions"]
 
     # Store conditions in flow state
     flow_manager.state["conditions"] = conditions
@@ -176,7 +175,7 @@ async def record_visit_reasons(
     args: FlowArgs, flow_manager: FlowManager
 ) -> tuple[VisitReasonRecordResult, NodeConfig]:
     """Handler for recording visit reasons."""
-    visit_reasons: List[VisitReason] = args["visit_reasons"]
+    visit_reasons: list[VisitReason] = args["visit_reasons"]
 
     # Store visit reasons in flow state
     flow_manager.state["visit_reasons"] = visit_reasons
@@ -460,9 +459,9 @@ def create_end_node() -> NodeConfig:
 
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     """Run the patient intake bot."""
-    stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY"))
+    stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY", ""))
     tts = CartesiaTTSService(
-        api_key=os.getenv("CARTESIA_API_KEY"),
+        api_key=os.getenv("CARTESIA_API_KEY", ""),
         settings=CartesiaTTSService.Settings(
             voice="71a7ad14-091c-4e8e-a314-022ece01c121",  # British Reading Lady
         ),

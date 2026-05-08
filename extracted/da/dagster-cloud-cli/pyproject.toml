@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-cloud-cli"
-version = "1.13.3"
+version = "1.13.4"
 description = ""
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -21,7 +21,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster-shared==1.13.3",
+    "dagster-shared==1.13.4",
     "packaging>=20.9",
     "questionary",
     "requests",
@@ -49,4 +49,5 @@ test = [
     "pytest-mock==3.14.0",
     "flaky",
     "pex>=2.1.132,<2.60.0",
+    "pip",
 ]

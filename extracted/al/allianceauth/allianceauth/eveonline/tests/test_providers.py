@@ -1,49 +1,35 @@
-import os
-from unittest.mock import Mock, patch
-
-from bravado.exception import HTTPNotFound
-from jsonschema.exceptions import RefResolutionError
+from types import SimpleNamespace
+from unittest.mock import Mock, PropertyMock, patch
 
 from django.test import TestCase
 
-from allianceauth import __url__ as aa_url
-from allianceauth import __version__ as aa_version
+from esi import __url__ as esi_url, __version__ as esi_version
+from esi.exceptions import HTTPClientError
 
-from esi import __url__ as esi_url
-from esi import __version__ as esi_version
+from allianceauth import __url__ as aa_url, __version__ as aa_version
 
+from ..providers import (
+    Alliance, AllianceMixin, Character, Corporation, Entity,
+    EveOpenAPIProvider, FactionMixin, ItemType, ObjectNotFound,
+)
 from . import set_logger
 from .esi_client_stub import EsiClientStub
-from ..providers import (
-    ObjectNotFound,
-    Entity,
-    AllianceMixin,
-    FactionMixin,
-    Character,
-    Corporation,
-    Alliance,
-    ItemType,
-    EveProvider,
-    EveSwaggerProvider
-)
 
 MODULE_PATH = 'allianceauth.eveonline.providers'
-SWAGGER_OLD_SPEC_PATH = os.path.join(os.path.dirname(
-    os.path.abspath(__file__)), 'swagger_old.json'
-)
+
 set_logger(MODULE_PATH, __file__)
 
 
 class TestObjectNotFound(TestCase):
 
-    def test_str(self):
+    def test_str(self) -> None:
         x = ObjectNotFound(1001, 'Character')
         self.assertEqual(str(x), 'Character with ID 1001 not found.')
 
 
 class TestEntity(TestCase):
 
-    def test_str(self):
+    def test_str(self) -> None:
         x = Entity(1001, 'Bruce Wayne')
         self.assertEqual(str(x), 'Bruce Wayne')
 
@@ -56,7 +42,7 @@ class TestEntity(TestCase):
         self.assertEqual(str(x), '')
         """
 
-    def test_repr(self):
+    def test_repr(self) -> None:
         x = Entity(1001, 'Bruce Wayne')
         self.assertEqual(repr(x), '<Entity (1001): Bruce Wayne>')
 
@@ -66,14 +52,14 @@ class TestEntity(TestCase):
         x = Entity()
         self.assertEqual(repr(x), '<Entity (None): None>')
 
-    def test_bool(self):
+    def test_bool(self) -> None:
         x = Entity(1001)
         self.assertTrue(bool(x))
 
         x = Entity()
         self.assertFalse(bool(x))
 
-    def test_eq(self):
+    def test_eq(self) -> None:
         x1 = Entity(1001)
         x2 = Entity(1001)
         y = Entity(1002)
@@ -89,8 +75,8 @@ class TestEntity(TestCase):
 
 
 class TestAllianceMixin(TestCase):
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_alliance')
-    def test_alliance_defined(self, mock_provider_get_alliance):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_alliance')
+    def test_alliance_defined(self, mock_provider_get_alliance) -> None:
         my_alliance = Alliance(
             id=3001,
             name='Dummy Alliance',
@@ -112,8 +98,8 @@ class TestAllianceMixin(TestCase):
         # should fetch alliance once only
         self.assertEqual(mock_provider_get_alliance.call_count, 1)
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_alliance')
-    def test_alliance_not_defined(self, mock_provider_get_alliance):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_alliance')
+    def test_alliance_not_defined(self, mock_provider_get_alliance) -> None:
         mock_provider_get_alliance.return_value = None
 
         x = AllianceMixin()
@@ -125,8 +111,8 @@ class TestAllianceMixin(TestCase):
 
 
 class TestFactionMixin(TestCase):
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_faction')
-    def test_faction_defined(self, mock_provider_get_faction):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_faction')
+    def test_faction_defined(self, mock_provider_get_faction) -> None:
         my_faction = Entity(id=1337, name='Permabanned')
         mock_provider_get_faction.return_value = my_faction
 
@@ -142,8 +128,8 @@ class TestFactionMixin(TestCase):
         # should fetch alliance once only
         self.assertEqual(mock_provider_get_faction.call_count, 1)
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_alliance')
-    def test_faction_not_defined(self, mock_provider_get_faction):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_alliance')
+    def test_faction_not_defined(self, mock_provider_get_faction) -> None:
         mock_provider_get_faction.return_value = None
 
         x = FactionMixin()
@@ -156,8 +142,8 @@ class TestFactionMixin(TestCase):
 
 class TestCorporation(TestCase):
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_alliance')
-    def test_alliance_defined(self, mock_provider_get_alliance):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_alliance')
+    def test_alliance_defined(self, mock_provider_get_alliance) -> None:
         my_alliance = Alliance(
             id=3001,
             name='Dummy Alliance',
@@ -179,8 +165,8 @@ class TestCorporation(TestCase):
         # should fetch alliance once only
         self.assertEqual(mock_provider_get_alliance.call_count, 1)
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_alliance')
-    def test_alliance_not_defined(self, mock_provider_get_alliance):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_alliance')
+    def test_alliance_not_defined(self, mock_provider_get_alliance) -> None:
         mock_provider_get_alliance.return_value = None
 
         x = Corporation()
@@ -190,8 +176,8 @@ class TestCorporation(TestCase):
         )
         self.assertEqual(mock_provider_get_alliance.call_count, 0)
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_character')
-    def test_ceo(self, mock_provider_get_character):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_character')
+    def test_ceo(self, mock_provider_get_character) -> None:
         my_ceo = Character(
             id=1001,
             name='Bruce Wayne',
@@ -217,8 +203,8 @@ class TestCorporation(TestCase):
 
         # bug in ceo(): will try to fetch character even if ceo_id is None
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_faction')
-    def test_faction_defined(self, mock_provider_get_faction):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_faction')
+    def test_faction_defined(self, mock_provider_get_faction) -> None:
         my_faction = Entity(id=1337, name='Permabanned')
         mock_provider_get_faction.return_value = my_faction
 
@@ -231,8 +217,8 @@ class TestCorporation(TestCase):
         self.assertEqual(x.faction, my_faction)
         self.assertEqual(mock_provider_get_faction.call_count, 1)
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_faction')
-    def test_faction_undefined(self, mock_provider_get_faction):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_faction')
+    def test_faction_undefined(self, mock_provider_get_faction) -> None:
         x = Corporation()
         self.assertEqual(x.faction, Entity())
         self.assertEqual(mock_provider_get_faction.call_count, 0)
@@ -251,7 +237,7 @@ class TestAlliance(TestCase):
         )
 
     @staticmethod
-    def _get_corp(corp_id):
+    def _get_corp(corp_id, *args, **kwargs) -> Corporation | None:
         corps = {
             2001: Corporation(
                 id=2001,
@@ -273,8 +259,8 @@ class TestAlliance(TestCase):
         if corp_id:
             return corps[int(corp_id)]
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_corp')
-    def test_corp(self, mock_provider_get_corp):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_corp')
+    def test_corp(self, mock_provider_get_corp) -> None:
         mock_provider_get_corp.side_effect = TestAlliance._get_corp
 
         # should fetch corp if not in the object
@@ -300,8 +286,8 @@ class TestAlliance(TestCase):
         # should be called once by used corp only
         self.assertEqual(mock_provider_get_corp.call_count, 2)
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_corp')
-    def test_corps(self, mock_provider_get_corp):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_corp')
+    def test_corps(self, mock_provider_get_corp) -> None:
         mock_provider_get_corp.side_effect = TestAlliance._get_corp
 
         self.assertEqual(
@@ -313,8 +299,8 @@ class TestAlliance(TestCase):
             ]
         )
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_corp')
-    def test_executor_corp(self, mock_provider_get_corp):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_corp')
+    def test_executor_corp(self, mock_provider_get_corp) -> None:
         mock_provider_get_corp.side_effect = TestAlliance._get_corp
 
         self.assertEqual(
@@ -328,8 +314,8 @@ class TestAlliance(TestCase):
             Entity(None, None),
         )
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_faction')
-    def test_faction_defined(self, mock_provider_get_faction):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_faction')
+    def test_faction_defined(self, mock_provider_get_faction) -> None:
         my_faction = Entity(id=1337, name='Permabanned')
         mock_provider_get_faction.return_value = my_faction
 
@@ -341,8 +327,8 @@ class TestAlliance(TestCase):
         self.assertEqual(self.my_alliance.faction, my_faction)
         self.assertEqual(mock_provider_get_faction.call_count, 1)
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_faction')
-    def test_faction_undefined(self, mock_provider_get_faction):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_faction')
+    def test_faction_undefined(self, mock_provider_get_faction) -> None:
         self.my_alliance.faction_id = None
         self.assertEqual(self.my_alliance.faction, Entity())
         self.assertEqual(mock_provider_get_faction.call_count, 0)
@@ -350,7 +336,7 @@ class TestAlliance(TestCase):
 
 class TestCharacter(TestCase):
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.my_character = Character(
             id=1001,
             name='Bruce Wayne',
@@ -359,8 +345,8 @@ class TestCharacter(TestCase):
             faction_id=1337,
         )
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_corp')
-    def test_corp(self, mock_provider_get_corp):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_corp')
+    def test_corp(self, mock_provider_get_corp) -> None:
         my_corp = Corporation(
             id=2001,
             name='Dummy Corp 1'
@@ -373,13 +359,13 @@ class TestCharacter(TestCase):
         # should call the provider one time only
         self.assertEqual(mock_provider_get_corp.call_count, 1)
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_alliance')
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_corp')
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_alliance')
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_corp')
     def test_alliance_has_one(
         self,
         mock_provider_get_corp,
         mock_provider_get_alliance,
-    ):
+    ) -> None:
         my_corp = Corporation(
             id=2001,
             name='Dummy Corp 1',
@@ -400,14 +386,14 @@ class TestCharacter(TestCase):
         # should call the provider one time only
         self.assertEqual(mock_provider_get_alliance.call_count, 1)
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_alliance')
-    def test_alliance_has_none(self, mock_provider_get_alliance):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_alliance')
+    def test_alliance_has_none(self, mock_provider_get_alliance) -> None:
         self.my_character.alliance_id = None
         self.assertEqual(self.my_character.alliance, Entity(None, None))
         self.assertEqual(mock_provider_get_alliance.call_count, 0)
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_faction')
-    def test_faction_defined(self, mock_provider_get_faction):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_faction')
+    def test_faction_defined(self, mock_provider_get_faction) -> None:
         my_faction = Entity(id=1337, name='Permabanned')
         mock_provider_get_faction.return_value = my_faction
 
@@ -419,8 +405,8 @@ class TestCharacter(TestCase):
         self.assertEqual(self.my_character.faction, my_faction)
         self.assertEqual(mock_provider_get_faction.call_count, 1)
 
-    @patch(MODULE_PATH + '.EveSwaggerProvider.get_faction')
-    def test_faction_undefined(self, mock_provider_get_faction):
+    @patch(MODULE_PATH + '.EveOpenAPIProvider.get_faction')
+    def test_faction_undefined(self, mock_provider_get_faction) -> None:
         self.my_character.faction_id = None
         self.assertEqual(self.my_character.faction, Entity())
         self.assertEqual(mock_provider_get_faction.call_count, 0)
@@ -428,40 +414,15 @@ class TestCharacter(TestCase):
 
 class TestItemType(TestCase):
 
-    def test_init(self):
+    def test_init(self) -> None:
         x = ItemType(id=99, name='Dummy Item')
         self.assertIsInstance(x, ItemType)
 
 
-class TestEveProvider(TestCase):
-
-    def setUp(self):
-        self.my_provider = EveProvider()
-
-    def test_get_alliance(self):
-        with self.assertRaises(NotImplementedError):
-            self.my_provider.get_alliance(3001)
-
-    def test_get_corp(self):
-        with self.assertRaises(NotImplementedError):
-            self.my_provider.get_corp(2001)
-
-    def test_get_character(self):
-        with self.assertRaises(NotImplementedError):
-            self.my_provider.get_character(1001)
-
-    # bug: should be calling NotImplementedError() not NotImplemented
-    """
-    def test_get_itemtype(self):
-        with self.assertRaises(NotImplementedError):
-            self.my_provider.get_itemtype(4001)
-    """
-
-
-class TestEveSwaggerProvider(TestCase):
+class TestEveOpenAPIProvider(TestCase):
 
     @staticmethod
-    def esi_get_alliances_alliance_id(alliance_id):
+    def esi_get_alliances_alliance_id(alliance_id) -> Mock:
         alliances = {
             3001: {
                 'name': 'Dummy Alliance 1',
@@ -478,10 +439,10 @@ class TestEveSwaggerProvider(TestCase):
             mock_result.result.return_value = alliances[alliance_id]
             return mock_result
         else:
-            raise HTTPNotFound(Mock())
+            raise HTTPClientError(status_code=404, headers={}, data=Mock())
 
     @staticmethod
-    def esi_get_alliances_alliance_id_corporations(alliance_id):
+    def esi_get_alliances_alliance_id_corporations(alliance_id) -> Mock:
         alliances = {
             3001: [2001, 2002, 2003],
             3002: [2004, 2005]
@@ -491,10 +452,10 @@ class TestEveSwaggerProvider(TestCase):
             mock_result.result.return_value = alliances[alliance_id]
             return mock_result
         else:
-            raise HTTPNotFound(Mock())
+            raise HTTPClientError(status_code=404, headers={}, data=Mock())
 
     @staticmethod
-    def esi_get_corporations_corporation_id(corporation_id):
+    def esi_get_corporations_corporation_id(corporation_id) -> Mock:
         corporations = {
             2001: {
                 'name': 'Dummy Corp 1',
@@ -515,10 +476,10 @@ class TestEveSwaggerProvider(TestCase):
             mock_result.result.return_value = corporations[corporation_id]
             return mock_result
         else:
-            raise HTTPNotFound(Mock())
+            raise HTTPClientError(status_code=404, headers={}, data=Mock())
 
     @staticmethod
-    def esi_get_characters_character_id(character_id):
+    def esi_get_characters_character_id(character_id) -> Mock:
         characters = {
             1001: {
                 'name': 'Bruce Wayne',
@@ -535,10 +496,10 @@ class TestEveSwaggerProvider(TestCase):
             mock_result.result.return_value = characters[character_id]
             return mock_result
         else:
-            raise HTTPNotFound(Mock())
+            raise HTTPClientError(status_code=404, headers={}, data=Mock())
 
     @staticmethod
-    def esi_post_characters_affiliation(characters):
+    def esi_post_characters_affiliation(characters) -> Mock:
         character_data = {
             1001: {
                 'corporation_id': 2001,
@@ -550,97 +511,78 @@ class TestEveSwaggerProvider(TestCase):
         }
         mock_result = Mock()
         if isinstance(characters, list):
-            characters_result = list()
+            characters_result = []
             for character_id in characters:
                 if character_id in character_data:
                     characters_result.append(character_data[character_id])
                 else:
-                    raise HTTPNotFound(Mock())
+                    raise HTTPClientError(status_code=404, headers={}, data=Mock())
             mock_result.result.return_value = characters_result
             return mock_result
         else:
             raise TypeError()
 
     @staticmethod
-    def esi_get_universe_types_type_id(type_id):
+    def esi_get_universe_types_type_id(type_id) -> Mock:
         types = {
-            4001: {
-                'name': 'Dummy Type 1'
-            },
-            4002: {
-                'name': 'Dummy Type 2'
-            }
+            4001: SimpleNamespace(name='Dummy Type 1'),
+            4002: SimpleNamespace(name='Dummy Type 2'),
         }
         mock_result = Mock()
         if type_id in types:
             mock_result.result.return_value = types[type_id]
             return mock_result
         else:
-            raise HTTPNotFound(Mock())
+            raise HTTPClientError(status_code=404, headers={}, data=Mock())
 
-    @patch(MODULE_PATH + '.esi_client_factory')
-    def test_str(self, mock_esi_client_factory):
-        my_provider = EveSwaggerProvider()
-        self.assertEqual(str(my_provider), 'esi')
+    def test_str(self) -> None:
+        my_provider = EveOpenAPIProvider()
+        self.assertIsInstance(my_provider, EveOpenAPIProvider)
 
-    @patch(MODULE_PATH + '.esi_client_factory')
-    def test_get_alliance(self, mock_esi_client_factory):
-        mock_esi_client_factory.return_value \
-            .Alliance.get_alliances_alliance_id \
-            = TestEveSwaggerProvider.esi_get_alliances_alliance_id
-        mock_esi_client_factory.return_value \
-            .Alliance.get_alliances_alliance_id_corporations \
-            = TestEveSwaggerProvider.esi_get_alliances_alliance_id_corporations
-
-        my_provider = EveSwaggerProvider()
+    @patch.object(EveOpenAPIProvider, 'client', new_callable=PropertyMock)
+    def test_get_alliance(self, mock_client) -> None:
+        mock_client.return_value = EsiClientStub()
+        my_provider = EveOpenAPIProvider()
 
         # fully defined alliance
         my_alliance = my_provider.get_alliance(3001)
         self.assertEqual(my_alliance.id, 3001)
-        self.assertEqual(my_alliance.name, 'Dummy Alliance 1')
-        self.assertEqual(my_alliance.ticker, 'DA1')
+        self.assertEqual(my_alliance.name, 'Wayne Enterprises')
+        self.assertEqual(my_alliance.ticker, 'WYE')
         self.assertListEqual(my_alliance.corp_ids, [2001, 2002, 2003])
         self.assertEqual(my_alliance.executor_corp_id, 2001)
-
-        # alliance missing executor_corporation_id
-        my_alliance = my_provider.get_alliance(3002)
-        self.assertEqual(my_alliance.id, 3002)
-        self.assertEqual(my_alliance.executor_corp_id, None)
 
         # alliance not found
         with self.assertRaises(ObjectNotFound):
             my_provider.get_alliance(3999)
 
-    @patch(MODULE_PATH + '.esi_client_factory')
-    def test_get_corp(self, mock_esi_client_factory):
-        mock_esi_client_factory.return_value \
-            .Corporation.get_corporations_corporation_id \
-            = TestEveSwaggerProvider.esi_get_corporations_corporation_id
-
-        my_provider = EveSwaggerProvider()
+    @patch.object(EveOpenAPIProvider, 'client', new_callable=PropertyMock)
+    def test_get_corp(self, mock_client) -> None:
+        mock_client.return_value = EsiClientStub()
+        my_provider = EveOpenAPIProvider()
 
         # corporation with alliance
         my_corp = my_provider.get_corp(2001)
         self.assertEqual(my_corp.id, 2001)
-        self.assertEqual(my_corp.name, 'Dummy Corp 1')
-        self.assertEqual(my_corp.ticker, 'DC1')
-        self.assertEqual(my_corp.ceo_id, 1001)
-        self.assertEqual(my_corp.members, 42)
+        self.assertEqual(my_corp.name, 'Wayne Technologies')
+        self.assertEqual(my_corp.ticker, 'WTE')
+        self.assertEqual(my_corp.ceo_id, 1091)
+        self.assertEqual(my_corp.members, 10)
         self.assertEqual(my_corp.alliance_id, 3001)
 
-        # corporation wo/ alliance
+        # another corporation
         my_corp = my_provider.get_corp(2002)
         self.assertEqual(my_corp.id, 2002)
-        self.assertEqual(my_corp.alliance_id, None)
+        self.assertEqual(my_corp.alliance_id, 3001)
 
         # corporation not found
         with self.assertRaises(ObjectNotFound):
             my_provider.get_corp(2999)
 
-    @patch(MODULE_PATH + '.esi_client_factory')
-    def test_get_character(self, mock_esi_client_factory):
-        mock_esi_client_factory.return_value = EsiClientStub()
-        my_provider = EveSwaggerProvider()
+    @patch.object(EveOpenAPIProvider, 'client', new_callable=PropertyMock)
+    def test_get_character(self, mock_client) -> None:
+        mock_client.return_value = EsiClientStub()
+        my_provider = EveOpenAPIProvider()
 
         # character with alliance
         my_character = my_provider.get_character(1001)
@@ -658,13 +600,14 @@ class TestEveSwaggerProvider(TestCase):
         with self.assertRaises(ObjectNotFound):
             my_provider.get_character(1999)
 
-    @patch(MODULE_PATH + '.esi_client_factory')
-    def test_get_itemtype(self, mock_esi_client_factory):
-        mock_esi_client_factory.return_value \
-            .Universe.get_universe_types_type_id \
-            = TestEveSwaggerProvider.esi_get_universe_types_type_id
-
-        my_provider = EveSwaggerProvider()
+    @patch.object(EveOpenAPIProvider, 'client', new_callable=PropertyMock)
+    def test_get_itemtype(self, mock_client) -> None:
+        stub = Mock()
+        stub.Universe.GetUniverseTypesTypeId.side_effect = (
+            lambda type_id: TestEveOpenAPIProvider.esi_get_universe_types_type_id(type_id)
+        )
+        mock_client.return_value = stub
+        my_provider = EveOpenAPIProvider()
 
         # type exists
         my_type = my_provider.get_itemtype(4001)
@@ -675,60 +618,22 @@ class TestEveSwaggerProvider(TestCase):
         with self.assertRaises(ObjectNotFound):
             my_provider.get_itemtype(4999)
 
-    @patch(MODULE_PATH + '.settings.DEBUG', False)
-    @patch(MODULE_PATH + '.esi_client_factory')
-    def test_create_client_on_normal_startup(self, mock_esi_client_factory):
-        my_provider = EveSwaggerProvider()
-        self.assertTrue(mock_esi_client_factory.called)
-        self.assertIsNotNone(my_provider._client)
-
-    @patch(MODULE_PATH + '.SWAGGER_SPEC_PATH', SWAGGER_OLD_SPEC_PATH)
-    @patch(MODULE_PATH + '.settings.DEBUG', False)
-    @patch('socket.socket')
-    def test_create_client_on_normal_startup_w_old_swagger_spec(
-            self, mock_socket
-    ):
-        mock_socket.side_effect = Exception('Network blocked for testing')
-        my_provider = EveSwaggerProvider()
-        self.assertIsNone(my_provider._client)
-
-    @patch(MODULE_PATH + '.settings.DEBUG', True)
-    @patch(MODULE_PATH + '.esi_client_factory')
-    def test_dont_create_client_on_debug_startup(self, mock_esi_client_factory):
-        my_provider = EveSwaggerProvider()
-        self.assertFalse(mock_esi_client_factory.called)
-        self.assertIsNone(my_provider._client)
-
-    @patch(MODULE_PATH + '.settings.DEBUG', False)
-    @patch(MODULE_PATH + '.esi_client_factory')
-    def test_dont_create_client_if_client_creation_fails_on_normal_startup(
-            self, mock_esi_client_factory
-    ):
-        mock_esi_client_factory.side_effect = RefResolutionError(cause='Test')
-        my_provider = EveSwaggerProvider()
-        self.assertTrue(mock_esi_client_factory.called)
-        self.assertIsNone(my_provider._client)
-
-    @patch(MODULE_PATH + '.settings.DEBUG', True)
-    @patch(MODULE_PATH + '.esi_client_factory')
-    def test_client_loads_on_demand(
-            self, mock_esi_client_factory
-    ):
-        mock_esi_client_factory.return_value = 'my_client'
-        my_provider = EveSwaggerProvider()
-        self.assertFalse(mock_esi_client_factory.called)
-        self.assertIsNone(my_provider._client)
-        my_client = my_provider.client
-        self.assertTrue(mock_esi_client_factory.called)
-        self.assertIsNotNone(my_provider._client)
-        self.assertEqual(my_client, 'my_client')
+    @patch.object(EveOpenAPIProvider, 'client', new_callable=PropertyMock)
+    def test_client_can_be_accessed(self, mock_client) -> None:
+        stub = EsiClientStub()
+        mock_client.return_value = stub
+        my_provider = EveOpenAPIProvider()
+        self.assertIs(my_provider.client, stub)
 
     def test_user_agent_header(self):
-        my_provider = EveSwaggerProvider()
+        my_provider = EveOpenAPIProvider()
         my_client = my_provider.client
-        operation = my_client.Universe.get_universe_factions()
         expected_variants = {
-            f'AllianceAuth/{aa_version} (dummy@example.net; +{aa_url}) DjangoEsi/{esi_version} (+{esi_url})',  # Django-ESI 8.0.0
-            f'AllianceAuth/{aa_version} (dummy@example.net; +{aa_url}) Django-ESI/{esi_version} (+{esi_url})'  # Django-ESI 7.x, Py38 Py39
+            (
+                f"AllianceAuth/{aa_version} (dummy@example.net; +{aa_url}) "
+                f"DjangoEsi/{esi_version} (+{esi_url})"
+            ),  # Django-ESI 8.0.0
         }
-        self.assertIn(operation.future.request.headers['User-Agent'], expected_variants)
+        session_factory = getattr(my_client.api, "_session_factory")
+        with session_factory() as session:
+            self.assertIn(session.headers.get("User-Agent"), expected_variants)

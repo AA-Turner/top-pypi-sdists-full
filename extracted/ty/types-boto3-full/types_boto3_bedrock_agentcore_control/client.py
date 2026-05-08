@@ -44,6 +44,9 @@ from .paginator import (
     ListMemoriesPaginator,
     ListOauth2CredentialProvidersPaginator,
     ListOnlineEvaluationConfigsPaginator,
+    ListPaymentConnectorsPaginator,
+    ListPaymentCredentialProvidersPaginator,
+    ListPaymentManagersPaginator,
     ListPoliciesPaginator,
     ListPolicyEnginesPaginator,
     ListPolicyGenerationAssetsPaginator,
@@ -83,6 +86,12 @@ from .type_defs import (
     CreateOauth2CredentialProviderResponseTypeDef,
     CreateOnlineEvaluationConfigRequestTypeDef,
     CreateOnlineEvaluationConfigResponseTypeDef,
+    CreatePaymentConnectorRequestTypeDef,
+    CreatePaymentConnectorResponseTypeDef,
+    CreatePaymentCredentialProviderRequestTypeDef,
+    CreatePaymentCredentialProviderResponseTypeDef,
+    CreatePaymentManagerRequestTypeDef,
+    CreatePaymentManagerResponseTypeDef,
     CreatePolicyEngineRequestTypeDef,
     CreatePolicyEngineResponseTypeDef,
     CreatePolicyRequestTypeDef,
@@ -121,6 +130,11 @@ from .type_defs import (
     DeleteOauth2CredentialProviderRequestTypeDef,
     DeleteOnlineEvaluationConfigRequestTypeDef,
     DeleteOnlineEvaluationConfigResponseTypeDef,
+    DeletePaymentConnectorRequestTypeDef,
+    DeletePaymentConnectorResponseTypeDef,
+    DeletePaymentCredentialProviderRequestTypeDef,
+    DeletePaymentManagerRequestTypeDef,
+    DeletePaymentManagerResponseTypeDef,
     DeletePolicyEngineRequestTypeDef,
     DeletePolicyEngineResponseTypeDef,
     DeletePolicyRequestTypeDef,
@@ -162,6 +176,12 @@ from .type_defs import (
     GetOauth2CredentialProviderResponseTypeDef,
     GetOnlineEvaluationConfigRequestTypeDef,
     GetOnlineEvaluationConfigResponseTypeDef,
+    GetPaymentConnectorRequestTypeDef,
+    GetPaymentConnectorResponseTypeDef,
+    GetPaymentCredentialProviderRequestTypeDef,
+    GetPaymentCredentialProviderResponseTypeDef,
+    GetPaymentManagerRequestTypeDef,
+    GetPaymentManagerResponseTypeDef,
     GetPolicyEngineRequestTypeDef,
     GetPolicyEngineResponseTypeDef,
     GetPolicyGenerationRequestTypeDef,
@@ -212,6 +232,12 @@ from .type_defs import (
     ListOauth2CredentialProvidersResponseTypeDef,
     ListOnlineEvaluationConfigsRequestTypeDef,
     ListOnlineEvaluationConfigsResponseTypeDef,
+    ListPaymentConnectorsRequestTypeDef,
+    ListPaymentConnectorsResponseTypeDef,
+    ListPaymentCredentialProvidersRequestTypeDef,
+    ListPaymentCredentialProvidersResponseTypeDef,
+    ListPaymentManagersRequestTypeDef,
+    ListPaymentManagersResponseTypeDef,
     ListPoliciesRequestTypeDef,
     ListPoliciesResponseTypeDef,
     ListPolicyEnginesRequestTypeDef,
@@ -264,6 +290,12 @@ from .type_defs import (
     UpdateOauth2CredentialProviderResponseTypeDef,
     UpdateOnlineEvaluationConfigRequestTypeDef,
     UpdateOnlineEvaluationConfigResponseTypeDef,
+    UpdatePaymentConnectorRequestTypeDef,
+    UpdatePaymentConnectorResponseTypeDef,
+    UpdatePaymentCredentialProviderRequestTypeDef,
+    UpdatePaymentCredentialProviderResponseTypeDef,
+    UpdatePaymentManagerRequestTypeDef,
+    UpdatePaymentManagerResponseTypeDef,
     UpdatePolicyEngineRequestTypeDef,
     UpdatePolicyEngineResponseTypeDef,
     UpdatePolicyRequestTypeDef,
@@ -499,6 +531,38 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#create_online_evaluation_config)
         """
 
+    def create_payment_connector(
+        self, **kwargs: Unpack[CreatePaymentConnectorRequestTypeDef]
+    ) -> CreatePaymentConnectorResponseTypeDef:
+        """
+        Creates a new payment connector for a payment manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_payment_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#create_payment_connector)
+        """
+
+    def create_payment_credential_provider(
+        self, **kwargs: Unpack[CreatePaymentCredentialProviderRequestTypeDef]
+    ) -> CreatePaymentCredentialProviderResponseTypeDef:
+        """
+        Creates a new payment credential provider for storing authentication
+        credentials used by payment connectors to communicate with external payment
+        providers.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_payment_credential_provider.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#create_payment_credential_provider)
+        """
+
+    def create_payment_manager(
+        self, **kwargs: Unpack[CreatePaymentManagerRequestTypeDef]
+    ) -> CreatePaymentManagerResponseTypeDef:
+        """
+        Creates a new payment manager in your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_payment_manager.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#create_payment_manager)
+        """
+
     def create_policy(
         self, **kwargs: Unpack[CreatePolicyRequestTypeDef]
     ) -> CreatePolicyResponseTypeDef:
@@ -698,6 +762,36 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_online_evaluation_config.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#delete_online_evaluation_config)
+        """
+
+    def delete_payment_connector(
+        self, **kwargs: Unpack[DeletePaymentConnectorRequestTypeDef]
+    ) -> DeletePaymentConnectorResponseTypeDef:
+        """
+        Deletes a payment connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_payment_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#delete_payment_connector)
+        """
+
+    def delete_payment_credential_provider(
+        self, **kwargs: Unpack[DeletePaymentCredentialProviderRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a payment credential provider and its associated stored credentials.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_payment_credential_provider.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#delete_payment_credential_provider)
+        """
+
+    def delete_payment_manager(
+        self, **kwargs: Unpack[DeletePaymentManagerRequestTypeDef]
+    ) -> DeletePaymentManagerResponseTypeDef:
+        """
+        Deletes a payment manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_payment_manager.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#delete_payment_manager)
         """
 
     def delete_policy(
@@ -912,6 +1006,36 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_online_evaluation_config.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_online_evaluation_config)
+        """
+
+    def get_payment_connector(
+        self, **kwargs: Unpack[GetPaymentConnectorRequestTypeDef]
+    ) -> GetPaymentConnectorResponseTypeDef:
+        """
+        Retrieves information about a specific payment connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_payment_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_payment_connector)
+        """
+
+    def get_payment_credential_provider(
+        self, **kwargs: Unpack[GetPaymentCredentialProviderRequestTypeDef]
+    ) -> GetPaymentCredentialProviderResponseTypeDef:
+        """
+        Retrieves information about a specific payment credential provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_payment_credential_provider.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_payment_credential_provider)
+        """
+
+    def get_payment_manager(
+        self, **kwargs: Unpack[GetPaymentManagerRequestTypeDef]
+    ) -> GetPaymentManagerResponseTypeDef:
+        """
+        Retrieves information about a specific payment manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_payment_manager.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_payment_manager)
         """
 
     def get_policy(self, **kwargs: Unpack[GetPolicyRequestTypeDef]) -> GetPolicyResponseTypeDef:
@@ -1167,6 +1291,36 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_online_evaluation_configs.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#list_online_evaluation_configs)
+        """
+
+    def list_payment_connectors(
+        self, **kwargs: Unpack[ListPaymentConnectorsRequestTypeDef]
+    ) -> ListPaymentConnectorsResponseTypeDef:
+        """
+        Lists all payment connectors for a specified payment manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_payment_connectors.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#list_payment_connectors)
+        """
+
+    def list_payment_credential_providers(
+        self, **kwargs: Unpack[ListPaymentCredentialProvidersRequestTypeDef]
+    ) -> ListPaymentCredentialProvidersResponseTypeDef:
+        """
+        Lists all payment credential providers in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_payment_credential_providers.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#list_payment_credential_providers)
+        """
+
+    def list_payment_managers(
+        self, **kwargs: Unpack[ListPaymentManagersRequestTypeDef]
+    ) -> ListPaymentManagersResponseTypeDef:
+        """
+        Lists all payment managers in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_payment_managers.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#list_payment_managers)
         """
 
     def list_policies(
@@ -1442,6 +1596,37 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#update_online_evaluation_config)
         """
 
+    def update_payment_connector(
+        self, **kwargs: Unpack[UpdatePaymentConnectorRequestTypeDef]
+    ) -> UpdatePaymentConnectorResponseTypeDef:
+        """
+        Updates an existing payment connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_payment_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#update_payment_connector)
+        """
+
+    def update_payment_credential_provider(
+        self, **kwargs: Unpack[UpdatePaymentCredentialProviderRequestTypeDef]
+    ) -> UpdatePaymentCredentialProviderResponseTypeDef:
+        """
+        Updates an existing payment credential provider with new authentication
+        credentials.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_payment_credential_provider.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#update_payment_credential_provider)
+        """
+
+    def update_payment_manager(
+        self, **kwargs: Unpack[UpdatePaymentManagerRequestTypeDef]
+    ) -> UpdatePaymentManagerResponseTypeDef:
+        """
+        Updates an existing payment manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_payment_manager.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#update_payment_manager)
+        """
+
     def update_policy(
         self, **kwargs: Unpack[UpdatePolicyRequestTypeDef]
     ) -> UpdatePolicyResponseTypeDef:
@@ -1682,6 +1867,39 @@ class BedrockAgentCoreControlClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_online_evaluation_configs"]
     ) -> ListOnlineEvaluationConfigsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_payment_connectors"]
+    ) -> ListPaymentConnectorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_payment_credential_providers"]
+    ) -> ListPaymentCredentialProvidersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_payment_managers"]
+    ) -> ListPaymentManagersPaginator:
         """
         Create a paginator for an operation.
 

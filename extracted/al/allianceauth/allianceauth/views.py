@@ -3,6 +3,7 @@ import logging
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
 from django.views.generic.base import View
 
@@ -11,6 +12,12 @@ logger = logging.getLogger(__name__)
 
 class NightModeRedirectView(View):
     SESSION_VAR = "NIGHT_MODE"
+
+    def _safe_redirect(self, request):
+        next_url = request.GET.get("next", "/")
+        if not url_has_allowed_host_and_scheme(next_url, allowed_hosts=settings.ALLOWED_HOSTS, require_https=request.is_secure()):
+            next_url = "/"
+        return HttpResponseRedirect(next_url)
 
     def get(self, request, *args, **kwargs):
         request.session[self.SESSION_VAR] = not self.night_mode_state(request)
@@ -21,7 +28,7 @@ class NightModeRedirectView(View):
             except Exception as e:
                 logger.exception(e)
 
-        return HttpResponseRedirect(request.GET.get("next", "/"))
+        return self._safe_redirect(request)
 
     @classmethod
     def night_mode_state(cls, request):
@@ -46,7 +53,10 @@ class ThemeRedirectView(View):
             except Exception as e:
                 logger.exception(e)
 
-        return HttpResponseRedirect(request.GET.get("next", "/"))
+        next_url = request.GET.get("next", "/")
+        if not url_has_allowed_host_and_scheme(next_url, allowed_hosts=settings.ALLOWED_HOSTS, require_https=request.is_secure()):
+            next_url = "/"
+        return HttpResponseRedirect(next_url)
 
 class MinimizeSidebarRedirectView(View):
     SESSION_VAR = "MINIMIZE_SIDEBAR"
@@ -60,7 +70,10 @@ class MinimizeSidebarRedirectView(View):
             except Exception as e:
                 logger.exception(e)
 
-        return HttpResponseRedirect(request.GET.get("next", "/"))
+        next_url = request.GET.get("next", "/")
+        if not url_has_allowed_host_and_scheme(next_url, allowed_hosts=settings.ALLOWED_HOSTS, require_https=request.is_secure()):
+            next_url = "/"
+        return HttpResponseRedirect(next_url)
 
     @classmethod
     def minimize_sidebar_state(cls, request):

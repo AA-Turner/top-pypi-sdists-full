@@ -1,11 +1,10 @@
 from django.contrib.auth.models import User
 from django.db import models
-from typing import Optional
 
 
 class ApplicationManager(models.Manager):
 
-    def pending_requests_count_for_user(self, user: User) -> Optional[int]:
+    def pending_requests_count_for_user(self, user: User) -> int | None:
         """Returns the number of pending group requests for the given user"""
         if user.is_superuser:
             return self.filter(approved__isnull=True).count()

@@ -2,7 +2,6 @@
 Alliance Auth Evecharacter API
 """
 
-from typing import Optional
 
 from django.contrib.auth.models import User
 
@@ -13,7 +12,7 @@ from allianceauth.framework.api.user import get_sentinel_user
 
 def get_main_character_from_evecharacter(
     character: EveCharacter,
-) -> Optional[EveCharacter]:
+) -> EveCharacter | None:
     """
     Get the main character for a given EveCharacter or None when no main character is set
 

@@ -1,9 +1,8 @@
 from django.apps import apps
-from allianceauth.authentication.models import User
-from esi.models import Token
-from allianceauth.analytics.utils import install_stat_users, install_stat_tokens, install_stat_addons
-
 from django.test.testcases import TestCase
+
+from allianceauth.analytics.utils import install_stat_addons, install_stat_users
+from allianceauth.authentication.models import User
 
 
 def create_testdata():

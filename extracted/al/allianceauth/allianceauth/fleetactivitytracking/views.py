@@ -1,43 +1,37 @@
-import datetime
 import logging
-import os
+from datetime import datetime, timedelta
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.models import User
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.http import HttpResponse, HttpResponseRedirect
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.crypto import get_random_string
+from django.utils.translation import gettext_lazy as _
+
+from esi.decorators import token_required
 
 from allianceauth.authentication.models import CharacterOwnership
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.decorators import permission_required
-from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
-from django.shortcuts import render, redirect, get_object_or_404, Http404
-from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
-from esi.decorators import token_required
-from allianceauth.eveonline.providers import provider
+from allianceauth.eveonline.models import (
+    EveAllianceInfo, EveCharacter, EveCorporationInfo,
+)
+from allianceauth.fleetactivitytracking.providers import (
+    get_characters_character_id_location, get_characters_character_id_online,
+    get_characters_character_id_ship, get_universe_stations_station_id,
+    get_universe_structures_structure_id, get_universe_systems_system_id,
+    get_universe_types_type_id,
+)
+
 from .forms import FatlinkForm
-from .models import Fatlink, Fat
-from django.utils.crypto import get_random_string
-
-from allianceauth.eveonline.models import EveAllianceInfo
-from allianceauth.eveonline.models import EveCharacter
-from allianceauth.eveonline.models import EveCorporationInfo
-
-SWAGGER_SPEC_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'swagger.json')
-"""
-Swagger spec operations:
-
-get_characters_character_id_location
-get_characters_character_id_ship
-get_universe_systems_system_id
-get_universe_stations_station_id
-get_universe_structures_structure_id
-"""
-
+from .models import Fat, Fatlink
 
 logger = logging.getLogger(__name__)
 
 
 class CorpStat:
-    def __init__(self, corp_id, start_of_month, start_of_next_month, corp=None):
+    def __init__(self, corp_id, start_of_month, start_of_next_month, corp=None) -> None:
         if corp:
             self.corp = corp
         else:
@@ -46,15 +40,15 @@ class CorpStat:
             fatlink__fatdatetime__gte=start_of_month).filter(fatlink__fatdatetime__lte=start_of_next_month).count()
 
     @property
-    def avg_fat(self):
+    def avg_fat(self) -> str:
         try:
             return "%.2f" % (float(self.n_fats) / float(self.corp.member_count))
         except ZeroDivisionError:
-            return "%.2f" % 0
+            return f"{0:.2f}"
 
 
 class MemberStat:
-    def __init__(self, member, start_of_month, start_of_next_month, mainchid=None):
+    def __init__(self, member, start_of_month, start_of_next_month, mainchid=None) -> None:
         if mainchid:
             self.mainchid = mainchid
         else:
@@ -68,34 +62,34 @@ class MemberStat:
             fatlink__fatdatetime__gte=start_of_month).filter(fatlink__fatdatetime__lte=start_of_next_month).count()
 
     @property
-    def avg_fat(self):
+    def avg_fat(self) -> str:
         try:
             return "%.2f" % (float(self.n_fats) / float(self.n_chars))
         except ZeroDivisionError:
-            return "%.2f" % 0
+            return f"{0:.2f}"
 
 
-def first_day_of_next_month(year, month):
+def first_day_of_next_month(year, month) -> datetime:
     if month == 12:
-        return datetime.datetime(year + 1, 1, 1)
+        return datetime(year + 1, 1, 1)
     else:
-        return datetime.datetime(year, month + 1, 1)
+        return datetime(year, month + 1, 1)
 
 
-def first_day_of_previous_month(year, month):
+def first_day_of_previous_month(year, month) -> datetime:
     if month == 1:
-        return datetime.datetime(year - 1, 12, 1)
+        return datetime(year - 1, 12, 1)
     else:
-        return datetime.datetime(year, month - 1, 1)
+        return datetime(year, month - 1, 1)
 
 
 @login_required
-def fatlink_view(request):
+def fatlink_view(request) -> HttpResponse:
     # Will show the last 5 or so fatlinks clicked by user.
     # If the user has the right privileges the site will also show the latest fatlinks with the options to add VIPs and
     # manually add players.
     user = request.user
-    logger.debug("fatlink_view called by user %s" % request.user)
+    logger.debug(f"fatlink_view called by user {request.user}")
 
     latest_fats = Fat.objects.select_related('character', 'fatlink').filter(user=user).order_by('-id')[:5]
     if user.has_perm('auth.fleetactivitytracking'):
@@ -110,15 +104,15 @@ def fatlink_view(request):
 
 @login_required
 @permission_required('auth.fleetactivitytracking_statistics')
-def fatlink_statistics_corp_view(request, corpid, year=None, month=None):
+def fatlink_statistics_corp_view(request, corpid, year=None, month=None) -> HttpResponse:
     if year is None:
-        year = datetime.date.today().year
+        year = timezone.now().year
     if month is None:
-        month = datetime.date.today().month
+        month = timezone.now().month
 
     year = int(year)
     month = int(month)
-    start_of_month = datetime.datetime(year, month, 1)
+    start_of_month = datetime(year, month, 1)
     start_of_next_month = first_day_of_next_month(year, month)
     start_of_previous_month = first_day_of_previous_month(year, month)
     fat_stats = {}
@@ -136,7 +130,7 @@ def fatlink_statistics_corp_view(request, corpid, year=None, month=None):
     stat_list.sort(key=lambda stat: (stat.n_fats, stat.avg_fat), reverse=True)
 
     context = {'fatStats': stat_list, 'month': start_of_month.strftime("%B"), 'year': year, 'previous_month': start_of_previous_month, 'corpid': corpid}
-    if datetime.datetime.now() > start_of_next_month:
+    if timezone.now() > start_of_next_month:
         context.update({'next_month': start_of_next_month})
 
     return render(request, 'fleetactivitytracking/fatlinkstatisticscorpview.html', context=context)
@@ -144,10 +138,15 @@ def fatlink_statistics_corp_view(request, corpid, year=None, month=None):
 
 @login_required
 @permission_required('auth.fleetactivitytracking_statistics')
-def fatlink_statistics_view(request, year=datetime.date.today().year, month=datetime.date.today().month):
+def fatlink_statistics_view(request, year=None, month=None) -> HttpResponse:
+    if year is None:
+        year = timezone.now().year
+    if month is None:
+        month = timezone.now().month
+
     year = int(year)
     month = int(month)
-    start_of_month = datetime.datetime(year, month, 1)
+    start_of_month = datetime(year, month, 1)
     start_of_next_month = first_day_of_next_month(year, month)
     start_of_previous_month = first_day_of_previous_month(year, month)
 
@@ -170,19 +169,22 @@ def fatlink_statistics_view(request, year=datetime.date.today().year, month=date
     stat_list.sort(key=lambda stat: (stat.n_fats, stat.avg_fat), reverse=True)
 
     context = {'fatStats': stat_list, 'month': start_of_month.strftime("%B"), 'year': year, 'previous_month': start_of_previous_month}
-    if datetime.datetime.now() > start_of_next_month:
+    if timezone.now() > start_of_next_month:
         context.update({'next_month': start_of_next_month})
 
     return render(request, 'fleetactivitytracking/fatlinkstatisticsview.html', context=context)
 
 
 @login_required
-def fatlink_personal_statistics_view(request, year=datetime.date.today().year):
+def fatlink_personal_statistics_view(request, year=None) -> HttpResponse:
+    if year is None:
+        year = timezone.now().year
+
     year = int(year)
-    logger.debug("Personal statistics view for year %i called by %s" % (year, request.user))
+    logger.debug(f"Personal statistics view for year {year} called by {request.user}")
 
     user = request.user
-    logger.debug("fatlink_personal_statistics_view called by user %s" % request.user)
+    logger.debug(f"fatlink_personal_statistics_view called by user {request.user}")
 
     personal_fats = Fat.objects.select_related('fatlink').filter(user=user).order_by('id')
 
@@ -193,9 +195,9 @@ def fatlink_personal_statistics_view(request, year=datetime.date.today().year):
         if fatdate.year == year:
             monthlystats[fatdate.month - 1] += 1
 
-    monthlystats = [(i + 1, datetime.date(year, i + 1, 1).strftime("%h"), monthlystats[i]) for i in range(12)]
+    monthlystats = [(i + 1, datetime(year, i + 1, 1).strftime("%h"), monthlystats[i]) for i in range(12)]
 
-    if datetime.datetime.now() > datetime.datetime(year + 1, 1, 1):
+    if timezone.now() > datetime(year + 1, 1, 1):
         context = {'user': user, 'monthlystats': monthlystats, 'year': year, 'previous_year': year - 1, 'next_year': year + 1}
     else:
         context = {'user': user, 'monthlystats': monthlystats, 'year': year, 'previous_year': year - 1}
@@ -204,10 +206,10 @@ def fatlink_personal_statistics_view(request, year=datetime.date.today().year):
 
 
 @login_required
-def fatlink_monthly_personal_statistics_view(request, year, month, char_id=None):
+def fatlink_monthly_personal_statistics_view(request, year, month, char_id=None) -> HttpResponseRedirect | HttpResponse:
     year = int(year)
     month = int(month)
-    start_of_month = datetime.datetime(year, month, 1)
+    start_of_month = datetime(year, month, 1)
     start_of_next_month = first_day_of_next_month(year, month)
     start_of_previous_month = first_day_of_previous_month(year, month)
 
@@ -227,7 +229,7 @@ def fatlink_monthly_personal_statistics_view(request, year, month, char_id=None)
     personal_fats = Fat.objects.filter(user=user)\
         .filter(fatlink__fatdatetime__gte=start_of_month).filter(fatlink__fatdatetime__lt=start_of_next_month)
 
-    ship_statistics = dict()
+    ship_statistics = {}
     n_fats = 0
     for fat in personal_fats:
         ship_statistics[fat.shiptype] = ship_statistics.setdefault(fat.shiptype, 0) + 1
@@ -255,40 +257,30 @@ def fatlink_monthly_personal_statistics_view(request, year, month, char_id=None)
         'esi-location.read_online.v1',
     ]
 )
-def click_fatlink_view(request, token, fat_hash=None):
-    c = token.get_esi_client(spec_file=SWAGGER_SPEC_PATH)
+def click_fatlink_view(request, token, fat_hash=None) -> HttpResponse | HttpResponseRedirect:
     character = EveCharacter.objects.get_character_by_id(token.character_id)
-    character_online = c.Location.get_characters_character_id_online(
-        character_id=token.character_id
-    ).result()
+    character_online = get_characters_character_id_online(character_id=token.character_id, token=token)
 
-    if character_online["online"] is True:
+    if character_online.online is True:
         fatlink = get_object_or_404(Fatlink, hash=fat_hash)
 
-        if (timezone.now() - fatlink.fatdatetime) < datetime.timedelta(seconds=(fatlink.duration * 60)):
+        if (timezone.now() - fatlink.fatdatetime) < timedelta(seconds=(fatlink.duration * 60)):
             if character:
                 # get data
-                location = c.Location.get_characters_character_id_location(character_id=token.character_id).result()
-                ship = c.Location.get_characters_character_id_ship(character_id=token.character_id).result()
-                location['solar_system_name'] = \
-                    c.Universe.get_universe_systems_system_id(system_id=location['solar_system_id']).result()['name']
+                location = get_characters_character_id_location(character_id=token.character_id, token=token)
+                ship = get_characters_character_id_ship(character_id=token.character_id, token=token)
 
-                if location['station_id']:
-                    location['station_name'] = \
-                        c.Universe.get_universe_stations_station_id(station_id=location['station_id']).result()['name']
-                elif location['structure_id']:
-                    location['station_name'] = \
-                        c.Universe.get_universe_structures_structure_id(structure_id=location['structure_id']).result()[
-                            'name']
+                if location.station_id:
+                    location_station_name = get_universe_stations_station_id(station_id=location.station_id).name
+                elif location.structure_id:
+                    location_station_name = get_universe_structures_structure_id(structure_id=location.structure_id, token=token).name
                 else:
-                    location['station_name'] = "No Station"
-
-                ship['ship_type_name'] = provider.get_itemtype(ship['ship_type_id']).name
+                    location_station_name = "No Station"
 
                 fat = Fat()
-                fat.system = location['solar_system_name']
-                fat.station = location['station_name']
-                fat.shiptype = ship['ship_type_name']
+                fat.system = get_universe_systems_system_id(system_id=location.solar_system_id).name
+                fat.station = location_station_name
+                fat.shiptype = get_universe_types_type_id(type_id=ship.ship_type_id).name
                 fat.fatlink = fatlink
                 fat.character = character
                 fat.user = request.user
@@ -300,7 +292,7 @@ def click_fatlink_view(request, token, fat_hash=None):
                 except ValidationError as e:
                     err_messages = []
 
-                    for errorname, message in e.message_dict.items():
+                    for _errorname, message in e.message_dict.items():
                         err_messages.append(message[0])
 
                     messages.error(request, ' '.join(err_messages))
@@ -329,13 +321,13 @@ def click_fatlink_view(request, token, fat_hash=None):
 
 @login_required
 @permission_required('auth.fleetactivitytracking')
-def create_fatlink_view(request):
-    logger.debug("create_fatlink_view called by user %s" % request.user)
+def create_fatlink_view(request) -> HttpResponse | HttpResponseRedirect:
+    logger.debug(f"create_fatlink_view called by user {request.user}")
     if request.method == 'POST':
-        logger.debug("Post request to create_fatlink_view by user %s" % request.user)
+        logger.debug(f"Post request to create_fatlink_view by user {request.user}")
         form = FatlinkForm(request.POST)
         if 'submit_fat' in request.POST:
-            logger.debug("Submitting fleetactivitytracking by user %s" % request.user)
+            logger.debug(f"Submitting fleetactivitytracking by user {request.user}")
             if form.is_valid():
                 fatlink = Fatlink()
                 fatlink.fleet = form.cleaned_data["fleet"]
@@ -349,7 +341,7 @@ def create_fatlink_view(request):
                 except ValidationError as e:
                     form = FatlinkForm()
                     messages = []
-                    for errorname, message in e.message_dict.items():
+                    for _errorname, message in e.message_dict.items():
                         messages.append(message[0].decode())
                     context = {'form': form, 'errormessages': messages}
                     return render(request, 'fleetactivitytracking/fatlinkcreate.html', context=context)
@@ -361,7 +353,7 @@ def create_fatlink_view(request):
 
     else:
         form = FatlinkForm()
-        logger.debug("Returning empty form to user %s" % request.user)
+        logger.debug(f"Returning empty form to user {request.user}")
 
     context = {'form': form}
 
@@ -370,8 +362,8 @@ def create_fatlink_view(request):
 
 @login_required
 @permission_required('auth.fleetactivitytracking')
-def modify_fatlink_view(request, fat_hash=None):
-    logger.debug("modify_fatlink_view called by user %s" % request.user)
+def modify_fatlink_view(request, fat_hash=None) -> HttpResponse | HttpResponseRedirect:
+    logger.debug(f"modify_fatlink_view called by user {request.user}")
     fatlink = get_object_or_404(Fatlink, hash=fat_hash)
 
     if request.GET.get('removechar', None):
@@ -382,7 +374,7 @@ def modify_fatlink_view(request, fat_hash=None):
         Fat.objects.filter(fatlink=fatlink).filter(character=character).delete()
 
     if request.GET.get('deletefat', None):
-        logger.debug("Removing fleetactivitytracking %s" % fatlink)
+        logger.debug(f"Removing fleetactivitytracking {fatlink}")
         fatlink.delete()
         return redirect('fatlink:view')
 

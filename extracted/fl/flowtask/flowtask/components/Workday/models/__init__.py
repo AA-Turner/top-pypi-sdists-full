@@ -11,6 +11,7 @@ from .job_posting import JobPosting
 from .job_posting_site import JobPostingSite
 from .time_off_balance import TimeOffBalance
 from .custom_punch_field_report import CustomPunchFieldReportEntry, WorkerGroup
+from .reference import WorkdayReference
 
 __all__ = [
     "TimeBlock",
@@ -26,5 +27,6 @@ __all__ = [
     "JobPostingSite",
     "TimeOffBalance",
     "CustomPunchFieldReportEntry",
-    "WorkerGroup"
-] 
+    "WorkerGroup",
+    "WorkdayReference",
+]

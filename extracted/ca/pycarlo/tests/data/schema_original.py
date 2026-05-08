@@ -209,6 +209,28 @@ class AdfTaskRunModelStatus(sgqlc.types.Enum):
     )
 
 
+class AgentGraphNodeKind(sgqlc.types.Enum):
+    """Kind of a fused agent-graph node — derived from the underlying
+    span.  `is_llm_call=True` → LLM; `is_tool_call=True` → TOOL;
+    otherwise the Traceloop / OpenLLMetry suffix on the span name
+    (`.workflow`, `.task`, `.agent`, `.chain`) becomes the kind.
+    Anything left over is UNKNOWN.
+
+    Enumeration Choices:
+
+    * `AGENT`None
+    * `CHAIN`None
+    * `LLM`None
+    * `TASK`None
+    * `TOOL`None
+    * `UNKNOWN`None
+    * `WORKFLOW`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AGENT", "CHAIN", "LLM", "TASK", "TOOL", "UNKNOWN", "WORKFLOW")
+
+
 class AgentModelAgentType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -1347,6 +1369,7 @@ class ConnectionModelType(sgqlc.types.Enum):
     * `HIVE_MYSQL`None
     * `HIVE_S3`None
     * `INFORMATICA`None
+    * `INFORMATICA_V2`None
     * `LOOKER`None
     * `LOOKER_GIT`None
     * `LOOKER_GIT_CLONE`None
@@ -1401,6 +1424,7 @@ class ConnectionModelType(sgqlc.types.Enum):
         "HIVE_MYSQL",
         "HIVE_S3",
         "INFORMATICA",
+        "INFORMATICA_V2",
         "LOOKER",
         "LOOKER_GIT",
         "LOOKER_GIT_CLONE",
@@ -1503,6 +1527,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
     * `HIVE_MYSQL`None
     * `HIVE_S3`None
     * `INFORMATICA`None
+    * `INFORMATICA_V2`None
     * `LOOKER`None
     * `LOOKER_GIT`None
     * `LOOKER_GIT_CLONE`None
@@ -1557,6 +1582,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
         "HIVE_MYSQL",
         "HIVE_S3",
         "INFORMATICA",
+        "INFORMATICA_V2",
         "LOOKER",
         "LOOKER_GIT",
         "LOOKER_GIT_CLONE",
@@ -2557,10 +2583,19 @@ class EtlType(sgqlc.types.Enum):
     * `DBT`None
     * `FIVETRAN`None
     * `INFORMATICA`None
+    * `INFORMATICA_V2`None
     """
 
     __schema__ = schema
-    __choices__ = ("AIRFLOW", "AZURE_DATA_FACTORY", "DATABRICKS", "DBT", "FIVETRAN", "INFORMATICA")
+    __choices__ = (
+        "AIRFLOW",
+        "AZURE_DATA_FACTORY",
+        "DATABRICKS",
+        "DBT",
+        "FIVETRAN",
+        "INFORMATICA",
+        "INFORMATICA_V2",
+    )
 
 
 class EventModelEventState(sgqlc.types.Enum):
@@ -4057,6 +4092,17 @@ class InformaticaActivityType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("TASK", "TASK_FLOW", "UNKNOWN")
+
+
+class InformaticaV2AuthModeEnum(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `OAUTH`None
+    * `PASSWORD`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("OAUTH", "PASSWORD")
 
 
 Int = sgqlc.types.Int
@@ -10096,6 +10142,49 @@ class FreshnessExplicitAlertConditionInput(sgqlc.types.Input):
     """Explicit freshness threshold in minutes"""
 
 
+class GetAgentGraphInput(sgqlc.types.Input):
+    """Input parameters for GetAgentGraph query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "start_time",
+        "end_time",
+        "workflows",
+        "max_traces",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name — same value passed as `agentName` on getTraces."""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table or platform agent (aiagent object type) to
+    query.
+    """
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (inclusive)"""
+
+    workflows = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="workflows"
+    )
+    """Optional list of workflow names to narrow the trace pool (OR logic
+    — matches traces containing any listed workflow). When omitted or
+    empty, all of the agent's traces in the time window are fused.
+    Same semantics as `filters.workflows` on getTraces.
+    """
+
+    max_traces = sgqlc.types.Field(Int, graphql_name="maxTraces")
+    """Maximum number of most-recent traces to fuse into the graph.
+    Capped at 100; values above 100 are clamped server-side.
+    """
+
+
 class GetConversationExplanationInput(sgqlc.types.Input):
     """Input for getConversationExplanation query."""
 
@@ -10711,6 +10800,41 @@ class InformaticaConnectionDetails(sgqlc.types.Input):
 
     password = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="password")
     """Password"""
+
+
+class InformaticaV2ConnectionDetails(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("auth_mode", "oauth", "org_id", "username", "password", "base_url")
+    auth_mode = sgqlc.types.Field(
+        sgqlc.types.non_null(InformaticaV2AuthModeEnum), graphql_name="authMode"
+    )
+    """Authentication mode. `oauth` uses an OAuth grant against the
+    customer's IDP and exchanges the JWT at Informatica's /loginOAuth
+    endpoint (requires SAML federation on the org). `password` does a
+    direct V2 or V3 login at Informatica with username/password.
+    """
+
+    oauth = sgqlc.types.Field("OAuthConfiguration", graphql_name="oauth")
+    """OAuth grant configuration. Required when `auth_mode` is `oauth`.
+    Same shape used for Snowflake OAuth credentials.
+    """
+
+    org_id = sgqlc.types.Field(String, graphql_name="orgId")
+    """Informatica organization ID. Required when `auth_mode` is `oauth`
+    (the loginOAuth endpoint requires it alongside the JWT).
+    """
+
+    username = sgqlc.types.Field(String, graphql_name="username")
+    """Informatica username. Required when `auth_mode` is `password`."""
+
+    password = sgqlc.types.Field(String, graphql_name="password")
+    """Informatica password. Required when `auth_mode` is `password`."""
+
+    base_url = sgqlc.types.Field(String, graphql_name="baseUrl")
+    """Informatica login base URL. Defaults to https://dm-
+    us.informaticacloud.com when omitted; customers in non-US POD
+    locations should override.
+    """
 
 
 class InputObjectProperty(sgqlc.types.Input):
@@ -14529,10 +14653,18 @@ class IMonitor(sgqlc.types.Interface):
     """Monitor last update time (UTC)"""
 
     creator_id = sgqlc.types.Field(String, graphql_name="creatorId")
-    """Email of user who created the monitor"""
+    """Display label for the user who created the monitor. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address.
+    """
 
     updater_id = sgqlc.types.Field(String, graphql_name="updaterId")
-    """Email of user who last updated the monitor"""
+    """Display label for the user who last updated the monitor. Returns
+    the user's email for human users; for agent users, returns a
+    derived display label (e.g. ``Agent on <domain>``) — never the
+    agent's internal address.
+    """
 
     creator = sgqlc.types.Field("User", graphql_name="creator")
     """Monitor creator"""
@@ -16155,13 +16287,21 @@ class AccountSecretOutput(sgqlc.types.Type):
     """
 
     created_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="createdBy")
-    """The user that created the secret"""
+    """Display label for the user that created the secret. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address.
+    """
 
     created_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdAt")
     """When the secret was created"""
 
     updated_by = sgqlc.types.Field(String, graphql_name="updatedBy")
-    """The user that updated the secret"""
+    """Display label for the user that last updated the secret. Returns
+    the user's email for human users; for agent users, returns a
+    derived display label (e.g. ``Agent on <domain>``) — never the
+    agent's internal address.
+    """
 
     last_update = sgqlc.types.Field(DateTime, graphql_name="lastUpdate")
     """When the secret was last updated"""
@@ -16726,6 +16866,232 @@ class AgentCustomConnectors(sgqlc.types.Type):
     """Custom connector types registered by this agent."""
 
 
+class AgentGraph(sgqlc.types.Type):
+    """A directed graph fused from multiple traces of the same workflow."""
+
+    __schema__ = schema
+    __field_names__ = ("nodes", "edges", "trace_count", "span_count", "window_start", "window_end")
+    nodes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentGraphNode"))),
+        graphql_name="nodes",
+    )
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentGraphEdge"))),
+        graphql_name="edges",
+    )
+
+    trace_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="traceCount")
+    """Actual number of traces fused (≤ max_traces, ≤ 100)."""
+
+    span_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="spanCount")
+    """Total number of spans across all fused traces."""
+
+    window_start = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="windowStart")
+    """Earliest start time across the fused traces — the lower bound of
+    where the data actually lives. Computed as min(trace_start_time)
+    across the listed traces. Falls back to the request startTime when
+    no traces are fused. Use this (not the request window) for the
+    lower bound of timeline visualizations.
+    """
+
+    window_end = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="windowEnd")
+    """Latest end time across the fused traces — the upper bound of where
+    the data actually lives. Computed as max(trace_end_time) across
+    the listed traces. Falls back to the request endTime when no
+    traces are fused.
+    """
+
+
+class AgentGraphEdge(sgqlc.types.Type):
+    """A directed edge representing sibling-sequence flow.  Source and
+    target are siblings under the same parent in the same trace, with
+    target's time-overlap cluster following source's. Containment is
+    NOT expressed as an edge — walk ``AgentGraphNode.parentId``
+    instead.  Sequential edges have ``sourceClusterSize`` and
+    ``targetClusterSize`` both equal to 1. When either is greater than
+    1 the edge is part of a parallel fan-in/fan-out — see the per-
+    field docs for how to interpret.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "source_id",
+        "target_id",
+        "count",
+        "probability",
+        "p50_gap_ms",
+        "source_cluster_size",
+        "target_cluster_size",
+    )
+    source_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sourceId")
+    """Source node id."""
+
+    target_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="targetId")
+    """Target node id."""
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Number of times the source span was followed by the target."""
+
+    probability = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="probability")
+    """Share of source occurrences that transition to target (count /
+    source.count). For sequential edges this is in [0, 1] and per-
+    source probabilities sum to <=1. For parallel fan-outs each branch
+    fires every time the source fires, so per-branch probabilities are
+    1.0 and the per-source sum equals the number of parallel branches.
+    Use sourceClusterSize/targetClusterSize to detect parallel
+    structure and renormalize visually as needed.
+    """
+
+    p50_gap_ms = sgqlc.types.Field(Float, graphql_name="p50GapMs")
+    """Median (50th percentile) gap in milliseconds between the source
+    span's end and the target span's start. Clamped at 0 to absorb
+    clock skew.
+    """
+
+    source_cluster_size = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="sourceClusterSize"
+    )
+    """Number of parallel siblings on the SOURCE side at this transition
+    (including the source itself). When >1, this edge is part of a
+    fan-IN: that many spans ran in parallel and all transition into
+    the target. Defaults to 1 for plain sequential edges. The largest
+    cluster size observed across all fused traces is reported.
+    """
+
+    target_cluster_size = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="targetClusterSize"
+    )
+    """Number of parallel siblings on the TARGET side at this transition
+    (including the target itself). When >1, this edge is part of a
+    fan-OUT: the source diverges into that many parallel branches.
+    Defaults to 1 for plain sequential edges. The largest cluster size
+    observed across all fused traces is reported.
+    """
+
+
+class AgentGraphNode(sgqlc.types.Type):
+    """A node in the fused agent graph — one logical step across traces."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "parent_id",
+        "kind",
+        "name",
+        "model",
+        "count",
+        "trace_count",
+        "error_count",
+        "p50_duration_ms",
+        "p95_duration_ms",
+        "p50_input_tokens",
+        "p50_output_tokens",
+        "p50_iterations_per_trace",
+        "max_iterations_per_trace",
+        "p95_iterations_per_trace",
+        "p50_start_ms",
+        "p50_end_ms",
+        "example_span_id",
+        "example_trace_id",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="id")
+    """Stable identifier within this graph. Treat as opaque — use
+    parentId to navigate the workflow hierarchy.
+    """
+
+    parent_id = sgqlc.types.Field(String, graphql_name="parentId")
+    """Disambiguated id of the nearest container ancestor (workflow /
+    task / agent / chain). Null for root nodes or nodes whose parent
+    chain has no container ancestor. Walk these to build the workflow
+    hierarchy as a tree — containment is NOT expressed as edges.
+    """
+
+    kind = sgqlc.types.Field(sgqlc.types.non_null(AgentGraphNodeKind), graphql_name="kind")
+    """Span kind. LLM and TOOL are derived from the ingest-layer flags on
+    the span; WORKFLOW / TASK / AGENT / CHAIN come from the Traceloop
+    / OpenLLMetry kind suffix on the span name; UNKNOWN is the catch-
+    all.
+    """
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Span name (typically the function or step)."""
+
+    model = sgqlc.types.Field(String, graphql_name="model")
+    """Model name. Set only when kind='llm'; null otherwise."""
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Total span occurrences across all fused traces."""
+
+    trace_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="traceCount")
+    """Number of distinct traces that contain this node."""
+
+    error_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorCount")
+    """Number of span occurrences with an error status."""
+
+    p50_duration_ms = sgqlc.types.Field(Float, graphql_name="p50DurationMs")
+    """Median (50th percentile) span duration in milliseconds."""
+
+    p95_duration_ms = sgqlc.types.Field(Float, graphql_name="p95DurationMs")
+    """95th percentile span duration in milliseconds."""
+
+    p50_input_tokens = sgqlc.types.Field(Float, graphql_name="p50InputTokens")
+    """Median (50th percentile) prompt tokens. Null for non-LLM nodes."""
+
+    p50_output_tokens = sgqlc.types.Field(Float, graphql_name="p50OutputTokens")
+    """Median (50th percentile) completion tokens. Null for non-LLM
+    nodes.
+    """
+
+    p50_iterations_per_trace = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="p50IterationsPerTrace"
+    )
+    """Median (50th percentile) occurrences of this node within a single
+    trace. Values >1 indicate the node is invoked multiple times in a
+    trace (a cycle).
+    """
+
+    max_iterations_per_trace = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="maxIterationsPerTrace"
+    )
+    """Maximum occurrences observed in a single trace."""
+
+    p95_iterations_per_trace = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="p95IterationsPerTrace"
+    )
+    """95th percentile of per-trace occurrence count."""
+
+    p50_start_ms = sgqlc.types.Field(Float, graphql_name="p50StartMs")
+    """Median (50th percentile) start time of this node within its trace,
+    in milliseconds. Measured from the earliest span in the trace, so
+    all traces normalize to a common origin of 0. Combined with
+    p50DurationMs / p50EndMs, lets a UI place the node on a Gantt-
+    style timeline of a typical trace. Null when no contributing span
+    had a usable start_time.
+    """
+
+    p50_end_ms = sgqlc.types.Field(Float, graphql_name="p50EndMs")
+    """Median (50th percentile) end time of this node within its trace,
+    in milliseconds. See p50StartMs.
+    """
+
+    example_span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="exampleSpanId")
+    """span_id of one example span that contributed to this node (the
+    first one seen during fusion). Look up the row in the spans table
+    to inspect raw attributes, or pull the surrounding trace via
+    exampleTraceId. Useful when investigating unexpected nodes (e.g.
+    orphans with parentId == null).
+    """
+
+    example_trace_id = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="exampleTraceId"
+    )
+    """trace_id of the trace containing exampleSpanId. exampleSpanId is
+    guaranteed to be a member of this trace (both fields are captured
+    atomically from the same span).
+    """
+
+
 class AgentLogEntry(sgqlc.types.Type):
     """A log entry from an agent."""
 
@@ -16978,7 +17344,11 @@ class AgenticDomainOutput(sgqlc.types.Type):
     """
 
     created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
-    """Email of the user who created the domain"""
+    """Display label for the user who created the domain. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address.
+    """
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
     """When the domain was created."""
@@ -19041,7 +19411,11 @@ class AzureDevOpsWorkItemOutput(sgqlc.types.Type):
     """Project name"""
 
     created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
-    """Email of user who created the work item"""
+    """Display label for the user who created the work item. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address.
+    """
 
     created_at = sgqlc.types.Field(DateTime, graphql_name="createdAt")
     """When the work item was created"""
@@ -26933,7 +27307,11 @@ class DomainOutput(sgqlc.types.Type):
     """Domain description"""
 
     created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
-    """Domain created by email address"""
+    """Display label for the user who created the domain. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address.
+    """
 
     domain_tag = sgqlc.types.Field(String, graphql_name="domainTag")
     """The domain's tag representation"""
@@ -31313,7 +31691,10 @@ class JiraTicketOutput(sgqlc.types.Type):
     """The integration ID. Might be null if integration was deleted."""
 
     created_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="createdBy")
-    """Email of the user that created the ticket"""
+    """Label for the user that created the ticket. Returns the email for
+    human creators, a derived display name for agent-user creators,
+    and ``Monte Carlo`` when no creator is recorded.
+    """
 
     created_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdAt")
     """When the ticket was created"""
@@ -35004,6 +35385,7 @@ class Mutation(sgqlc.types.Type):
         "test_pinecone_credentials",
         "test_transactional_db_credentials",
         "test_informatica_credentials",
+        "test_informatica_v2_credentials",
         "test_azure_data_factory_credentials",
         "test_self_hosted_credentials_v2",
         "test_athena_credentials_v2",
@@ -54679,6 +55061,46 @@ class Mutation(sgqlc.types.Type):
       should be run.
     """
 
+    test_informatica_v2_credentials = sgqlc.types.Field(
+        "TestInformaticaV2Credentials",
+        graphql_name="testInformaticaV2Credentials",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_details",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(InformaticaV2ConnectionDetails),
+                        graphql_name="connectionDetails",
+                        default=None,
+                    ),
+                ),
+                (
+                    "connection_options",
+                    sgqlc.types.Arg(
+                        ConnectionTestOptions, graphql_name="connectionOptions", default=None
+                    ),
+                ),
+                (
+                    "validation_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="validationName", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Test Informatica v2 credentials
+
+    Arguments:
+
+    * `connection_details` (`InformaticaV2ConnectionDetails!`):
+      Connection parameters.
+    * `connection_options` (`ConnectionTestOptions`): Common options
+      for integration tests.
+    * `validation_name` (`String!`): Name of the validation test that
+      should be run.
+    """
+
     test_azure_data_factory_credentials = sgqlc.types.Field(
         "TestAzureDataFactoryCredentials",
         graphql_name="testAzureDataFactoryCredentials",
@@ -58368,6 +58790,7 @@ class Query(sgqlc.types.Type):
         "get_traces_filters",
         "get_traces_filters_data",
         "get_traces",
+        "get_agent_graph",
         "get_trace_time_series",
         "get_trace_overview",
         "get_conversations_filters",
@@ -59602,6 +60025,32 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetTracesInput!`)None
+    """
+
+    get_agent_graph = sgqlc.types.Field(
+        AgentGraph,
+        graphql_name="getAgentGraph",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetAgentGraphInput), graphql_name="input", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fuse the most recent traces of a workflow into a
+    single directed graph. Nodes group spans by (kind, name) — and
+    additionally by model for LLM spans — and edges record sibling-
+    sequence transitions within each trace. Returns per-node counts,
+    error rates, duration/token statistics, and per-trace iteration
+    stats so cycles are visible. Capped at 100 traces.
+
+    Arguments:
+
+    * `input` (`GetAgentGraphInput!`)None
     """
 
     get_trace_time_series = sgqlc.types.Field(
@@ -76228,16 +76677,20 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Get all tables associated with a use case
+    """(experimental) Get all tables associated with a use case. Tables
+    are ordered with golden tables first, then by criticality (HIGH →
+    MEDIUM → LOW → other), then by mcon ascending — so the highest-
+    priority tables are seen first when paginating.
 
     Arguments:
 
     * `warehouse_id` (`UUID!`): The warehouse UUID
     * `use_case_name` (`String!`): The use case name
     * `first` (`Int!`): Number of items to return (page size)
-    * `golden_tables_only` (`Boolean`): When true, excludes non-golden
-      tables (those with reasoning starting with 'Criticality for
-      golden tables'). Defaults to true. (default: `true`)
+    * `golden_tables_only` (`Boolean`): When true, only golden tables
+      are returned. When false, both golden and non-golden tables are
+      returned. Omitting the argument or passing null is equivalent to
+      true. (default: `true`)
     * `criticality` (`Criticality`): When set, only return tables with
       this criticality level.
     * `domain_id` (`UUID`): Filter to tables in this domain. Must be
@@ -85334,6 +85787,18 @@ class TestInformaticaCredentials(sgqlc.types.Type):
     """Connection validation results."""
 
 
+class TestInformaticaV2Credentials(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("key", "validation_result")
+    key = sgqlc.types.Field(String, graphql_name="key")
+    """Credentials key."""
+
+    validation_result = sgqlc.types.Field(
+        TestCredentialsV2Response, graphql_name="validationResult"
+    )
+    """Connection validation results."""
+
+
 class TestLookerCredentialsV2(sgqlc.types.Type):
     """Test a Looker API connection"""
 
@@ -86144,13 +86609,20 @@ class TokenMetadata(sgqlc.types.Type):
     """Last name for the owner of the token"""
 
     email = sgqlc.types.Field(String, graphql_name="email")
-    """Email for the owner of the token"""
+    """Display label for the owner of the token. Returns the user's email
+    for human users; for agent users, returns a derived display label
+    (e.g. ``Agent on <domain>``) — never the agent's internal address.
+    """
 
     creation_time = sgqlc.types.Field(DateTime, graphql_name="creationTime")
     """When the token was created"""
 
     created_by = sgqlc.types.Field(String, graphql_name="createdBy")
-    """Who created the token"""
+    """Display label for the user who created the token. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address.
+    """
 
     expiration_time = sgqlc.types.Field(DateTime, graphql_name="expirationTime")
     """When the token is set to expire"""
@@ -88623,6 +89095,10 @@ class UserOutput(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("email", "full_name")
     email = sgqlc.types.Field(String, graphql_name="email")
+    """Display label for this user. Returns the user's email for human
+    users; for agent users, returns a derived display label (e.g.
+    ``Agent on <domain>``) — never the agent's internal address.
+    """
 
     full_name = sgqlc.types.Field(String, graphql_name="fullName")
 
@@ -93126,11 +93602,19 @@ class CustomRule(sgqlc.types.Type, Node):
 
     timezone = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="timezone")
 
-    creator_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="creatorId")
-    """The email of the user that created the monitor"""
+    creator_id = sgqlc.types.Field(String, graphql_name="creatorId")
+    """Display label for the user who created the rule. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address.
+    """
 
     updater_id = sgqlc.types.Field(String, graphql_name="updaterId")
-    """The email of the user that last updated the monitor"""
+    """Display label for the user who last updated the rule. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address.
+    """
 
     prev_execution_time = sgqlc.types.Field(DateTime, graphql_name="prevExecutionTime")
 
@@ -95438,7 +95922,11 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
     """Last update time for object assignments"""
 
     created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
-    """Domain created by email address"""
+    """Display label for the user who created the domain. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address.
+    """
 
     created_by = sgqlc.types.Field(String, graphql_name="createdBy")
     """Domain created by full name (first_name + last_name)"""
@@ -96864,6 +97352,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "created_by",
         "time_axis_field_name",
         "time_axis_field_type",
+        "time_axis_timezone",
         "unnest_fields",
         "agg_time_interval",
         "where_condition",
@@ -97007,6 +97496,8 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     time_axis_field_name = sgqlc.types.Field(String, graphql_name="timeAxisFieldName")
 
     time_axis_field_type = sgqlc.types.Field(String, graphql_name="timeAxisFieldType")
+
+    time_axis_timezone = sgqlc.types.Field(String, graphql_name="timeAxisTimezone")
 
     unnest_fields = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="unnestFields"
@@ -98376,6 +98867,10 @@ class User(sgqlc.types.Type, Node):
     cognito_user_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cognitoUserId")
 
     email = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="email")
+    """Display label for this user. Returns the user's email for human
+    users; for agent users, returns a derived display label (e.g.
+    ``Agent on <domain>``) — never the agent's internal address.
+    """
 
     first_name = sgqlc.types.Field(String, graphql_name="firstName")
 
@@ -99788,6 +100283,10 @@ class UserBasicInfo(sgqlc.types.Type, Node):
     cognito_user_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cognitoUserId")
 
     email = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="email")
+    """Display label for this user. Returns the user's email for human
+    users; for agent users, returns a derived display label (e.g.
+    ``Agent on <domain>``) — never the agent's internal address.
+    """
 
     first_name = sgqlc.types.Field(String, graphql_name="firstName")
 

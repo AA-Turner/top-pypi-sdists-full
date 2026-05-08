@@ -1,11 +1,6 @@
 import logging
 
 import requests
-from django_registration.backends.activation.views import (
-    REGISTRATION_SALT, ActivationView as BaseActivationView,
-    RegistrationView as BaseRegistrationView,
-)
-from django_registration.signals import user_registered
 
 from django.conf import settings
 from django.contrib import messages
@@ -17,7 +12,14 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
+from django_registration.backends.activation.views import (
+    REGISTRATION_SALT,
+    ActivationView as BaseActivationView,
+    RegistrationView as BaseRegistrationView,
+)
+from django_registration.signals import user_registered
 
 from esi.decorators import token_required
 from esi.models import Token
@@ -27,13 +29,13 @@ from allianceauth.hooks import get_hooks
 
 from .constants import ESI_ERROR_MESSAGE_OVERRIDES
 from .core.celery_workers import active_tasks_count, queued_tasks_count
-from allianceauth.templatetags.admin_status import _celery_stats
+from allianceauth.admin_status.templatetags.admin_status import _celery_stats
 from .forms import RegistrationForm
 from .models import CharacterOwnership
 
 if 'allianceauth.eveonline.autogroups' in settings.INSTALLED_APPS:
     _has_auto_groups = True
-    from allianceauth.eveonline.autogroups.models import *  # noqa: F401, F403
+    from allianceauth.eveonline.autogroups.models import *  # noqa: F403
 else:
     _has_auto_groups = False
 
@@ -74,21 +76,21 @@ def dashboard_characters(request):
 
 def dashboard_admin(request):
     if request.user.is_superuser:
-        return render_to_string('allianceauth/admin-status/include.html', request=request)
+        return render_to_string('admin_status/include.html', request=request)
     else:
         return ""
 
 
 def dashboard_esi_check(request):
     if request.user.is_superuser:
-        return render_to_string('allianceauth/admin-status/esi_check.html', request=request)
+        return render_to_string('admin_status/esi_check.html', request=request)
     else:
         return ""
 
 
 @login_required
 def dashboard(request):
-    _dash_items = list()
+    _dash_items = []
     hooks = get_hooks('dashboard_hook')
     items = [fn() for fn in hooks]
     items.sort(key=lambda i: i.order)
@@ -165,9 +167,7 @@ def main_character_change(request, token):
         request.user.profile.save(update_fields=['main_character'])
         messages.success(request, _('Changed main character to %s') % co.character)
         logger.info(
-            'Changed user {user} main character to {char}'.format(
-                user=request.user, char=co.character
-            )
+            f'Changed user {request.user} main character to {co.character}'
         )
     return redirect("authentication:dashboard")
 
@@ -177,10 +177,9 @@ def add_character(request, token):
     if CharacterOwnership.objects.filter(character__character_id=token.character_id).filter(
             owner_hash=token.character_owner_hash).filter(user=request.user).exists():
         messages.success(request, _(
-            'Added %(name)s to your account.' % ({'name': token.character_name})))
+            f'Added {token.character_name} to your account.'))
     else:
-        messages.error(request, _('Failed to add %(name)s to your account: they already have an account.' % (
-            {'name': token.character_name})))
+        messages.error(request, _(f'Failed to add {token.character_name} to your account: they already have an account.'))
     return redirect('authentication:dashboard')
 
 
@@ -213,7 +212,10 @@ def sso_login(request, token):
             token.save()
         if user.is_active:
             login(request, user)
-            return redirect(request.POST.get('next', request.GET.get('next', 'authentication:dashboard')))
+            next_url = request.POST.get('next', request.GET.get('next', ''))
+            if not next_url or not url_has_allowed_host_and_scheme(next_url, allowed_hosts=settings.ALLOWED_HOSTS, require_https=request.is_secure()):
+                next_url = reverse('authentication:dashboard')
+            return redirect(next_url)
         elif not user.email:
             # Store the new user PK in the session to enable us to identify the registering user in Step 2
             request.session['registration_uid'] = user.pk
@@ -295,7 +297,7 @@ class RegistrationView(BaseRegistrationView):
             return redirect(settings.LOGIN_URL)
         if not getattr(settings, 'REGISTRATION_VERIFY_EMAIL', True):
             # Keep the request so the user can be automagically logged in.
-            setattr(self, 'request', request)
+            self.request = request
         return super().dispatch(request, *args, **kwargs)
 
     def register(self, form):
@@ -395,12 +397,3 @@ def esi_check(request) -> JsonResponse:
         "data": check_for_override_esi_error_message(_r)
     }
     return JsonResponse(data)
-
-
-@login_required
-def dashboard_bs3(request):
-    """Render dashboard view with BS3 theme.
-
-    This is an internal view used for testing BS3 backward compatibility in AA4 only.
-    """
-    return render(request, 'authentication/dashboard_bs3.html')

@@ -3582,8 +3582,8 @@ components:
         (when relationship_label is set).
 
         Examples:
-        - Same-resource hierarchy: org-admin → org-manager on the same tenant
-        - Cross-resource propagation: role/org-member on tenant → store_role/viewer on contained stores
+        - Same-resource hierarchy: org-admin -> org-manager on the same tenant
+        - Cross-resource propagation: role/org-member on tenant -> store_role/viewer on contained stores
       example:
         from_entitlement_type: group_role
         from_entitlement_id: admin
@@ -4963,6 +4963,8 @@ components:
         - nodes
         - entitlement_implications
         - custom_attributes
+        - access_graph_entitlement_rules
+        - access_graph_implied_access_rules
       properties:
         nodes:
           type: array
@@ -4976,6 +4978,27 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CustomAttribute'
+        access_graph_entitlement_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessGraphEntitlementRule'
+          description: |-
+            Entitlement rules discovered at runtime for this tenant. Use this when the
+            set of "exists for every resource of type X" entitlements depends on
+            tenant configuration (e.g. customer-defined roles) and cannot be declared
+            statically. For rules that are identical across all tenants, declare them
+            statically via `Integration.access_graph_entitlement_rules` instead.
+          default: []
+        access_graph_implied_access_rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessGraphImpliedAccessRule'
+          description: |-
+            Implied-access rules discovered at runtime for this tenant. Use this when
+            propagation rules depend on tenant configuration. For rules that are
+            identical across all tenants, declare them statically via
+            `Integration.implied_access_rules` instead.
+          default: []
     EntitlementRequirement:
       type: object
       properties:
@@ -6303,12 +6326,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AccessGraphEntitlementRule'
-          description: Rules defining entitlements that automatically exist for every resource of a given type.
+          description: |-
+            Static rules declaring entitlements that automatically exist for every
+            resource of a given type. Declared here when identical across all tenants;
+            for tenant-specific rules, return them from `find_entitlement_graph`
+            instead.
         implied_access_rules:
           type: array
           items:
             $ref: '#/components/schemas/AccessGraphImpliedAccessRule'
-          description: Rules defining how entitlements propagate along resource relationships.
+          description: |-
+            Static rules declaring how entitlements propagate along resource
+            relationships. Declared here when identical across all tenants; for
+            tenant-specific rules, return them from `find_entitlement_graph` instead.
         resource_types:
           type: array
           items:

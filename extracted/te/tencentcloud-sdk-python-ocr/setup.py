@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-ocr',
-    install_requires=["tencentcloud-sdk-python-common>=3.1.91,<4.0.0"],
+    install_requires=["tencentcloud-sdk-python-common>=3.1.92,<4.0.0"],
     
     version=tencentcloud.__version__,
     description='Tencent Cloud Ocr SDK for Python',

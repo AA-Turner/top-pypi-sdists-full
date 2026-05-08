@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-cloud
-Version: 1.13.3
+Version: 1.13.4
 Project-URL: Homepage, https://dagster.io/cloud
 Project-URL: GitHub, https://github.com/dagster-io/dagster-cloud
 Project-URL: Changelog, https://github.com/dagster-io/dagster-cloud/blob/main/CHANGES.md
@@ -29,23 +29,23 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: System :: Monitoring
 Requires-Python: <3.15,>=3.9
-Requires-Dist: dagster-cloud-cli==1.13.3
-Requires-Dist: dagster-shared==1.13.3
-Requires-Dist: dagster==1.13.3
+Requires-Dist: dagster-cloud-cli==1.13.4
+Requires-Dist: dagster-shared==1.13.4
+Requires-Dist: dagster==1.13.4
 Requires-Dist: pex<2.60.0,>=2.1.132
 Requires-Dist: questionary
 Requires-Dist: requests
 Requires-Dist: typer>=0.15.0
 Provides-Extra: docker
-Requires-Dist: dagster-docker==0.29.3; extra == 'docker'
+Requires-Dist: dagster-docker==0.29.4; extra == 'docker'
 Requires-Dist: docker; extra == 'docker'
 Provides-Extra: ecs
 Requires-Dist: boto3; extra == 'ecs'
-Requires-Dist: dagster-aws==0.29.3; extra == 'ecs'
+Requires-Dist: dagster-aws==0.29.4; extra == 'ecs'
 Provides-Extra: insights
 Requires-Dist: pyarrow; extra == 'insights'
 Provides-Extra: kubernetes
-Requires-Dist: dagster-k8s==0.29.3; extra == 'kubernetes'
+Requires-Dist: dagster-k8s==0.29.4; extra == 'kubernetes'
 Requires-Dist: kubernetes; extra == 'kubernetes'
 Provides-Extra: pex
 Requires-Dist: boto3; extra == 'pex'
@@ -57,10 +57,10 @@ Provides-Extra: tests
 Requires-Dist: dagster-cloud-backend; extra == 'tests'
 Requires-Dist: dagster-cloud-dagit; extra == 'tests'
 Requires-Dist: dagster-cloud-test-infra; extra == 'tests'
-Requires-Dist: dagster-dbt==0.29.3; extra == 'tests'
-Requires-Dist: dagster-dg-cli==1.13.3; extra == 'tests'
-Requires-Dist: dagster-docker==0.29.3; extra == 'tests'
-Requires-Dist: dagster-k8s==0.29.3; extra == 'tests'
+Requires-Dist: dagster-dbt==0.29.4; extra == 'tests'
+Requires-Dist: dagster-dg-cli==1.13.4; extra == 'tests'
+Requires-Dist: dagster-docker==0.29.4; extra == 'tests'
+Requires-Dist: dagster-k8s==0.29.4; extra == 'tests'
 Requires-Dist: dagster-test; extra == 'tests'
 Requires-Dist: dbt-bigquery>=1.9.0; extra == 'tests'
 Requires-Dist: dbt-core; extra == 'tests'
@@ -72,6 +72,7 @@ Requires-Dist: isort; extra == 'tests'
 Requires-Dist: kubernetes; extra == 'tests'
 Requires-Dist: moto[all]; extra == 'tests'
 Requires-Dist: mypy; extra == 'tests'
+Requires-Dist: pip; extra == 'tests'
 Requires-Dist: psutil; extra == 'tests'
 Requires-Dist: pylint; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'

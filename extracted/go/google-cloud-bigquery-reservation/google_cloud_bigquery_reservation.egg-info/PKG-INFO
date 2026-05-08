@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-bigquery-reservation
-Version: 1.23.0
+Version: 1.24.0
 Summary: Google Cloud Bigquery Reservation API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-bigquery-reservation
 Author: Google LLC
@@ -47,7 +47,7 @@ Python Client for BigQuery Reservation
 
 |stable| |pypi| |versions|
 
-`BigQuery Reservation`_: Modify BigQuery flat-rate reservations.
+`BigQuery Reservation`_: A service to modify your BigQuery reservations.
 
 - `Client Library Documentation`_
 - `Product Documentation`_
@@ -58,9 +58,9 @@ Python Client for BigQuery Reservation
    :target: https://pypi.org/project/google-cloud-bigquery-reservation/
 .. |versions| image:: https://img.shields.io/pypi/pyversions/google-cloud-bigquery-reservation.svg
    :target: https://pypi.org/project/google-cloud-bigquery-reservation/
-.. _BigQuery Reservation: https://cloud.google.com/bigquery/docs/reference/reservations
+.. _BigQuery Reservation: https://cloud.google.com/bigquery/
 .. _Client Library Documentation: https://cloud.google.com/python/docs/reference/bigqueryreservation/latest/summary_overview
-.. _Product Documentation:  https://cloud.google.com/bigquery/docs/reference/reservations
+.. _Product Documentation:  https://cloud.google.com/bigquery/
 
 Quick Start
 -----------
@@ -74,7 +74,7 @@ In order to use this library, you first need to go through the following steps:
 
 .. _Select or create a Cloud Platform project.: https://console.cloud.google.com/project
 .. _Enable billing for your project.: https://cloud.google.com/billing/docs/how-to/modify-project#enable_billing_for_a_project
-.. _Enable the BigQuery Reservation.:  https://cloud.google.com/bigquery/docs/reference/reservations
+.. _Enable the BigQuery Reservation.:  https://cloud.google.com/bigquery/
 .. _Set up Authentication.: https://googleapis.dev/python/google-api-core/latest/auth.html
 
 Installation
@@ -148,7 +148,7 @@ Next Steps
 -  View this `README`_ to see the full list of Cloud
    APIs that we cover.
 
-.. _BigQuery Reservation Product documentation:  https://cloud.google.com/bigquery/docs/reference/reservations
+.. _BigQuery Reservation Product documentation:  https://cloud.google.com/bigquery/
 .. _README: https://github.com/googleapis/google-cloud-python/blob/main/README.rst
 
 Logging

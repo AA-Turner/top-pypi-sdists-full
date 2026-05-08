@@ -1855,11 +1855,10 @@ providers: list[Provider] = [
                 context_window=1000000,
                 prices=ModelPrice(
                     input_mtok=Decimal('0.1'),
-                    cache_read_mtok=TieredPrices(
-                        base=Decimal('0.025'), tiers=[Tier(start=1000000, price=Decimal('0.175'))]
-                    ),
+                    cache_read_mtok=Decimal('0.025'),
                     output_mtok=Decimal('0.4'),
                     input_audio_mtok=Decimal('0.7'),
+                    cache_audio_read_mtok=Decimal('0.175'),
                 ),
             ),
             ModelInfo(
@@ -5365,7 +5364,9 @@ providers: list[Provider] = [
                 name='gpt 4o audio preview',
                 description='Audio model for gpt-4o',
                 context_window=128000,
-                prices=ModelPrice(output_mtok=Decimal('10'), input_audio_mtok=Decimal('2.5')),
+                prices=ModelPrice(
+                    input_mtok=Decimal('2.5'), output_mtok=Decimal('10'), input_audio_mtok=Decimal('2.5')
+                ),
             ),
             ModelInfo(
                 id='gpt-4o-mini',
@@ -5395,7 +5396,9 @@ providers: list[Provider] = [
                 match=ClauseStartsWith(starts_with='gpt-4o-mini-audio'),
                 name='gpt 4o mini audio preview',
                 description='Audio model for gpt-4o mini',
-                prices=ModelPrice(output_mtok=Decimal('0.6'), input_audio_mtok=Decimal('0.15')),
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.15'), output_mtok=Decimal('0.6'), input_audio_mtok=Decimal('0.15')
+                ),
             ),
             ModelInfo(
                 id='gpt-4o-mini-realtime-preview',
@@ -5417,7 +5420,9 @@ providers: list[Provider] = [
             ModelInfo(
                 id='gpt-4o-mini-tts',
                 match=ClauseEquals(equals='gpt-4o-mini-tts'),
-                prices=ModelPrice(input_mtok=Decimal('0.6'), output_audio_mtok=Decimal('12')),
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.6'), output_mtok=Decimal('12'), output_audio_mtok=Decimal('12')
+                ),
             ),
             ModelInfo(
                 id='gpt-4o-realtime-preview',
@@ -5591,6 +5596,25 @@ providers: list[Provider] = [
                 prices=ModelPrice(input_mtok=Decimal('21'), output_mtok=Decimal('168')),
             ),
             ModelInfo(
+                id='gpt-5.3',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gpt-5.3'),
+                        ClauseEquals(equals='gpt-5-3'),
+                        ClauseEquals(equals='gpt-5.3-chat'),
+                        ClauseEquals(equals='gpt-5.3-chat-latest'),
+                        ClauseEquals(equals='gpt-5-3-chat'),
+                        ClauseEquals(equals='gpt-5-3-chat-latest'),
+                    ]
+                ),
+                name='GPT-5.3 Chat',
+                description='GPT-5.3 Instant model used in ChatGPT',
+                context_window=128000,
+                prices=ModelPrice(
+                    input_mtok=Decimal('1.75'), cache_read_mtok=Decimal('0.175'), output_mtok=Decimal('14')
+                ),
+            ),
+            ModelInfo(
                 id='gpt-5.3-codex',
                 match=ClauseOr(or_=[ClauseEquals(equals='gpt-5.3-codex'), ClauseEquals(equals='gpt-5-3-codex')]),
                 name='GPT-5.3-Codex',
@@ -5672,6 +5696,42 @@ providers: list[Provider] = [
                     input_mtok=TieredPrices(base=Decimal('30'), tiers=[Tier(start=272000, price=Decimal('60'))]),
                     output_mtok=TieredPrices(base=Decimal('180'), tiers=[Tier(start=272000, price=Decimal('270'))]),
                 ),
+            ),
+            ModelInfo(
+                id='gpt-5.5',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gpt-5.5'),
+                        ClauseEquals(equals='gpt-5.5-2026-04-23'),
+                        ClauseEquals(equals='gpt-5-5'),
+                        ClauseEquals(equals='gpt-5-5-2026-04-23'),
+                        ClauseEquals(equals='gpt-5.5-chat'),
+                        ClauseEquals(equals='gpt-5.5-chat-latest'),
+                        ClauseEquals(equals='gpt-5-5-chat'),
+                        ClauseEquals(equals='gpt-5-5-chat-latest'),
+                        ClauseEquals(equals='gpt-5.5-codex'),
+                        ClauseEquals(equals='gpt-5-5-codex'),
+                    ]
+                ),
+                name='GPT-5.5',
+                description='The best model for coding and agentic tasks across industries',
+                context_window=1000000,
+                prices=ModelPrice(input_mtok=Decimal('5'), cache_read_mtok=Decimal('0.5'), output_mtok=Decimal('30')),
+            ),
+            ModelInfo(
+                id='gpt-5.5-pro',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gpt-5.5-pro'),
+                        ClauseEquals(equals='gpt-5.5-pro-2026-04-23'),
+                        ClauseEquals(equals='gpt-5-5-pro'),
+                        ClauseEquals(equals='gpt-5-5-pro-2026-04-23'),
+                    ]
+                ),
+                name='GPT-5.5 Pro',
+                description='Version of GPT-5.5 that produces smarter and more precise responses.',
+                context_window=1000000,
+                prices=ModelPrice(input_mtok=Decimal('30'), output_mtok=Decimal('180')),
             ),
             ModelInfo(
                 id='gpt-realtime',
@@ -5859,6 +5919,29 @@ providers: list[Provider] = [
         name='OpenRouter',
         api_pattern='https://(api\\.)?openrouter\\.ai',
         pricing_urls=['https://openrouter.ai/models'],
+        extractors=[
+            UsageExtractor(
+                root='usage',
+                mappings=[
+                    UsageExtractorMapping(path='prompt_tokens', dest='input_tokens', required=True),
+                    UsageExtractorMapping(
+                        path=['prompt_tokens_details', 'cached_tokens'], dest='cache_read_tokens', required=False
+                    ),
+                    UsageExtractorMapping(
+                        path=['prompt_tokens_details', 'cache_write_tokens'], dest='cache_write_tokens', required=False
+                    ),
+                    UsageExtractorMapping(
+                        path=['prompt_tokens_details', 'audio_tokens'], dest='input_audio_tokens', required=False
+                    ),
+                    UsageExtractorMapping(
+                        path=['completion_tokens_details', 'audio_tokens'], dest='output_audio_tokens', required=False
+                    ),
+                    UsageExtractorMapping(path='completion_tokens', dest='output_tokens', required=True),
+                ],
+                api_flavor='chat',
+                model_path='model',
+            )
+        ],
         models=[
             ModelInfo(
                 id='01-ai/yi-large',
@@ -6708,6 +6791,15 @@ providers: list[Provider] = [
                 id='deepseek/deepseek-v3-base:free',
                 match=ClauseEquals(equals='deepseek/deepseek-v3-base:free'),
                 prices=ModelPrice(),
+            ),
+            ModelInfo(
+                id='deepseek/deepseek-v3.2',
+                match=ClauseEquals(equals='deepseek/deepseek-v3.2'),
+                name='DeepSeek V3.2',
+                context_window=131072,
+                prices=ModelPrice(
+                    input_mtok=Decimal('0.252'), cache_read_mtok=Decimal('0.0252'), output_mtok=Decimal('0.378')
+                ),
             ),
             ModelInfo(
                 id='deepseek/deepseek-v3.2-exp',

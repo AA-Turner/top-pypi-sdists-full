@@ -1,31 +1,28 @@
-from typing import List
-
-from django.contrib.auth.models import User, Group, Permission
-from django.db.models.signals import m2m_changed, pre_save, post_save
+from django.contrib.auth.models import Group, Permission, User
+from django.db.models.signals import m2m_changed, post_save, pre_save
 from django.test import TestCase
 
 from esi.models import Token
 
-from allianceauth.authentication.models import (
-    UserProfile, State, get_guest_state
-)
-from allianceauth.eveonline.models import EveCharacter
+from allianceauth.authentication.models import State, UserProfile, get_guest_state
 from allianceauth.authentication.signals import (
+    assign_state_on_active_change,
+    check_state_on_character_update,
+    reassess_on_profile_save,
     state_member_alliances_changed,
     state_member_characters_changed,
     state_member_corporations_changed,
     state_saved,
-    reassess_on_profile_save,
-    assign_state_on_active_change,
-    check_state_on_character_update
 )
+from allianceauth.eveonline.models import EveCharacter
 from allianceauth.services.signals import (
+    disable_services_on_inactive,
     m2m_changed_group_permissions,
-    m2m_changed_user_permissions,
     m2m_changed_state_permissions,
-    m2m_changed_user_groups, disable_services_on_inactive,
+    m2m_changed_user_groups,
+    m2m_changed_user_permissions,
     process_main_character_change,
-    process_main_character_update
+    process_main_character_update,
 )
 
 
@@ -269,7 +266,7 @@ class AuthUtils:
 
     @classmethod
     def add_permissions_to_user_by_name(
-        cls, perms: List[str], user: User, disconnect_signals: bool = True
+        cls, perms: list[str], user: User, disconnect_signals: bool = True
     ) -> User:
         """Add permissions given by name to a user
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: guarddog
-Version: 2.9.0
+Version: 2.10.0
 Summary: GuardDog is a CLI tool for identifying malicious open source packages
 License: Apache-2.0
 License-File: LICENSE
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: click (>=8.1.3,<9.0.0)
 Requires-Dist: configparser (>=5.3,<8.0)
-Requires-Dist: disposable-email-domains (>=0.0.103,<0.0.160)
+Requires-Dist: disposable-email-domains (>=0.0.103,<0.0.170)
 Requires-Dist: prettytable (>=3.6.0,<4.0.0)
 Requires-Dist: pygit2 (>=1.11,<1.19)
 Requires-Dist: python-dateutil (>=2.8.2,<3.0.0)
@@ -36,6 +36,8 @@ Description-Content-Type: text/markdown
 # GuardDog
 
 [![Test](https://github.com/DataDog/guarddog/actions/workflows/checks.yml/badge.svg)](https://github.com/DataDog/guarddog/actions/workflows/checks.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/DataDog/guarddog/badge)](https://securityscorecards.dev/viewer/?uri=github.com/DataDog/guarddog)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12273/badge)](https://www.bestpractices.dev/projects/12273)
 
 <p align="center">
   <img src="https://github.com/DataDog/guarddog/blob/main/docs/images/logo.png?raw=true" alt="GuardDog" width="300" />
@@ -56,11 +58,25 @@ It downloads and scans code from:
 
 ![GuardDog demo usage](https://github.com/DataDog/guarddog/blob/main/docs/images/demo.png?raw=true)
 
+---
+### Check out the new Datadog Agent [integration](https://docs.datadoghq.com/integrations/guarddog/) and Cloud SIEM [content pack](https://app.datadoghq.com/security/siem/content-packs?query=guarddog) for GuardDog.
+---
+
 ## Getting started
 
 ### Installation
 
+The easiest way to run GuardDog is to use [`uvx`](https://docs.astral.sh/uv/guides/tools/):
+
 ```sh
+uvx guarddog pypi scan requests
+```
+
+To install it locally:
+
+```sh
+uv tool install guarddog
+# or
 pip install guarddog
 ```
 
@@ -368,15 +384,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+      - uses: astral-sh/setup-uv@v7
 
-      - name: Install GuardDog
-        run: pip install guarddog
-
-      - run: guarddog pypi verify requirements.txt --output-format sarif --exclude-rules repository_integrity_mismatch > guarddog.sarif
+      - run: uvx guarddog pypi verify requirements.txt --output-format sarif --exclude-rules repository_integrity_mismatch > guarddog.sarif
 
       - name: Upload SARIF file to GitHub
         uses: github/codeql-action/upload-sarif@v3

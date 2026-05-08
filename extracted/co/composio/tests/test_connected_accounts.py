@@ -175,6 +175,72 @@ class TestConnectionRequest:
 
         assert "Timeout while waiting for connection conn-timeout" in str(excinfo.value)
 
+    @pytest.mark.parametrize("terminal_status", ["FAILED", "EXPIRED", "REVOKED"])
+    def test_wait_for_connection_fails_fast_on_terminal_status(
+        self, monkeypatch, terminal_status
+    ):
+        mock_client = Mock()
+        terminal = Mock()
+        terminal.status = terminal_status
+        mock_client.connected_accounts.retrieve.return_value = terminal
+
+        req = ConnectionRequest(
+            id="conn-terminal",
+            status="PENDING",
+            redirect_url=None,
+            client=mock_client,
+        )
+
+        # Patch `time.time` defensively — matches sibling tests.
+        current_time = {"value": 0.0}
+
+        def fake_time():
+            value = current_time["value"]
+            current_time["value"] += 0.1
+            return value
+
+        monkeypatch.setattr(time, "time", fake_time)
+        monkeypatch.setattr(time, "sleep", lambda *_args, **_kwargs: None)
+
+        with pytest.raises(exceptions.SDKError) as excinfo:
+            req.wait_for_connection(timeout=10.0)
+
+        assert "conn-terminal" in str(excinfo.value)
+        assert terminal_status in str(excinfo.value)
+        # One retrieve call only — no polling once we hit a terminal state.
+        assert mock_client.connected_accounts.retrieve.call_count == 1
+
+    def test_wait_for_connection_does_not_treat_inactive_as_terminal(self, monkeypatch):
+        mock_client = Mock()
+        inactive = Mock()
+        inactive.status = "INACTIVE"
+        active = Mock()
+        active.status = "ACTIVE"
+        mock_client.connected_accounts.retrieve.side_effect = [inactive, active]
+
+        req = ConnectionRequest(
+            id="conn-inactive-recover",
+            status="PENDING",
+            redirect_url=None,
+            client=mock_client,
+        )
+
+        current_time = {"value": 0.0}
+
+        def fake_time():
+            value = current_time["value"]
+            current_time["value"] += 0.1
+            return value
+
+        monkeypatch.setattr(time, "time", fake_time)
+        monkeypatch.setattr(time, "sleep", lambda *_args, **_kwargs: None)
+
+        result = req.wait_for_connection(timeout=1.0)
+
+        assert result is active
+        assert req.status == "ACTIVE"
+        assert mock_client.connected_accounts.retrieve.call_count == 2
+
     def test_from_id_uses_client_retrieve(self):
         mock_client = Mock()
         retrieved = Mock()
@@ -310,6 +376,12 @@ class TestConnectedAccounts:
     def test_link_builds_payload_and_returns_connection_request(
         self, connected_accounts, mock_client
     ):
+        # link() now mirrors initiate() and pre-flights list() to enforce the
+        # allow_multiple guard; default to no existing connections here.
+        no_accounts = Mock()
+        no_accounts.items = []
+        mock_client.connected_accounts.list.return_value = no_accounts
+
         mock_response = Mock()
         mock_response.connected_account_id = "conn-999"
         mock_response.redirect_url = "https://redirect"
@@ -334,6 +406,10 @@ class TestConnectedAccounts:
     def test_link_omits_callback_url_when_not_provided(
         self, connected_accounts, mock_client
     ):
+        no_accounts = Mock()
+        no_accounts.items = []
+        mock_client.connected_accounts.list.return_value = no_accounts
+
         mock_response = Mock()
         mock_response.connected_account_id = "conn-000"
         mock_response.redirect_url = None
@@ -345,6 +421,46 @@ class TestConnectedAccounts:
         assert call_kwargs["auth_config_id"] == "auth-1"
         assert call_kwargs["user_id"] == "user-1"
         assert call_kwargs["callback_url"] is omit
+
+    def test_link_raises_when_active_connection_exists_and_not_allow_multiple(
+        self, connected_accounts, mock_client
+    ):
+        """link() guards against duplicate connections, mirroring initiate()."""
+        existing = Mock()
+        existing.items = [Mock()]
+        mock_client.connected_accounts.list.return_value = existing
+
+        with pytest.raises(exceptions.ComposioMultipleConnectedAccountsError):
+            connected_accounts.link(user_id="user-1", auth_config_id="auth-1")
+
+        mock_client.connected_accounts.list.assert_called_once_with(
+            user_ids=["user-1"], auth_config_ids=["auth-1"], statuses=["ACTIVE"]
+        )
+        mock_client.link.create.assert_not_called()
+
+    def test_link_skips_guard_when_allow_multiple_is_true(
+        self, connected_accounts, mock_client
+    ):
+        """allow_multiple=True bypasses the guard and proceeds with link.create."""
+        existing = Mock()
+        existing.items = [Mock()]
+        mock_client.connected_accounts.list.return_value = existing
+
+        mock_response = Mock()
+        mock_response.connected_account_id = "conn-new"
+        mock_response.redirect_url = "https://redirect"
+        mock_client.link.create.return_value = mock_response
+
+        result = connected_accounts.link(
+            user_id="user-1",
+            auth_config_id="auth-1",
+            alias="work",
+            allow_multiple=True,
+        )
+
+        call_kwargs = mock_client.link.create.call_args.kwargs
+        assert call_kwargs["alias"] == "work"
+        assert result.id == "conn-new"
 
     def test_initiate_with_oauth2_tokens_returns_active_connection_request(
         self, connected_accounts, mock_client

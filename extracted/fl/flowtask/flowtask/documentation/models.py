@@ -29,12 +29,14 @@ class ComponentDoc(BaseModel):
     Attributes:
         name: The component class name (e.g., 'DownloadFromBase').
         version: Component version if available from _version attribute.
+        category: High-level grouping (e.g., 'Sources', 'Outputs', 'Filters').
         description: Overview description extracted from docstring.
         attributes: List of parsed attributes from the documentation table.
         examples: List of YAML/JSON example strings.
     """
     name: str = ""
     version: Optional[str] = None
+    category: str = "Other"
     description: str = ""
     attributes: List[ComponentAttribute] = Field(default_factory=list)
     examples: List[str] = Field(default_factory=list)

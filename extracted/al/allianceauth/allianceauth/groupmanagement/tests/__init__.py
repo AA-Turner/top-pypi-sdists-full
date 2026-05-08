@@ -3,9 +3,6 @@ from django.urls import reverse
 
 def get_admin_change_view_url(obj: object) -> str:
     return reverse(
-        'admin:{}_{}_change'.format(
-            obj._meta.app_label,
-            type(obj).__name__.lower()
-        ),
+        f'admin:{obj._meta.app_label}_{type(obj).__name__.lower()}_change',
         args=(obj.pk,)
     )

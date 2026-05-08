@@ -3,13 +3,16 @@ import urllib
 
 from django.conf import settings
 from django.template.loader import render_to_string
-from allianceauth.notifications import notify
+from django.utils.translation import gettext_lazy as _
 
 from allianceauth import hooks
-from allianceauth.services.hooks import ServicesHook
-from .tasks import MumbleTasks
+from allianceauth.menu.hooks import MenuItemHook
+from allianceauth.notifications import notify
+from allianceauth.services.hooks import ServicesHook, UrlHook
+
+from . import urls
 from .models import MumbleUser
-from .urls import urlpatterns
+from .tasks import MumbleTasks
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +21,7 @@ class MumbleService(ServicesHook):
     def __init__(self):
         ServicesHook.__init__(self)
         self.name = 'mumble'
-        self.urlpatterns = urlpatterns
+        # self.urlpatterns = urlpatterns  # Migrated intentionally to URLHook to allow for excluded views
         self.service_url = settings.MUMBLE_URL
         self.access_perm = 'mumble.access_mumble'
         self.service_ctrl_template = 'services/mumble/mumble_service_ctrl.html'
@@ -35,22 +38,12 @@ class MumbleService(ServicesHook):
         except MumbleUser.DoesNotExist:
             logging.debug("User does not have a mumble account")
 
-    def update_groups(self, user):
-        logger.debug(f"Updating {self.name} groups for {user}")
-        if MumbleTasks.has_account(user):
-            MumbleTasks.update_groups.delay(user.pk)
-
-    def sync_nickname(self, user):
-        logger.debug(f"Updating {self.name} nickname for {user}")
-        if MumbleTasks.has_account(user):
-            MumbleTasks.update_display_name.apply_async(args=[user.pk], countdown=5) # cooldown on this task to ensure DB clean when syncing
-
     def validate_user(self, user):
         if MumbleTasks.has_account(user) and not self.service_active_for_user(user):
             self.delete_user(user, notify_user=True)
 
     def update_all_groups(self):
-        logger.debug("Updating all %s groups" % self.name)
+        logger.debug(f"Updating all {self.name} groups")
         MumbleTasks.update_all_groups.delay()
 
     def service_active_for_user(self, user):
@@ -73,5 +66,37 @@ class MumbleService(ServicesHook):
 
 
 @hooks.register('services_hook')
-def register_mumble_service():
+def register_mumble_service() -> ServicesHook:
     return MumbleService()
+
+
+class MumbleMenuItem(MenuItemHook):
+    def __init__(self) -> None:
+        MenuItemHook.__init__(
+            self=self,
+            text=_("Mumble Temp Links"),
+            classes="fa-solid fa-microphone",
+            url_name="mumble:templinks",
+            navactive=["mumble:templinks"],
+        )
+
+    def render(self, request) -> str:
+        if request.user.has_perm("mumble.create_new_templinks"):
+            return MenuItemHook.render(self, request)
+        return ""
+
+
+@hooks.register("menu_item_hook")
+def register_menu() -> MumbleMenuItem:
+    return MumbleMenuItem()
+
+@hooks.register("url_hook")
+def register_urls() -> UrlHook:
+    return UrlHook(
+        urls,
+        "mumble",
+        r"^mumble/",
+        excluded_views=[
+            "allianceauth.services.modules.mumble.views.link",
+            "allianceauth.services.modules.mumble.views.link_sso"
+        ])

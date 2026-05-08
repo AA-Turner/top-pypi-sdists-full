@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigquery-magics
-Version: 0.14.0
+Version: 0.15.0
 Summary: Google BigQuery magics for Jupyter and IPython
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/bigquery-magics
 Author: Google LLC
@@ -120,11 +120,11 @@ dependencies.
 
 Supported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-Python >= 3.9
+Python >= 3.10
 
 Unsupported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Python <= 3.8.
+Python <= 3.9.
 
 
 Mac/Linux

@@ -69,6 +69,11 @@ from .literals import (
     OnlineEvaluationConfigStatusType,
     OnlineEvaluationExecutionStatusType,
     OverrideTypeType,
+    PaymentConnectorStatusType,
+    PaymentConnectorTypeType,
+    PaymentCredentialProviderVendorTypeType,
+    PaymentManagerStatusType,
+    PaymentsAuthorizerTypeType,
     PolicyEngineStatusType,
     PolicyGenerationStatusType,
     PolicyStatusType,
@@ -152,6 +157,8 @@ __all__ = (
     "CodeInterpreterNetworkConfigurationUnionTypeDef",
     "CodeInterpreterSummaryTypeDef",
     "CodeTypeDef",
+    "CoinbaseCdpConfigurationInputTypeDef",
+    "CoinbaseCdpConfigurationOutputTypeDef",
     "ComponentConfigurationOutputTypeDef",
     "ComponentConfigurationTypeDef",
     "ComponentConfigurationUnionTypeDef",
@@ -198,6 +205,12 @@ __all__ = (
     "CreateOauth2CredentialProviderResponseTypeDef",
     "CreateOnlineEvaluationConfigRequestTypeDef",
     "CreateOnlineEvaluationConfigResponseTypeDef",
+    "CreatePaymentConnectorRequestTypeDef",
+    "CreatePaymentConnectorResponseTypeDef",
+    "CreatePaymentCredentialProviderRequestTypeDef",
+    "CreatePaymentCredentialProviderResponseTypeDef",
+    "CreatePaymentManagerRequestTypeDef",
+    "CreatePaymentManagerResponseTypeDef",
     "CreatePolicyEngineRequestTypeDef",
     "CreatePolicyEngineResponseTypeDef",
     "CreatePolicyRequestTypeDef",
@@ -214,6 +227,7 @@ __all__ = (
     "CredentialProviderOutputTypeDef",
     "CredentialProviderTypeDef",
     "CredentialProviderUnionTypeDef",
+    "CredentialsProviderConfigurationTypeDef",
     "CustomClaimValidationTypeOutputTypeDef",
     "CustomClaimValidationTypeTypeDef",
     "CustomClaimValidationTypeUnionTypeDef",
@@ -263,6 +277,11 @@ __all__ = (
     "DeleteOauth2CredentialProviderRequestTypeDef",
     "DeleteOnlineEvaluationConfigRequestTypeDef",
     "DeleteOnlineEvaluationConfigResponseTypeDef",
+    "DeletePaymentConnectorRequestTypeDef",
+    "DeletePaymentConnectorResponseTypeDef",
+    "DeletePaymentCredentialProviderRequestTypeDef",
+    "DeletePaymentManagerRequestTypeDef",
+    "DeletePaymentManagerResponseTypeDef",
     "DeletePolicyEngineRequestTypeDef",
     "DeletePolicyEngineResponseTypeDef",
     "DeletePolicyRequestTypeDef",
@@ -345,6 +364,12 @@ __all__ = (
     "GetOauth2CredentialProviderResponseTypeDef",
     "GetOnlineEvaluationConfigRequestTypeDef",
     "GetOnlineEvaluationConfigResponseTypeDef",
+    "GetPaymentConnectorRequestTypeDef",
+    "GetPaymentConnectorResponseTypeDef",
+    "GetPaymentCredentialProviderRequestTypeDef",
+    "GetPaymentCredentialProviderResponseTypeDef",
+    "GetPaymentManagerRequestTypeDef",
+    "GetPaymentManagerResponseTypeDef",
     "GetPolicyEngineRequestTypeDef",
     "GetPolicyEngineRequestWaitExtraTypeDef",
     "GetPolicyEngineRequestWaitTypeDef",
@@ -485,6 +510,15 @@ __all__ = (
     "ListOnlineEvaluationConfigsRequestPaginateTypeDef",
     "ListOnlineEvaluationConfigsRequestTypeDef",
     "ListOnlineEvaluationConfigsResponseTypeDef",
+    "ListPaymentConnectorsRequestPaginateTypeDef",
+    "ListPaymentConnectorsRequestTypeDef",
+    "ListPaymentConnectorsResponseTypeDef",
+    "ListPaymentCredentialProvidersRequestPaginateTypeDef",
+    "ListPaymentCredentialProvidersRequestTypeDef",
+    "ListPaymentCredentialProvidersResponseTypeDef",
+    "ListPaymentManagersRequestPaginateTypeDef",
+    "ListPaymentManagersRequestTypeDef",
+    "ListPaymentManagersResponseTypeDef",
     "ListPoliciesRequestPaginateTypeDef",
     "ListPoliciesRequestTypeDef",
     "ListPoliciesResponseTypeDef",
@@ -582,6 +616,12 @@ __all__ = (
     "OnlineEvaluationConfigSummaryTypeDef",
     "OutputConfigTypeDef",
     "PaginatorConfigTypeDef",
+    "PaymentConnectorSummaryTypeDef",
+    "PaymentCredentialProviderConfigurationTypeDef",
+    "PaymentCredentialProviderItemTypeDef",
+    "PaymentManagerSummaryTypeDef",
+    "PaymentProviderConfigurationInputTypeDef",
+    "PaymentProviderConfigurationOutputTypeDef",
     "PolicyDefinitionTypeDef",
     "PolicyEngineTypeDef",
     "PolicyGenerationAssetTypeDef",
@@ -673,6 +713,8 @@ __all__ = (
     "StringValidationOutputTypeDef",
     "StringValidationTypeDef",
     "StringValidationUnionTypeDef",
+    "StripePrivyConfigurationInputTypeDef",
+    "StripePrivyConfigurationOutputTypeDef",
     "SubmitRegistryRecordForApprovalRequestTypeDef",
     "SubmitRegistryRecordForApprovalResponseTypeDef",
     "SummaryConsolidationOverrideTypeDef",
@@ -735,6 +777,12 @@ __all__ = (
     "UpdateOauth2CredentialProviderResponseTypeDef",
     "UpdateOnlineEvaluationConfigRequestTypeDef",
     "UpdateOnlineEvaluationConfigResponseTypeDef",
+    "UpdatePaymentConnectorRequestTypeDef",
+    "UpdatePaymentConnectorResponseTypeDef",
+    "UpdatePaymentCredentialProviderRequestTypeDef",
+    "UpdatePaymentCredentialProviderResponseTypeDef",
+    "UpdatePaymentManagerRequestTypeDef",
+    "UpdatePaymentManagerResponseTypeDef",
     "UpdatePolicyEngineRequestTypeDef",
     "UpdatePolicyEngineResponseTypeDef",
     "UpdatePolicyRequestTypeDef",
@@ -966,6 +1014,14 @@ class S3LocationTypeDef(TypedDict):
     prefix: str
     versionId: NotRequired[str]
 
+class CoinbaseCdpConfigurationInputTypeDef(TypedDict):
+    apiKeyId: str
+    apiKeySecret: str
+    walletSecret: str
+
+class SecretTypeDef(TypedDict):
+    secretArn: str
+
 class ComponentConfigurationOutputTypeDef(TypedDict):
     configuration: dict[str, Any]
 
@@ -1029,9 +1085,6 @@ class CreateApiKeyCredentialProviderRequestTypeDef(TypedDict):
     name: str
     apiKey: str
     tags: NotRequired[Mapping[str, str]]
-
-class SecretTypeDef(TypedDict):
-    secretArn: str
 
 class CreateBrowserProfileRequestTypeDef(TypedDict):
     name: str
@@ -1099,6 +1152,9 @@ class OAuthCredentialProviderOutputTypeDef(TypedDict):
     customParameters: NotRequired[dict[str, str]]
     grantType: NotRequired[OAuthGrantTypeType]
     defaultReturnUrl: NotRequired[str]
+
+class PaymentCredentialProviderConfigurationTypeDef(TypedDict):
+    credentialProviderArn: str
 
 class EpisodicOverrideConsolidationConfigurationInputTypeDef(TypedDict):
     appendToPrompt: str
@@ -1216,6 +1272,18 @@ class DeleteOauth2CredentialProviderRequestTypeDef(TypedDict):
 
 class DeleteOnlineEvaluationConfigRequestTypeDef(TypedDict):
     onlineEvaluationConfigId: str
+
+class DeletePaymentConnectorRequestTypeDef(TypedDict):
+    paymentManagerId: str
+    paymentConnectorId: str
+    clientToken: NotRequired[str]
+
+class DeletePaymentCredentialProviderRequestTypeDef(TypedDict):
+    name: str
+
+class DeletePaymentManagerRequestTypeDef(TypedDict):
+    paymentManagerId: str
+    clientToken: NotRequired[str]
 
 class DeletePolicyEngineRequestTypeDef(TypedDict):
     policyEngineId: str
@@ -1352,6 +1420,16 @@ class GetOauth2CredentialProviderRequestTypeDef(TypedDict):
 
 class GetOnlineEvaluationConfigRequestTypeDef(TypedDict):
     onlineEvaluationConfigId: str
+
+class GetPaymentConnectorRequestTypeDef(TypedDict):
+    paymentManagerId: str
+    paymentConnectorId: str
+
+class GetPaymentCredentialProviderRequestTypeDef(TypedDict):
+    name: str
+
+class GetPaymentManagerRequestTypeDef(TypedDict):
+    paymentManagerId: str
 
 class GetPolicyEngineRequestTypeDef(TypedDict):
     policyEngineId: str
@@ -1619,6 +1697,48 @@ class OnlineEvaluationConfigSummaryTypeDef(TypedDict):
     description: NotRequired[str]
     failureReason: NotRequired[str]
 
+class ListPaymentConnectorsRequestTypeDef(TypedDict):
+    paymentManagerId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+PaymentConnectorSummaryTypeDef = TypedDict(
+    "PaymentConnectorSummaryTypeDef",
+    {
+        "paymentConnectorId": str,
+        "name": str,
+        "type": PaymentConnectorTypeType,
+        "status": PaymentConnectorStatusType,
+        "lastUpdatedAt": datetime,
+    },
+)
+
+class ListPaymentCredentialProvidersRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class PaymentCredentialProviderItemTypeDef(TypedDict):
+    name: str
+    credentialProviderVendor: PaymentCredentialProviderVendorTypeType
+    credentialProviderArn: str
+    createdTime: datetime
+    lastUpdatedTime: datetime
+
+class ListPaymentManagersRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class PaymentManagerSummaryTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentManagerId: str
+    name: str
+    authorizerType: PaymentsAuthorizerTypeType
+    roleArn: str
+    status: PaymentManagerStatusType
+    lastUpdatedAt: datetime
+    description: NotRequired[str]
+    createdAt: NotRequired[datetime]
+
 class ListPoliciesRequestTypeDef(TypedDict):
     policyEngineId: str
     nextToken: NotRequired[str]
@@ -1792,6 +1912,12 @@ class SlackOauth2ProviderConfigInputTypeDef(TypedDict):
 class TokenExchangeGrantTypeConfigTypeOutputTypeDef(TypedDict):
     actorTokenContent: ActorTokenContentTypeType
     actorTokenScopes: NotRequired[list[str]]
+
+class StripePrivyConfigurationInputTypeDef(TypedDict):
+    appId: str
+    appSecret: str
+    authorizationPrivateKey: str
+    authorizationId: str
 
 class PolicyGenerationDetailsTypeDef(TypedDict):
     policyGenerationId: str
@@ -2044,6 +2170,17 @@ class RecordingConfigTypeDef(TypedDict):
 class ResourceLocationTypeDef(TypedDict):
     s3: NotRequired[S3LocationTypeDef]
 
+class CoinbaseCdpConfigurationOutputTypeDef(TypedDict):
+    apiKeyId: str
+    apiKeySecretArn: SecretTypeDef
+    walletSecretArn: SecretTypeDef
+
+class StripePrivyConfigurationOutputTypeDef(TypedDict):
+    appId: str
+    appSecretArn: SecretTypeDef
+    authorizationPrivateKeyArn: SecretTypeDef
+    authorizationId: str
+
 ComponentConfigurationUnionTypeDef = Union[
     ComponentConfigurationTypeDef, ComponentConfigurationOutputTypeDef
 ]
@@ -2078,6 +2215,12 @@ class CreateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     endpointName: str
     status: AgentRuntimeEndpointStatusType
     createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateApiKeyCredentialProviderResponseTypeDef(TypedDict):
+    apiKeySecretArn: SecretTypeDef
+    name: str
+    credentialProviderArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateBrowserProfileResponseTypeDef(TypedDict):
@@ -2213,6 +2356,16 @@ class DeleteOnlineEvaluationConfigResponseTypeDef(TypedDict):
     status: OnlineEvaluationConfigStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeletePaymentConnectorResponseTypeDef(TypedDict):
+    status: PaymentConnectorStatusType
+    paymentConnectorId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeletePaymentManagerResponseTypeDef(TypedDict):
+    status: PaymentManagerStatusType
+    paymentManagerId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeletePolicyEngineResponseTypeDef(TypedDict):
     policyEngineId: str
     name: str
@@ -2246,6 +2399,14 @@ GetAgentRuntimeEndpointResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+class GetApiKeyCredentialProviderResponseTypeDef(TypedDict):
+    apiKeySecretArn: SecretTypeDef
+    name: str
+    credentialProviderArn: str
+    createdTime: datetime
+    lastUpdatedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetBrowserProfileResponseTypeDef(TypedDict):
     profileId: str
@@ -2350,6 +2511,14 @@ class UpdateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateApiKeyCredentialProviderResponseTypeDef(TypedDict):
+    apiKeySecretArn: SecretTypeDef
+    name: str
+    credentialProviderArn: str
+    createdTime: datetime
+    lastUpdatedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateConfigurationBundleResponseTypeDef(TypedDict):
     bundleArn: str
     bundleId: str
@@ -2421,26 +2590,15 @@ class UpdateAgentRuntimeResponseTypeDef(TypedDict):
     status: AgentRuntimeStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
-class CreateApiKeyCredentialProviderResponseTypeDef(TypedDict):
-    apiKeySecretArn: SecretTypeDef
+class UpdatePaymentManagerResponseTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentManagerId: str
     name: str
-    credentialProviderArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetApiKeyCredentialProviderResponseTypeDef(TypedDict):
-    apiKeySecretArn: SecretTypeDef
-    name: str
-    credentialProviderArn: str
-    createdTime: datetime
-    lastUpdatedTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateApiKeyCredentialProviderResponseTypeDef(TypedDict):
-    apiKeySecretArn: SecretTypeDef
-    name: str
-    credentialProviderArn: str
-    createdTime: datetime
-    lastUpdatedTime: datetime
+    authorizerType: PaymentsAuthorizerTypeType
+    roleArn: str
+    workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
+    lastUpdatedAt: datetime
+    status: PaymentManagerStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class VersionLineageMetadataTypeDef(TypedDict):
@@ -2458,6 +2616,10 @@ class HarnessGatewayOutboundAuthOutputTypeDef(TypedDict):
     awsIam: NotRequired[dict[str, Any]]
     none: NotRequired[dict[str, Any]]
     oauth: NotRequired[OAuthCredentialProviderOutputTypeDef]
+
+class CredentialsProviderConfigurationTypeDef(TypedDict):
+    coinbaseCDP: NotRequired[PaymentCredentialProviderConfigurationTypeDef]
+    stripePrivy: NotRequired[PaymentCredentialProviderConfigurationTypeDef]
 
 class SummaryOverrideConfigurationInputTypeDef(TypedDict):
     consolidation: NotRequired[SummaryOverrideConsolidationConfigurationInputTypeDef]
@@ -2725,6 +2887,16 @@ class ListOauth2CredentialProvidersRequestPaginateTypeDef(TypedDict):
 class ListOnlineEvaluationConfigsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListPaymentConnectorsRequestPaginateTypeDef(TypedDict):
+    paymentManagerId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPaymentCredentialProvidersRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPaymentManagersRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListPoliciesRequestPaginateTypeDef(TypedDict):
     policyEngineId: str
     targetResourceScope: NotRequired[str]
@@ -2791,6 +2963,21 @@ class ListOauth2CredentialProvidersResponseTypeDef(TypedDict):
 
 class ListOnlineEvaluationConfigsResponseTypeDef(TypedDict):
     onlineEvaluationConfigs: list[OnlineEvaluationConfigSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListPaymentConnectorsResponseTypeDef(TypedDict):
+    paymentConnectors: list[PaymentConnectorSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListPaymentCredentialProvidersResponseTypeDef(TypedDict):
+    credentialProviders: list[PaymentCredentialProviderItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListPaymentManagersResponseTypeDef(TypedDict):
+    paymentManagers: list[PaymentManagerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2868,6 +3055,10 @@ Oauth2AuthorizationServerMetadataUnionTypeDef = Union[
 class OnBehalfOfTokenExchangeConfigTypeOutputTypeDef(TypedDict):
     grantType: OnBehalfOfTokenExchangeGrantTypeTypeType
     tokenExchangeGrantTypeConfig: NotRequired[TokenExchangeGrantTypeConfigTypeOutputTypeDef]
+
+class PaymentProviderConfigurationInputTypeDef(TypedDict):
+    coinbaseCdpConfiguration: NotRequired[CoinbaseCdpConfigurationInputTypeDef]
+    stripePrivyConfiguration: NotRequired[StripePrivyConfigurationInputTypeDef]
 
 class PolicyDefinitionTypeDef(TypedDict):
     cedar: NotRequired[CedarPolicyTypeDef]
@@ -3021,6 +3212,10 @@ BrowserEnterprisePolicyTypeDef = TypedDict(
     },
 )
 
+class PaymentProviderConfigurationOutputTypeDef(TypedDict):
+    coinbaseCdpConfiguration: NotRequired[CoinbaseCdpConfigurationOutputTypeDef]
+    stripePrivyConfiguration: NotRequired[StripePrivyConfigurationOutputTypeDef]
+
 class CreateConfigurationBundleRequestTypeDef(TypedDict):
     bundleName: str
     components: Mapping[str, ComponentConfigurationUnionTypeDef]
@@ -3091,6 +3286,71 @@ class CredentialProviderConfigurationOutputTypeDef(TypedDict):
 class HarnessAgentCoreGatewayConfigOutputTypeDef(TypedDict):
     gatewayArn: str
     outboundAuth: NotRequired[HarnessGatewayOutboundAuthOutputTypeDef]
+
+CreatePaymentConnectorRequestTypeDef = TypedDict(
+    "CreatePaymentConnectorRequestTypeDef",
+    {
+        "paymentManagerId": str,
+        "name": str,
+        "type": PaymentConnectorTypeType,
+        "credentialProviderConfigurations": Sequence[CredentialsProviderConfigurationTypeDef],
+        "description": NotRequired[str],
+        "clientToken": NotRequired[str],
+    },
+)
+CreatePaymentConnectorResponseTypeDef = TypedDict(
+    "CreatePaymentConnectorResponseTypeDef",
+    {
+        "paymentConnectorId": str,
+        "paymentManagerId": str,
+        "name": str,
+        "type": PaymentConnectorTypeType,
+        "credentialProviderConfigurations": list[CredentialsProviderConfigurationTypeDef],
+        "createdAt": datetime,
+        "status": PaymentConnectorStatusType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetPaymentConnectorResponseTypeDef = TypedDict(
+    "GetPaymentConnectorResponseTypeDef",
+    {
+        "paymentConnectorId": str,
+        "name": str,
+        "description": str,
+        "type": PaymentConnectorTypeType,
+        "credentialProviderConfigurations": list[CredentialsProviderConfigurationTypeDef],
+        "createdAt": datetime,
+        "lastUpdatedAt": datetime,
+        "status": PaymentConnectorStatusType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+UpdatePaymentConnectorRequestTypeDef = TypedDict(
+    "UpdatePaymentConnectorRequestTypeDef",
+    {
+        "paymentManagerId": str,
+        "paymentConnectorId": str,
+        "description": NotRequired[str],
+        "type": NotRequired[PaymentConnectorTypeType],
+        "credentialProviderConfigurations": NotRequired[
+            Sequence[CredentialsProviderConfigurationTypeDef]
+        ],
+        "clientToken": NotRequired[str],
+    },
+)
+UpdatePaymentConnectorResponseTypeDef = TypedDict(
+    "UpdatePaymentConnectorResponseTypeDef",
+    {
+        "paymentConnectorId": str,
+        "paymentManagerId": str,
+        "name": str,
+        "type": PaymentConnectorTypeType,
+        "credentialProviderConfigurations": list[CredentialsProviderConfigurationTypeDef],
+        "lastUpdatedAt": datetime,
+        "status": PaymentConnectorStatusType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 class ModifyConsolidationConfigurationTypeDef(TypedDict):
     customConsolidationConfiguration: NotRequired[CustomConsolidationConfigurationInputTypeDef]
@@ -3219,6 +3479,17 @@ class SlackOauth2ProviderConfigOutputTypeDef(TypedDict):
 class Oauth2DiscoveryTypeDef(TypedDict):
     discoveryUrl: NotRequired[str]
     authorizationServerMetadata: NotRequired[Oauth2AuthorizationServerMetadataUnionTypeDef]
+
+class CreatePaymentCredentialProviderRequestTypeDef(TypedDict):
+    name: str
+    credentialProviderVendor: PaymentCredentialProviderVendorTypeType
+    providerConfigurationInput: PaymentProviderConfigurationInputTypeDef
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdatePaymentCredentialProviderRequestTypeDef(TypedDict):
+    name: str
+    credentialProviderVendor: PaymentCredentialProviderVendorTypeType
+    providerConfigurationInput: PaymentProviderConfigurationInputTypeDef
 
 class CreatePolicyRequestTypeDef(TypedDict):
     name: str
@@ -3440,6 +3711,32 @@ class GetBrowserResponseTypeDef(TypedDict):
     failureReason: str
     createdAt: datetime
     lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreatePaymentCredentialProviderResponseTypeDef(TypedDict):
+    name: str
+    credentialProviderVendor: PaymentCredentialProviderVendorTypeType
+    credentialProviderArn: str
+    providerConfigurationOutput: PaymentProviderConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetPaymentCredentialProviderResponseTypeDef(TypedDict):
+    name: str
+    credentialProviderArn: str
+    credentialProviderVendor: PaymentCredentialProviderVendorTypeType
+    providerConfigurationOutput: PaymentProviderConfigurationOutputTypeDef
+    createdTime: datetime
+    lastUpdatedTime: datetime
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdatePaymentCredentialProviderResponseTypeDef(TypedDict):
+    name: str
+    credentialProviderVendor: PaymentCredentialProviderVendorTypeType
+    credentialProviderArn: str
+    providerConfigurationOutput: PaymentProviderConfigurationOutputTypeDef
+    createdTime: datetime
+    lastUpdatedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ConfigurationBundleActionOutputTypeDef(TypedDict):
@@ -3830,6 +4127,19 @@ class CreateGatewayResponseTypeDef(TypedDict):
     exceptionLevel: Literal["DEBUG"]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreatePaymentManagerResponseTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentManagerId: str
+    name: str
+    authorizerType: PaymentsAuthorizerTypeType
+    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
+    roleArn: str
+    workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
+    createdAt: datetime
+    status: PaymentManagerStatusType
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetAgentRuntimeResponseTypeDef(TypedDict):
     agentRuntimeArn: str
     agentRuntimeName: str
@@ -3873,6 +4183,21 @@ class GetGatewayResponseTypeDef(TypedDict):
     policyEngineConfiguration: GatewayPolicyEngineConfigurationTypeDef
     workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
     exceptionLevel: Literal["DEBUG"]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetPaymentManagerResponseTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentManagerId: str
+    name: str
+    description: str
+    authorizerType: PaymentsAuthorizerTypeType
+    authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
+    roleArn: str
+    workloadIdentityDetails: WorkloadIdentityDetailsTypeDef
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    status: PaymentManagerStatusType
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRegistryResponseTypeDef(TypedDict):
@@ -4373,6 +4698,15 @@ class CreateGatewayRequestTypeDef(TypedDict):
     exceptionLevel: NotRequired[Literal["DEBUG"]]
     tags: NotRequired[Mapping[str, str]]
 
+class CreatePaymentManagerRequestTypeDef(TypedDict):
+    name: str
+    authorizerType: PaymentsAuthorizerTypeType
+    roleArn: str
+    description: NotRequired[str]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
 class CreateRegistryRequestTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
@@ -4409,6 +4743,14 @@ class UpdateGatewayRequestTypeDef(TypedDict):
     interceptorConfigurations: NotRequired[Sequence[GatewayInterceptorConfigurationUnionTypeDef]]
     policyEngineConfiguration: NotRequired[GatewayPolicyEngineConfigurationTypeDef]
     exceptionLevel: NotRequired[Literal["DEBUG"]]
+
+class UpdatePaymentManagerRequestTypeDef(TypedDict):
+    paymentManagerId: str
+    description: NotRequired[str]
+    authorizerType: NotRequired[PaymentsAuthorizerTypeType]
+    authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
+    roleArn: NotRequired[str]
+    clientToken: NotRequired[str]
 
 class UpdatedAuthorizerConfigurationTypeDef(TypedDict):
     optionalValue: NotRequired[AuthorizerConfigurationUnionTypeDef]

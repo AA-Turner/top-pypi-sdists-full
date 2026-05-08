@@ -1,18 +1,15 @@
 import logging
 
-from .models import (
-    CharacterOwnership,
-    UserProfile,
-    get_guest_state,
-    State,
-    OwnershipRecord)
 from django.contrib.auth.models import User
 from django.db.models import Q
-from django.db.models.signals import pre_save, post_save, pre_delete, post_delete, m2m_changed
-from django.dispatch import receiver, Signal
+from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete, pre_save
+from django.dispatch import Signal, receiver
+
 from esi.models import Token
 
 from allianceauth.eveonline.models import EveCharacter
+
+from .models import CharacterOwnership, OwnershipRecord, State, UserProfile, get_guest_state
 
 logger = logging.getLogger(__name__)
 
@@ -108,8 +105,7 @@ def record_character_ownership(sender, instance, created, *args, **kwargs):
 def validate_main_character(sender, instance, *args, **kwargs):
     try:
         if instance.user.profile.main_character == instance.character:
-            logger.info("Ownership of a main character {} has been revoked. Resetting {} main character.".format(
-                instance.character, instance.user))
+            logger.info(f"Ownership of a main character {instance.character} has been revoked. Resetting {instance.user} main character.")
             # clear main character as user no longer owns them
             instance.user.profile.main_character = None
             instance.user.profile.save()

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 from pydantic import Field, NonNegativeFloat, PositiveFloat, field_validator, model_validator
@@ -239,16 +239,19 @@ class DistanceUnstructuredGrid(UnstructuredGrid):
     non_refined_structures: tuple[str, ...] = Field(
         (),
         title="Structures Without Refinement",
-        description="List of structures for which ``dl_interface`` will not be enforced. "
-        "``dl_bulk`` is used instead.",
+        description="List of structures whose owned interfaces do not enforce "
+        "``dl_interface``. For interfaces shared by multiple structures, ownership follows "
+        "structure precedence: the last matching structure in the simulation's structure list "
+        "decides whether the interface is refined. Structures in this list also do not "
+        "receive volume refinement from ``uniform_grid_mediums``.",
     )
 
-    mesh_refinements: tuple[
-        discriminated_union(Union[GridRefinementRegion, GridRefinementLine]), ...
-    ] = Field(
-        (),
-        title="Mesh refinement structures",
-        description="List of regions/lines for which the mesh refinement will be applied",
+    mesh_refinements: tuple[discriminated_union(GridRefinementRegion | GridRefinementLine), ...] = (
+        Field(
+            (),
+            title="Mesh refinement structures",
+            description="List of regions/lines for which the mesh refinement will be applied",
+        )
     )
 
     @model_validator(mode="after")
@@ -274,4 +277,4 @@ class DistanceUnstructuredGrid(UnstructuredGrid):
         return min(dl_array)
 
 
-UnstructuredGridType = Union[UniformUnstructuredGrid, DistanceUnstructuredGrid]
+UnstructuredGridType = UniformUnstructuredGrid | DistanceUnstructuredGrid

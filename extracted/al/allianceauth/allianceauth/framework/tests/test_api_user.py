@@ -10,9 +10,9 @@ from django.test import TestCase
 
 # Alliance Auth
 from allianceauth.framework.api.user import (
-    get_sentinel_user,
     get_main_character_from_user,
-    get_main_character_name_from_user
+    get_main_character_name_from_user,
+    get_sentinel_user,
 )
 from allianceauth.tests.auth_utils import AuthUtils
 

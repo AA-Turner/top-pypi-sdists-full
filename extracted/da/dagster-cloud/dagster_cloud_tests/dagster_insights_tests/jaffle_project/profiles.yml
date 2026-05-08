@@ -5,9 +5,9 @@ jaffle_shop:
       type: snowflake
       account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
 
-      # User/password auth
-      user: PETE_DEMO
-      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      # Key-pair auth
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      private_key: "{{ env_var('SNOWFLAKE_DEMO_PRIVATE_KEY') }}"
 
       role: PETE
       database: SANDBOX

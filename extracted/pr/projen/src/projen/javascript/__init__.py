@@ -600,6 +600,8 @@ class BiomeOptions:
         "workflow_triggers": "workflowTriggers",
         "mutable_build": "mutableBuild",
         "mutable_install": "mutableInstall",
+        "runs_on": "runsOn",
+        "runs_on_group": "runsOnGroup",
     },
 )
 class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
@@ -613,6 +615,8 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         mutable_install: typing.Optional[builtins.bool] = None,
+        runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Build workflow options for NodeProject.
 
@@ -623,6 +627,8 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         :param workflow_triggers: (experimental) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
         :param mutable_install: (experimental) Perform a mutable (non-frozen) install during builds. This will update the package lockfile during installs, which is useful when build steps modify dependencies. Set to ``false`` to use frozen lockfile installs even when ``mutableBuild`` is enabled. Default: - value of ``mutableBuild``
+        :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
+        :param runs_on_group: (experimental) Github Runner Group selection options.
 
         :stability: experimental
         '''
@@ -630,6 +636,8 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
             permissions = _JobPermissions_3b5b53dc(**permissions)
         if isinstance(workflow_triggers, dict):
             workflow_triggers = _Triggers_e9ae7617(**workflow_triggers)
+        if isinstance(runs_on_group, dict):
+            runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12c3595783c38c358dfa0cc66282771c2ed2020f0770e8379920bb5731b72372)
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
@@ -639,6 +647,8 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
             check_type(argname="argument workflow_triggers", value=workflow_triggers, expected_type=type_hints["workflow_triggers"])
             check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
             check_type(argname="argument mutable_install", value=mutable_install, expected_type=type_hints["mutable_install"])
+            check_type(argname="argument runs_on", value=runs_on, expected_type=type_hints["runs_on"])
+            check_type(argname="argument runs_on_group", value=runs_on_group, expected_type=type_hints["runs_on_group"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if env is not None:
             self._values["env"] = env
@@ -654,6 +664,10 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
             self._values["mutable_build"] = mutable_build
         if mutable_install is not None:
             self._values["mutable_install"] = mutable_install
+        if runs_on is not None:
+            self._values["runs_on"] = runs_on
+        if runs_on_group is not None:
+            self._values["runs_on_group"] = runs_on_group
 
     @builtins.property
     def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -741,6 +755,30 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         '''
         result = self._values.get("mutable_install")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def runs_on(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Github Runner selection labels.
+
+        :default: ["ubuntu-latest"]
+
+        :stability: experimental
+        :description: Defines a target Runner by labels
+        :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
+        '''
+        result = self._values.get("runs_on")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
+        '''(experimental) Github Runner Group selection options.
+
+        :stability: experimental
+        :description: Defines a target Runner Group by name and/or labels
+        :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
+        '''
+        result = self._values.get("runs_on_group")
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17155,6 +17193,8 @@ def _typecheckingstub__12c3595783c38c358dfa0cc66282771c2ed2020f0770e8379920bb573
     workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,
     mutable_install: typing.Optional[builtins.bool] = None,
+    runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+    runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

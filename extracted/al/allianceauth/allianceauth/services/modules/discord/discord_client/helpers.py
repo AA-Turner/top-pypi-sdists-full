@@ -1,5 +1,5 @@
+from collections.abc import Iterable
 from copy import copy
-from typing import Iterable, List, Optional, Set, Tuple
 
 from .models import Role
 
@@ -16,19 +16,19 @@ class RolesSet:
         roles_lst: List of dicts, each defining a role
     """
     def __init__(self, roles_lst: Iterable[Role]) -> None:
-        if not isinstance(roles_lst, (list, set, tuple)):
+        if not isinstance(roles_lst, list | set | tuple):
             raise TypeError('roles_lst must be of type list, set or tuple')
-        self._roles = dict()
-        self._roles_by_name = dict()
+        self._roles = {}
+        self._roles_by_name = {}
         for role in list(roles_lst):
             if not isinstance(role, Role):
-                raise TypeError('Roles must be of type Role: %s' % role)
+                raise TypeError(f'Roles must be of type Role: {role}')
             self._roles[role.id] = role
             self._roles_by_name[role.name] = role
 
     def __repr__(self) -> str:
         if self._roles_by_name:
-            roles = '"' + '", "'.join(sorted(list(self._roles_by_name.keys()))) + '"'
+            roles = '"' + '", "'.join(sorted(self._roles_by_name.keys())) + '"'
         else:
             roles = ""
         return f'{self.__class__.__name__}([{roles}])'
@@ -50,7 +50,7 @@ class RolesSet:
     def __len__(self):
         return len(self._roles.keys())
 
-    def has_roles(self, role_ids: Set[int]) -> bool:
+    def has_roles(self, role_ids: set[int]) -> bool:
         """True if this objects contains all roles defined by given role_ids
         incl. managed roles.
         """
@@ -58,7 +58,7 @@ class RolesSet:
         all_role_ids = self._roles.keys()
         return role_ids.issubset(all_role_ids)
 
-    def ids(self) -> Set[int]:
+    def ids(self) -> set[int]:
         """Set of all role IDs."""
         return set(self._roles.keys())
 
@@ -114,7 +114,7 @@ class RolesSet:
         new_ids = self.ids().difference(other.ids())
         return self.subset(role_ids=new_ids)
 
-    def role_by_name(self, role_name: str) -> Optional[Role]:
+    def role_by_name(self, role_name: str) -> Role | None:
         """Role if one with matching name is found else None."""
         role_name = Role.sanitize_name(role_name)
         if role_name in self._roles_by_name:
@@ -123,7 +123,7 @@ class RolesSet:
 
     @classmethod
     def create_from_matched_roles(
-        cls, matched_roles: List[Tuple[Role, bool]]
+        cls, matched_roles: list[tuple[Role, bool]]
     ) -> "RolesSet":
         """Create new instance from the given list of matches roles.
 

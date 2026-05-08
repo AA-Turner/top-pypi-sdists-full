@@ -135,15 +135,14 @@ pub fn load_type_map_from_json(json_bytes: &[u8]) -> Result<TypeMap> {
                     is_nullable,
                 };
                 features.insert((class_name.clone(), name.to_string()), info);
-                let display_type = if is_nullable {
-                    format!("{foreign_class} | None")
-                } else {
-                    foreign_class
-                };
+                // Stub field uses the bare foreign class (no `| None`) — feature-path
+                // access (`Foo.bar.baz`) is always navigable on a class attribute,
+                // regardless of runtime nullability. Nullability is preserved on the
+                // `features` map for resolver-annotation rewriting.
                 class_fields
                     .entry(class_name.clone())
                     .or_default()
-                    .push((name.to_string(), display_type));
+                    .push((name.to_string(), foreign_class));
             } else if let Some(has_many) =
                 type_obj.get("HasMany").or_else(|| type_obj.get("hasMany"))
             {
@@ -362,20 +361,19 @@ pub fn build_type_map(graph: &Graph) -> TypeMap {
                 feature_type::Type::HasOne(has_one) => {
                     let attr_name = &has_one.name;
                     let foreign_class = snake_to_pascal(&has_one.foreign_namespace);
-                    let python_type = if has_one.is_nullable {
-                        format!("{foreign_class} | None")
-                    } else {
-                        foreign_class.clone()
-                    };
                     let info = FeatureTypeInfo {
-                        python_type: foreign_class,
+                        python_type: foreign_class.clone(),
                         is_nullable: has_one.is_nullable,
                     };
                     features.insert((class_name.clone(), attr_name.to_string()), info);
+                    // Stub field uses the bare foreign class (no `| None`) — feature-path
+                    // access (`Foo.bar.baz`) is always navigable on a class attribute,
+                    // regardless of runtime nullability. Nullability is preserved on the
+                    // `features` map for resolver-annotation rewriting.
                     class_fields
                         .entry(class_name.clone())
                         .or_default()
-                        .push((attr_name.to_string(), python_type));
+                        .push((attr_name.to_string(), foreign_class));
                 }
                 feature_type::Type::HasMany(has_many) => {
                     let attr_name = &has_many.name;

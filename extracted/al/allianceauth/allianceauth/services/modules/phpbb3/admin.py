@@ -1,6 +1,7 @@
 from django.contrib import admin
-from .models import Phpbb3User
+
 from ...admin import ServicesUserAdmin
+from .models import Phpbb3User
 
 
 @admin.register(Phpbb3User)

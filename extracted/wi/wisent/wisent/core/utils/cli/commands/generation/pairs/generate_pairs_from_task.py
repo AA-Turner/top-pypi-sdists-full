@@ -96,9 +96,47 @@ def execute_generate_pairs_from_task(args):
                 print(f"   ⚠ HF cache for '{args.task_name}' has 0 pairs; "
                       f"forcing fresh build", flush=True)
             else:
-                os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
-                _shutil.copyfile(cached_path, args.output)
-                print(f"   ✓ Copied {_n} pre-computed pairs from HF cache to {args.output}")
+                # Apply --limit to cached pairs. Earlier this used
+                # _shutil.copyfile which blindly copied the entire cache file
+                # regardless of args.limit, producing 1997-pair jobs that
+                # took hours when the caller asked for 1 pair (and any
+                # smaller limit). Confirmed live on 2026-05-08: NTREX jobs
+                # submitted with --limit 1 were processing 1997 pairs each.
+                # When the cache contains pairs from multiple sub/sub-subtasks
+                # (each pair carries trait_label or task_name in the pair
+                # dict), distribute the limit evenly across them so the
+                # sample is balanced rather than just the first N.
+                _limit = getattr(args, 'limit', None)
+                _pairs = _doc.get("pairs", [])
+                if _limit is not None and _limit > 0 and len(_pairs) > _limit:
+                    _by_grp: dict[str, list] = {}
+                    for _p in _pairs:
+                        _grp = (_p.get("trait_label")
+                                or _p.get("task_name")
+                                or _p.get("subtask")
+                                or "")
+                        _by_grp.setdefault(_grp, []).append(_p)
+                    _picked: list = []
+                    if len(_by_grp) > 1:
+                        _per_grp = max(1, _limit // len(_by_grp))
+                        for _grp, _grp_pairs in _by_grp.items():
+                            _picked.extend(_grp_pairs[:_per_grp])
+                            if len(_picked) >= _limit:
+                                break
+                        _picked = _picked[:_limit]
+                    else:
+                        _picked = _pairs[:_limit]
+                    _doc["pairs"] = _picked
+                    _doc["num_pairs"] = len(_picked)
+                    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
+                    with open(args.output, "w") as _of:
+                        json.dump(_doc, _of, indent=JSON_INDENT)
+                    print(f"   ✓ Copied {len(_picked)}/{_n} pre-computed pairs from HF cache "
+                          f"(applied --limit {_limit}, {len(_by_grp)} groups) to {args.output}")
+                else:
+                    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
+                    _shutil.copyfile(cached_path, args.output)
+                    print(f"   ✓ Copied {_n} pre-computed pairs from HF cache to {args.output}")
                 print(f"\n✅ Contrastive pairs generation completed successfully!\n")
                 return
     except Exception as exc:

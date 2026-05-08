@@ -1,7 +1,7 @@
 import os
 
 NAME = "collate-sqllineage"
-VERSION = "2.1.1"
+VERSION = "2.1.2"
 DEFAULT_LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

@@ -1,5 +1,6 @@
 # Every setting in base.py can be overloaded by redefining it here.
 from .base import *
+from urllib.parse import urlparse
 
 # These are required for Django to function properly. Don't touch.
 ROOT_URLCONF = '{{ project_name }}.urls'
@@ -18,6 +19,7 @@ SITE_NAME = '{{ project_name }}'
 SITE_URL = "https://example.com"
 
 # Django security
+ALLOWED_HOSTS = [urlparse(SITE_URL).hostname]
 CSRF_TRUSTED_ORIGINS = [SITE_URL]
 
 # Change this to enable/disable debug mode, which displays

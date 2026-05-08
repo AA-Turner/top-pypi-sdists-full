@@ -1,7 +1,6 @@
 from django.contrib import admin
 
-from allianceauth.srp.models import SrpFleetMain
-from allianceauth.srp.models import SrpUserRequest
+from allianceauth.srp.models import SrpFleetMain, SrpUserRequest
 
 admin.site.register(SrpFleetMain)
 admin.site.register(SrpUserRequest)

@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Optional
 from navigator.brokers.sqs import SQSConnection
 from .base import BaseMQTrigger
 

@@ -1,11 +1,11 @@
-from django.conf import settings
+import logging
+
 from django.core.exceptions import ObjectDoesNotExist
 
 from allianceauth.services.hooks import NameFormatter
+
 from .manager import Ips4Manager
 from .models import Ips4User
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +16,10 @@ class Ips4Tasks:
 
     @classmethod
     def delete_user(cls, user):
-        logging.debug("Attempting to delete IPS4 account for %s" % user)
+        logging.debug(f"Attempting to delete IPS4 account for {user}")
         if cls.has_account(user) and Ips4Manager.delete_user(user.ips4.id):
             user.ips4.delete()
-            logger.info("Successfully deactivated IPS4 for user %s" % user)
+            logger.info(f"Successfully deactivated IPS4 for user {user}")
             return True
         return False
 

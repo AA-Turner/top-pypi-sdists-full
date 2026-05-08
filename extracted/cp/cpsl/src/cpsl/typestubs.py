@@ -111,6 +111,38 @@ declare module "@capsule/page" {
     opts?: { params?: Record<string, string> },
   ): DataResult<T>;
   export function useEndpoint<T = unknown>(path: string): EndpointResult<T>;
+
+  interface ChatMessage {
+    id: string;
+    role: "user" | "assistant" | "block";
+    text: string;
+    ts: number;
+    requestId?: string;
+    block?: { id: string; type: string; payload: Record<string, unknown> };
+    attachments?: unknown[];
+  }
+
+  interface ChatState {
+    sessionId: string;
+    messages: ChatMessage[];
+    status: "disabled" | "loading" | "idle" | "sending" | "streaming" | "error";
+    connected: boolean;
+    error: string | null;
+    send: (text: string, opts?: { attachments?: unknown[] }) => Promise<unknown>;
+    retry: () => void;
+    stop: () => void;
+  }
+
+  export function useChat(
+    chatName?: string,
+    opts?: {
+      threadKey?: string | null;
+      sessionId?: string;
+      initialData?: Record<string, unknown>;
+      enabled?: boolean;
+    },
+  ): ChatState;
+
   export function useCapsule(): CapsuleContext;
   export function navigate(target: NavigationTarget): void;
   export function useNavigate(): (target: NavigationTarget) => void;
@@ -281,6 +313,24 @@ declare module "@capsule/page" {
     ListPane: FC<LayoutListPaneProps>;
     Detail: FC<LayoutDetailProps>;
   };
+  export const Shell: FC<LayoutRootProps>;
+  export const Pane: {
+    Sidebar: FC<LayoutSidebarProps>;
+    List: FC<LayoutListPaneProps>;
+    Main: FC<LayoutDetailProps>;
+    Inspector: FC<LayoutListPaneProps>;
+  };
+  export const Header: FC<{ title?: ReactNode; subtitle?: ReactNode; action?: ReactNode; children?: ReactNode }>;
+
+  export const Badge: FC<{ children?: ReactNode; tone?: "default" | "success" | "danger" | "accent"; style?: CSSProperties }>;
+  export const SectionHeader: FC<{ title: string; subtitle?: string; action?: ReactNode; style?: CSSProperties }>;
+  export const Metric: FC<{ label: string; value: ReactNode; hint?: string; style?: CSSProperties }>;
+  export const DataTable: FC<{ columns?: (string | CollectionColumn)[]; rows?: Record<string, unknown>[]; style?: CSSProperties }>;
+  export const FieldInspector: FC<{ fields?: (string | CollectionColumn | Record<string, unknown>)[]; style?: CSSProperties }>;
+  export const MessageList: FC<{ messages?: ChatMessage[]; style?: CSSProperties }>;
+  export const Composer: FC<{ value?: string; onChange?: (value: string) => void; onSend?: (text: string) => void; placeholder?: string; disabled?: boolean; style?: CSSProperties }>;
+  export const ChatPanel: FC<{ messages?: ChatMessage[]; onSend?: (text: string) => void; status?: string; style?: CSSProperties }>;
+  export const ConversationList: FC<{ items?: Record<string, unknown>[]; activeId?: string; onSelect?: (item: Record<string, unknown>) => void; style?: CSSProperties }>;
 
   // -----------------------------------------------------------------------
   // UI primitives

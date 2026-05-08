@@ -1,6 +1,5 @@
 """Admin site for menu app."""
 
-from typing import Optional
 
 from django.contrib import admin
 from django.http import HttpRequest, HttpResponse
@@ -35,12 +34,12 @@ class MenuItemAdmin(admin.ModelAdmin):
     ]
     ordering = ["parent", "order", "text"]
 
-    def get_form(self, request: HttpRequest, obj: Optional[MenuItem] = None, **kwargs):
+    def get_form(self, request: HttpRequest, obj: MenuItem | None = None, **kwargs):
         kwargs["form"] = self._choose_form(request, obj)
         return super().get_form(request, obj, **kwargs)
 
     @classmethod
-    def _choose_form(cls, request: HttpRequest, obj: Optional[MenuItem]):
+    def _choose_form(cls, request: HttpRequest, obj: MenuItem | None):
         """Return the form for the current menu item type."""
         if obj:  # change
             if obj.hook_hash:
@@ -104,7 +103,7 @@ class MenuItemAdmin(admin.ModelAdmin):
     @staticmethod
     def _type_from_request(
         request: HttpRequest, default=None
-    ) -> Optional[MenuItemType]:
+    ) -> MenuItemType | None:
         try:
             return MenuItemType(request.GET.get("type"))
         except ValueError:

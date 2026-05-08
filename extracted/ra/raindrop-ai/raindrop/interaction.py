@@ -35,6 +35,7 @@ class Interaction:
         "_event",
         "_convo_id",
         "_analytics",
+        "_disabled",
         "__weakref__",
     )
 
@@ -44,30 +45,44 @@ class Interaction:
         user_id: Optional[str] = None,
         event: Optional[str] = None,
         convo_id: Optional[str] = None,
+        disabled: bool = False,
     ):
         self._event_id = event_id or str(uuid4())
         self._user_id = user_id
         self._event = event
         self._convo_id = convo_id
         self._analytics = _core
+        # When True, every mutator / finish / span / tool call is a no-op so
+        # that callers who passed invalid arguments to ``begin()`` don't crash
+        # the whole code path. ``analytics.begin()`` is the only place that
+        # constructs a disabled Interaction today.
+        self._disabled = disabled
 
     # -- mutators ----------------------------------------------------------- #
     def set_input(self, text: str) -> None:
+        if self._disabled:
+            return
         self._analytics._track_ai_partial(
             PartialTrackAIEvent(event_id=self._event_id, ai_data={"input": text})
         )
 
     def add_attachments(self, attachments: List[Attachment]) -> None:
+        if self._disabled:
+            return
         self._analytics._track_ai_partial(
             PartialTrackAIEvent(event_id=self._event_id, attachments=attachments)
         )
 
     def set_properties(self, props: Dict[str, Any]) -> None:
+        if self._disabled:
+            return
         self._analytics._track_ai_partial(
             PartialTrackAIEvent(event_id=self._event_id, properties=props)
         )
 
     def set_property(self, key: str, value: Any) -> None:
+        if self._disabled:
+            return
         self.set_properties({key: value})
 
     def finish(self, *, output: str | None = None, **extra) -> None:
@@ -82,6 +97,8 @@ class Interaction:
         On process shutdown, ``analytics.shutdown()`` (registered via
         ``atexit``) drains any still-pending partials before exiting.
         """
+        if self._disabled:
+            return
         payload = PartialTrackAIEvent(
             event_id=self._event_id,
             ai_data={"output": output} if output is not None else None,
@@ -110,6 +127,9 @@ class Interaction:
         Returns:
             ManualSpan instance that must be explicitly ended with .end()
         """
+        if self._disabled:
+            # Return a no-op ManualSpan whose record_*/set_properties/end all no-op.
+            return self._analytics.ManualSpan(None, kind, name, self._event_id)
         return self._analytics.start_span(
             kind,
             name,
@@ -135,6 +155,8 @@ class Interaction:
         """
         Retroactively log a tool span tied to this interaction.
         """
+        if self._disabled:
+            return
         if not _core._tracing_enabled:
             return
 

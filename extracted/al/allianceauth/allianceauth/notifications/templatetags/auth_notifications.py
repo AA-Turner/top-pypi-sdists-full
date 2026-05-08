@@ -12,7 +12,6 @@ from django.contrib.auth.models import User
 
 from allianceauth.notifications.models import Notification
 
-
 logger = logging.getLogger(__name__)
 register = template.Library()
 

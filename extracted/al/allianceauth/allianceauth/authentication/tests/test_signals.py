@@ -1,19 +1,10 @@
+from django.db.models.signals import post_save
+from django.test.testcases import TestCase
+
 from allianceauth.authentication.models import User, UserProfile
-from allianceauth.eveonline.models import (
-    EveCharacter,
-    EveCorporationInfo,
-    EveAllianceInfo
-)
-from django.db.models.signals import (
-    pre_save,
-    post_save,
-    pre_delete,
-    m2m_changed
-)
+from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 from allianceauth.tests.auth_utils import AuthUtils
 
-from django.test.testcases import TestCase
-from unittest.mock import Mock
 from . import patch
 
 

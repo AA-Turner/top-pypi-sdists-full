@@ -17,6 +17,7 @@ class UpdateResourceJsonBody:
         value (Union[Unset, Any]):
         resource_type (Union[Unset, str]): The new resource_type to be associated with the resource
         labels (Union[Unset, List[str]]):
+        ws_specific (Union[Unset, bool]):
     """
 
     path: Union[Unset, str] = UNSET
@@ -24,6 +25,7 @@ class UpdateResourceJsonBody:
     value: Union[Unset, Any] = UNSET
     resource_type: Union[Unset, str] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    ws_specific: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +36,8 @@ class UpdateResourceJsonBody:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        ws_specific = self.ws_specific
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -48,6 +52,8 @@ class UpdateResourceJsonBody:
             field_dict["resource_type"] = resource_type
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if ws_specific is not UNSET:
+            field_dict["ws_specific"] = ws_specific
 
         return field_dict
 
@@ -64,12 +70,15 @@ class UpdateResourceJsonBody:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        ws_specific = d.pop("ws_specific", UNSET)
+
         update_resource_json_body = cls(
             path=path,
             description=description,
             value=value,
             resource_type=resource_type,
             labels=labels,
+            ws_specific=ws_specific,
         )
 
         update_resource_json_body.additional_properties = d

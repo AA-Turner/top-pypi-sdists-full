@@ -1,11 +1,5 @@
-from unittest import mock
-
-from django.contrib.auth.models import User, Group, Permission
+from django.contrib.auth.models import Group, Permission, User
 from django.test import TestCase
-
-from allianceauth.eveonline.models import (
-    EveCorporationInfo, EveAllianceInfo, EveCharacter
-)
 
 from .auth_utils import AuthUtils
 
@@ -13,7 +7,7 @@ from .auth_utils import AuthUtils
 class TestAuthUtils(TestCase):
 
     def test_can_create_user(self):
-        user = AuthUtils.create_user('Bruce Wayne')
+        AuthUtils.create_user('Bruce Wayne')
         self.assertTrue(User.objects.filter(username='Bruce Wayne').exists())
 
     def test_can_add_main_character_2(self):

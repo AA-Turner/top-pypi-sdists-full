@@ -130,6 +130,7 @@ class SubTask(FlowComponent):
                 loop=self._loop,
                 debug=self._debug,
                 stat=self.stat.parent(),
+                enable_stat=False,
                 **params,
             )
             self.add_metric(

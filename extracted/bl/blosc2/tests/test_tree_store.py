@@ -7,12 +7,29 @@
 
 import os
 import shutil
+import zipfile
 
 import numpy as np
 import pytest
 
 import blosc2
 from blosc2.tree_store import TreeStore
+
+
+def _rename_store_member(store_path, old_name, new_name):
+    """Rename an external leaf inside a .b2d/.b2z store without changing its contents."""
+    if str(store_path).endswith(".b2d"):
+        old_path = os.path.join(store_path, old_name.replace("/", os.sep))
+        new_path = os.path.join(store_path, new_name.replace("/", os.sep))
+        os.rename(old_path, new_path)
+        return
+
+    tmp_zip = f"{store_path}.tmp"
+    with zipfile.ZipFile(store_path, "r") as src, zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_STORED) as dst:
+        for info in src.infolist():
+            arcname = new_name if info.filename == old_name else info.filename
+            dst.writestr(arcname, src.read(info.filename), compress_type=zipfile.ZIP_STORED)
+    os.replace(tmp_zip, store_path)
 
 
 @pytest.fixture(params=["b2d", "b2z"])
@@ -604,6 +621,106 @@ def test_schunk_support():
     os.remove("test_schunk.b2z")
 
 
+def test_objectarray_support():
+    """Test that TreeStore supports embedded ObjectArray objects."""
+    values = [{"name": "alpha", "count": 1}, None, ("tuple", 2), [1, "two", b"three"]]
+    with TreeStore("test_objectarray.b2z", mode="w") as tstore:
+        oarr = blosc2.ObjectArray()
+        oarr.extend(values)
+        tstore["/data/objectarray1"] = oarr
+
+        retrieved = tstore["/data/objectarray1"]
+        assert isinstance(retrieved, blosc2.ObjectArray)
+        assert list(retrieved) == values
+
+        data_subtree = tstore["/data"]
+        assert isinstance(data_subtree, TreeStore)
+        assert set(data_subtree.keys()) == {"/objectarray1"}
+
+    with TreeStore("test_objectarray.b2z", mode="r") as tstore:
+        retrieved = tstore["/data/objectarray1"]
+        assert isinstance(retrieved, blosc2.ObjectArray)
+        assert list(retrieved) == values
+
+    os.remove("test_objectarray.b2z")
+
+
+def test_external_objectarray_support():
+    """Test that TreeStore supports external ObjectArray objects."""
+    ext_path = "ext_objectarray.b2frame"
+    values = ["alpha", {"nested": True}, None, (1, 2, 3)]
+    if os.path.exists(ext_path):
+        os.remove(ext_path)
+
+    oarr = blosc2.ObjectArray(urlpath=ext_path, mode="w", contiguous=True)
+    oarr.extend(values)
+    oarr.vlmeta["description"] = "External ObjectArray for TreeStore"
+
+    with TreeStore("test_objectarray_external.b2z", mode="w", threshold=None) as tstore:
+        tstore["/data/objectarray_ext"] = oarr
+        assert "/data/objectarray_ext" in tstore
+
+    with TreeStore("test_objectarray_external.b2z", mode="r") as tstore:
+        retrieved = tstore["/data/objectarray_ext"]
+        assert isinstance(retrieved, blosc2.ObjectArray)
+        assert list(retrieved) == values
+        assert retrieved.vlmeta["description"] == "External ObjectArray for TreeStore"
+
+    if os.path.exists(ext_path):
+        os.remove(ext_path)
+    os.remove("test_objectarray_external.b2z")
+
+
+def test_external_batcharray_support(tmp_path):
+    store_path = tmp_path / "test_batcharray_external.b2d"
+
+    with TreeStore(str(store_path), mode="w", threshold=0) as tstore:
+        barr = blosc2.BatchArray(items_per_block=2)
+        barr.extend([[{"id": 1}, {"id": 2}], [{"id": 3}]])
+        tstore["/data/batcharray"] = barr
+
+        batcharray_path = store_path / "data" / "batcharray.b2b"
+        assert batcharray_path.exists()
+
+    with TreeStore(str(store_path), mode="r") as tstore:
+        retrieved = tstore["/data/batcharray"]
+        assert isinstance(retrieved, blosc2.BatchArray)
+        assert [batch[:] for batch in retrieved] == [[{"id": 1}, {"id": 2}], [{"id": 3}]]
+
+
+@pytest.mark.parametrize("storage_type", ["b2d", "b2z"])
+def test_metadata_discovery_reopens_renamed_batcharray_leaf(storage_type, tmp_path):
+    store_path = tmp_path / f"test_batcharray_renamed.{storage_type}"
+
+    with TreeStore(str(store_path), mode="w", threshold=0) as tstore:
+        barr = blosc2.BatchArray(items_per_block=2)
+        barr.extend([[{"id": 1}, {"id": 2}], [{"id": 3}]])
+        tstore["/data/batcharray"] = barr
+
+    old_name = "data/batcharray.b2b"
+    new_name = "data/batcharray.odd"
+    _rename_store_member(str(store_path), old_name, new_name)
+
+    with pytest.warns(UserWarning, match=r"batcharray\.odd'.*BatchArray.*expected '\.b2b'"):
+        tstore = TreeStore(str(store_path), mode="r")
+    with tstore:
+        assert tstore.map_tree["/data/batcharray"] == new_name
+        retrieved = tstore["/data/batcharray"]
+        assert isinstance(retrieved, blosc2.BatchArray)
+        assert [batch[:] for batch in retrieved] == [[{"id": 1}, {"id": 2}], [{"id": 3}]]
+
+
+def test_treestore_vlmeta_externalized_b2d(tmp_path):
+    store_path = tmp_path / "test_vlmeta_externalized.b2d"
+
+    with TreeStore(str(store_path), mode="w", threshold=0) as tstore:
+        tstore["/data"] = np.array([1, 2, 3])
+        tstore.vlmeta["schema_manifest"] = {"version": 1, "fields": {"a": {"kind": "fixed"}}}
+
+    with TreeStore(str(store_path), mode="r") as tstore:
+        assert tstore.vlmeta["schema_manifest"] == {"version": 1, "fields": {"a": {"kind": "fixed"}}}
+
+
 def test_walk_topdown_argument_ordering():
     """Ensure walk supports topdown argument mimicking os.walk order semantics."""
     with TreeStore("test_walk_topdown.b2z", mode="w") as tstore:
@@ -938,6 +1055,40 @@ def test_open_context_manager(populated_tree_store):
         assert "b2tree" in tstore.storage.meta
         assert "/child0/data" in tstore
         assert np.array_equal(tstore["/child0/data"][:], np.array([1, 2, 3]))
+
+
+def test_to_b2d_from_readonly_b2z(tmp_path):
+    b2z_path = tmp_path / "test_tstore_to_b2d.b2z"
+    b2d_path = tmp_path / "test_tstore_to_b2d.b2d"
+
+    with TreeStore(str(b2z_path), mode="w") as tstore:
+        tstore["/group/node"] = np.arange(6)
+        tstore.vlmeta["description"] = "tree metadata"
+
+    with TreeStore(str(b2z_path), mode="r") as tstore:
+        unpacked = tstore.to_b2d(str(b2d_path))
+        assert unpacked == os.path.abspath(b2d_path)
+
+    with TreeStore(str(b2d_path), mode="r") as tstore:
+        assert np.array_equal(tstore["/group/node"][:], np.arange(6))
+        assert tstore.vlmeta["description"] == "tree metadata"
+
+
+def test_extensionless_tree_store_defaults_to_directory(tmp_path):
+    path = tmp_path / "test_tstore_extless"
+
+    with TreeStore(str(path), mode="w") as tstore:
+        tstore["/group/node"] = np.arange(6)
+
+    assert path.is_dir()
+    assert (path / "embed.b2e").exists()
+
+    with TreeStore(str(path), mode="r") as tstore:
+        assert np.array_equal(tstore["/group/node"][:], np.arange(6))
+
+    opened = blosc2.open(str(path), mode="r")
+    assert isinstance(opened, TreeStore)
+    assert np.array_equal(opened["/group/node"][:], np.arange(6))
 
 
 @pytest.mark.parametrize("storage_type", ["b2d", "b2z"])

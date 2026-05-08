@@ -1,5 +1,5 @@
 import os
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Optional
 from collections.abc import Callable
 import asyncio
@@ -44,26 +44,58 @@ class BaseTrigger(MaskSupport, LogSupport, LocaleSupport, ABC):
             setattr(self, key, val)
 
     def setup(self, app: WebApp) -> None:
-        """setup.
+        """Boot-time wiring: append on_startup/on_shutdown to app signals.
 
-            Configuration of Trigger when started.
+        Must be called BEFORE app.freeze(). Raises RuntimeError from the
+        underlying FrozenList if the signal lists are already frozen —
+        callers MUST use start_runtime() instead for runtime (post-freeze)
+        registration.
+
         Args:
             app (aiohttp.web.Application): Web Application.
+
+        Raises:
+            RuntimeError: If called after app.freeze() (signals are frozen).
         """
         self.app = app  # register the app into the Extension
-        # startup operations over extension backend
-        try:
-            # avoid Cannot modify frozen list
-            if callable(self.on_startup):
-                app.on_startup.append(self.on_startup)
-
-            if callable(self.on_shutdown):
-                app.on_shutdown.append(self.on_shutdown)
-        except Exception as e:
-            self._logger.warning(
-                f"Error setting up Trigger {self.__class__.__name__}: {e}"
+        if callable(self.on_startup):
+            app.on_startup.append(self.on_startup)
+            self._logger.info(
+                "Trigger %s on_startup registered", self._name_
             )
-            return False
+        if callable(self.on_shutdown):
+            app.on_shutdown.append(self.on_shutdown)
+            self._logger.info(
+                "Trigger %s on_shutdown registered", self._name_
+            )
+
+    async def start_runtime(self, app: WebApp) -> None:
+        """Runtime wiring for triggers added after app.freeze().
+
+        Skips signal registration (signals are frozen at runtime) and
+        invokes on_startup directly. Shutdown is handled at app shutdown
+        by HookService._stop_hooks.
+
+        Args:
+            app (aiohttp.web.Application): Web Application.
+
+        Raises:
+            Exception: Re-raises any exception from on_startup after logging.
+        """
+        self.app = app
+        self._logger.info(
+            "Trigger %s start_runtime invoked (post-freeze path)",
+            self._name_,
+        )
+        if callable(self.on_startup):
+            try:
+                await self.on_startup(app)
+            except Exception:
+                self._logger.exception(
+                    "Trigger %s on_startup failed during start_runtime",
+                    self._name_,
+                )
+                raise
 
     def get_env_value(self, key, default: str = None):
         if val := os.getenv(key):
@@ -87,12 +119,13 @@ class BaseTrigger(MaskSupport, LogSupport, LocaleSupport, ABC):
                     f"Calling Action: {action}"
                 )
                 try:
-                    result = await action.run(
-                        hook=self,
-                        result=result,
-                        *args,
-                        **kwargs
-                    )
+                    async with action:
+                        result = await action.run(
+                            hook=self,
+                            result=result,
+                            *args,
+                            **kwargs
+                        )
                 except Exception as e:
                     # Handle any exceptions that might occur during action.run()
                     self._logger.error(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-prometheus
-Version: 0.29.3
+Version: 0.29.4
 Summary: A Dagster integration for prometheus
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-prometheus
 Author-email: Dagster Labs <hello@dagsterlabs.com>
@@ -13,5 +13,5 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster==1.13.3
+Requires-Dist: dagster==1.13.4
 Requires-Dist: prometheus-client

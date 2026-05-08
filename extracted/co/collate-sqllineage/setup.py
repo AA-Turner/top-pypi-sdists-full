@@ -27,7 +27,7 @@ setup(
     ],
     python_requires=">=3.9",
     install_requires=[
-        "sqlparse==0.5.3",
+        "sqlparse==0.5.4",
         "networkx>=2.4",
         "collate-sqlfluff==3.5.2",
         "sqlglot==29.0.1",

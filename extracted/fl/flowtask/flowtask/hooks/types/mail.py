@@ -5,7 +5,6 @@ from aiohttp import web
 from azure.identity.aio import ClientSecretCredential
 from msgraph import GraphRequestAdapter, GraphServiceClient
 from msgraph.generated.models.subscription import Subscription
-from msgraph.generated.models.message import Message
 from kiota_authentication_azure.azure_identity_authentication_provider import AzureIdentityAuthenticationProvider
 from navconfig.logging import logging
 from .http import HTTPHook

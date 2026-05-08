@@ -15,15 +15,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import trafaret as t
 
-from datarobot.errors import ClientError
-
-try:
-    # Literal is only available from typing in Python 3.8+. For 3.7 you need to use typing_extensions
-    from typing import Literal
-except ImportError:
-    from typing_extensions import Literal
-
-from datarobot._compat import Int, String
+from datarobot._compat import Int, Literal, String
 from datarobot.enums import (
     AUTOPILOT_MODE,
     CV_METHOD,
@@ -33,6 +25,7 @@ from datarobot.enums import (
     VALIDATION_TYPE,
     DocumentTextExtractionMethod,
 )
+from datarobot.errors import ClientError
 from datarobot.helpers import (
     AdvancedOptions,
     ClassMappingAggregationSettings,
@@ -44,8 +37,9 @@ from datarobot.helpers.partitioning_methods import (
     _feature_settings_converter,
 )
 from datarobot.models.api_object import APIObject
-from datarobot.models.feature import Feature
 from datarobot.utils import from_api, parse_time
+
+RowLiteralType = Literal["ROW"]
 
 
 class RelationshipGraph:
@@ -166,7 +160,7 @@ class Periodicity:
 
     _converter = t.Dict({t.Key("time_steps", optional=True): Int(), t.Key("time_unit", optional=True): String()})
 
-    def __init__(self, time_steps: int = None, time_unit: Union[TIME_UNITS, Literal["ROW"]] = None):
+    def __init__(self, time_steps: int = None, time_unit: Union[TIME_UNITS, RowLiteralType] = None):
         self.time_steps = time_steps
         self.time_unit = time_unit
 
@@ -285,7 +279,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
         Relevant only for TVH, percentage indicating size of validation partition
     holdout_pct : Optional[float]
         Percentage indicating size of holdout partition
-    user_partition_col : Optional[float]
+    user_partition_col : Optional[str]
         Column used for user partitioning
     cv_holdout_level : Optional[float]
         Value from partition column used for holdout level when CV is chosen, mutually exclusive
@@ -532,7 +526,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
         t.Key("differencing_method", optional=True): t.Null() | String(),
         t.Key("disable_holdout", optional=True): t.Null() | t.Bool(),
         t.Key("error_message", optional=True): t.Null() | String(),
-        t.Key("external_predictions", optional=True): t.Null() | t.List(Feature),
+        t.Key("external_predictions", optional=True): t.Null() | t.List(String()),
         t.Key("external_time_series_baseline_dataset_name", optional=True): t.Null() | String(),
         t.Key("feature_derivation_window_end", optional=True): t.Null() | Int(),
         t.Key("feature_derivation_window_start", optional=True): t.Null() | Int(),
@@ -540,7 +534,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
         t.Key("feature_engineering_options", optional=True): t.Or(
             t.Null(), t.Dict({}), FeatureEngineeringOptions._converter
         ),
-        t.Key("feature_engineering_prediction_point", optional=True): t.Null() | Feature._converter,
+        t.Key("feature_engineering_prediction_point", optional=True): t.Null() | String(),
         t.Key("featurelist_id", optional=True): t.Null() | String(),
         t.Key("feature_settings", optional=True): t.Null() | t.List(_feature_settings_converter),
         t.Key("forecast_window_end", optional=True): t.Null() | Int(),
@@ -591,7 +585,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
         t.Key("unsupervised_mode", optional=True): t.Null() | t.Bool(),
         t.Key("use_cross_series_features", optional=True): t.Null() | t.Bool(),
         t.Key("use_project_settings", optional=True): t.Null() | t.Bool(),
-        t.Key("user_partition_col", optional=True): t.Null() | Feature._converter,
+        t.Key("user_partition_col", optional=True): t.Null() | String(),
         t.Key("use_time_series", optional=True): t.Null() | t.Bool(),
         t.Key("validation_duration", optional=True): t.Null() | String(),
         t.Key("validation_level", optional=True): t.Null() | t.Or(String(), Int()),
@@ -626,13 +620,13 @@ class ProjectOptions(AdvancedOptions, APIObject):
         differencing_method: Optional[str] = None,
         disable_holdout: Optional[bool] = None,
         error_message: Optional[str] = None,
-        external_predictions: Optional[List[Feature]] = None,
+        external_predictions: Optional[List[str]] = None,
         external_time_series_baseline_dataset_name: Optional[str] = None,
         feature_derivation_window_end: Optional[int] = None,
         feature_derivation_window_start: Optional[int] = None,
         feature_engineering_graphs: Optional[List[RelationshipGraph]] = None,
         feature_engineering_options: Optional[FeatureEngineeringOptions] = None,
-        feature_engineering_prediction_point: Optional[Feature] = None,
+        feature_engineering_prediction_point: Optional[str] = None,
         featurelist_id: Optional[str] = None,
         feature_settings: Optional[List[FeatureSettings]] = None,
         forecast_window_end: Optional[int] = None,
@@ -682,7 +676,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
         unsupervised_mode: Optional[bool] = None,
         use_cross_series_features: Optional[bool] = None,
         use_project_settings: Optional[bool] = None,
-        user_partition_col: Optional[Feature] = None,
+        user_partition_col: Optional[str] = None,
         use_time_series: Optional[bool] = None,
         validation_duration: Optional[str] = None,
         validation_level: Optional[Union[str, int]] = None,
@@ -799,13 +793,13 @@ class ProjectOptions(AdvancedOptions, APIObject):
         differencing_method: Optional[str] = None,
         disable_holdout: Optional[bool] = None,
         error_message: Optional[str] = None,
-        external_predictions: Optional[List[Feature]] = None,
+        external_predictions: Optional[List[str]] = None,
         external_time_series_baseline_dataset_name: Optional[str] = None,
         feature_derivation_window_end: Optional[int] = None,
         feature_derivation_window_start: Optional[int] = None,
         feature_engineering_graphs: Optional[List[RelationshipGraph]] = None,
         feature_engineering_options: Optional[FeatureEngineeringOptions] = None,
-        feature_engineering_prediction_point: Optional[Feature] = None,
+        feature_engineering_prediction_point: Optional[str] = None,
         featurelist_id: Optional[str] = None,
         feature_settings: Optional[List[FeatureSettings]] = None,
         forecast_window_end: Optional[int] = None,
@@ -850,7 +844,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
         unsupervised_mode: Optional[bool] = None,
         use_cross_series_features: Optional[bool] = None,
         use_project_settings: Optional[bool] = None,
-        user_partition_col: Optional[Feature] = None,
+        user_partition_col: Optional[str] = None,
         use_time_series: Optional[bool] = None,
         validation_duration: Optional[str] = None,
         validation_level: Optional[Union[str, int]] = None,
@@ -893,10 +887,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
         self.differencing_method = differencing_method
         self.disable_holdout = disable_holdout
         self.error_message = error_message
-        if external_predictions and isinstance(external_predictions[0], dict):
-            self.external_predictions = [Feature(**external_prediction) for external_prediction in external_predictions]
-        else:
-            self.external_predictions = external_predictions
+        self.external_predictions = external_predictions
         self.external_time_series_baseline_dataset_name = external_time_series_baseline_dataset_name
         self.feature_derivation_window_end = feature_derivation_window_end
         self.feature_derivation_window_start = feature_derivation_window_start
@@ -972,10 +963,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
         self.unsupervised_mode = unsupervised_mode
         self.use_cross_series_features = use_cross_series_features
         self.use_project_settings = use_project_settings
-        if user_partition_col and isinstance(user_partition_col, dict):
-            self.user_partition_col = Feature(**user_partition_col)
-        else:
-            self.user_partition_col = user_partition_col
+        self.user_partition_col = user_partition_col
         self.use_time_series = use_time_series
         self.validation_duration = validation_duration
         self.validation_level = validation_level

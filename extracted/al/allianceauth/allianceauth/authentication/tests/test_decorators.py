@@ -6,11 +6,10 @@ from django.contrib.auth.models import AnonymousUser
 from django.http.response import HttpResponse
 from django.test import TestCase
 from django.test.client import RequestFactory
-from django.urls import reverse, URLPattern
+from django.urls import URLPattern, reverse
 
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.tests.auth_utils import AuthUtils
-
 
 from ..decorators import decorate_url_patterns, main_character_required
 from ..models import CharacterOwnership
@@ -47,7 +46,7 @@ class DecoratorTestCase(TestCase):
 
     @mock.patch(MODULE_PATH + '.decorators.messages')
     def test_login_redirect(self, m):
-        setattr(self.request, 'user', AnonymousUser())
+        self.request.user = AnonymousUser()
         response = self.dummy_view(self.request)
         self.assertEqual(response.status_code, 302)
         url = getattr(response, 'url', None)
@@ -55,7 +54,7 @@ class DecoratorTestCase(TestCase):
 
     @mock.patch(MODULE_PATH + '.decorators.messages')
     def test_main_character_redirect(self, m):
-        setattr(self.request, 'user', self.no_main_user)
+        self.request.user = self.no_main_user
         response = self.dummy_view(self.request)
         self.assertEqual(response.status_code, 302)
         url = getattr(response, 'url', None)
@@ -63,7 +62,7 @@ class DecoratorTestCase(TestCase):
 
     @mock.patch(MODULE_PATH + '.decorators.messages')
     def test_successful_request(self, m):
-        setattr(self.request, 'user', self.main_user)
+        self.request.user = self.main_user
         response = self.dummy_view(self.request)
         self.assertEqual(response.status_code, 200)
 

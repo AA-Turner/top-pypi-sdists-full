@@ -84,7 +84,7 @@ class TestBasicsAndHelpers(NoSocketsTestCase):
 
     def test_should_raise_error_when_trying_to_create_object_without_token(self):
         # when/then
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValueError):
             DiscordClient("", mock_redis)
 
     def test_repr(self):

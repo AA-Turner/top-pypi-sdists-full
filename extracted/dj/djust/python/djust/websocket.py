@@ -160,10 +160,6 @@ def _should_expose_timing() -> bool:
     )
 
 
-# Per-view-class set to suppress duplicate truncation warnings (#1285).
-_TRUNCATION_WARNED: set = set()
-
-
 def _snapshot_assigns(view_instance):
     """Fast identity+hash snapshot of public assigns for change detection.
 
@@ -212,36 +208,40 @@ def _snapshot_assigns(view_instance):
             else:
                 snapshot[k] = (vid, len(v))
                 if v and len(v) >= 100:
-                    _cls = type(view_instance).__qualname__
-                    if _cls not in _TRUNCATION_WARNED:
-                        _TRUNCATION_WARNED.add(_cls)
-                        logger.warning(
-                            "[djust] %s: list '%s' has %d items — content "
-                            "fingerprint truncated. In-place mutations inside "
-                            "list elements will NOT be detected by auto-diff. "
-                            "Use self.set_changed_keys({'%s'}) or assign a "
-                            "new list reference.",
-                            _cls,
-                            k,
-                            len(v),
-                            k,
-                        )
-        elif isinstance(v, dict):
-            snapshot[k] = (vid, len(v), tuple(v.keys()) if len(v) < 50 else len(v))
-            if len(v) >= 50:
-                _cls = type(view_instance).__qualname__
-                if _cls not in _TRUNCATION_WARNED:
-                    _TRUNCATION_WARNED.add(_cls)
-                    logger.warning(
-                        "[djust] %s: dict '%s' has %d keys — key fingerprint "
-                        "truncated. Key additions/removals will NOT be detected "
-                        "by auto-diff. Use self.set_changed_keys({'%s'}) or "
-                        "assign a new dict reference.",
+                    from .utils import emit_one_shot_class_warning
+
+                    _cls = type(view_instance)
+                    emit_one_shot_class_warning(
                         _cls,
+                        "snapshot_list_truncated",
+                        "[djust] %s: list '%s' has %d items — content "
+                        "fingerprint truncated. In-place mutations inside "
+                        "list elements will NOT be detected by auto-diff. "
+                        "Use self.set_changed_keys({'%s'}) or assign a "
+                        "new list reference.",
+                        _cls.__qualname__,
                         k,
                         len(v),
                         k,
                     )
+        elif isinstance(v, dict):
+            snapshot[k] = (vid, len(v), tuple(v.keys()) if len(v) < 50 else len(v))
+            if len(v) >= 50:
+                from .utils import emit_one_shot_class_warning
+
+                _cls = type(view_instance)
+                emit_one_shot_class_warning(
+                    _cls,
+                    "snapshot_dict_truncated",
+                    "[djust] %s: dict '%s' has %d keys — key fingerprint "
+                    "truncated. Key additions/removals will NOT be detected "
+                    "by auto-diff. Use self.set_changed_keys({'%s'}) or "
+                    "assign a new dict reference.",
+                    _cls.__qualname__,
+                    k,
+                    len(v),
+                    k,
+                )
         elif isinstance(v, set):
             snapshot[k] = (vid, len(v))
         elif isinstance(v, _IMMUTABLE_TYPES):
@@ -2144,6 +2144,27 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 # made by subsequent event handlers.
                 if hasattr(self.view_instance, "_capture_dirty_baseline"):
                     self.view_instance._capture_dirty_baseline()
+
+                # --- Object-permission check (ADR-017 §Decision 5, post-mount) ---
+                # check_view_auth handled login + role + custom checks pre-mount
+                # at line ~1947. The fourth (object-level) step is split out
+                # into a separate helper here because get_object() reads
+                # `self.<x>_id` which only exists after mount() has populated it.
+                # See ADR-017 § "Physical call sites" for the full rationale.
+                from .auth.core import check_object_permission
+
+                try:
+                    await sync_to_async(check_object_permission)(self.view_instance, request)
+                except PermissionDenied as exc:
+                    logger.info(
+                        "Object-permission denied for %s: %s",
+                        self.view_instance.__class__.__name__,
+                        exc,
+                    )
+                    await self.send_json({"type": "error", "message": "Permission denied"})
+                    await self.close(code=4403)
+                    return
+                # --- End object-permission check ---
         except Exception as e:
             response = handle_exception(
                 e,

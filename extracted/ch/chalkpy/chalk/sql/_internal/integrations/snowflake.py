@@ -169,6 +169,9 @@ _SNOWFLAKE_DATABASE_NAME = "SNOWFLAKE_DATABASE"
 _SNOWFLAKE_SCHEMA_NAME = "SNOWFLAKE_SCHEMA"
 _SNOWFLAKE_ROLE_NAME = "SNOWFLAKE_ROLE"
 _SNOWFLAKE_PRIVATE_KEY_B64_NAME = "SNOWFLAKE_PRIVATE_KEY_B64"
+_SNOWFLAKE_UNLOAD_STAGE_NAME = "SNOWFLAKE_UNLOAD_STAGE"
+_SNOWFLAKE_UNLOAD_STORAGE_INTEGRATION_NAME = "SNOWFLAKE_UNLOAD_STORAGE_INTEGRATION"
+_SNOWFLAKE_UNLOAD_EXTERNAL_LOCATION_NAME = "SNOWFLAKE_UNLOAD_EXTERNAL_LOCATION"
 
 
 class SnowflakeCancellableQuery(CancellableQuery):
@@ -194,6 +197,9 @@ class SnowflakeSourceImpl(BaseSQLSource):
         schema: Optional[str] = None,
         role: Optional[str] = None,
         private_key_b64: Optional[str] = None,
+        unload_stage: Optional[str] = None,
+        unload_storage_integration: Optional[str] = None,
+        unload_external_location: Optional[str] = None,
         engine_args: Optional[dict[str, Any]] = None,
         executor: Optional[concurrent.futures.ThreadPoolExecutor] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
@@ -234,6 +240,19 @@ class SnowflakeSourceImpl(BaseSQLSource):
         self.private_key_b64: Optional[str] = private_key_b64_str or load_integration_variable(
             integration_name=name, name=_SNOWFLAKE_PRIVATE_KEY_B64_NAME, override=integration_variable_override
         )
+        self.unload_stage = unload_stage or load_integration_variable(
+            integration_name=name, name=_SNOWFLAKE_UNLOAD_STAGE_NAME, override=integration_variable_override
+        )
+        self.unload_storage_integration = unload_storage_integration or load_integration_variable(
+            integration_name=name,
+            name=_SNOWFLAKE_UNLOAD_STORAGE_INTEGRATION_NAME,
+            override=integration_variable_override,
+        )
+        self.unload_external_location = unload_external_location or load_integration_variable(
+            integration_name=name,
+            name=_SNOWFLAKE_UNLOAD_EXTERNAL_LOCATION_NAME,
+            override=integration_variable_override,
+        )
         self.executor = executor or DEFAULT_IO_EXECUTOR
 
         if engine_args is None:
@@ -262,6 +281,15 @@ class SnowflakeSourceImpl(BaseSQLSource):
         BaseSQLSource.__init__(self, name=name, engine_args=engine_args, async_engine_args={})
 
     kind = SQLSourceKind.snowflake
+
+    def resolve_unload_stage(self, query_execution_parameters: QueryExecutionParameters) -> str | None:
+        return self.unload_stage or query_execution_parameters.snowflake.snowflake_unload_stage
+
+    def resolve_unload_storage_integration(self, query_execution_parameters: QueryExecutionParameters) -> str | None:
+        return self.unload_storage_integration or query_execution_parameters.snowflake.snowflake_storage_integration
+
+    def resolve_unload_external_location(self, query_execution_parameters: QueryExecutionParameters) -> str | None:
+        return self.unload_external_location or query_execution_parameters.snowflake.snowflake_unload_external_location
 
     def get_sqlglot_dialect(self) -> str | None:
         return "snowflake"
@@ -523,16 +551,18 @@ class SnowflakeSourceImpl(BaseSQLSource):
                     )
                 with con.cursor() as cursor:
                     job_id = str(uuid.uuid4())
-                    if query_execution_parameters.snowflake.snowflake_unload_stage is not None:
+                    unload_stage = self.resolve_unload_stage(query_execution_parameters)
+                    unload_storage_integration = self.resolve_unload_storage_integration(query_execution_parameters)
+                    if unload_stage is not None:
                         original_sql = sql
                         chalk_logger.info(
-                            f"Executing query to unload data to Snowflake stage for unload {job_id=} {query_execution_parameters.snowflake.snowflake_unload_stage}"
+                            f"Executing query to unload data to Snowflake stage for unload {job_id=} {unload_stage}"
                         )
                         sql = _rewrite_query_for_unload(
                             sql=sql,
                             unload_job_identifier=job_id,
-                            snowflake_unload_stage=query_execution_parameters.snowflake.snowflake_unload_stage,
-                            snowflake_storage_integration=query_execution_parameters.snowflake.snowflake_storage_integration,
+                            snowflake_unload_stage=unload_stage,
+                            snowflake_storage_integration=unload_storage_integration,
                         )
                     if env_var_bool("CHALK_SNOWFLAKE_TIMEZONE_UTC"):
                         chalk_logger.info(f"Setting Snowflake timezone to UTC")
@@ -553,11 +583,11 @@ class SnowflakeSourceImpl(BaseSQLSource):
                     assert res is not None
 
                     empty_batch_with_schema = None
-                    if query_execution_parameters.snowflake.snowflake_unload_stage is not None:
+                    if unload_stage is not None:
                         # get the uris of the files that were unloaded
                         prefix = _stage_prefix(
                             job_id,
-                            query_execution_parameters.snowflake.snowflake_unload_stage,
+                            unload_stage,
                         )
                         stage_list_cursor = cursor.execute(f"LIST {prefix}")
                         list_query_id = cursor.sfqid if hasattr(cursor, "sfqid") else None
@@ -711,12 +741,14 @@ class SnowflakeSourceImpl(BaseSQLSource):
                         cursor.execute(f"ALTER SESSION SET TIMEZONE = 'UTC';")
 
                     job_id = str(uuid.uuid4())
-                    if query_execution_parameters.snowflake.snowflake_unload_stage is not None:
+                    unload_stage = self.resolve_unload_stage(query_execution_parameters)
+                    unload_storage_integration = self.resolve_unload_storage_integration(query_execution_parameters)
+                    if unload_stage is not None:
                         sql = _rewrite_query_for_unload(
                             sql=sql,
                             unload_job_identifier=job_id,
-                            snowflake_unload_stage=query_execution_parameters.snowflake.snowflake_unload_stage,
-                            snowflake_storage_integration=query_execution_parameters.snowflake.snowflake_storage_integration,
+                            snowflake_unload_stage=unload_stage,
+                            snowflake_storage_integration=unload_storage_integration,
                         )
 
                     cancellable_query = SnowflakeCancellableQuery()
@@ -726,11 +758,11 @@ class SnowflakeSourceImpl(BaseSQLSource):
 
                     assert res is not None
 
-                    if query_execution_parameters.snowflake.snowflake_unload_stage is not None:
+                    if unload_stage is not None:
                         # Handle unloaded files
                         prefix = _stage_prefix(
                             job_id,
-                            query_execution_parameters.snowflake.snowflake_unload_stage,
+                            unload_stage,
                         )
                         stage_list_cursor = cursor.execute(f"LIST {prefix}")
                         if stage_list_cursor is None:
@@ -793,6 +825,13 @@ class SnowflakeSourceImpl(BaseSQLSource):
                 create_integration_variable(_SNOWFLAKE_SCHEMA_NAME, self.name, self.schema),
                 create_integration_variable(_SNOWFLAKE_ROLE_NAME, self.name, self.role),
                 create_integration_variable(_SNOWFLAKE_PRIVATE_KEY_B64_NAME, self.name, self.private_key_b64),
+                create_integration_variable(_SNOWFLAKE_UNLOAD_STAGE_NAME, self.name, self.unload_stage),
+                create_integration_variable(
+                    _SNOWFLAKE_UNLOAD_STORAGE_INTEGRATION_NAME, self.name, self.unload_storage_integration
+                ),
+                create_integration_variable(
+                    _SNOWFLAKE_UNLOAD_EXTERNAL_LOCATION_NAME, self.name, self.unload_external_location
+                ),
             ]
             if v is not None
         }

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, Any
+from typing import Optional
 from aiohttp import web
 from abc import abstractmethod
 from ..base import BaseTrigger

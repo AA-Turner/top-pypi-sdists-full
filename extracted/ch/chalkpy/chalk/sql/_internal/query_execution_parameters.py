@@ -46,6 +46,14 @@ class SnowflakeQueryExecutionParameters:
     Only impacts and works with the native snowflake driver.
     """
 
+    snowflake_unload_external_location: Optional[str]
+    """
+    The name of the underlying unload location, which is used if `snowflake_unload_stage` is set to a snowflake stage to
+    determine the target on where the downstream TableSCan will read from as the result of the Snowflake query.
+
+    Only impacts and works with the native snowflake driver.
+    """
+
 
 @dataclass(frozen=True)
 class BigqueryQueryExecutionParameters:
@@ -103,6 +111,7 @@ def query_execution_parameters_from_env_vars():
         snowflake=SnowflakeQueryExecutionParameters(
             snowflake_unload_stage=os.getenv("CHALK_SNOWFLAKE_UNLOAD_STAGE", None),
             snowflake_storage_integration=os.getenv("CHALK_SNOWFLAKE_STORAGE_INTEGRATION", None),
+            snowflake_unload_external_location=os.getenv("CHALK_SNOWFLAKE_UNLOAD_URI", None),
         ),
         bigquery=BigqueryQueryExecutionParameters(
             bigquery_unload_path=os.getenv("CHALK_BIGQUERY_UNLOAD_PATH", None),

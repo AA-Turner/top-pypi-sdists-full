@@ -208,6 +208,7 @@ class DataFrameRun(_message.Message):
         "worker_pod_name",
         "started_at",
         "shards",
+        "dashboard_url",
     )
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
@@ -227,6 +228,7 @@ class DataFrameRun(_message.Message):
     WORKER_POD_NAME_FIELD_NUMBER: _ClassVar[int]
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     SHARDS_FIELD_NUMBER: _ClassVar[int]
+    DASHBOARD_URL_FIELD_NUMBER: _ClassVar[int]
     operation_id: str
     status: DataFrameRunStatus
     output_uri_prefix: str
@@ -245,6 +247,7 @@ class DataFrameRun(_message.Message):
     worker_pod_name: str
     started_at: _timestamp_pb2.Timestamp
     shards: _containers.RepeatedCompositeFieldContainer[DataFrameRunShard]
+    dashboard_url: str
     def __init__(
         self,
         operation_id: _Optional[str] = ...,
@@ -265,6 +268,7 @@ class DataFrameRun(_message.Message):
         worker_pod_name: _Optional[str] = ...,
         started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         shards: _Optional[_Iterable[_Union[DataFrameRunShard, _Mapping]]] = ...,
+        dashboard_url: _Optional[str] = ...,
     ) -> None: ...
 
 class GetDataFrameRunDownloadUrlsRequest(_message.Message):

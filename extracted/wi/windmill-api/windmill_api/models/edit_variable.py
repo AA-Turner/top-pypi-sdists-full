@@ -17,6 +17,7 @@ class EditVariable:
         is_secret (Union[Unset, bool]): Whether the variable is a secret
         description (Union[Unset, str]): The new description of the variable
         labels (Union[Unset, List[str]]):
+        ws_specific (Union[Unset, bool]):
     """
 
     path: Union[Unset, str] = UNSET
@@ -24,6 +25,7 @@ class EditVariable:
     is_secret: Union[Unset, bool] = UNSET
     description: Union[Unset, str] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    ws_specific: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +36,8 @@ class EditVariable:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        ws_specific = self.ws_specific
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -48,6 +52,8 @@ class EditVariable:
             field_dict["description"] = description
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if ws_specific is not UNSET:
+            field_dict["ws_specific"] = ws_specific
 
         return field_dict
 
@@ -64,12 +70,15 @@ class EditVariable:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        ws_specific = d.pop("ws_specific", UNSET)
+
         edit_variable = cls(
             path=path,
             value=value,
             is_secret=is_secret,
             description=description,
             labels=labels,
+            ws_specific=ws_specific,
         )
 
         edit_variable.additional_properties = d

@@ -2,6 +2,7 @@
 import os
 import shutil
 from optparse import OptionParser
+
 from django.core.management import call_command
 from django.core.management.commands.startproject import Command as BaseStartProject
 
@@ -45,7 +46,7 @@ def create_project(parser, options, args):
     # Call the command with extra context
     call_command(StartProject(), *args, **command_options)
 
-    print(f"Success! {args[0]} has been created.")  # noqa
+    print(f"Success! {args[0]} has been created.")
 
 
 def update_settings(parser, options, args):
@@ -64,7 +65,7 @@ def update_settings(parser, options, args):
         # next check if given path is to the project, so the app is within it
         settings_path = os.path.join(project_path, project_name, 'settings/base.py')
         if not os.path.exists(settings_path):
-            parser.error("Unable to locate the Alliance Auth project at %s" % project_path)
+            parser.error(f"Unable to locate the Alliance Auth project at {project_path}")
 
     # first find the path to the Alliance Auth template settings
     import allianceauth

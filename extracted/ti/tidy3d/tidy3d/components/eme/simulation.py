@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+import gc
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 from pydantic import Field, NonNegativeFloat, field_validator, model_validator
 
 from tidy3d.components.base import cached_property
 from tidy3d.components.boundary import BoundarySpec, PECBoundary
+from tidy3d.components.data.monitor_data import ElectromagneticFieldData, ModeSolverData
 from tidy3d.components.geometry.base import Box
 from tidy3d.components.grid.grid_spec import GridSpec
 from tidy3d.components.material.tensor_rotation import (
@@ -55,13 +57,11 @@ from .sweep import (
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from typing import Union
 
     from pydantic import NonNegativeInt, PositiveInt
 
     from tidy3d.compat import Self
     from tidy3d.components.data.data_array import EMESMatrixDataArray
-    from tidy3d.components.data.monitor_data import ModeSolverData
     from tidy3d.components.grid.grid import Grid
     from tidy3d.components.material.tensor_rotation import EMEAnisotropicMedium
     from tidy3d.components.material.types import StructureMediumType
@@ -75,6 +75,7 @@ if TYPE_CHECKING:
         ArrayFloat1D,
         ArrayInt1D,
         Ax,
+        BoundOptional,
         Coordinate,
         Size,
         Symmetry,
@@ -362,7 +363,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         "along the propagation axis.",
     )
 
-    sweep_spec: Optional[EMESweepSpecType] = Field(
+    sweep_spec: EMESweepSpecType | None = Field(
         None,
         title="EME Sweep Specification",
         description="Specification for a parameter sweep to be performed during the EME "
@@ -370,7 +371,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         "in 'sim_data.smatrix'. Other simulation monitor data is not included in the sweep.",
     )
 
-    constraint: Optional[Literal["passive", "unitary"]] = Field(
+    constraint: Literal["passive", "unitary"] | None = Field(
         "passive",
         title="EME Constraint",
         description="Constraint for EME propagation, imposed at cell interfaces. "
@@ -459,12 +460,12 @@ class EMESimulation(AbstractYeeGridSimulation):
     @add_ax_if_none
     def plot_eme_ports(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
         ax: Ax = None,
-        hlim: Optional[tuple[float, float]] = None,
-        vlim: Optional[tuple[float, float]] = None,
+        hlim: tuple[float, float] | None = None,
+        vlim: tuple[float, float] | None = None,
         **kwargs: Any,
     ) -> Ax:
         """Plot the EME port locations on a cross-sectional plane.
@@ -526,12 +527,12 @@ class EMESimulation(AbstractYeeGridSimulation):
     def plot_eme_subgrid_boundaries(
         self,
         eme_grid_spec: EMEGridSpec,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
         ax: Ax = None,
-        hlim: Optional[tuple[float, float]] = None,
-        vlim: Optional[tuple[float, float]] = None,
+        hlim: tuple[float, float] | None = None,
+        vlim: tuple[float, float] | None = None,
         **kwargs: Any,
     ) -> Ax:
         """Plot the EME subgrid boundaries on a cross-sectional plane.
@@ -603,12 +604,12 @@ class EMESimulation(AbstractYeeGridSimulation):
     @add_ax_if_none
     def plot_eme_grid(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
         ax: Ax = None,
-        hlim: Optional[tuple[float, float]] = None,
-        vlim: Optional[tuple[float, float]] = None,
+        hlim: tuple[float, float] | None = None,
+        vlim: tuple[float, float] | None = None,
         **kwargs: Any,
     ) -> Ax:
         """Plot the EME cell boundaries on a cross-sectional plane.
@@ -667,14 +668,14 @@ class EMESimulation(AbstractYeeGridSimulation):
     @add_ax_if_none
     def plot(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
         ax: Ax = None,
-        source_alpha: Optional[float] = None,
-        monitor_alpha: Optional[float] = None,
-        hlim: Optional[tuple[float, float]] = None,
-        vlim: Optional[tuple[float, float]] = None,
+        source_alpha: float | None = None,
+        monitor_alpha: float | None = None,
+        hlim: tuple[float, float] | None = None,
+        vlim: tuple[float, float] | None = None,
         **patch_kwargs: Any,
     ) -> Ax:
         """Plot each of simulation's components on a plane defined by one nonzero x,y,z coordinate.
@@ -746,6 +747,22 @@ class EMESimulation(AbstractYeeGridSimulation):
         center[axis] = (rmax + rmin) / 2
         size[axis] = rmax - rmin
         return self.eme_grid_spec.make_grid(center=center, size=size, axis=self.axis)
+
+    @cached_property
+    def solver_field_bounds(self) -> BoundOptional:
+        """Per-axis bounds where mode solver field data is physically valid.
+
+        EME always colocates symmetry-expanded data, so symmetry is not
+        passed here; the bounds represent only the physical (PEC) domain
+        edges, not the symmetry centre.
+        """
+        from tidy3d.components.mode.mode_solver import ModeSolver
+
+        return ModeSolver._compute_solver_field_bounds(
+            grid=self.grid,
+            plane=self.geometry,
+            normal_axis=self.axis,
+        )
 
     @classmethod
     def from_scene(cls, scene: Scene, **kwargs: Any) -> EMESimulation:
@@ -1103,7 +1120,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         eme_grid_spec: EMEGridSpecType,
         center: Coordinate,
         size: Size,
-        lengths: Optional[ArrayFloat1D] = None,
+        lengths: ArrayFloat1D | None = None,
     ) -> tuple[
         EMEGrid, ArrayFloat1D, tuple[TensorReal, ...], tuple[int, ...], tuple[TensorReal, ...]
     ]:
@@ -1135,7 +1152,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         eme_grid_spec: EMEGridSpecType,
         center: Coordinate,
         size: Size,
-        lengths: Optional[ArrayFloat1D] = None,
+        lengths: ArrayFloat1D | None = None,
     ) -> bool:
         """Whether bent cells would require unsupported global-frame custom-medium remapping."""
         eme_grid, _, real_rotations, virtual_cell_indices, virtual_rotations = (
@@ -1249,7 +1266,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         center: Coordinate,
         size: Size,
         reference_rotations: tuple[TensorReal, ...],
-        lengths: Optional[ArrayFloat1D] = None,
+        lengths: ArrayFloat1D | None = None,
     ) -> bool:
         """Whether reused modes would require different anisotropic tensors."""
         eme_grid, _, _, virtual_cell_indices, virtual_rotations = (
@@ -1841,11 +1858,11 @@ class EMESimulation(AbstractYeeGridSimulation):
     def subsection(
         self,
         region: Box,
-        grid_spec: Union[GridSpec, Literal["identical"]] = None,
-        eme_grid_spec: Union[EMEGridSpec, Literal["identical"]] = None,
-        symmetry: Optional[tuple[Symmetry, Symmetry, Symmetry]] = None,
+        grid_spec: GridSpec | Literal["identical"] = None,
+        eme_grid_spec: EMEGridSpec | Literal["identical"] = None,
+        symmetry: tuple[Symmetry, Symmetry, Symmetry] | None = None,
         warn_symmetry_expansion: bool = True,
-        monitors: Optional[tuple[MonitorType, ...]] = None,
+        monitors: tuple[MonitorType, ...] | None = None,
         remove_outside_structures: bool = True,
         remove_outside_custom_mediums: bool = False,
         **kwargs: Any,
@@ -2001,6 +2018,43 @@ class EMESimulation(AbstractYeeGridSimulation):
                 "'EMEModeSpec.interp_spec' for the performance/accuracy tradeoff."
             )
 
+    def _warn_if_local_ignores_monitors(self) -> None:
+        """Warn when the local propagation path will drop user-configured monitors.
+
+        ``propagate`` and the per-element stage methods return only the device
+        S-matrix (an :class:`EMESMatrixDataset`), so ``self.monitors`` — including
+        :class:`EMEFieldMonitor`, :class:`EMEModeSolverMonitor`,
+        :class:`EMECoefficientMonitor`, etc. — are silently dropped. Only the
+        remote backend populates EME monitor data.
+
+        The message is f-composed before being handed to ``log.warning`` so that
+        ``log_once``'s cache key is the fully interpolated string (monitor names
+        included). Every public local entry point
+        (``mode_simulations``, ``stage_cell_modes``, ``compute_cell_overlap``,
+        ``compute_interface_overlap``, ``compute_overlaps``,
+        ``compute_cell_smatrix``, ``compute_interface_smatrix``,
+        ``compute_smatrix``, ``propagate_from_overlaps``) calls this so that any
+        flow — convenience, explicit staged, or cached-replay — surfaces the
+        warning exactly once for its monitor set, while a later simulation with
+        a *different* monitor set still warns independently.
+        """
+        if not self.monitors:
+            return
+        # Include type and placement alongside the name so two monitor sets
+        # that share names (common in multi-sim notebooks / batch jobs) but
+        # differ in type or placement hash to distinct ``log_once`` keys.
+        descs = ", ".join(
+            f"{type(m).__name__}(name='{m.name}', center={tuple(m.center)}, size={tuple(m.size)})"
+            for m in self.monitors
+        )
+        message = (
+            f"Local EME propagation returns only the device S-matrix. The "
+            f"{len(self.monitors)} monitor(s) configured on this simulation "
+            f"({descs}) will be dropped; run the simulation through the remote "
+            f"backend instead if you need monitor data."
+        )
+        log.warning(message, log_once=True)
+
     @property
     def mode_simulations(self) -> tuple[ModeSimulation, ...]:
         """One :class:`.ModeSimulation` per EME cell, at full mode count.
@@ -2036,6 +2090,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         # Fail before the caller spawns N mode-solve jobs they can never feed into
         # the staged propagation path.
         self._raise_if_freq_sweep_local()
+        self._warn_if_local_ignores_monitors()
 
         eme_grid = self.eme_grid
         mode_planes = eme_grid.mode_planes
@@ -2090,7 +2145,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         return tuple(sims)
 
     def stage_cell_modes(
-        self, mode_data: Union[ModeSimulationData, ModeSolverData], cell_index: int
+        self, mode_data: ModeSimulationData | ModeSolverData, cell_index: int
     ) -> EMEStageCellModes:
         """Validate, filter, and stamp mode data for one cell.
 
@@ -2109,13 +2164,14 @@ class EMESimulation(AbstractYeeGridSimulation):
         -------
         :class:`.EMEStageCellModes`
         """
-        from tidy3d.components.data.monitor_data import ModeSolverData
+        # Keep local to avoid ModeSimulationData -> ModeSimulation -> ModeSolver -> EMESimulation cycle.
         from tidy3d.components.mode.data.sim_data import ModeSimulationData
         from tidy3d.packaging import check_tidy3d_extras_licensed_feature
 
         from .data.stage import EMEStageCellModes
 
         check_tidy3d_extras_licensed_feature("local_eme")
+        self._warn_if_local_ignores_monitors()
         from tidy3d_extras.eme import filter_modes
 
         if isinstance(mode_data, ModeSimulationData):
@@ -2177,6 +2233,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         from tidy3d.packaging import check_tidy3d_extras_licensed_feature
 
         check_tidy3d_extras_licensed_feature("local_eme")
+        self._warn_if_local_ignores_monitors()
         from tidy3d_extras.eme import compute_cell_overlap
 
         return compute_cell_overlap(cell_modes)
@@ -2204,13 +2261,14 @@ class EMESimulation(AbstractYeeGridSimulation):
         from tidy3d.packaging import check_tidy3d_extras_licensed_feature
 
         check_tidy3d_extras_licensed_feature("local_eme")
+        self._warn_if_local_ignores_monitors()
         from tidy3d_extras.eme import compute_interface_overlap
 
         return compute_interface_overlap(left_modes, right_modes)
 
     def compute_overlaps(
         self,
-        mode_data: Sequence[Union[ModeSimulationData, ModeSolverData]],
+        mode_data: Sequence[ModeSimulationData | ModeSolverData],
     ) -> tuple[list[EMEStageCellOverlap], list[EMEStageInterfaceOverlap]]:
         """Stage modes and compute all per-cell and per-interface overlaps.
 
@@ -2234,11 +2292,10 @@ class EMESimulation(AbstractYeeGridSimulation):
         interface_overlaps : list[:class:`.EMEStageInterfaceOverlap`]
             One per interface, in the order of :attr:`cell_index_pairs`.
         """
-        import gc
-
         # Fail before doing the per-cell overlap integrals on a sweep type we
         # cannot propagate through later.
         self._raise_if_freq_sweep_local()
+        self._warn_if_local_ignores_monitors()
 
         num_cells = self.eme_grid.num_cells
         if len(mode_data) != num_cells:
@@ -2289,6 +2346,7 @@ class EMESimulation(AbstractYeeGridSimulation):
 
         check_tidy3d_extras_licensed_feature("local_eme")
         self._raise_if_freq_sweep_local()
+        self._warn_if_local_ignores_monitors()
         self._raise_if_stage_freqs_mismatch(
             cell_overlap.n_complex.f.values,
             f"cell overlap for cell_index={cell_overlap.cell_index}",
@@ -2346,6 +2404,7 @@ class EMESimulation(AbstractYeeGridSimulation):
 
         check_tidy3d_extras_licensed_feature("local_eme")
         self._raise_if_freq_sweep_local()
+        self._warn_if_local_ignores_monitors()
         pair = (left_overlap.cell_index, right_overlap.cell_index)
         self._raise_if_stage_freqs_mismatch(
             left_overlap.n_complex.f.values, f"left cell overlap at pair {pair}"
@@ -2412,6 +2471,7 @@ class EMESimulation(AbstractYeeGridSimulation):
 
         check_tidy3d_extras_licensed_feature("local_eme")
         self._raise_if_freq_sweep_local()
+        self._warn_if_local_ignores_monitors()
 
         from tidy3d.components.data.data_array import EMESMatrixDataArray
 
@@ -2540,11 +2600,10 @@ class EMESimulation(AbstractYeeGridSimulation):
         -------
         :class:`.EMESMatrixDataset`
         """
-        import gc
-
         from .data.dataset import EMESMatrixDataset
 
         self._raise_if_freq_sweep_local()
+        self._warn_if_local_ignores_monitors()
         sweep_spec = self.sweep_spec
 
         num_cells = self.eme_grid.num_cells
@@ -2627,7 +2686,7 @@ class EMESimulation(AbstractYeeGridSimulation):
 
     def propagate(
         self,
-        mode_data: Sequence[Union[ModeSimulationData, ModeSolverData]],
+        mode_data: Sequence[ModeSimulationData | ModeSolverData],
     ) -> EMESMatrixDataset:
         """Propagate modes through the device to compute the full S-matrix.
 
@@ -2657,3 +2716,121 @@ class EMESimulation(AbstractYeeGridSimulation):
         """
         cell_overlaps, interface_overlaps = self.compute_overlaps(mode_data)
         return self.propagate_from_overlaps(cell_overlaps, interface_overlaps)
+
+    def smatrix_in_basis(
+        self,
+        smatrix: EMESMatrixDataset,
+        port_modes: tuple[
+            ModeSimulationData | ModeSolverData,
+            ModeSimulationData | ModeSolverData,
+        ],
+        modes1: ElectromagneticFieldData | ModeSolverData | ModeSimulationData | None = None,
+        modes2: ElectromagneticFieldData | ModeSolverData | ModeSimulationData | None = None,
+    ) -> EMESMatrixDataset:
+        """Express a locally propagated S-matrix in another modal basis.
+
+        Pass the mode data for the left and right EME ports, typically
+        ``(mode_data[0], mode_data[-1])`` from the sequence used by
+        :meth:`propagate`. If ``modes1`` or ``modes2`` is ``None``, that port
+        is left unchanged.
+
+        Parameters
+        ----------
+        smatrix : :class:`.EMESMatrixDataset`
+            Device S-matrix in the port-mode basis, as returned by
+            :meth:`propagate`, :meth:`propagate_from_overlaps`, or
+            :meth:`compute_smatrix`.
+        port_modes : tuple[:class:`.ModeSimulationData` | :class:`.ModeSolverData`, ...]
+            Mode results at the two EME ports.
+        modes1, modes2 : :class:`.ElectromagneticFieldData`, :class:`.ModeSolverData`, or
+            :class:`.ModeSimulationData`, optional
+            New modal bases at port 1 and port 2.
+
+        Returns
+        -------
+        :class:`.EMESMatrixDataset`
+            S-matrix in the new basis.
+        """
+        # Keep local to avoid ModeSimulationData -> ModeSimulation -> ModeSolver -> EMESimulation cycle.
+        from tidy3d.components.mode.data.sim_data import ModeSimulationData
+        from tidy3d.packaging import check_tidy3d_extras_licensed_feature
+
+        self._raise_if_freq_sweep_local()
+        self._raise_if_stage_freqs_mismatch(smatrix.S11.f.values, "S-matrix")
+
+        if modes1 is None and modes2 is None:
+            return smatrix
+
+        if len(port_modes) != 2:
+            raise ValidationError(f"Expected two port mode data entries, got {len(port_modes)}.")
+
+        check_tidy3d_extras_licensed_feature("local_eme")
+        from tidy3d_extras.eme import smatrix_in_basis as _extras_smatrix_in_basis
+
+        virtual_indices = self.eme_grid_spec.virtual_cell_indices
+        port_cell_1 = virtual_indices[0]
+        port_cell_2 = virtual_indices[-1]
+        port_modes1, port_modes2 = port_modes
+
+        def _filter_port(
+            modes: ModeSolverData | ModeSimulationData, cell_index: int, name: str
+        ) -> ModeSolverData:
+            filtered = self.stage_cell_modes(modes, cell_index=cell_index).modes
+            sm_axis = (smatrix.S11 if name == "port 1" else smatrix.S22).mode_index_in
+            sm_inds = [int(i) for i in sm_axis.values]
+            fm_inds = [int(i) for i in filtered.n_complex.mode_index.values]
+            missing_inds = [i for i in sm_inds if i not in fm_inds]
+            if missing_inds:
+                raise ValidationError(
+                    f"Filtered mode indices for {name} ({fm_inds}) do not match the "
+                    f"S-matrix port axis ({sm_inds}); ensure 'smatrix' and "
+                    "'port_modes' came from the same propagation."
+                )
+            if fm_inds != sm_inds:
+                update_dict = {
+                    key: field.sel(mode_index=sm_inds)
+                    for key, field in filtered.field_components.items()
+                }
+                update_dict["n_complex"] = filtered.n_complex.sel(mode_index=sm_inds)
+                for attr, value in filtered._grid_correction_dict.items():
+                    if np.isscalar(value):
+                        update_dict[attr] = value
+                    else:
+                        update_dict[attr] = value.sel(mode_index=sm_inds)
+                filtered = filtered.updated_copy(
+                    **update_dict,
+                    deep=False,
+                    validate=False,
+                )
+            return filtered
+
+        port_modes1_for_kernel = (
+            _filter_port(port_modes1, port_cell_1, "port 1") if modes1 is not None else port_modes1
+        )
+        port_modes2_for_kernel = (
+            _filter_port(port_modes2, port_cell_2, "port 2") if modes2 is not None else port_modes2
+        )
+
+        def _unwrap_new(
+            modes: ElectromagneticFieldData | ModeSolverData | ModeSimulationData | None,
+            name: str,
+        ) -> ElectromagneticFieldData | ModeSolverData | None:
+            if modes is None:
+                return None
+            if isinstance(modes, ModeSimulationData):
+                return modes.modes_raw
+            if isinstance(modes, (ElectromagneticFieldData, ModeSolverData)):
+                return modes
+            raise ValidationError(
+                f"'{name}' must be ElectromagneticFieldData, ModeSolverData, "
+                f"or ModeSimulationData, "
+                f"got {type(modes).__name__}."
+            )
+
+        return _extras_smatrix_in_basis(
+            smatrix=smatrix,
+            port_modes1=port_modes1_for_kernel,
+            port_modes2=port_modes2_for_kernel,
+            new_modes1=_unwrap_new(modes1, "modes1"),
+            new_modes2=_unwrap_new(modes2, "modes2"),
+        )

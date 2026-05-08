@@ -2,7 +2,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
 
 from allianceauth.services.forms import ServicePasswordForm
@@ -19,7 +19,7 @@ ACCESS_PERM = 'phpbb3.access_phpbb3'
 @login_required
 @permission_required(ACCESS_PERM)
 def activate_forum(request):
-    logger.debug("activate_forum called by user %s" % request.user)
+    logger.debug(f"activate_forum called by user {request.user}")
     # Valid now we get the main characters
     character = request.user.profile.main_character
     logger.debug(f"Adding phpbb user for user {request.user} with main character {character}")
@@ -28,9 +28,9 @@ def activate_forum(request):
     # if empty we failed
     if result[0] != "":
         Phpbb3User.objects.update_or_create(user=request.user, defaults={'username': result[0]})
-        logger.debug("Updated authserviceinfo for user %s with forum credentials. Updating groups." % request.user)
+        logger.debug(f"Updated authserviceinfo for user {request.user} with forum credentials. Updating groups.")
         Phpbb3Tasks.update_groups.delay(request.user.pk)
-        logger.info("Successfully activated forum for user %s" % request.user)
+        logger.info(f"Successfully activated forum for user {request.user}")
         messages.success(request, _('Activated forum account.'))
         credentials = {
             'username': result[0],
@@ -38,7 +38,7 @@ def activate_forum(request):
         }
         return render(request, 'services/service_credentials.html', context={'credentials': credentials, 'service': 'Forum'})
     else:
-        logger.error("Unsuccessful attempt to activate forum for user %s" % request.user)
+        logger.error(f"Unsuccessful attempt to activate forum for user {request.user}")
         messages.error(request, _('An error occurred while processing your forum account.'))
     return redirect("services:services")
 
@@ -46,13 +46,13 @@ def activate_forum(request):
 @login_required
 @permission_required(ACCESS_PERM)
 def deactivate_forum(request):
-    logger.debug("deactivate_forum called by user %s" % request.user)
+    logger.debug(f"deactivate_forum called by user {request.user}")
     # false we failed
     if Phpbb3Tasks.delete_user(request.user):
-        logger.info("Successfully deactivated forum for user %s" % request.user)
+        logger.info(f"Successfully deactivated forum for user {request.user}")
         messages.success(request, _('Deactivated forum account.'))
     else:
-        logger.error("Unsuccessful attempt to activate forum for user %s" % request.user)
+        logger.error(f"Unsuccessful attempt to activate forum for user {request.user}")
         messages.error(request, _('An error occurred while processing your forum account.'))
     return redirect("services:services")
 
@@ -60,13 +60,13 @@ def deactivate_forum(request):
 @login_required
 @permission_required(ACCESS_PERM)
 def reset_forum_password(request):
-    logger.debug("reset_forum_password called by user %s" % request.user)
+    logger.debug(f"reset_forum_password called by user {request.user}")
     if Phpbb3Tasks.has_account(request.user):
         character = request.user.profile.main_character
         result = Phpbb3Manager.update_user_password(request.user.phpbb3.username, character.character_id)
         # false we failed
         if result != "":
-            logger.info("Successfully reset forum password for user %s" % request.user)
+            logger.info(f"Successfully reset forum password for user {request.user}")
             messages.success(request, _('Reset forum password.'))
             credentials = {
                 'username': request.user.phpbb3.username,
@@ -74,7 +74,7 @@ def reset_forum_password(request):
             }
             return render(request, 'services/service_credentials.html', context={'credentials': credentials, 'service': 'Forum'})
 
-    logger.error("Unsuccessful attempt to reset forum password for user %s" % request.user)
+    logger.error(f"Unsuccessful attempt to reset forum password for user {request.user}")
     messages.error(request, _('An error occurred while processing your forum account.'))
     return redirect("services:services")
 
@@ -82,28 +82,28 @@ def reset_forum_password(request):
 @login_required
 @permission_required(ACCESS_PERM)
 def set_forum_password(request):
-    logger.debug("set_forum_password called by user %s" % request.user)
+    logger.debug(f"set_forum_password called by user {request.user}")
     if request.method == 'POST':
         logger.debug("Received POST request with form.")
         form = ServicePasswordForm(request.POST)
-        logger.debug("Form is valid: %s" % form.is_valid())
+        logger.debug(f"Form is valid: {form.is_valid()}")
         if form.is_valid() and Phpbb3Tasks.has_account(request.user):
             password = form.cleaned_data['password']
-            logger.debug("Form contains password of length %s" % len(password))
+            logger.debug(f"Form contains password of length {len(password)}")
             character = request.user.profile.main_character
             result = Phpbb3Manager.update_user_password(request.user.phpbb3.username, character.character_id,
                                                         password=password)
             if result != "":
-                logger.info("Successfully set forum password for user %s" % request.user)
+                logger.info(f"Successfully set forum password for user {request.user}")
                 messages.success(request, _('Set forum password.'))
             else:
-                logger.error("Failed to install custom forum password for user %s" % request.user)
+                logger.error(f"Failed to install custom forum password for user {request.user}")
                 messages.error(request, _('An error occurred while processing your forum account.'))
             return redirect("services:services")
     else:
         logger.debug("Request is not type POST - providing empty form.")
         form = ServicePasswordForm()
 
-    logger.debug("Rendering form for user %s" % request.user)
+    logger.debug(f"Rendering form for user {request.user}")
     context = {'form': form, 'service': 'Forum'}
     return render(request, 'services/service_password.html', context=context)

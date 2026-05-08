@@ -118,8 +118,41 @@ def generate_site_files() -> None:
         register_md = register_md.replace(
             f"{GITHUB_REPO_URL}/blob/main/CONTRIBUTING.md", "../contributing/"
         )
+        # Route the cross-link to the register background doc to the rendered page.
+        register_md = register_md.replace(
+            f"{GITHUB_REPO_URL}/blob/main/EVAL_REGISTER.md", "../eval-register/"
+        )
     with open(register_out_dir / "index.qmd", "wt") as f:
         f.write(register_md)
+
+    # copy register background explainer (rendered at /eval-register/)
+    eval_register_src = REPO_ROOT / "EVAL_REGISTER.md"
+    eval_register_out_dir = Path(__file__).parent.parent / "eval-register"
+    os.makedirs(eval_register_out_dir, exist_ok=True)
+    with open(eval_register_src, "rt") as f:
+        eval_register_md = f.read()
+        eval_register_md = eval_register_md.replace(
+            "# Eval Register",
+            "---\ntitle: About the Register\n---",
+            1,
+        )
+        eval_register_md = rewrite_relative_markdown_links_for_docs(
+            markdown=eval_register_md,
+            source_path=eval_register_src,
+            output_dir=eval_register_out_dir,
+        )
+        # Route the link to the register submission guide to the rendered page.
+        eval_register_md = eval_register_md.replace(
+            f"{GITHUB_REPO_URL}/blob/main/register/README.md", "../register/"
+        )
+        # Image paths in the source resolve from the repo root (e.g.
+        # `docs/images/foo.png`); rewrite them to resolve from the rendered
+        # page at `docs/eval-register/`.
+        eval_register_md = eval_register_md.replace(
+            "(docs/images/", "(../images/"
+        )
+    with open(eval_register_out_dir / "index.qmd", "wt") as f:
+        f.write(eval_register_md)
 
     # read the listings from individual eval.yaml files
     listing_groups = read_listings()
@@ -219,7 +252,12 @@ def create_front_matter(
     categories = [str(listing.group)]
     if listing.tags is not None:
         categories = categories + listing.tags
-    authors = listing.contributors
+    if isinstance(listing, ExternalEvalMetadata):
+        authors = listing.source.maintainers
+        author_title = "Maintained By"
+    else:
+        authors = listing.contributors
+        author_title = "Contributed By"
 
     # fixup the README
     readme_out: list[str] = []
@@ -233,7 +271,7 @@ def create_front_matter(
     readme_out.append("categories:")
     for category in categories:
         readme_out.append(f'  - "{category}"')
-    readme_out.append("author-title: Contributed By")
+    readme_out.append(f"author-title: {author_title}")
     if authors:
         readme_out.append("author:")
         for author in authors:

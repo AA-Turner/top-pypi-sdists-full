@@ -66,6 +66,92 @@ def _handle_workers_queues() -> int:
         return 1
 
 
+def _resolve_task_path(options):
+    """Resolve ``--program`` / ``--task`` to a file path without parsing it.
+
+    Mirrors the suffix loop in
+    ``flowtask/storages/tasks/filesystem.py:44-58`` but stops at the path
+    rather than opening and parsing the file.
+
+    Args:
+        options: The ``argparse.Namespace`` produced by ``ConfigParser.parse()``.
+
+    Returns:
+        :class:`~pathlib.Path` of the first matching file, or ``None`` if no
+        matching file is found.
+    """
+    from pathlib import Path
+    from .conf import TASK_PATH
+
+    program = getattr(options, "program", None) or "navigator"
+    task_name = getattr(options, "task", None)
+    if not task_name:
+        return None
+    base = Path(TASK_PATH) / program / "tasks"
+    for ext in ("json", "yaml", "yml", "toml"):
+        candidate = base / f"{task_name}.{ext}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _handle_syntax_command(options) -> int:
+    """Run the static syntax checker for a task definition.
+
+    Lazy-imports the syntax checker so that ``--syntax`` startup avoids
+    loading the heavy TaskRunner dependency tree.  Never imports
+    ``flowtask.runner.TaskRunner``.
+
+    Args:
+        options: The ``argparse.Namespace`` produced by ``ConfigParser.parse()``.
+
+    Returns:
+        Exit code: ``0`` when no errors found, ``1`` when errors found,
+        ``2`` on invocation problems (bad path, missing arguments, etc.).
+    """
+    from .parsers.syntax import SyntaxChecker  # noqa: PLC0415 — lazy import
+
+    logger = logging.getLogger("flowtask.syntax")
+    checker = SyntaxChecker(strict=getattr(options, "syntax_strict", False))
+    fmt = getattr(options, "syntax_format", "text")
+    path = getattr(options, "syntax_path", None)
+
+    try:
+        if path == "-":
+            content = sys.stdin.read()
+            report = asyncio.run(
+                checker.check_content(content, source_label="<stdin>")
+            )
+        elif path:
+            report = asyncio.run(checker.check_file(path))
+        elif getattr(options, "task", None):
+            file_path = _resolve_task_path(options)
+            if file_path is None:
+                logger.error(
+                    "Could not resolve task %r in program %r",
+                    getattr(options, "task", None),
+                    getattr(options, "program", None),
+                )
+                return 2
+            report = asyncio.run(checker.check_file(file_path))
+        else:
+            logger.error(
+                "Usage: task --syntax <path> | "
+                "-p PROGRAM -t TASK --syntax | "
+                "--syntax -"
+            )
+            return 2
+    except (ValueError, OSError) as err:
+        logger.error("Syntax check setup error: %s", err)
+        return 2
+
+    if fmt == "json":
+        print(report.to_json(), end="")
+    else:
+        print(report.to_text())
+    return 1 if report.has_errors() else 0
+
+
 async def task(loop):
     from .runner import TaskRunner
     runner = None
@@ -91,6 +177,10 @@ def main():
     # ── Route workers subcommand (early return, no async context needed) ──
     if getattr(options, "workers_command", None) == "workers":
         sys.exit(_handle_workers_command(options))
+
+    # ── Route --syntax (static check, no TaskRunner) ──────────────────────
+    if getattr(options, "syntax", False):
+        sys.exit(_handle_syntax_command(options))
 
     from .utils.uv import install_uvloop
     from .utils import cPrint

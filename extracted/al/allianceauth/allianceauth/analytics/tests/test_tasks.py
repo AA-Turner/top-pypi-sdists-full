@@ -2,11 +2,8 @@ import requests_mock
 
 from django.test.utils import override_settings
 
-from allianceauth.analytics.tasks import (
-    analytics_event,
-    send_ga_tracking_celery_event)
+from allianceauth.analytics.tasks import analytics_event, send_ga_tracking_celery_event
 from allianceauth.utils.testing import NoSocketsTestCase
-
 
 GOOGLE_ANALYTICS_DEBUG_URL = 'https://www.google-analytics.com/debug/mp/collect'
 

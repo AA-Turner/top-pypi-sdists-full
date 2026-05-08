@@ -4,6 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from allianceauth.notifications import notify
 from allianceauth.services.hooks import NameFormatter
+
 from .manager import XenForoManager
 from .models import XenforoUser
 

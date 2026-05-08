@@ -1,10 +1,9 @@
+from django.contrib.auth.models import Group, User
 from django.test import TestCase
-from django.contrib.auth.models import User, Group
 
-from allianceauth.eveonline.models import EveCorporationInfo
 from allianceauth.eveonline.autogroups.models import AutogroupsConfig
+from allianceauth.eveonline.models import EveCorporationInfo
 from allianceauth.tests.auth_utils import AuthUtils
-
 
 from ..models import ReservedGroupName
 

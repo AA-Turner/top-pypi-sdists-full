@@ -37,7 +37,6 @@ See :doc:`/central_scheduler` for more info.
 
 import atexit
 import datetime
-import importlib
 import json
 import logging
 import os
@@ -58,7 +57,7 @@ logger = logging.getLogger("luigi.server")
 
 class cors(Config):
     enabled = parameter.BoolParameter(default=False, description="Enables CORS support.")
-    allowed_origins = parameter.ListParameter(default=[], description="A list of allowed origins. Used only if `allow_any_origin` is false.")
+    allowed_origins = parameter.ListParameter(default=(), description="A list of allowed origins. Used only if `allow_any_origin` is false.")
     allow_any_origin = parameter.BoolParameter(default=False, description="Accepts requests from any origin.")
     allow_null_origin = parameter.BoolParameter(default=False, description="Allows the request to set `null` value of the `Origin` header.")
     max_age = parameter.IntParameter(default=86400, description="Content of `Access-Control-Max-Age`.")
@@ -157,7 +156,7 @@ class BaseTaskHistoryHandler(tornado.web.RequestHandler):
         self._scheduler = scheduler
 
     def get_template_path(self):
-        return importlib.resources.files("templates").name
+        return os.path.join(os.path.dirname(__file__), "templates")
 
 
 class AllRunHandler(BaseTaskHistoryHandler):

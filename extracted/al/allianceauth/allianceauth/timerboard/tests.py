@@ -1,25 +1,26 @@
-from django_webtest import WebTest
-from django.utils import timezone
-from django.urls import reverse
-from django.contrib.auth.models import Permission, User
-from django.conf import settings
-
 from datetime import timedelta
 
-from allianceauth.tests.auth_utils import AuthUtils
-from allianceauth.eveonline.models import EveCorporationInfo
+from django_webtest import WebTest
 
-from .models import Timer
+from django.conf import settings
+from django.contrib.auth.models import Permission, User
+from django.urls import reverse
+from django.utils import timezone
+
+from allianceauth.eveonline.models import EveCorporationInfo
+from allianceauth.tests.auth_utils import AuthUtils
+
 from .form import TimerForm
+from .models import Timer
 
 
 class TimerboardViewsTestCase(WebTest):
     csrf_checks = False
 
     def setUp(self):
-        corp = EveCorporationInfo.objects.create(corporation_id='2345', corporation_name='test corp',
+        EveCorporationInfo.objects.create(corporation_id='2345', corporation_name='test corp',
                                                 corporation_ticker='testc', member_count=24)
-        other_corp = EveCorporationInfo.objects.create(corporation_id='9345', corporation_name='other test corp',
+        EveCorporationInfo.objects.create(corporation_id='9345', corporation_name='other test corp',
                                                         corporation_ticker='testd', member_count=1)
         self.user = AuthUtils.create_user('test_user')
         AuthUtils.add_main_character(self.user, 'test character', '1234', '2345', 'test corp', 'testc')

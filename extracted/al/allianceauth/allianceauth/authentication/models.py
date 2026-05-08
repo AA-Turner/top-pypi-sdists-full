@@ -1,12 +1,12 @@
 import logging
 from typing import ClassVar
 
-from django.contrib.auth.models import User, Permission
+from django.contrib.auth.models import Permission, User
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
-from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo, EveAllianceInfo, EveFactionInfo
+
+from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo
 from allianceauth.notifications import notify
-from django.conf import settings
 
 from .managers import CharacterOwnershipManager, StateManager
 
@@ -16,24 +16,30 @@ logger = logging.getLogger(__name__)
 class State(models.Model):
     name = models.CharField(max_length=32, unique=True)
     permissions = models.ManyToManyField(Permission, blank=True)
-    priority = models.IntegerField(unique=True, help_text="Users get assigned the state with the highest priority available to them.")
+    priority = models.IntegerField(
+        unique=True, help_text="Users get assigned the state with the highest priority available to them."
+    )
 
-    member_characters = models.ManyToManyField(EveCharacter, blank=True,
-                                                help_text="Characters to which this state is available.")
-    member_corporations = models.ManyToManyField(EveCorporationInfo, blank=True,
-                                                help_text="Corporations to whose members this state is available.")
-    member_alliances = models.ManyToManyField(EveAllianceInfo, blank=True,
-                                            help_text="Alliances to whose members this state is available.")
-    member_factions = models.ManyToManyField(EveFactionInfo, blank=True,
-                                            help_text="Factions to whose members this state is available.")
+    member_characters = models.ManyToManyField(
+        EveCharacter, blank=True, help_text="Characters to which this state is available."
+    )
+    member_corporations = models.ManyToManyField(
+        EveCorporationInfo, blank=True, help_text="Corporations to whose members this state is available."
+    )
+    member_alliances = models.ManyToManyField(
+        EveAllianceInfo, blank=True, help_text="Alliances to whose members this state is available."
+    )
+    member_factions = models.ManyToManyField(
+        EveFactionInfo, blank=True, help_text="Factions to whose members this state is available."
+    )
     public = models.BooleanField(default=False, help_text="Make this state available to any character.")
 
     objects: ClassVar[StateManager] = StateManager()
 
     class Meta:
-        ordering = ['-priority']
+        ordering = ["-priority"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
     def available_to_character(self, character):
@@ -49,11 +55,11 @@ class State(models.Model):
         super().delete(**kwargs)
 
 
-def get_guest_state():
+def get_guest_state() -> State:
     try:
-        return State.objects.get(name='Guest')
+        return State.objects.get(name="Guest")
     except State.DoesNotExist:
-        return State.objects.create(name='Guest', priority=0, public=True)
+        return State.objects.create(name="Guest", priority=0, public=True)
 
 
 def get_guest_state_pk():
@@ -61,9 +67,6 @@ def get_guest_state_pk():
 
 
 class UserProfile(models.Model):
-    class Meta:
-        default_permissions = ('change',)
-
     class Language(models.TextChoices):
         """
         Choices for UserProfile.language
@@ -111,7 +114,7 @@ class UserProfile(models.Model):
         max_length=200,
         blank=True,
         null=True,
-        help_text="Bootstrap 5 Themes from https://bootswatch.com/ or Community Apps"
+        help_text="Bootstrap 5 Themes from https://bootswatch.com/ or Community Apps",
     )
     minimize_sidebar = models.BooleanField(
         _("Minimize Sidebar Menu"),
@@ -120,20 +123,25 @@ class UserProfile(models.Model):
     )
 
 
-    def assign_state(self, state=None, commit=True):
+    class Meta:
+        default_permissions = ("change",)
+
+    def __str__(self) -> str:
+        return str(self.user)
+
+    def assign_state(self, state=None, commit=True) -> None:
         if not state:
             state = State.objects.get_for_user(self.user)
         if self.state != state:
             self.state = state
             if commit:
-                logger.info(f'Updating {self.user} state to {self.state}')
-                self.save(update_fields=['state'])
+                logger.info(f"Updating {self.user} state to {self.state}")
+                self.save(update_fields=["state"])
                 notify(
                     self.user,
-                    _('State changed to: %s' % state),
-                    _('Your user\'s state is now: %(state)s')
-                    % ({'state': state}),
-                    'info'
+                    _(f"State changed to: {state}"),
+                    _("Your user's state is now: %(state)s") % ({"state": state}),
+                    "info",
                 )
                 from allianceauth.authentication.signals import state_changed
 
@@ -141,37 +149,33 @@ class UserProfile(models.Model):
                 # Clear all attribute caches and reload the model that will get passed to the signals!
                 self.refresh_from_db()
 
-                state_changed.send(
-                    sender=self.__class__, user=self.user, state=self.state
-                )
-
-    def __str__(self) -> str:
-        return str(self.user)
+                state_changed.send(sender=self.__class__, user=self.user, state=self.state)
 
 
 class CharacterOwnership(models.Model):
+
+    character = models.OneToOneField(EveCharacter, on_delete=models.CASCADE, related_name='character_ownership')
+    owner_hash = models.CharField(max_length=28, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="character_ownerships")
+
+    objects: ClassVar[CharacterOwnershipManager] = CharacterOwnershipManager()
+
     class Meta:
         default_permissions = ('change', 'delete')
         ordering = ['user', 'character__character_name']
 
-    character = models.OneToOneField(EveCharacter, on_delete=models.CASCADE, related_name='character_ownership')
-    owner_hash = models.CharField(max_length=28, unique=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='character_ownerships')
-
-    objects: ClassVar[CharacterOwnershipManager] = CharacterOwnershipManager()
-
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user}: {self.character}"
 
 
 class OwnershipRecord(models.Model):
-    character = models.ForeignKey(EveCharacter, on_delete=models.CASCADE, related_name='ownership_records')
+    character = models.ForeignKey(EveCharacter, on_delete=models.CASCADE, related_name="ownership_records")
     owner_hash = models.CharField(max_length=28, db_index=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ownership_records')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ownership_records")
     created = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-created']
+        ordering = ["-created"]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user}: {self.character} on {self.created}"

@@ -2676,6 +2676,93 @@ def sms_remove_contact(email: str, request: Request):
     return {"ok": True}
 
 
+@app.post("/sms/webhook")
+async def sms_webhook(request: Request):
+    """Inbound SMS webhook for Pixel/Android phones with no KDE Connect inbound.
+
+    Designed to be hit by a small Tasker / Macrodroid / Automate / SMS-Forwarder
+    profile on the user's Pixel that fires every time an SMS arrives. The
+    profile authenticates with the user's Firebase ID token and POSTs:
+
+      {
+        "text":       "@help",                # the SMS body (or any task)
+        "from":       "+14085073140",          # the phone's own number
+        "device_type": "android"               # so reply goes via KDE Connect
+      }
+
+    The handler routes the task through the SAME `@target:` dispatch as email
+    so the user can address any of their devices from their Pixel. Reply is
+    sent back to the originating CLI bridge over the existing WS, which in
+    turn delivers via KDE Connect (or whatever channel is configured).
+
+    This is the no-DBus, no-pairing fallback when the macOS Mac App Store
+    KDE Connect can't surface inbound SMS to userspace.
+    """
+    from .sms_poller import dispatch_to_cli, _parse_routing, get_online_computers
+    import uuid
+    identity = _require_auth(request)
+    body = await request.json()
+    raw_text     = (body.get("text") or "").strip()
+    from_addr    = (body.get("from") or "").strip()
+    device_type  = (body.get("device_type") or "android").lower()
+    if not raw_text:
+        raise HTTPException(400, "text required")
+
+    target, task = _parse_routing(raw_text)
+    online = get_online_computers(identity["uid"])
+    if not online:
+        return {"ok": True, "output": "⚠️ No SAGE computers online.", "computer": ""}
+
+    task_id = str(uuid.uuid4())
+    output = await dispatch_to_cli(
+        identity["uid"], target, task_id, task, from_addr,
+        device_type=device_type,
+        deliver_natively=True,  # CLI handles the SMS reply via KDE Connect
+    )
+    if output is None:
+        output = f"⚠️ Could not reach @{target}." if target else "⚠️ Dispatch failed."
+
+    label = target if target and target != "all" else (online[0] if online else "SAGE")
+    return {"ok": True, "output": output, "computer": label}
+
+
+@app.post("/sms/dispatch")
+async def sms_dispatch_text(request: Request):
+    """Dispatch a text task from a local iMessage/SMS gateway.
+
+    The local CLI bridge that receives a text from the user's phone calls this
+    to route through the same `@target:` logic the email path uses. The bridge
+    handles the iMessage/SMS reply itself (since only the gateway machine
+    knows the conversation context), so this endpoint just runs the task on
+    the requested computer(s) and returns the output synchronously.
+
+    Body: {"text": "@razor: git status", "from": "+16696498725"}
+    Returns: {"output": "...", "computer": "razor"}
+    """
+    from .sms_poller import dispatch_to_cli, _parse_routing, get_online_computers
+    import uuid
+    identity = _require_auth(request)
+    body = await request.json()
+    raw_text  = (body.get("text") or "").strip()
+    from_addr = (body.get("from") or "").strip()
+    if not raw_text:
+        raise HTTPException(400, "text required")
+
+    target, task = _parse_routing(raw_text)
+    online = get_online_computers(identity["uid"])
+    if not online:
+        return {"ok": True, "output": "⚠️ No SAGE computers are currently online.",
+                "computer": ""}
+
+    task_id = str(uuid.uuid4())
+    output = await dispatch_to_cli(identity["uid"], target, task_id, task, from_addr)
+    if output is None:
+        output = f"⚠️ Could not reach @{target}." if target else "⚠️ Dispatch failed."
+
+    label = target if target and target != "all" else (online[0] if online else "SAGE")
+    return {"ok": True, "output": output, "computer": label}
+
+
 @app.get("/sms/poller-status")
 def sms_poller_status(request: Request):
     """Return server-side IMAP poller health for `sage sms diagnose`.

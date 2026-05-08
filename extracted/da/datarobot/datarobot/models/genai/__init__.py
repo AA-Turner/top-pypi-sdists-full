@@ -27,6 +27,7 @@ from .playground_moderation_configuration import Intervention, ModerationConfigu
 from .prompt_template import PromptTemplate, PromptTemplateVersion, Variable
 from .prompt_trace import PromptTrace
 from .sidecar_model_metric import SidecarModelMetricValidation
+from .syftr_search import DirectionType, ObjectiveType, SearchSpaceDict, SearchStudy
 from .jobstatus import JobStatus
 from .synthetic_evaluation_dataset_generation import SyntheticEvaluationDataset
 from .user_limits import UserLimits

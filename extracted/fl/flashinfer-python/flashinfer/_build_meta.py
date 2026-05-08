@@ -1,3 +1,3 @@
 """Build metadata for flashinfer package."""
-__version__ = "0.6.10"
-__git_version__ = "943d0ff0dfdbb5019b9733bd78ac730c5bff6f92"
+__version__ = "0.6.10.post1"
+__git_version__ = "8d5f39e5ad73fbafb33c01225d72f24ebe3c6daf"

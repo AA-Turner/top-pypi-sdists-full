@@ -4,6 +4,7 @@ from typing import (
     Any,
     AsyncGenerator,
     Generic,
+    Iterable,
     Optional,
     Sequence,
     TypeVar,
@@ -27,11 +28,16 @@ from ormar.queryset.clause import FilterGroup, QueryClause
 from ormar.queryset.queries.prefetch_query import PrefetchQuery
 from ormar.queryset.queries.query import Query
 from ormar.queryset.reverse_alias_resolver import ReverseAliasResolver
+from ormar.queryset.utils import (
+    extract_access_chains,
+    get_relationship_alias_model_and_str,
+    normalize_slice,
+)
 
 if TYPE_CHECKING:  # pragma no cover
     from ormar import Model
     from ormar.models import T
-    from ormar.models.excludable import ExcludableItems
+    from ormar.models.excludable import ExcludableItems, Slot
     from ormar.models.ormar_config import OrmarConfig
 else:
     T = TypeVar("T", bound="Model")
@@ -55,6 +61,7 @@ class QuerySet(Generic[T]):
         prefetch_related: Optional[list] = None,
         limit_raw_sql: bool = False,
         proxy_source_model: Optional[type["Model"]] = None,
+        reverse_result: bool = False,
     ) -> None:
         self.proxy_source_model = proxy_source_model
         self.model_cls = model_cls
@@ -67,6 +74,7 @@ class QuerySet(Generic[T]):
         self._excludable = excludable or ormar.ExcludableItems()
         self.order_bys = order_bys or []
         self.limit_sql_raw = limit_raw_sql
+        self._reverse_result = reverse_result
 
     @property
     def model_config(self) -> "OrmarConfig":
@@ -104,6 +112,7 @@ class QuerySet(Generic[T]):
         prefetch_related: Optional[list] = None,
         limit_raw_sql: Optional[bool] = None,
         proxy_source_model: Optional[type["Model"]] = None,
+        reverse_result: Optional[bool] = None,
     ) -> "QuerySet":
         """
         Method that returns new instance of queryset based on passed params,
@@ -115,6 +124,7 @@ class QuerySet(Generic[T]):
             "excludable": "_excludable",
             "prefetch_related": "_prefetch_related",
             "limit_raw_sql": "limit_sql_raw",
+            "reverse_result": "_reverse_result",
         }
         passed_args = locals()
 
@@ -135,6 +145,7 @@ class QuerySet(Generic[T]):
             prefetch_related=replace_if_none("prefetch_related"),
             limit_raw_sql=replace_if_none("limit_raw_sql"),
             proxy_source_model=replace_if_none("proxy_source_model"),
+            reverse_result=replace_if_none("reverse_result"),
         )
 
     async def _prefetch_related_models(
@@ -159,15 +170,23 @@ class QuerySet(Generic[T]):
         )
         return await query.prefetch_related(models=models)  # type: ignore
 
-    async def _process_query_result_rows(self, rows: list) -> list["T"]:
+    async def _process_query_result_rows(
+        self, rows: list, plan_cache: Optional[dict] = None
+    ) -> list["T"]:
         """
         Process database rows and initialize ormar Model from each of the rows.
 
         :param rows: list of database rows from query result
         :type rows: list[sqlalchemy.engine.result.RowProxy]
+        :param plan_cache: optional row-extraction plan cache; ``iterate``
+            passes a single dict shared across all chunks so amortization
+            survives the per-chunk ``_process_query_result_rows`` boundary
+        :type plan_cache: Optional[dict]
         :return: list of models
         :rtype: list[Model]
         """
+        if plan_cache is None:
+            plan_cache = {}
         result_rows = []
         for i, row in enumerate(rows):
             result_rows.append(
@@ -177,13 +196,17 @@ class QuerySet(Generic[T]):
                     excludable=self._excludable,
                     source_model=self.model,
                     proxy_source_model=self.proxy_source_model,
+                    plan_cache=plan_cache,
                 )
             )
             if i % 100 == 99:  # pragma: no cover
                 await asyncio.sleep(0)
 
         if result_rows:
-            return self.model.merge_instances_list(result_rows)  # type: ignore
+            return self.model.merge_instances_list(  # type: ignore[return-value]
+                result_rows,  # type: ignore[arg-type]
+                excludable=self._excludable,
+            )
         return cast(list["T"], result_rows)
 
     def _resolve_filter_groups(
@@ -369,10 +392,7 @@ class QuerySet(Generic[T]):
         """
         if not isinstance(related, list):
             related = [related]
-        related = [
-            rel._access_chain if isinstance(rel, FieldAccessor) else rel
-            for rel in related
-        ]
+        related = cast(list, extract_access_chains(related))
 
         related = sorted(list(set(list(self._select_related) + related)))
         return self.rebuild_self(select_related=related)
@@ -425,16 +445,92 @@ class QuerySet(Generic[T]):
         """
         if not isinstance(related, list):
             related = [related]
-        related = [
-            rel._access_chain if isinstance(rel, FieldAccessor) else rel
-            for rel in related
-        ]
+        related = cast(list, extract_access_chains(related))
 
         related = list(set(list(self._prefetch_related) + related))
         return self.rebuild_self(prefetch_related=related)
 
+    def flatten_fields(
+        self,
+        columns: Union[list, str, set, tuple, dict, FieldAccessor],
+    ) -> "QuerySet[T]":
+        """
+        Render selected related models as their primary-key value on
+        ``model_dump()`` instead of the default nested dict.
+
+        Accepts the same input forms as :py:meth:`fields` / :py:meth:`exclude_fields`
+        plus ``FieldAccessor`` / list of accessors. Missing relations are
+        auto-loaded: single-valued foreign keys go into ``select_related``,
+        many-to-many and reverse relations into ``prefetch_related``.
+
+        Chained calls merge. A flatten directive conflicts with any include or
+        exclude sub-field selection on the same relation (scalar output has no
+        place for children).
+
+        :param columns: relations to flatten on serialization
+        :type columns: Union[list, str, set, tuple, dict, FieldAccessor]
+        :return: new QuerySet with the flatten spec applied
+        :rtype: QuerySet[T]
+        """
+        normalized = extract_access_chains(columns)
+
+        excludable = ormar.ExcludableItems.from_excludable(self._excludable)
+        excludable.build(
+            items=normalized,
+            model_cls=self.model_cls,  # type: ignore
+            slot="flatten",
+        )
+        excludable.validate_flatten_vs_excludable(
+            source_model=self.model_cls  # type: ignore
+        )
+
+        select_to_add, prefetch_to_add = self._classify_flatten_paths(
+            excludable._flatten_paths
+        )
+        new_select = sorted(set(self._select_related) | select_to_add)
+        new_prefetch = sorted(set(self._prefetch_related) | prefetch_to_add)
+        return self.rebuild_self(
+            excludable=excludable,
+            select_related=new_select,
+            prefetch_related=new_prefetch,
+        )
+
+    def _classify_flatten_paths(
+        self, paths: Iterable[tuple[str, ...]]
+    ) -> tuple[set[str], set[str]]:
+        """
+        Split flatten tuple paths into ``select_related`` (single-valued FK,
+        incl. self-ref) and ``prefetch_related`` (m2m / reverse) buckets so
+        the caller can auto-add whichever the user hasn't loaded already.
+
+        :param paths: pre-split tuple paths collected during flatten build
+        :type paths: Iterable[tuple[str, ...]]
+        :return: (paths for select_related, paths for prefetch_related) — each
+            as dunder strings for downstream ``select_related`` /
+            ``prefetch_related`` call sites
+        :rtype: tuple[set[str], set[str]]
+        """
+        select_paths: set[str] = set()
+        prefetch_paths: set[str] = set()
+        source_model = self.model
+        for parts in paths:
+            parent_model: type["Model"] = source_model
+            if len(parts) > 1:
+                _, parent_model, _, _ = get_relationship_alias_model_and_str(
+                    source_model=source_model,
+                    related_parts=list(parts[:-1]),
+                )
+            field = parent_model.ormar_config.model_fields[parts[-1]]
+            bucket = (
+                prefetch_paths
+                if getattr(field, "is_multi", False) or getattr(field, "virtual", False)
+                else select_paths
+            )
+            bucket.add("__".join(parts))
+        return select_paths, prefetch_paths
+
     def fields(
-        self, columns: Union[list, str, set, dict], _is_exclude: bool = False
+        self, columns: Union[list, str, set, dict], slot: "Slot" = "include"
     ) -> "QuerySet[T]":
         """
         With `fields()` you can select subset of model columns to limit the data load.
@@ -473,8 +569,8 @@ class QuerySet(Generic[T]):
 
         To include whole nested model specify model related field name and ellipsis.
 
-        :param _is_exclude: flag if it's exclude or include operation
-        :type _is_exclude: bool
+        :param slot: which Excludable slot to write into ("include" or "exclude")
+        :type slot: Slot
         :param columns: columns to include
         :type columns: Union[list, str, set, dict]
         :return: QuerySet
@@ -484,8 +580,12 @@ class QuerySet(Generic[T]):
         excludable.build(
             items=columns,
             model_cls=self.model_cls,  # type: ignore
-            is_exclude=_is_exclude,
+            slot=slot,
         )
+        if excludable._flatten_paths:
+            excludable.validate_flatten_vs_excludable(
+                source_model=self.model_cls  # type: ignore
+            )
 
         return self.rebuild_self(excludable=excludable)
 
@@ -516,7 +616,7 @@ class QuerySet(Generic[T]):
         :return: QuerySet
         :rtype: QuerySet
         """
-        return self.fields(columns=columns, _is_exclude=True)
+        return self.fields(columns=columns, slot="exclude")
 
     def order_by(self, columns: Union[list, str, OrderAction]) -> "QuerySet[T]":
         """
@@ -886,6 +986,54 @@ class QuerySet(Generic[T]):
         limit_raw_sql = self.limit_sql_raw if limit_raw_sql is None else limit_raw_sql
         return self.rebuild_self(offset=offset, limit_raw_sql=limit_raw_sql)
 
+    def _single_row_order_bys(self, reverse: bool) -> list["OrderAction"]:
+        """
+        Builds the ``order_bys`` list used by :meth:`first` and :meth:`last`.
+
+        A pk-based tiebreaker is prepended only when the user has not
+        supplied an ordering on the source model (otherwise the user's
+        choice must win). For :meth:`last`, both the pk tiebreaker and the
+        user's order_bys are flipped so that ``LIMIT 1`` pulls the tail of
+        the user's natural order.
+
+        :param reverse: whether to flip directions for the ``last()`` case
+        :type reverse: bool
+        :return: combined list of OrderAction objects
+        :rtype: list[OrderAction]
+        """
+        pk_default = OrderAction(
+            order_str=self.model.ormar_config.pkname,
+            model_cls=self.model_cls,  # type: ignore
+        )
+        user_orders = self.order_bys
+        if reverse:
+            pk_default = pk_default.flipped()
+            user_orders = [ob.flipped() for ob in user_orders]
+        has_source_order = any(x.is_source_model_order for x in self.order_bys)
+        prefix: list["OrderAction"] = [] if has_source_order else [pk_default]
+        return prefix + list(user_orders)
+
+    async def _fetch_single(self, order_bys: list["OrderAction"]) -> "T":
+        """
+        Runs a ``LIMIT 1`` select with the given ``order_bys``, merges results,
+        runs any configured prefetch, and enforces the single-row contract
+        (raises ``NoMatch`` / ``MultipleMatches``). Shared implementation
+        backing :meth:`first` and :meth:`last`.
+
+        :param order_bys: fully-resolved order list to apply to the query
+        :type order_bys: list[OrderAction]
+        :return: the single fetched model
+        :rtype: Model
+        """
+        expr = self.build_select_expression(limit=1, order_bys=order_bys)
+        async with self.model_config.database.get_query_executor() as executor:
+            rows = await executor.fetch_all(expr)
+        processed_rows = await self._process_query_result_rows(rows)
+        if self._prefetch_related and processed_rows:
+            processed_rows = await self._prefetch_related_models(processed_rows, rows)
+        self.check_single_result_rows_count(processed_rows)
+        return processed_rows[0]  # type: ignore
+
     async def first(self, *args: Any, **kwargs: Any) -> "T":
         """
         Gets the first row from the db ordered by primary key column ascending.
@@ -899,28 +1047,7 @@ class QuerySet(Generic[T]):
         """
         if kwargs or args:
             return await self.filter(*args, **kwargs).first()
-
-        expr = self.build_select_expression(
-            limit=1,
-            order_bys=(
-                [
-                    OrderAction(
-                        order_str=f"{self.model.ormar_config.pkname}",
-                        model_cls=self.model_cls,  # type: ignore
-                    )
-                ]
-                if not any([x.is_source_model_order for x in self.order_bys])
-                else []
-            )
-            + self.order_bys,
-        )
-        async with self.model_config.database.get_query_executor() as executor:
-            rows = await executor.fetch_all(expr)
-        processed_rows = await self._process_query_result_rows(rows)
-        if self._prefetch_related and processed_rows:
-            processed_rows = await self._prefetch_related_models(processed_rows, rows)
-        self.check_single_result_rows_count(processed_rows)
-        return processed_rows[0]  # type: ignore
+        return await self._fetch_single(self._single_row_order_bys(reverse=False))
 
     async def first_or_none(self, *args: Any, **kwargs: Any) -> Optional["T"]:
         """
@@ -936,6 +1063,41 @@ class QuerySet(Generic[T]):
         """
         try:
             return await self.first(*args, **kwargs)
+        except ormar.NoMatch:
+            return None
+
+    async def last(self, *args: Any, **kwargs: Any) -> "T":
+        """
+        Gets the last row from the db ordered by primary key column descending.
+
+        Complementary to :meth:`first`: the default pk ordering is flipped
+        and the top row is returned.
+
+        :raises NoMatch: if no rows are returned
+        :raises MultipleMatches: if more than 1 row is returned.
+        :param kwargs: fields names and proper value types
+        :type kwargs: Any
+        :return: returned model
+        :rtype: Model
+        """
+        if kwargs or args:
+            return await self.filter(*args, **kwargs).last()
+        return await self._fetch_single(self._single_row_order_bys(reverse=True))
+
+    async def last_or_none(self, *args: Any, **kwargs: Any) -> Optional["T"]:
+        """
+        Gets the last row from the db ordered by primary key column descending.
+
+        If no match is found None will be returned.
+
+        :raises MultipleMatches: if more than 1 row is returned.
+        :param kwargs: fields names and proper value types
+        :type kwargs: Any
+        :return: returned model
+        :rtype: Model
+        """
+        try:
+            return await self.last(*args, **kwargs)
         except ormar.NoMatch:
             return None
 
@@ -1075,6 +1237,8 @@ class QuerySet(Generic[T]):
         result_rows = await self._process_query_result_rows(rows)
         if self._prefetch_related and result_rows:
             result_rows = await self._prefetch_related_models(result_rows, rows)
+        if self._reverse_result:
+            result_rows.reverse()
 
         return result_rows
 
@@ -1112,6 +1276,9 @@ class QuerySet(Generic[T]):
         rows: list = []
         last_primary_key = None
         pk_alias = self.model.get_column_alias(self.model_config.pkname)
+        # Single shared cache across all yielded chunks so 1-row chunks
+        # (the common iterate case) still amortize the plan build.
+        plan_cache: dict = {}
 
         # Server-side cursor (asyncpg/aiomysql) requires an open transaction,
         # which AUTOCOMMIT does not provide.
@@ -1125,12 +1292,12 @@ class QuerySet(Generic[T]):
                     rows.append(row)
                     continue
 
-                yield (await self._process_query_result_rows(rows))[0]
+                yield (await self._process_query_result_rows(rows, plan_cache))[0]
                 last_primary_key = current_primary_key
                 rows = [row]
 
             if rows:
-                yield (await self._process_query_result_rows(rows))[0]
+                yield (await self._process_query_result_rows(rows, plan_cache))[0]
 
     async def create(self, **kwargs: Any) -> "T":
         """
@@ -1280,4 +1447,41 @@ class QuerySet(Generic[T]):
         ).ormar_config.signals.post_bulk_update.send(
             sender=self.model_cls,  # type: ignore
             instances=objects,
+        )
+
+    def __getitem__(self, key: Union[int, slice]) -> "QuerySet[T]":
+        """
+        Returns a new ``QuerySet`` with LIMIT/OFFSET derived from a Python
+        integer index or slice.
+
+        Negative indices and negative slice bounds are translated into a
+        reversed-order query plus an in-memory list reversal on ``.all()``,
+        so that ``Model.objects[-N:]`` returns the last ``N`` rows in the
+        original ordering. Slice shapes that would require a ``COUNT(*)``
+        round-trip (a bare ``[:-N]``, or mixed positive/negative bounds) are
+        rejected with a ``QueryDefinitionError``; use ``.count()`` combined
+        with ``.offset()``/``.limit()`` instead.
+
+        Each call replaces the previous pagination state rather than composing
+        with it — subsequent slicing on an already-sliced queryset is not
+        guaranteed to compose in a Python-list-like way.
+
+        :param key: integer index or slice
+        :type key: int | slice
+        :raises QueryDefinitionError: when ``key`` is not an ``int``/``slice``
+            or when the slice cannot be expressed without a count
+        :return: new QuerySet with updated pagination
+        :rtype: QuerySet
+        """
+        bounds = normalize_slice(key)
+        order_bys = self.order_bys
+        if self._reverse_result != bounds.reverse:
+            if not order_bys:
+                order_bys = OrderAction.from_model_defaults(self.model)
+            order_bys = [ob.flipped() for ob in order_bys]
+        return self.rebuild_self(
+            limit_count=bounds.limit,
+            offset=bounds.offset,
+            order_bys=order_bys,
+            reverse_result=bounds.reverse,
         )

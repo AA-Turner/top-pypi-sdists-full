@@ -1,4 +1,5 @@
 from django.core.management.base import BaseCommand
+
 from allianceauth.authentication.models import UserProfile
 
 
@@ -11,8 +12,7 @@ class Command(BaseCommand):
         if profiles.exists():
             for profile in profiles:
                 self.stdout.write(self.style.ERROR(
-                    '{} does not have an ownership. Resetting user {} main character.'.format(profile.main_character,
-                                                                                                profile.user)))
+                    f'{profile.main_character} does not have an ownership. Resetting user {profile.user} main character.'))
                 profile.main_character = None
                 profile.save()
             self.stdout.write(self.style.WARNING(f'Reset {profiles.count()} main characters.'))

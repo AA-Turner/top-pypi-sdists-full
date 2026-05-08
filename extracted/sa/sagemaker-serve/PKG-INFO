@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-serve
-Version: 1.10.0
+Version: 1.10.1
 Summary: SageMaker Serve package for model serving and deployment
 Author: Amazon Web Services
 License:                                  Apache License
@@ -215,8 +215,8 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sagemaker-core>=2.10.0
-Requires-Dist: sagemaker-train>=1.10.0
+Requires-Dist: sagemaker-core>=2.10.1
+Requires-Dist: sagemaker-train>=1.10.1
 Requires-Dist: boto3<2.0,>=1.42.2
 Requires-Dist: botocore<2.0,>=1.35.75
 Requires-Dist: deepdiff

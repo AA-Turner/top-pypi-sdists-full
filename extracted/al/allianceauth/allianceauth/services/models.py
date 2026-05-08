@@ -26,7 +26,7 @@ class NameFormatConfig(models.Model):
             "formatter for each state for each service."
     )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '{}: {}'.format(
             self.service_name, ', '.join([str(x) for x in self.states.all()])
         )

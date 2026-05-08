@@ -108,6 +108,29 @@ class TestAsyncRunners:
 
         asyncio.run(run())
 
+    def test_allocate_sends_config_id_when_resolved(
+        self,
+        http_client: AsyncHttpClient,
+        layered_configs: AsyncLayeredConfigs,
+    ) -> None:
+        runners = AsyncRunners(http_client, layered_configs=layered_configs)
+        mock_resp = httpx.Response(200, json={"runner_id": "r-1", "host_address": "10.0.0.1:8080"})
+
+        async def run() -> None:
+            ref = ResolvedWorkloadRef(display_name="bot", workload_key="wk-shared", config_id="cfg-bot")
+            with patch.object(
+                layered_configs,
+                "resolve_workload_ref",
+                AsyncMock(return_value=ref),
+            ):
+                with patch.object(http_client._client, "request", AsyncMock(return_value=mock_resp)) as request:
+                    await runners.allocate("bot")
+            body = json.loads(request.await_args.kwargs["content"])
+            assert body["workload_key"] == "wk-shared"
+            assert body["config_id"] == "cfg-bot"
+
+        asyncio.run(run())
+
     def test_wait_ready_retries_until_ready(self, runners: AsyncRunners) -> None:
         statuses = [
             RunnerStatus(runner_id="r-1", status="pending"),

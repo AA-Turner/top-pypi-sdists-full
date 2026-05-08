@@ -1,12 +1,13 @@
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ObjectDoesNotExist
-from .providers import ObjectNotFound
 
-from .models import EveAllianceInfo
-from .models import EveCharacter
-from .models import EveCorporationInfo
-from .models import EveFactionInfo
+from esi.exceptions import HTTPNotModified
+
+from .models import (
+    EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
+)
+from .providers import ObjectNotFound
 
 
 class EveEntityExistsError(forms.ValidationError):
@@ -38,9 +39,8 @@ class EveEntityForm(forms.ModelForm):
 def get_faction_choices():
     # use a method to avoid making an ESI call when the app loads
     # restrict to only those factions a player can join for faction warfare
-    player_factions = [x for x in EveFactionInfo.provider.get_all_factions() if x['militia_corporation_id']]
-    return [(x['faction_id'], x['name']) for x in player_factions]
-
+    player_factions = [x for x in EveFactionInfo.provider.get_all_factions(use_etag=False) if x.militia_corporation_id]
+    return [(x.faction_id, x.name) for x in player_factions]
 
 
 class EveFactionForm(EveEntityForm):
@@ -52,8 +52,10 @@ class EveFactionForm(EveEntityForm):
     def clean_id(self):
         try:
             assert self.Meta.model.provider.get_faction(self.cleaned_data['id'])
-        except (AssertionError, ObjectNotFound):
-            raise EveEntityNotFoundError('faction', self.cleaned_data['id'])
+        except (AssertionError, ObjectNotFound) as e:
+            raise EveEntityNotFoundError('faction', self.cleaned_data['id']) from e
+        except HTTPNotModified:
+            pass  # If ETAG It exists its a valid faction right?
         if self.Meta.model.objects.filter(faction_id=self.cleaned_data['id']).exists():
             raise EveEntityExistsError('faction', self.cleaned_data['id'])
         return self.cleaned_data['id']
@@ -73,13 +75,15 @@ class EveCharacterForm(EveEntityForm):
     def clean_id(self):
         try:
             assert self.Meta.model.provider.get_character(self.cleaned_data['id'])
-        except (AssertionError, ObjectNotFound):
-            raise EveEntityNotFoundError(self.entity_type_name, self.cleaned_data['id'])
+        except (AssertionError, ObjectNotFound) as e:
+            raise EveEntityNotFoundError(self.entity_type_name, self.cleaned_data['id']) from e
+        except HTTPNotModified:
+            pass  # If ETAG It exists its a valid character right?
         if self.Meta.model.objects.filter(character_id=self.cleaned_data['id']).exists():
             raise EveEntityExistsError(self.entity_type_name, self.cleaned_data['id'])
         return self.cleaned_data['id']
 
-    def save(self, commit=True):
+    def save(self, commit=True) -> EveCharacter:
         return self.Meta.model.objects.create_character(self.cleaned_data['id'])
 
     class Meta:
@@ -93,14 +97,16 @@ class EveCorporationForm(EveEntityForm):
     def clean_id(self):
         try:
             assert self.Meta.model.provider.get_corporation(self.cleaned_data['id'])
-        except (AssertionError, ObjectNotFound):
-            raise EveEntityNotFoundError(self.entity_type_name, self.cleaned_data['id'])
+        except (AssertionError, ObjectNotFound) as e:
+            raise EveEntityNotFoundError(self.entity_type_name, self.cleaned_data['id']) from e
+        except HTTPNotModified:
+            pass  # If ETAG It exists its a valid corporation right?
         if self.Meta.model.objects.filter(corporation_id=self.cleaned_data['id']).exists():
             raise EveEntityExistsError(self.entity_type_name, self.cleaned_data['id'])
         return self.cleaned_data['id']
 
     def save(self, commit=True):
-        return self.Meta.model.objects.create_corporation(self.cleaned_data['id'])
+        return self.Meta.model.objects.create_corporation(corp_id=self.cleaned_data['id'], use_etag=False)
 
     class Meta:
         fields = ['id']
@@ -113,13 +119,15 @@ class EveAllianceForm(EveEntityForm):
     def clean_id(self):
         try:
             assert self.Meta.model.provider.get_alliance(self.cleaned_data['id'])
-        except (AssertionError, ObjectNotFound):
-            raise EveEntityNotFoundError(self.entity_type_name, self.cleaned_data['id'])
+        except (AssertionError, ObjectNotFound) as e:
+            raise EveEntityNotFoundError(self.entity_type_name, self.cleaned_data['id']) from e
+        except HTTPNotModified:
+            pass  # If ETAG It exists its a valid alliance right?
         if self.Meta.model.objects.filter(alliance_id=self.cleaned_data['id']).exists():
             raise EveEntityExistsError(self.entity_type_name, self.cleaned_data['id'])
         return self.cleaned_data['id']
 
-    def save(self, commit=True):
+    def save(self, commit=True) -> EveAllianceInfo:
         return self.Meta.model.objects.create_alliance(self.cleaned_data['id'])
 
     class Meta:
@@ -130,7 +138,7 @@ class EveAllianceForm(EveEntityForm):
 @admin.register(EveFactionInfo)
 class EveFactionInfoAdmin(admin.ModelAdmin):
     search_fields = ['faction_name']
-    list_display = ('faction_name',)
+    list_display = ('faction_name','last_updated')
     ordering = ('faction_name',)
 
     def has_change_permission(self, request, obj=None):
@@ -145,7 +153,7 @@ class EveFactionInfoAdmin(admin.ModelAdmin):
 @admin.register(EveCorporationInfo)
 class EveCorporationInfoAdmin(admin.ModelAdmin):
     search_fields = ['corporation_name']
-    list_display = ('corporation_name', 'alliance')
+    list_display = ('corporation_name', 'alliance', 'last_updated')
     list_select_related = ('alliance',)
     list_filter = (('alliance', admin.RelatedOnlyFieldListFilter),)
     ordering = ('corporation_name',)
@@ -162,7 +170,7 @@ class EveCorporationInfoAdmin(admin.ModelAdmin):
 @admin.register(EveAllianceInfo)
 class EveAllianceInfoAdmin(admin.ModelAdmin):
     search_fields = ['alliance_name']
-    list_display = ('alliance_name',)
+    list_display = ('alliance_name', 'last_updated')
     ordering = ('alliance_name',)
 
     def has_change_permission(self, request, obj=None):
@@ -183,7 +191,13 @@ class EveCharacterAdmin(admin.ModelAdmin):
         'character_ownership__user__username'
     ]
     list_display = (
-        'character_name', 'corporation_name', 'alliance_name', 'faction_name', 'user', 'main_character'
+        'character_name',
+        'corporation_name',
+        'alliance_name',
+        'faction_name',
+        'user',
+        'main_character',
+        'last_updated',
     )
     list_select_related = (
         'character_ownership', 'character_ownership__user__profile__main_character'

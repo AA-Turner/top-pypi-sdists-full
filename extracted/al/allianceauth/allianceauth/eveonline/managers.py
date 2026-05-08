@@ -1,20 +1,28 @@
 import logging
+from typing import TYPE_CHECKING
 
 from django.db import models
+
 from . import providers
 
 logger = logging.getLogger(__name__)
 
+if TYPE_CHECKING:
+    from allianceauth.eveonline.models import (
+        EveAllianceInfo, EveCharacter, EveCorporationInfo,
+    )
+
 
 class EveCharacterProviderManager:
-    def get_character(self, character_id) -> providers.Character:
-        return providers.provider.get_character(character_id)
+    @staticmethod
+    def get_character(character_id: int, use_etag: bool = True) -> providers.Character:
+        return providers.open_api_provider.get_character(character_id, use_etag=use_etag)
 
 
 class EveCharacterManager(models.Manager):
     provider = EveCharacterProviderManager()
 
-    def exclude_biomassed(self):
+    def exclude_biomassed(self) -> "models.QuerySet[EveCharacter]":
         """
         Get a queryset of EveCharacter objects, excluding the "Doomheim" corporation (1000001).
 
@@ -24,10 +32,10 @@ class EveCharacterManager(models.Manager):
 
         return self.exclude(corporation_id=1000001)
 
-    def create_character(self, character_id) -> models.Model:
-        return self.create_character_obj(self.provider.get_character(character_id))
+    def create_character(self, character_id) -> "EveCharacter":
+        return self.create_character_obj(self.provider.get_character(character_id, use_etag=False))  # ETAG False, We need response data to create a character object.
 
-    def create_character_obj(self, character: providers.Character) -> models.Model:
+    def create_character_obj(self, character: providers.Character) -> "EveCharacter":
         return self.create(
             character_id=character.id,
             character_name=character.name,
@@ -41,10 +49,10 @@ class EveCharacterManager(models.Manager):
             faction_name=character.faction.name
         )
 
-    def update_character(self, character_id):
+    def update_character(self, character_id) -> "EveCharacter":
         return self.get(character_id=character_id).update_character()
 
-    def get_character_by_id(self, character_id: int):
+    def get_character_by_id(self, character_id: int) -> "EveCharacter | None":
         """Return character by character ID or None if not found."""
         try:
             return self.get(character_id=character_id)
@@ -53,19 +61,24 @@ class EveCharacterManager(models.Manager):
 
 
 class EveAllianceProviderManager:
-    def get_alliance(self, alliance_id) -> providers.Alliance:
-        return providers.provider.get_alliance(alliance_id)
+    @staticmethod
+    def get_alliance(alliance_id, use_etag: bool = True) -> providers.Alliance:
+        return providers.open_api_provider.get_alliance(alliance_id, use_etag=use_etag)
+
+    @staticmethod
+    def get_alliance_corps(alliance_id, use_etag: bool = True) -> list[int]:
+        return providers.open_api_provider.get_alliance_corps(alliance_id, use_etag=use_etag)
 
 
 class EveAllianceManager(models.Manager):
     provider = EveAllianceProviderManager()
 
-    def create_alliance(self, alliance_id):
-        obj = self.create_alliance_obj(self.provider.get_alliance(alliance_id))
+    def create_alliance(self, alliance_id: int) -> "EveAllianceInfo":
+        obj = self.create_alliance_obj(self.provider.get_alliance(alliance_id=alliance_id, use_etag=False))  # ETAG False, We need response data to create an alliance object.
         obj.populate_alliance()
         return obj
 
-    def create_alliance_obj(self, alliance: providers.Alliance):
+    def create_alliance_obj(self, alliance: providers.Alliance) -> "EveAllianceInfo":
         return self.create(
             alliance_id=alliance.id,
             alliance_name=alliance.name,
@@ -73,22 +86,23 @@ class EveAllianceManager(models.Manager):
             executor_corp_id=alliance.executor_corp_id,
         )
 
-    def update_alliance(self, alliance_id):
+    def update_alliance(self, alliance_id) -> "EveAllianceInfo":
         return self.get(alliance_id=alliance_id).update_alliance()
 
 
 class EveCorporationProviderManager:
-    def get_corporation(self, corp_id) -> providers.Corporation:
-        return providers.provider.get_corp(corp_id)
+    @staticmethod
+    def get_corporation(corp_id: int, use_etag: bool = True) -> providers.Corporation:
+        return providers.open_api_provider.get_corp(corp_id, use_etag=use_etag)
 
 
 class EveCorporationManager(models.Manager):
     provider = EveCorporationProviderManager()
 
-    def create_corporation(self, corp_id):
-        return self.create_corporation_obj(self.provider.get_corporation(corp_id))
+    def create_corporation(self, corp_id: int, use_etag: bool = True) -> "EveCorporationInfo":
+        return self.create_corporation_obj(self.provider.get_corporation(corp_id=corp_id, use_etag=use_etag))  # ETAG False, We need response data to create a corporation object.
 
-    def create_corporation_obj(self, corp: providers.Corporation):
+    def create_corporation_obj(self, corp: providers.Corporation) -> "EveCorporationInfo":
         from .models import EveAllianceInfo
         try:
             alliance = EveAllianceInfo.objects.get(alliance_id=corp.alliance_id)
@@ -102,7 +116,5 @@ class EveCorporationManager(models.Manager):
             alliance=alliance,
         )
 
-    def update_corporation(self, corp_id):
-        return self\
-            .get(corporation_id=corp_id)\
-            .update_corporation(self.provider.get_corporation(corp_id))
+    def update_corporation(self, corp_id: int) -> "EveCorporationInfo":
+        return self.get(corporation_id=corp_id).update_corporation()

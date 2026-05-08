@@ -94,14 +94,34 @@ class Main(AppHandler):
         self.app.router.add_view(
             '/api/v1/flowtask/components/{component_name}', FlowtaskComponentHandler
         )
-        ### Trigger System:
+        ### Trigger System: HookService loads hooks synchronously during
+        ### configure() so each trigger can register its on_startup /
+        ### on_shutdown on app.on_* before signals freeze.
         if USE_WEBHOOKS:
-            hook_service = HookService(
-                event_loop=self.event_loop(),
-                app=self.app
-            )
-            # Configure the Hook Service
-            self.event_loop().run_until_complete(hook_service.setup())
+            hook_service = HookService(app=self.app)
+
+            # Zoom Phone webhook receiver (FEAT-013).
+            from flowtask.conf import ZOOM_WEBHOOK_SECRET_TOKEN
+            if ZOOM_WEBHOOK_SECRET_TOKEN:
+                from flowtask.hooks.types.zoom import ZoomWebHook
+                from flowtask.hooks.actions.zoom_event import PersistZoomEvent
+
+                zoom_hook = ZoomWebHook(
+                    id="zoom-us",
+                    description="Zoom Phone event-subscription receiver",
+                    actions=[],
+                )
+                zoom_hook.add_action(PersistZoomEvent())
+                hook_service.add_hook(zoom_hook)
+            else:
+                from navconfig.logging import logging as _logging
+                _logging.getLogger(__name__).info(
+                    "ZoomWebHook trigger SKIPPED: ZOOM_WEBHOOK_SECRET_TOKEN is empty. "
+                    "Set the secret in env/<ENV>/.env to enable the receiver."
+                )
+
+            # Load FS- and DB-backed hooks; wire trigger signals before freeze.
+            hook_service.setup(app=self.app, loop=self.event_loop())
 
         ### Auth System
         # create a new instance of Auth System

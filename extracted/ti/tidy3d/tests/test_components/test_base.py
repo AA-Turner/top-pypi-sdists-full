@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+import math
+from typing import Any, Literal
 
 import numpy as np
 import pytest
@@ -10,35 +11,39 @@ from pydantic import Field, PrivateAttr, ValidationError
 from pydantic_core import PydanticSerializationError
 
 import tidy3d as td
-from tidy3d.components.base import Tidy3dBaseModel, keyed_cache
+from tidy3d.components.base import (
+    Tidy3dBaseModel,
+    _strip_json_exponent_plus_signs,
+    keyed_cache,
+)
 from tidy3d.components.types import Undefined
 
 M = td.Medium()
 
 
 class LeafModel(Tidy3dBaseModel):
-    leaf_attr: Optional[str] = None
+    leaf_attr: str | None = None
     common_attr: int = 0
-    value_attr: Optional[float] = None
+    value_attr: float | None = None
 
 
 class NodeModel(Tidy3dBaseModel):
-    node_attr: Optional[str] = None
-    leaf_child: Optional[LeafModel] = None
+    node_attr: str | None = None
+    leaf_child: LeafModel | None = None
     leaf_list: list[LeafModel] = Field(default_factory=list)
     leaf_tuple: tuple[LeafModel, ...] = Field(default_factory=tuple)
     common_attr: float = 0.0
-    value_attr: Optional[int] = None
+    value_attr: int | None = None
 
 
 class RootModel(Tidy3dBaseModel):
-    root_attr: Optional[str] = None
-    node_child: Optional[NodeModel] = None
+    root_attr: str | None = None
+    node_child: NodeModel | None = None
     node_list: list[NodeModel] = Field(default_factory=list)
     node_tuple: tuple[NodeModel, ...] = Field(default_factory=tuple)
     mixed_list: list[Any] = Field(default_factory=list)
     common_attr: bool = False
-    value_attr: Optional[str] = None
+    value_attr: str | None = None
 
 
 class SpecialNodeModel(NodeModel):
@@ -59,6 +64,45 @@ def test_negative_infinity():
 
     T = TestModel(z="-Infinity")
     assert np.isneginf(T.z)
+
+
+def test_strip_json_exponent_plus_signs():
+    json_string = (
+        '{"lower":2.86e+19,"upper":2.86E+19,"negative":1.2e-5,'
+        '"string":"keep 2.86e+19 and \\"3.0E+8\\" inside strings"}'
+    )
+
+    assert _strip_json_exponent_plus_signs(json_string) == (
+        '{"lower":2.86e19,"upper":2.86E19,"negative":1.2e-5,'
+        '"string":"keep 2.86e+19 and \\"3.0E+8\\" inside strings"}'
+    )
+
+
+def test_float_json_format_is_stable():
+    class FloatModel(Tidy3dBaseModel):
+        large_positive: float
+        large_negative: float
+        negative_zero: float
+        positive_infinity: float
+        negative_infinity: float
+
+    model = FloatModel(
+        attrs={"note": "keep e+ inside strings"},
+        large_positive=2.86e19,
+        large_negative=-2.86e19,
+        negative_zero=-0.0,
+        positive_infinity=math.inf,
+        negative_infinity=-math.inf,
+    )
+
+    model_json = model.model_dump_json()
+    assert '"large_positive":2.86e19' in model_json
+    assert '"large_positive":2.86e+19' not in model_json
+    assert '"large_negative":-2.86e19' in model_json
+    assert '"negative_zero":-0.0' in model_json
+    assert '"positive_infinity":"Infinity"' in model_json
+    assert '"negative_infinity":"-Infinity"' in model_json
+    assert '"note":"keep e+ inside strings"' in model_json
 
 
 def test_comparisons():

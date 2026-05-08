@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from .models import SmfUser
 from ...admin import ServicesUserAdmin
+from .models import SmfUser
 
 
 @admin.register(SmfUser)

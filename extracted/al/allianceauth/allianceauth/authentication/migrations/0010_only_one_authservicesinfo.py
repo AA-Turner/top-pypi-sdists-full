@@ -2,6 +2,7 @@
 
 from django.db import migrations
 
+
 def count_completed_fields(model):
     return len([True for key, value in model.__dict__.items() if bool(value)])
 

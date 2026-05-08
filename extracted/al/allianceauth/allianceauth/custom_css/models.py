@@ -4,12 +4,11 @@ Models for the custom_css app
 
 import re
 
-# Django Solo
-from solo.models import SingletonModel
-
 # Django
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+# Django Solo
+from solo.models import SingletonModel
 
 
 class CustomCSS(SingletonModel):
@@ -19,8 +18,8 @@ class CustomCSS(SingletonModel):
 
     css = models.TextField(
         blank=True,
-        null=True,
         verbose_name=_("Your custom CSS"),
+        default="",
         help_text=_("This CSS will be added to the site after the default CSS."),
     )
     css_compressed = models.TextField(
@@ -50,7 +49,7 @@ class CustomCSS(SingletonModel):
 
         return str(_("Custom CSS"))
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         """
         Save the CustomCSS instance
 
@@ -97,9 +96,7 @@ class CustomCSS(SingletonModel):
         )
 
         # Fragment values can loose zeros
-        css = re.sub(
-            pattern=r":\s*0(\.\d+([cm]m|e[mx]|in|p[ctx]))\s*;", repl=r":\1;", string=css
-        )
+        css = re.sub(pattern=r":\s*0(\.\d+([cm]m|e[mx]|in|p[ctx]))\s*;", repl=r":\1;", string=css)
 
         for rule in re.findall(pattern=r"([^{]+){([^}]*)}", string=css):
             # We don't need spaces around operators

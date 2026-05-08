@@ -1,8 +1,8 @@
 from django.utils.translation import gettext_lazy as _
-from allianceauth.menu.hooks import MenuItemHook
 
-from allianceauth.services.hooks import UrlHook
 from allianceauth import hooks
+from allianceauth.menu.hooks import MenuItemHook
+from allianceauth.services.hooks import UrlHook
 
 from . import urls
 from .managers import GroupManager

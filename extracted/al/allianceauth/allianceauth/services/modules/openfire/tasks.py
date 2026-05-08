@@ -1,12 +1,15 @@
 import logging
 
+from celery import shared_task
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
+
 from allianceauth.notifications import notify
-from celery import shared_task
-from allianceauth.services.tasks import QueueOnce
-from allianceauth.services.modules.openfire.manager import OpenfireManager
 from allianceauth.services.hooks import NameFormatter
+from allianceauth.services.modules.openfire.manager import OpenfireManager
+from allianceauth.services.tasks import QueueOnce
+
 from .models import OpenfireUser
 
 logger = logging.getLogger(__name__)
@@ -43,7 +46,7 @@ class OpenfireTasks:
     @shared_task(bind=True, name="openfire.update_groups", base=QueueOnce)
     def update_groups(self, pk):
         user = User.objects.get(pk=pk)
-        logger.debug("Updating jabber groups for user %s" % user)
+        logger.debug(f"Updating jabber groups for user {user}")
         if OpenfireTasks.has_account(user):
             groups = [user.profile.state.name]
             for group in user.groups.all():
@@ -51,10 +54,10 @@ class OpenfireTasks:
             logger.debug(f"Updating user {user} jabber groups to {groups}")
             try:
                 OpenfireManager.update_user_groups(user.openfire.username, groups)
-            except:
-                logger.exception("Jabber group sync failed for %s, retrying in 10 mins" % user)
-                raise self.retry(countdown=60 * 10)
-            logger.debug("Updated user %s jabber groups." % user)
+            except Exception as e:
+                logger.exception(f"Jabber group sync failed for {user}, retrying in 10 mins")
+                raise self.retry(exc=e, countdown=60 * 10) from e
+            logger.debug(f"Updated user {user} jabber groups.")
         else:
             logger.debug("User does not have an openfire account")
 

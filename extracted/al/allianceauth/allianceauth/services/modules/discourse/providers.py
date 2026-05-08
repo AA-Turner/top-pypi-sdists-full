@@ -1,7 +1,9 @@
 from pydiscourse import DiscourseClient
+
 from django.conf import settings
 
-class DiscourseAPIClient():
+
+class DiscourseAPIClient:
     _client = None
 
     def __init__(self):

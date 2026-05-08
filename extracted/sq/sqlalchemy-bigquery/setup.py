@@ -22,6 +22,7 @@ import io
 import itertools
 import os
 import re
+
 import setuptools
 from setuptools import setup
 
@@ -53,7 +54,7 @@ extras = {
     # Keep the no-op bqstorage extra for backward compatibility.
     # See: https://github.com/googleapis/python-bigquery/issues/757
     "bqstorage": [
-        "google-cloud-bigquery-storage >= 2.0.0, <3.0.0",
+        "google-cloud-bigquery-storage >= 2.18.0, <3.0.0",
         # Due to an issue in pip's dependency resolver, the `grpc` extra is not
         # installed, even though `google-cloud-bigquery-storage` specifies it
         # as `google-api-core[grpc]`. We thus need to explicitly specify it here.
@@ -63,7 +64,7 @@ extras = {
         "grpcio >= 1.47.0, < 2.0.0",
         "grpcio >= 1.49.1, < 2.0.0; python_version =='3.11'",
         "grpcio >= 1.75.1, < 2.0.0; python_version >= '3.14'",
-        "pyarrow >= 5.0.0",
+        "pyarrow >= 6.0.0",
     ],
 }
 
@@ -92,7 +93,7 @@ setup(
         "sqlalchemy_bigquery_vendored": "third_party/sqlalchemy_bigquery_vendored",
     },
     packages=packages,
-    url="https://github.com/googleapis/python-bigquery-sqlalchemy",
+    url="https://github.com/googleapis/google-cloud-python/tree/main/packages/sqlalchemy-bigquery",
     keywords=["bigquery", "sqlalchemy"],
     classifiers=[
         release_status,
@@ -100,8 +101,6 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
@@ -112,17 +111,17 @@ setup(
     ],
     platforms="Posix; MacOS X; Windows",
     install_requires=[
-        "google-api-core >= 1.31.5, <3.0.0,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0",
+        "google-api-core >= 2.11.1, <3.0.0,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0",
         # NOTE: Maintainers, please do not require google-auth>=2.x.x
         # Until this issue is closed
         # https://github.com/googleapis/google-cloud-python/issues/10566
-        "google-auth>=1.25.0,<3.0.0",  # Work around pip wack.
-        "google-cloud-bigquery>=3.3.6,<4.0.0",
+        "google-auth>=2.14.1,<3.0.0",
+        "google-cloud-bigquery>=3.20.0,<4.0.0",
         "packaging",
         "sqlalchemy>=1.4.16,<3.0.0",
     ],
     extras_require=extras,
-    python_requires=">=3.8, <3.15",
+    python_requires=">=3.10, <3.15",
     tests_require=["packaging", "pytz"],
     entry_points={
         "sqlalchemy.dialects": ["bigquery = sqlalchemy_bigquery:BigQueryDialect"]

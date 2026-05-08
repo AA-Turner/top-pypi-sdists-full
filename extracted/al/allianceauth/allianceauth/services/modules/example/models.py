@@ -9,5 +9,5 @@ class ExampleUser(models.Model):
                                 related_name='example')
     username = models.CharField(max_length=254)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.username

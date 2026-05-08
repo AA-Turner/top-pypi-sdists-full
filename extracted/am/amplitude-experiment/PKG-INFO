@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amplitude-experiment
-Version: 1.11.0
+Version: 1.11.1
 Summary: The official Amplitude Experiment Python SDK for server-side instrumentation.
 Home-page: https://github.com/amplitude/experiment-python-server
 Author: Amplitude Inc.

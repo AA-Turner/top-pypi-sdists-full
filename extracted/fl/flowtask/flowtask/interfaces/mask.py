@@ -35,6 +35,15 @@ class MaskSupport(ABC):
     def _mask_processing(self, variables: dict) -> None:
         try:
             for mask, replace in self._mask.items():
+                var_name = mask.strip("{}")
+                # If the variable was explicitly passed down (e.g. from a SubTask or payload), we bypass the mask generation
+                if var_name in variables and variables[var_name]:
+                    self.logger.notice(
+                        f":: Bypassing Mask {mask} because variable {var_name} was explicitly passed."
+                    )
+                    self._mask[mask] = variables[var_name]
+                    continue
+
                 # first: making replacement of masks based on vars:
                 try:
                     if mask in variables:

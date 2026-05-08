@@ -14,14 +14,14 @@ alliance Discord server for this.
 """
 
 import os
-from random import random
 import threading
+from random import random
 from time import sleep
+
 from django.test import TestCase
 
-from .. import DiscordClient, DiscordApiBackoff
-
 from ...utils import set_logger_to_file
+from .. import DiscordApiBackoff, DiscordClient
 
 logger = set_logger_to_file(
     'allianceauth.services.modules.discord.discord_client.client', __file__
@@ -44,26 +44,24 @@ MAX_JITTER_PER_RUN_SECS = 1.0
 
 def worker(num: int):
     """worker function"""
-    worker_info = 'worker %d' % num
-    logger.info('%s: started', worker_info)
+    worker_info = f'worker {num}'
+    logger.info(f'{worker_info}: started')
     client = DiscordClient(DISCORD_BOT_TOKEN)
     try:
         runs = 0
         while runs < NUMBER_OF_RUNS:
-            run_info = '%s: run %d' % (worker_info, runs + 1)
+            run_info = f'{worker_info}: run {runs + 1}'
             my_jitter_secs = random() * MAX_JITTER_PER_RUN_SECS
-            logger.info('%s - waiting %s secs', run_info, f'{my_jitter_secs:.3f}')
+            logger.info(f'{run_info} - waiting {my_jitter_secs:.3f} secs')
             sleep(my_jitter_secs)
-            logger.info('%s - started', run_info)
+            logger.info(f'{run_info} - started')
             try:
                 client.modify_guild_member(
                     DISCORD_GUILD_ID, DISCORD_USER_ID, nick=NICK
                 )
                 runs += 1
             except DiscordApiBackoff as bo:
-                message = '%s - waiting out API backoff for %d ms' % (
-                    run_info, bo.retry_after
-                )
+                message = f'{run_info} - waiting out API backoff for {bo.retry_after} ms'
                 logger.info(message)
                 print()
                 print(message)

@@ -446,53 +446,8 @@ class AbstractTask(ABC):
             If the task does not conform to the expected schema, an error is raised
             with details about what failed.
         """
-        schema = {
-            "$schema": "http://json-schema.org/draft-07/schema#",
-            "type": "object",
-            "properties": {
-                "name": {"type": "string"},
-                "description": {"type": "string"},
-                "timezone": {"type": "string"},
-                "comments": {"type": "string"},
-                "events": {
-                    "type": "object",
-                    "properties": {
-                        "publish": {"type": "boolean"},
-                    },
-                    "patternProperties": {
-                        "^[A-Za-z0-9_]+$": {
-                            "anyOf": [
-                                {"type": "boolean"},
-                                {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "additionalProperties": True
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "additionalProperties": True
-                },
-                "steps": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "minProperties": 1,
-                        "maxProperties": 1,
-                        "patternProperties": {
-                            "^[A-Za-z0-9_]+$": {
-                                "type": "object",
-                                "additionalProperties": True,
-                            }
-                        }
-                    }
-                }
-            },
-            "required": ["name", "steps"],
-            "additionalProperties": False,
-        }
+        from ..parsers.syntax.schema import ROOT_TASK_SCHEMA
+        schema = ROOT_TASK_SCHEMA
         try:
             jsonschema.validate(instance=task, schema=schema)
             return True

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject2conda
-Version: 0.23.0
+Version: 0.23.1
 Summary: A script to convert a Python project declared on a pyproject.toml to a conda environment.
 Keywords: pyproject2conda
 Author: William P. Krekelberg

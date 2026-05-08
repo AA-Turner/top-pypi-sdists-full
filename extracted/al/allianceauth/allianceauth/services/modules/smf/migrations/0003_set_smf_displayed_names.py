@@ -1,5 +1,7 @@
 from django.db import migrations
+
 from ..manager import SmfManager
+
 
 def on_migrate(apps, schema_editor):
     SmfUser = apps.get_model("smf", "SmfUser")
@@ -9,7 +11,7 @@ def on_migrate(apps, schema_editor):
     for smf_user in all_smf_users:
         try:
             auth_user = smf_user.user
-        except:
+        except Exception:
             pass
         else:
             SmfManager.update_display_name(auth_user)

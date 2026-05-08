@@ -1,4 +1,5 @@
 import requests
+
 from allianceauth.utils.testing import NoSocketsTestCase, SocketAccessError
 
 

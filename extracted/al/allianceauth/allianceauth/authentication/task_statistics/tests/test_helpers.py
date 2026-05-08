@@ -4,7 +4,8 @@ from unittest.mock import patch
 from redis import RedisError
 
 from allianceauth.authentication.task_statistics.helpers import (
-    _RedisStub, get_redis_client_or_stub,
+    _RedisStub,
+    get_redis_client_or_stub,
 )
 
 MODULE_PATH = "allianceauth.authentication.task_statistics.helpers"

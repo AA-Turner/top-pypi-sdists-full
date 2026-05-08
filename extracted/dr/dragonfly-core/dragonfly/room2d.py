@@ -60,17 +60,17 @@ class Room2D(_BaseGeometry):
             boundary conditions to each of the walls of the Room in the resulting
             model. If None, all boundary conditions will be Outdoors or Ground
             depending on whether ceiling of the room is below 0 (the assumed
-            ground plane). Default: None.
+            ground plane). (Default: None).
         window_parameters: A list of WindowParameter objects that dictate how the
             window geometries will be generated for each of the walls. If None,
-            no windows will exist over the entire Room2D. Default: None.
+            no windows will exist over the entire Room2D. (Default: None).
         shading_parameters: A list of ShadingParameter objects that dictate how the
             shade geometries will be generated for each of the walls. If None,
-            no shades will exist over the entire Room2D. Default: None.
+            no shades will exist over the entire Room2D. (Default: None).
         is_ground_contact: A boolean noting whether this Room2D has its floor
-            in contact with the ground. Default: False.
+            in contact with the ground. (Default: False).
         is_top_exposed: A boolean noting whether this Room2D has its ceiling
-            exposed to the outdoors. Default: False.
+            exposed to the outdoors. (Default: False).
         tolerance: The maximum difference between z values at which point vertices
             are considered to be in the same horizontal plane. This is used to check
             that all vertices of the input floor_geometry lie in the same horizontal
@@ -1345,7 +1345,7 @@ class Room2D(_BaseGeometry):
 
     def assign_sub_faces(self, sub_faces, projection_distance=0, overwrite=True,
                          tolerance=0.01, angle_tolerance=1.0):
-        """Assign a list of orphaned SubFaces (Apertures and Doors) to this Room2D.
+        """Assign a list of SubFaces (Apertures and Doors) to this Room2D.
 
         The geometry of the SubFaces will automatically be converted to
         WindowParameters in the plane of each wall segment and appropriate is_door
@@ -1370,9 +1370,7 @@ class Room2D(_BaseGeometry):
                 whether an attempt should be made to preserve existing windows/doors
                 in which case sub-faces will only be replaced if they are perfectly
                 duplicated between the current sub-faces and the newly-supplied
-                sub-faces. Note that setting this to False can significantly
-                increase the runtime since it requires translation to Honeybee
-                to be able to sense when windows/doors are duplicated. (Default: True).
+                sub-faces. (Default: True).
             tolerance: The minimum difference in coordinate values for them
                 to be considered distinct from one another. (Default: 0.01,
                 suitable for objects in meters).
@@ -4188,7 +4186,7 @@ class Room2D(_BaseGeometry):
                 tuple of Surface.boundary_condition_objects as the second item.
         """
         # create the honeybee Room
-        has_roof, ex_wall_i = False, None
+        has_roof, ex_wall_i, roof_spec = False, None, None
         if self._parent is not None:
             # get a roof specification for the room
             roof_spec = self._parent._room_roofs(self, tolerance)
@@ -4201,10 +4199,10 @@ class Room2D(_BaseGeometry):
                     pass
                 room_polyface, roof_face_i, ex_wall_i = \
                     self._room_volume_with_roof(roof_spec, tolerance)
-                if room_polyface is None:  # complete failure to interpret roof
-                    has_roof = False
+                if room_polyface is None:
+                    has_roof = False  # complete failure to interpret roof
                 elif enforce_solid and not room_polyface.is_solid:
-                    has_roof = False
+                    has_roof = False  # accounting for roofs failed to make a solid room
                 else:
                     has_roof = True
         if not has_roof:  # generate the Room volume normally through extrusion
@@ -4338,6 +4336,24 @@ class Room2D(_BaseGeometry):
             if self._skylight_parameters is not None:
                 for rf in roof_faces:
                     self._skylight_parameters.add_skylight_to_face(rf, tolerance)
+            # set clearstory windows if they exist on the roof
+            if roof_spec is not None and roof_spec.has_clearstory:
+                # get all wall Faces of the Room that can host clearstory windows
+                roof_i_pos, total_face_count = [], len(hb_room)
+                for ri in roof_face_i:
+                    ri_pos = ri + total_face_count if ri < 0 else ri
+                    roof_i_pos.append(ri_pos)
+                roof_i_pos.sort()
+                roof_st = roof_i_pos[0]
+                clear_faces = [face for face in hb_room.faces[roof_st:]
+                               if isinstance(face.type, Wall)]
+                for cf in clear_faces:
+                    pts_2d = [Point2D(pt.x, pt.y) for pt in cf.geometry.boundary]
+                    for cs_par in roof_spec.clearstory_parameters:
+                        touching = [cs_par.base_line.distance_to_point(p) < tolerance
+                                    for p in pts_2d]
+                        if any(touching):
+                            cs_par.add_clearstory_to_face(cf, tolerance)
 
         # set the story, multiplier, display_name, and user_data
         if self.has_parent:
@@ -5697,9 +5713,10 @@ class Room2D(_BaseGeometry):
                 the roof is not successfully applied to the Room.
 
             * ex_wall_i -- A set of integers for the indices of the wall segments
-                that were excluded from the room polyface. This can be used to
-                ensure that windows and boundary conditions are assigned to the
-                correct Face of the polyface.
+                that were excluded from the room polyface. This happens when a
+                roof perfectly touches the floor of a room. This list of integers
+                can be used to ensure that windows and boundary conditions are
+                assigned to the correct Face of the polyface.
         """
         # get the roof polygons and the bounding Room2D polygon
         roof_polys = roof_spec.boundary_geometry_2d
@@ -6237,6 +6254,10 @@ class Room2D(_BaseGeometry):
                     if not new_face3d.is_self_intersecting and \
                             new_face3d.area > tolerance ** 2:
                         vertical_faces.append(new_face3d)
+
+        # if no vertical faces were created this is not the issue
+        if len(vertical_faces) == 0:
+            return room_polyface, roof_face_i
 
         # remove duplicated vertices in the resulting vertical faces
         clean_vert_faces = []

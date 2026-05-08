@@ -3,10 +3,10 @@ from unittest import mock
 from celery_once import AlreadyQueued
 
 from django.core.cache import cache
-from django.test import override_settings, TestCase
+from django.test import TestCase, override_settings
 
+from allianceauth.services.tasks import update_groups_for_user, validate_services
 from allianceauth.tests.auth_utils import AuthUtils
-from allianceauth.services.tasks import validate_services, update_groups_for_user
 
 from ..tasks import DjangoBackend
 
@@ -55,7 +55,7 @@ class TestDjangoBackend(TestCase):
 
     def setUp(self) -> None:
         cache.delete(self.TEST_KEY)
-        self.backend = DjangoBackend(dict())
+        self.backend = DjangoBackend({})
 
     def test_can_get_lock(self):
         """

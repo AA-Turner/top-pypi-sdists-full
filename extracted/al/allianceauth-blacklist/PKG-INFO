@@ -1,22 +1,39 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: allianceauth-blacklist
-Version: 0.1.1
-Summary: Alliance Auth Plugin
-Home-page: https://github.com/Solar-Helix-Independent-Transport/allianceauth-blacklist
-Author: AaronKable
-Author-email: aaronkable@gmail.com
-License: GNU General Public License v3 (GPLv3)
-Platform: UNKNOWN
+Version: 0.2.0
+Summary: Integration with Alliance Auth's State System, creates an maintains a Blacklisted State to ensure no services access is granted to Blacklisted users
+Keywords: allianceauth,eveonline
+Author-email: AaronKable <aaronkable@gmail.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
 Classifier: Environment :: Web Environment
+Classifier: Framework :: Celery
 Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.0
+Classifier: Framework :: Django :: 4.2
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: allianceauth>=4
+Requires-Dist: django-ninja<2,>=1.0.1
+Requires-Dist: allianceauth-securegroups ; extra == "test"
+Project-URL: Homepage, https://github.com/Solar-Helix-Independent-Transport/allianceauth-blacklist
+Project-URL: Source, https://github.com/Solar-Helix-Independent-Transport/allianceauth-blacklist
+Project-URL: Tracker, https://github.com/Solar-Helix-Independent-Transport/allianceauth-blacklist/issues
+Provides-Extra: test
 
 # allianceauth-blacklist
 
@@ -56,5 +73,4 @@ Comments | add_new_eve_note_restricted_comments | Can add new restricted comment
 ## Contributing
 
 Make sure you have signed the [License Agreement](https://developers.eveonline.com/resource/license-agreement) by logging in at <https://developers.eveonline.com> before submitting any pull requests. All bug fixes or features must not include extra superfluous formatting changes.
-
 

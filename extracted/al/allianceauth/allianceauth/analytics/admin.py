@@ -1,13 +1,14 @@
+from solo.admin import SingletonModelAdmin
+
 from django.contrib import admin
 
 from .models import AnalyticsIdentifier, AnalyticsTokens
-from solo.admin import SingletonModelAdmin
 
 
 @admin.register(AnalyticsIdentifier)
 class AnalyticsIdentifierAdmin(SingletonModelAdmin):
-    search_fields = ['identifier', ]
-    list_display = ['identifier', ]
+    readonly_fields = ['identifier', ]
+
 
 
 @admin.register(AnalyticsTokens)

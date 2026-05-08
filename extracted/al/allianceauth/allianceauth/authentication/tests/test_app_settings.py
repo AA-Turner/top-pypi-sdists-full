@@ -1,4 +1,5 @@
 from unittest.mock import Mock, patch
+
 from django.test import TestCase
 
 from .. import app_settings
@@ -83,7 +84,7 @@ class TestSetAppSetting(TestCase):
         self.assertEqual(result, 50)
 
     @patch(MODULE_PATH + '.app_settings.settings')
-    def test_default_for_invalid_type_int(self, mock_settings):
+    def test_default_for_outofrange_int(self, mock_settings):
         mock_settings.TEST_SETTING_DUMMY = 1000
         result = app_settings._clean_setting(
             'TEST_SETTING_DUMMY',
@@ -96,7 +97,7 @@ class TestSetAppSetting(TestCase):
     def test_default_is_none_needs_required_type(self, mock_settings):
         mock_settings.TEST_SETTING_DUMMY = 'invalid type'
         with self.assertRaises(ValueError):
-            result = app_settings._clean_setting(
+            app_settings._clean_setting(
                 'TEST_SETTING_DUMMY',
                 default_value=None
             )

@@ -96,6 +96,41 @@ class TestRunners:
                 runners.allocate("wk-raw")
         assert json.loads(request.call_args.kwargs["content"])["workload_key"] == "wk-raw"
 
+    def test_allocate_sends_config_id_when_resolved(
+        self,
+        http_client: HttpClient,
+        layered_configs: LayeredConfigs,
+    ) -> None:
+        runners = Runners(http_client, layered_configs=layered_configs)
+        mock_resp = httpx.Response(200, json={"runner_id": "r-1", "host_address": "10.0.0.1:8080"})
+        with patch.object(
+            layered_configs,
+            "resolve_workload_ref",
+            return_value=ResolvedWorkloadRef(display_name="bot", workload_key="wk-shared", config_id="cfg-bot"),
+        ):
+            with patch.object(http_client._client, "request", return_value=mock_resp) as request:
+                runners.allocate("bot")
+        body = json.loads(request.call_args.kwargs["content"])
+        assert body["workload_key"] == "wk-shared"
+        assert body["config_id"] == "cfg-bot"
+
+    def test_allocate_omits_config_id_when_unresolved(
+        self,
+        http_client: HttpClient,
+        layered_configs: LayeredConfigs,
+    ) -> None:
+        runners = Runners(http_client, layered_configs=layered_configs)
+        mock_resp = httpx.Response(200, json={"runner_id": "r-1", "host_address": "10.0.0.1:8080"})
+        with patch.object(
+            layered_configs,
+            "resolve_workload_ref",
+            return_value=ResolvedWorkloadRef(workload_key="wk-only"),
+        ):
+            with patch.object(http_client._client, "request", return_value=mock_resp) as request:
+                runners.allocate("wk-only")
+        body = json.loads(request.call_args.kwargs["content"])
+        assert "config_id" not in body
+
     def test_status_ready(self, runners: Runners, http_client: HttpClient) -> None:
         resp_data = {"runner_id": "r-1", "status": "ready", "host_address": "10.0.0.1:8080"}
         mock_resp = httpx.Response(200, json=resp_data)

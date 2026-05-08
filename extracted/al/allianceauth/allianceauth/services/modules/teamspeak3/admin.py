@@ -1,8 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.models import Group
-from .models import AuthTS, Teamspeak3User, StateGroup, TSgroup
-from ...admin import ServicesUserAdmin
+
 from allianceauth.groupmanagement.models import ReservedGroupName
+
+from ...admin import ServicesUserAdmin
+from .models import AuthTS, StateGroup, Teamspeak3User, TSgroup
 
 
 @admin.register(Teamspeak3User)
@@ -40,7 +42,7 @@ class AuthTSgroupAdmin(admin.ModelAdmin):
         description='ts groups'
     )
     def _ts_group(self, obj):
-        return [x for x in obj.ts_group.all().order_by('ts_group_id')]
+        return list(obj.ts_group.all().order_by('ts_group_id'))
 
     # _ts_group.admin_order_field = 'profile__state'
 

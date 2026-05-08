@@ -215,6 +215,8 @@ from ..models import (
     VapiConfigOut,
     VeriffConfig,
     VeriffConfigOut,
+    VgsConfig,
+    VgsConfigOut,
     ZoomConfig,
     ZoomConfigOut,
 )
@@ -286,6 +288,7 @@ from .message import (
 from .message_attempt import (
     MessageAttempt,
     MessageAttemptAsync,
+    MessageAttemptGetOptions,
     MessageAttemptListAttemptedDestinationsOptions,
     MessageAttemptListAttemptedMessagesOptions,
     MessageAttemptListByEndpointOptions,
@@ -400,6 +403,7 @@ __all__ = [
     "MessageAttemptListByEndpointOptions",
     "MessageAttemptListByMsgOptions",
     "MessageAttemptListAttemptedMessagesOptions",
+    "MessageAttemptGetOptions",
     "MessageAttemptListAttemptedDestinationsOptions",
     "MessageAttemptResendOptions",
     "OperationalWebhookEndpoint",
@@ -644,6 +648,8 @@ __all__ = [
     "VapiConfigOut",
     "VeriffConfig",
     "VeriffConfigOut",
+    "VgsConfig",
+    "VgsConfigOut",
     "ZoomConfig",
     "ZoomConfigOut",
 ]

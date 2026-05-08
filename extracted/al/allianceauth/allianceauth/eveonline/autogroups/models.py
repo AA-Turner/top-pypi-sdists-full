@@ -3,9 +3,10 @@ from typing import ClassVar
 from django.db import models, transaction
 from django.contrib.auth.models import Group, User
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import models, transaction
 
 from allianceauth.authentication.models import State
-from allianceauth.eveonline.models import EveCorporationInfo, EveAllianceInfo
+from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
 
 logger = logging.getLogger(__name__)
 
@@ -81,23 +82,23 @@ class AutogroupsConfig(models.Model):
 
     objects: ClassVar[AutogroupsConfigManager] = AutogroupsConfigManager()
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def __repr__(self):
-        return self.__class__.__name__
-
-    def __str__(self):
+    def __str__(self) -> str:
         return 'States: ' + (' '.join(list(self.states.all().values_list('name', flat=True))) if self.pk else str(None))
 
-    def update_all_states_group_membership(self):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def __repr__(self) -> str:
+        return self.__class__.__name__
+
+    def update_all_states_group_membership(self) -> None:
         list(map(self.update_group_membership_for_state, self.states.all()))
 
     def update_group_membership_for_state(self, state: State):
         list(map(self.update_group_membership_for_user, get_users_for_state(state)))
 
     @transaction.atomic
-    def update_group_membership_for_user(self, user: User):
+    def update_group_membership_for_user(self, user: User) -> None:
         self.update_alliance_group_membership(user)
         self.update_corp_group_membership(user)
 
@@ -143,7 +144,9 @@ class AutogroupsConfig(models.Model):
                 group = self.get_corp_group(corp)
         except EveCorporationInfo.DoesNotExist:
             logger.debug(f'User {user} main characters corporation does not exist in the database. Creating.')
-            corp = EveCorporationInfo.objects.create_corporation(user.profile.main_character.corporation_id)
+            corp = EveCorporationInfo.objects.create_corporation(
+                corp_id=user.profile.main_character.corporation_id, use_etag=False
+            )
             group = self.get_corp_group(corp)
         except AttributeError:
             logger.warning(f'User {user} does not have a main character. Group membership not updated')
@@ -235,8 +238,9 @@ class ManagedGroup(models.Model):
     class Meta:
         abstract = True
 
-    def __str__(self):
-        return "Managed Group: %s" % self.group.name
+    def __str__(self) -> str:
+        return f"Managed Group: {self.group.name}"
+
 
 class ManagedCorpGroup(ManagedGroup):
     corp = models.ForeignKey(EveCorporationInfo, on_delete=models.CASCADE)

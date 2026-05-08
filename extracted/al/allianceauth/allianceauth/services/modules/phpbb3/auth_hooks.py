@@ -5,6 +5,7 @@ from django.template.loader import render_to_string
 
 from allianceauth import hooks
 from allianceauth.services.hooks import ServicesHook
+
 from .tasks import Phpbb3Tasks
 from .urls import urlpatterns
 
@@ -39,7 +40,7 @@ class Phpbb3Service(ServicesHook):
             Phpbb3Tasks.update_groups.delay(user.pk)
 
     def update_all_groups(self):
-        logger.debug('Update all %s groups called' % self.name)
+        logger.debug(f'Update all {self.name} groups called')
         Phpbb3Tasks.update_all_groups.delay()
 
     def service_active_for_user(self, user):

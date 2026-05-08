@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 8.0.8
+Version: 8.0.9
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -166,6 +166,10 @@ Unreleased
 ----------
 
 * nothing unreleased
+
+[8.0.9] - 2026-05-07
+---------------------
+* fix: populate name in Invite Admin list view (ENT-11811)
 
 [8.0.8] - 2026-05-06
 ---------------------

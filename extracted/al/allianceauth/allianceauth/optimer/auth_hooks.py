@@ -1,8 +1,10 @@
+from django.utils.translation import gettext_lazy as _
+
+from allianceauth import hooks
 from allianceauth.menu.hooks import MenuItemHook
 from allianceauth.optimer.views import dashboard_ops
 from allianceauth.services.hooks import UrlHook
-from django.utils.translation import gettext_lazy as _
-from allianceauth import hooks
+
 from . import urls
 
 

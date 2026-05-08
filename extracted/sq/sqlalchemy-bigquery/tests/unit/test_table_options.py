@@ -19,8 +19,6 @@
 
 import datetime
 import sqlite3
-import pytest
-import sqlalchemy
 
 from google.cloud.bigquery import (
     PartitionRange,
@@ -28,6 +26,8 @@ from google.cloud.bigquery import (
     TimePartitioning,
     TimePartitioningType,
 )
+import pytest
+import sqlalchemy
 
 from .conftest import setup_table
 
@@ -59,6 +59,18 @@ def test_table_default_rounding_mode_dialect_option(faux_conn):
     assert " ".join(faux_conn.test_data["execute"][-1][0].strip().split()) == (
         "CREATE TABLE `some_table` ( `createdAt` DATETIME )"
         " OPTIONS(default_rounding_mode='ROUND_HALF_EVEN')"
+    )
+
+
+def test_table_with_json_columns(faux_conn):
+    setup_table(
+        faux_conn,
+        "some_table",
+        sqlalchemy.Column("some_stuff", sqlalchemy.JSON),
+    )
+
+    assert " ".join(faux_conn.test_data["execute"][-1][0].strip().split()) == (
+        "CREATE TABLE `some_table` ( `some_stuff` JSON )"
     )
 
 

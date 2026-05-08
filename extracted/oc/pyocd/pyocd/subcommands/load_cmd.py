@@ -23,6 +23,7 @@ from pathlib import Path
 from .base import SubcommandBase
 from ..core.helpers import ConnectHelper
 from ..core.target import Target
+from ..core.exceptions import TransferError
 from ..flash.file_programmer import FileProgrammer
 from ..utility.cmdline import (
     convert_reset_type,
@@ -108,8 +109,7 @@ class LoadSubcommand(SubcommandBase):
         with session:
             programmer = FileProgrammer(session,
                             chip_erase=self._args.erase,
-                            trust_crc=self._args.trust_crc,
-                            no_reset=True)  # We handle this reset below
+                            trust_crc=self._args.trust_crc)
 
             # Get a list of all secondary cores.
             secondary_cores = [c for c in session.target.cores.values() if c != session.target.primary_core]
@@ -185,6 +185,18 @@ class LoadSubcommand(SubcommandBase):
                     LOG.error("Invalid post-reset option: %s", post_reset)
                     return 1
 
-                session.target.reset(reset_type)
+                try:
+                    if reset_type == Target.ResetType.NSRST:
+                        # Run DebugCoreStop and DebugPortStop before pin reset.
+                        session.disconnect()
+                        session.probe.reset()
+                    else:
+                        session.target.reset(reset_type)
+                except TransferError as err:
+                    # Reset can momentarily drop debug access, so tolerate transfer errors here.
+                    LOG.debug(err)
+                    # Skip DebugCoreStop and DebugPortStop unless it was explicitly requested by user.
+                    if not session.options.is_set('resume_on_disconnect'):
+                        session.options.set('resume_on_disconnect', False)
 
         return 0

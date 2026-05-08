@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import itertools
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
 import tidy3d as td
+from tidy3d.components.geometry.float_utils import increment_float
 from tidy3d.plugins.smatrix import (
     CoaxialLumpedPort,
     LumpedPort,
@@ -193,7 +196,7 @@ def _assert_non_overlapping_centers(
     centers_px: np.ndarray, widths_px: np.ndarray, pad_px: float
 ) -> None:
     order = np.argsort(centers_px)
-    for left_idx, right_idx in zip(order[:-1], order[1:]):
+    for left_idx, right_idx in itertools.pairwise(order):
         left_right_edge = centers_px[left_idx] + widths_px[left_idx] / 2
         right_left_edge = centers_px[right_idx] - widths_px[right_idx] / 2
         assert right_left_edge >= left_right_edge + pad_px - 1e-9
@@ -325,6 +328,26 @@ def test_plot_port_lumped_port():
 
     ax = modeler.plot_port("lp")
     assert ax is not None
+    plt.close()
+
+
+def test_plot_lumped_load_relaxed_for_small_plane_offset():
+    """A snapped lumped load should remain plottable at the original plane within float precision."""
+    z_expected = 0.3
+    z_offset = float(increment_float(z_expected, 1.0))
+    port = LumpedPort(
+        center=(0, 0, z_expected),
+        size=(2, 1, 0),
+        voltage_axis=0,
+        name="lp_offset",
+        impedance=50,
+    )
+    load_geom = port.to_load(snap_center=z_offset).to_geometry()
+
+    ax = load_geom.plot(z=z_expected)
+
+    assert len(load_geom.intersections_plane(z=z_expected)) == 0
+    assert len(ax.patches) > 0
     plt.close()
 
 

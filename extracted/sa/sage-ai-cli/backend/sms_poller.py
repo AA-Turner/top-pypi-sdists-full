@@ -213,10 +213,18 @@ def _clean_body(raw: str) -> str:
 
 
 def _parse_routing(text: str) -> tuple[str | None, str]:
-    m = re.match(r'^@([\w\-]+)\s*[:：]\s*', text.strip())
+    """Extract `@target: …` prefix.
+
+    Allows multi-word / apostrophe-bearing computer names — e.g.
+    `@Layne's Macbook Pro: git status` resolves to target="layne's macbook pro",
+    task="git status". Limit target to 40 non-colon chars to avoid slurping
+    URLs (`@https://…`) into the target.
+    """
+    text = (text or "").strip()
+    m = re.match(r'^@([^:：\n]{1,40})\s*[:：]\s*', text)
     if m:
-        return m.group(1).lower(), text[m.end():].strip()
-    return None, text.strip()
+        return m.group(1).strip().lower(), text[m.end():].strip()
+    return None, text
 
 
 # Known SMS-to-email gateway domains — replies go back as SMS
@@ -290,7 +298,10 @@ def _build_mime(to_addr: str, text: str, computer_name: str, part_info: str = ""
     msg = MIMEText(f"[{computer_name}]{part_info} {text}")
     msg["From"] = f"SAGE AI <{DISPLAY_EMAIL or BRIDGE_EMAIL}>"
     msg["To"] = to_addr
-    msg["Subject"] = "SAGE"
+    # Subject includes the computer name so Gmail threads split per device.
+    # Replies preserve the subject (Re: SAGE — <name>) and stay in their own
+    # thread, while a different computer's emails get their own thread.
+    msg["Subject"] = f"SAGE — {computer_name}"
     return msg
 
 
@@ -588,15 +599,23 @@ async def handle_inbound_email(from_addr: str, body: str) -> None:
         )
         return
 
-    # When the sender came in through a carrier email-to-SMS gateway, the CLI
-    # is the only place that can reliably deliver the reply (most carriers
-    # silently drop our outbound replies). Look up the contact's device_type
-    # and ask the CLI to deliver natively.
+    # Decide reply path:
+    #   - Apple from SMS gateway: native iMessage (CLI). Apple's thread model
+    #     unifies Apple ID + phone, so native delivery lands the reply in the
+    #     same iMessage thread the user originally messaged from.
+    #   - Android from SMS gateway: SMTP back through the email bridge. KDE
+    #     Connect SMS to the user's own phone number files Android's reply in
+    #     a SEPARATE self-SMS thread (4085073140-to-4085073140), splitting the
+    #     conversation away from the email-bridge thread
+    #     (4085073140-to-messages@sageworksai.com). SMTP from
+    #     messages@sageworksai.com lands in the email-bridge thread, so the
+    #     conversation stays unified.
+    #   - Anything else (gmail, regular email): SMTP, same as before.
     device_type = ""
     deliver_natively = False
     if _is_sms_gateway(from_addr):
         device_type = _lookup_device_type(uid, from_addr)
-        deliver_natively = bool(device_type)
+        deliver_natively = device_type == "apple"
 
     output = await dispatch_to_cli(
         uid, target, task_id, task, from_addr,

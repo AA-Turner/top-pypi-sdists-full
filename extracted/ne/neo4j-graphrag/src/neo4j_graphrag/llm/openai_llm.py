@@ -19,6 +19,7 @@ from __future__ import annotations
 import abc
 import json
 import logging
+import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -33,6 +34,10 @@ from typing import (
 )
 
 # 3rd party dependencies
+try:
+    import httpx
+except ImportError:
+    httpx = None  # type: ignore[assignment]
 from pydantic import BaseModel, ValidationError
 
 # project dependencies
@@ -171,6 +176,10 @@ class BaseOpenAILLM(LLMBase, abc.ABC):
         return await self.__ainvoke_v1_with_tools(
             input, tools, message_history, system_instruction
         )
+
+    async def aclose(self) -> None:
+        self.client.close()
+        await self.async_client.close()
 
     # subsidiary methods
     def get_messages(
@@ -649,8 +658,21 @@ class OpenAILLM(BaseOpenAILLM):
             model_params=model_params,
             rate_limit_handler=rate_limit_handler,
         )
-        self.client = self.openai.OpenAI(**kwargs)
-        self.async_client = self.openai.AsyncOpenAI(**kwargs)
+        http_client = kwargs.pop("http_client", None)
+        params = kwargs.copy()
+        sync_params = params.copy()
+        async_params = params.copy()
+        if httpx is not None and isinstance(http_client, httpx.Client):
+            sync_params["http_client"] = http_client
+        elif httpx is not None and isinstance(http_client, httpx.AsyncClient):
+            async_params["http_client"] = http_client
+        elif http_client is not None:
+            warnings.warn(
+                f"Invalid http_client type (got {type(http_client)}, expected httpx.Client or httpx.AsyncClient). Using default client.",
+                stacklevel=2,
+            )
+        self.client = self.openai.OpenAI(**sync_params)
+        self.async_client = self.openai.AsyncOpenAI(**async_params)
 
 
 class AzureOpenAILLM(BaseOpenAILLM):
@@ -678,5 +700,18 @@ class AzureOpenAILLM(BaseOpenAILLM):
             model_params=model_params,
             rate_limit_handler=rate_limit_handler,
         )
-        self.client = self.openai.AzureOpenAI(**kwargs)
-        self.async_client = self.openai.AsyncAzureOpenAI(**kwargs)
+        http_client = kwargs.pop("http_client", None)
+        params = kwargs.copy()
+        sync_params = params.copy()
+        async_params = params.copy()
+        if httpx is not None and isinstance(http_client, httpx.Client):
+            sync_params["http_client"] = http_client
+        elif httpx is not None and isinstance(http_client, httpx.AsyncClient):
+            async_params["http_client"] = http_client
+        elif http_client is not None:
+            warnings.warn(
+                f"Invalid http_client type (got {type(http_client)}, expected httpx.Client or httpx.AsyncClient). Using default client.",
+                stacklevel=2,
+            )
+        self.client = self.openai.AzureOpenAI(**sync_params)
+        self.async_client = self.openai.AsyncAzureOpenAI(**async_params)

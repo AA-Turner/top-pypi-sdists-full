@@ -241,8 +241,47 @@ def Checkpointer(*args, unpack_hook=None, **kwargs):
     if unpack_hook is not None:
         from langgraph_api.serde import Serializer  # noqa: PLC0415
 
+        # Prefer the API-level feature flag when available; older
+        # langgraph-api versions may not define it yet.
+        try:
+            from langgraph_api.feature_flags import (  # noqa: PLC0415
+                DELTA_CHANNEL_SUPPORT,
+            )
+        except ImportError:
+            DELTA_CHANNEL_SUPPORT = False
+
+        # DeltaChannel snapshots only exist on langgraph >= 1.2; on older
+        # installs the ``EXT_DELTA_SNAPSHOT`` codepoint can never appear in
+        # serialized payloads, so the bare ``unpack_hook`` is sufficient.
+        if DELTA_CHANNEL_SUPPORT:
+            from langgraph.checkpoint.serde.jsonplus import (  # noqa: PLC0415
+                EXT_DELTA_SNAPSHOT,  # ty: ignore[unresolved-import]
+            )
+            from langgraph.checkpoint.serde.types import (  # noqa: PLC0415
+                _DeltaSnapshot,  # ty: ignore[unresolved-import]
+            )
+
+            _inner_hook = unpack_hook
+
+            def _delta_aware_hook(code: int, data: bytes) -> Any:
+                if code == EXT_DELTA_SNAPSHOT:
+                    import ormsgpack  # noqa: PLC0415
+
+                    return _DeltaSnapshot(
+                        ormsgpack.unpackb(
+                            data,
+                            ext_hook=_delta_aware_hook,
+                            option=ormsgpack.OPT_NON_STR_KEYS,
+                        )
+                    )
+                return _inner_hook(code, data)
+
+            ext_hook = _delta_aware_hook
+        else:
+            ext_hook = unpack_hook
+
         saver = InMemorySaver(
-            serde=Serializer(__unpack_ext_hook__=unpack_hook),
+            serde=Serializer(__unpack_ext_hook__=ext_hook),
             __persistence_hook__=register_persistent_dict,
             **kwargs,
         )

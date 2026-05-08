@@ -98,12 +98,58 @@ class FlowtaskComponentHandler(BaseView):
             "example": "\n".join(doc_data.get("examples", []))
         }
 
+    DEFAULT_CATEGORY = "Other"
+
+    def _read_description(self, doc_rel_path: str) -> str:
+        """Read the description field from a component doc file.
+
+        Used as a fallback when the index entry doesn't carry a description
+        (older indexes generated before the field was inlined).
+
+        Args:
+            doc_rel_path: Path to the doc JSON file, relative to docs_dir
+
+        Returns:
+            The component description, or an empty string if unavailable.
+        """
+        if not doc_rel_path:
+            return ""
+        doc_path = self.docs_dir / doc_rel_path
+        if not doc_path.exists():
+            return ""
+        try:
+            return orjson.loads(doc_path.read_bytes()).get("description", "") or ""
+        except (orjson.JSONDecodeError, OSError) as e:
+            self.logger.warning(
+                f"Failed to read description from {doc_path}: {e}"
+            )
+            return ""
+
+    def _component_entry(self, name: str, info: dict) -> dict:
+        """Build the public list-entry payload for one component.
+
+        Args:
+            name: Component class name.
+            info: The matching value from ``index.json``'s components map.
+
+        Returns:
+            Dict with ``name``, ``description``, and ``category``.
+        """
+        description = info.get("description")
+        if description is None:
+            description = self._read_description(info.get("doc", ""))
+        return {
+            "name": name,
+            "description": description or "",
+            "category": info.get("category") or self.DEFAULT_CATEGORY,
+        }
+
     def _filter_components(
         self,
         components: dict,
         category: Optional[str] = None,
         tag: Optional[str] = None
-    ) -> list[str]:
+    ) -> list[dict]:
         """Filter components by category or tag.
 
         Args:
@@ -112,40 +158,52 @@ class FlowtaskComponentHandler(BaseView):
             tag: Optional tag to filter by
 
         Returns:
-            List of component names matching the filters
+            List of dicts with `name`, `description`, and `category`,
+            sorted by name.
         """
-        result = []
+        matched: list[tuple[str, dict]] = []
         for name, info in components.items():
-            # If no filters, include all
-            if category is None and tag is None:
-                result.append(name)
-                continue
-
-            # Check category filter
             if category is not None:
-                component_category = info.get("category", "")
-                if component_category.lower() != category.lower():
+                if info.get("category", "").lower() != category.lower():
                     continue
-
-            # Check tag filter
             if tag is not None:
                 component_tags = info.get("tags", [])
                 if tag.lower() not in [t.lower() for t in component_tags]:
                     continue
+            matched.append((name, info))
 
-            result.append(name)
+        matched.sort(key=lambda item: item[0])
+        return [self._component_entry(name, info) for name, info in matched]
 
-        return sorted(result)
+    def _group_by_category(self, entries: list[dict]) -> list[dict]:
+        """Group a flat list of component entries by category.
+
+        Args:
+            entries: List of dicts produced by ``_component_entry``.
+
+        Returns:
+            List of ``{"category": str, "components": [...]}`` dicts, sorted by
+            category name.
+        """
+        grouped: dict[str, list[dict]] = {}
+        for entry in entries:
+            grouped.setdefault(entry["category"], []).append(entry)
+        return [
+            {"category": cat, "components": grouped[cat]}
+            for cat in sorted(grouped)
+        ]
 
     async def get(self) -> web.Response:
         """Handle GET requests for component documentation.
 
         Routes:
             GET /api/v1/flowtask/components
-                Returns a list of all documented component names.
-                Supports optional query parameters:
+                Returns a list of all documented components, each as a dict
+                with ``name``, ``description``, and ``category``.
+                Optional query parameters:
                 - category: Filter by component category
                 - tag: Filter by component tag
+                - group_by=category: Return components grouped by category
 
             GET /api/v1/flowtask/components/{component_name}
                 Returns documentation for a specific component.
@@ -166,23 +224,29 @@ class FlowtaskComponentHandler(BaseView):
                     status=404
                 )
             return self.json_response(doc)
-        else:
-            # List all components with optional filtering
-            index = self._load_index()
-            components = index.get("components", {})
 
-            # Get optional filter parameters from query string
-            query = self.request.query
-            category = query.get("category")
-            tag = query.get("tag")
+        # List all components with optional filtering
+        index = self._load_index()
+        components = index.get("components", {})
 
-            filtered_components = self._filter_components(
-                components,
-                category=category,
-                tag=tag
-            )
+        query = self.request.query
+        category = query.get("category")
+        tag = query.get("tag")
+        group_by = (query.get("group_by") or "").lower()
 
+        filtered_components = self._filter_components(
+            components,
+            category=category,
+            tag=tag
+        )
+
+        if group_by == "category":
             return self.json_response({
-                "components": filtered_components,
-                "count": len(filtered_components)
+                "categories": self._group_by_category(filtered_components),
+                "count": len(filtered_components),
             })
+
+        return self.json_response({
+            "components": filtered_components,
+            "count": len(filtered_components),
+        })

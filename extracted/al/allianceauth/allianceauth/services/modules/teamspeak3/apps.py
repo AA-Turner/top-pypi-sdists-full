@@ -8,4 +8,4 @@ class Teamspeak3ServiceConfig(AppConfig):
     verbose_name = _('TeamSpeak 3 Service')
 
     def ready(self):
-        from . import signals
+        pass

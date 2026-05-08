@@ -23,7 +23,7 @@ def get_theme(request):
     hooks = get_hooks('theme_hook')
 
     try:
-        theme = request.session.get('THEME', settings.DEFAULT_THEME_DARK if request.session.get('NIGHT_MODE', False) is True else settings.DEFAULT_THEME)
+        theme = request.session.get('THEME', settings.DEFAULT_THEME)
     except AttributeError:
         pass
 
@@ -59,7 +59,7 @@ def theme_html_tags(context):
 def header_padding_size(context):
     request = context['request']
     theme = get_theme(request)
-    return getattr(theme, "header_padding")
+    return theme.header_padding
 
 
 @register.inclusion_tag('theme/theme_imports_js.html', takes_context=True)

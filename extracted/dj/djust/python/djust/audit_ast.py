@@ -53,7 +53,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,10 @@ AST_FINDING_CODES: Dict[str, Tuple[str, str]] = {
     "X005": ("error", "mark_safe() with interpolated value — XSS risk"),
     "X006": ("warning", "Template uses |safe on a view variable"),
     "X007": ("warning", "Template uses {% autoescape off %}"),
+    "X008": (
+        "warning",
+        "Detail view matches IDOR shape — missing object-permission lifecycle override",
+    ),
 }
 
 
@@ -296,6 +300,22 @@ def _is_format_string(node: ast.AST) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _module_class_index(tree: ast.AST) -> Dict[str, ast.ClassDef]:
+    """Map module-level class names to their ``ast.ClassDef`` nodes.
+
+    Used by helpers that need to walk a same-module MRO chain (e.g.,
+    X008's permission_required / has_object_permission inheritance
+    check, #1382). Cross-module bases are silently skipped — by
+    design we only walk classes visible in the current AST.
+    """
+    out: Dict[str, ast.ClassDef] = {}
+    if isinstance(tree, ast.Module):
+        for stmt in tree.body:
+            if isinstance(stmt, ast.ClassDef):
+                out[stmt.name] = stmt
+    return out
+
+
 class _FileContext:
     """Per-file state passed to every checker."""
 
@@ -304,6 +324,7 @@ class _FileContext:
         self.tree = tree
         self.source_lines = source_lines
         self.findings: List[ASTFinding] = []
+        self.class_index: Dict[str, ast.ClassDef] = _module_class_index(tree)
 
     def emit(
         self,
@@ -664,6 +685,264 @@ def _check_mark_safe(ctx: _FileContext) -> None:
 
 
 # ---------------------------------------------------------------------------
+# X008 — IDOR-shape: detail view missing object-permission lifecycle override
+# (#1373, ADR-017 § Decision 8, v0.9.5-1c)
+# ---------------------------------------------------------------------------
+
+
+def _walk_mro_static(
+    cls: ast.ClassDef,
+    class_index: Mapping[str, ast.ClassDef],
+) -> Iterator[ast.ClassDef]:
+    """Yield ``cls`` and each same-module ancestor reachable via
+    ``ast.Name`` bases, with a visited-set guard against cycles.
+
+    Cross-module bases (``ast.Attribute``, unresolved ``Name``) are
+    silently skipped — we only walk classes present in
+    ``class_index``. The traversal order is depth-first via a stack;
+    callers should not rely on Python's C3 linearization semantics
+    (this is a static approximation, not a runtime MRO).
+    """
+    visited: Set[str] = set()
+    stack: List[ast.ClassDef] = [cls]
+    while stack:
+        node = stack.pop()
+        if node.name in visited:
+            continue
+        visited.add(node.name)
+        yield node
+        for base in node.bases:
+            if isinstance(base, ast.Name):
+                ancestor = class_index.get(base.id)
+                if ancestor is not None and ancestor.name not in visited:
+                    stack.append(ancestor)
+
+
+def _class_has_attribute(
+    cls: ast.ClassDef,
+    name: str,
+    class_index: Optional[Mapping[str, ast.ClassDef]] = None,
+) -> bool:
+    """Return True if class (or any same-module ancestor when
+    ``class_index`` is supplied) defines an attribute named ``name``.
+
+    Note: any assignment counts — including ``permission_required = ""``
+    on a base. X008 treats this as a recommendation rather than an
+    enforcement, so a permissive interpretation is acceptable.
+    """
+    nodes: Iterable[ast.ClassDef] = (
+        _walk_mro_static(cls, class_index) if class_index is not None else (cls,)
+    )
+    for node in nodes:
+        for stmt in node.body:
+            if isinstance(stmt, ast.Assign):
+                for target in stmt.targets:
+                    if isinstance(target, ast.Name) and target.id == name:
+                        return True
+            elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                if stmt.target.id == name:
+                    return True
+    return False
+
+
+def _class_defines_method(
+    cls: ast.ClassDef,
+    name: str,
+    class_index: Optional[Mapping[str, ast.ClassDef]] = None,
+) -> bool:
+    """Return True if class (or any same-module ancestor when
+    ``class_index`` is supplied) defines a method named ``name``."""
+    nodes: Iterable[ast.ClassDef] = (
+        _walk_mro_static(cls, class_index) if class_index is not None else (cls,)
+    )
+    for node in nodes:
+        for stmt in node.body:
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)) and stmt.name == name:
+                return True
+    return False
+
+
+def _mount_method(cls: ast.ClassDef) -> Optional[ast.FunctionDef | ast.AsyncFunctionDef]:
+    for stmt in cls.body:
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)) and stmt.name == "mount":
+            return stmt
+    return None
+
+
+# Cast functions whose argument is treated as a passthrough for X008
+# binding-pattern detection. Bounded whitelist keeps the false-positive
+# surface tight (literal casts like ``int(42)`` must not match).
+_X008_CAST_FUNCS: frozenset[str] = frozenset({"int", "str", "uuid", "UUID"})
+
+
+def _rhs_yields_kwarg_name(value: ast.AST, param_names: Set[str]) -> Optional[str]:
+    """Inspect an assignment RHS and return the URL-kwarg name it
+    surfaces, or None.
+
+    Recognised shapes (#1383):
+      * ``X`` — bare ``Name`` matching a mount kwarg.
+      * ``self.kwargs["X"]`` / ``kwargs["X"]`` — Subscript with string-
+        constant index.
+      * ``int(X)`` / ``str(X)`` / ``uuid(X)`` / ``UUID(X)`` —
+        whitelisted casts whose first argument is a ``Name`` matching a
+        mount kwarg. ``int(42)`` and friends are rejected because the
+        argument is not a ``Name``.
+      * ``kwargs.get("X"[, default])`` / ``self.kwargs.get("X"[, default])``
+        — string-constant first argument; trailing default is a
+        fallback, not a different contract.
+    """
+    # Bare Name.
+    if isinstance(value, ast.Name) and value.id in param_names:
+        return value.id
+
+    # Subscript: (self.)kwargs["name"].
+    if isinstance(value, ast.Subscript):
+        idx = value.slice
+        if isinstance(idx, ast.Constant) and isinstance(idx.value, str):
+            container = value.value
+            # ``kwargs["x"]`` — bare Name.
+            if isinstance(container, ast.Name) and container.id == "kwargs":
+                return idx.value
+            # ``self.kwargs["x"]`` — Attribute on self.
+            if (
+                isinstance(container, ast.Attribute)
+                and container.attr == "kwargs"
+                and isinstance(container.value, ast.Name)
+                and container.value.id == "self"
+            ):
+                return idx.value
+
+    # Call: whitelisted cast OR (self.)kwargs.get(...).
+    if isinstance(value, ast.Call):
+        func = value.func
+        # Whitelisted cast: ``int(x)`` / ``str(x)`` / etc.
+        if isinstance(func, ast.Name) and func.id in _X008_CAST_FUNCS and value.args:
+            inner = value.args[0]
+            if isinstance(inner, ast.Name) and inner.id in param_names:
+                return inner.id
+            return None
+        # ``(self.)kwargs.get("x"[, default])``.
+        if isinstance(func, ast.Attribute) and func.attr == "get" and value.args:
+            container = func.value
+            is_kwargs = (isinstance(container, ast.Name) and container.id == "kwargs") or (
+                isinstance(container, ast.Attribute)
+                and container.attr == "kwargs"
+                and isinstance(container.value, ast.Name)
+                and container.value.id == "self"
+            )
+            if is_kwargs:
+                first = value.args[0]
+                if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                    return first.value
+
+    return None
+
+
+def _mount_assigns_url_kwarg_id(mount_func: ast.AST) -> Optional[str]:
+    """If mount() binds a URL kwarg to ``self.X_id`` (or ``self.X``)
+    via any of the recognised RHS shapes (see ``_rhs_yields_kwarg_name``),
+    return the attribute name (e.g. 'document_id'). Otherwise None.
+
+    The pattern: URL kwargs are passed to mount() (as positional/keyword
+    args, or via ``self.kwargs``) and the user assigns them to ``self``
+    for later access from event handlers. This is the canonical IDOR
+    shape from ADR-017 (#1373) extended in #1383 to cover Subscript,
+    cast, and ``.get()`` shapes.
+    """
+    if not isinstance(mount_func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return None
+    # Collect parameter names (excluding self, request).
+    param_names = {arg.arg for arg in mount_func.args.args if arg.arg not in ("self", "request")}
+    param_names.update(arg.arg for arg in mount_func.args.kwonlyargs)
+    # ``self.kwargs[...]`` and ``kwargs.get(...)`` shapes don't require
+    # an explicit param name — the kwarg is named in the RHS literal.
+    # We still want to detect them, so don't bail early on empty
+    # ``param_names``.
+    for stmt in ast.walk(mount_func):
+        if not isinstance(stmt, ast.Assign):
+            continue
+        for target in stmt.targets:
+            if not isinstance(target, ast.Attribute):
+                continue
+            if not (isinstance(target.value, ast.Name) and target.value.id == "self"):
+                continue
+            attr_name = target.attr
+            kwarg_name = _rhs_yields_kwarg_name(stmt.value, param_names)
+            if kwarg_name is None:
+                continue
+            # Must look like an id-bearing attribute: the LHS attr or
+            # the recovered kwarg name ends in _id.
+            if attr_name.endswith("_id") or kwarg_name.endswith("_id"):
+                return attr_name
+    return None
+
+
+def _event_handler_reads_self_attr(method: ast.AST, attr_name: str) -> bool:
+    """Return True if ``method`` is an @event_handler that reads
+    ``self.<attr_name>`` in its body."""
+    if not isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return False
+    if not _is_event_handler(method):
+        return False
+    for node in ast.walk(method):
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr == attr_name
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "self"
+        ):
+            return True
+    return False
+
+
+def _check_idor_shape_needs_object_permission(ctx: _FileContext) -> None:
+    """Flag detail views matching the IDOR shape that haven't migrated
+    to the v0.9.5-1a get_object() / has_object_permission() lifecycle.
+
+    See ADR-017 § Decision 8 for the heuristic rationale and
+    docs/website/guides/authorization.md for the migration recipe.
+    """
+    for cls in ast.walk(ctx.tree):
+        if not isinstance(cls, ast.ClassDef):
+            continue
+        if not _looks_like_detail_view(cls):
+            continue
+        # Must have role-level permission_required (the shape this check
+        # targets — public views or auth-handled-elsewhere views are not
+        # X008 candidates).
+        if not _class_has_attribute(cls, "permission_required", ctx.class_index):
+            continue
+        # Must NOT already have an object-level auth hook. Either is
+        # sufficient as the developer's escape hatch. (#1382 — walk
+        # the same-module MRO so an override on a base mixin is
+        # honoured.)
+        if _class_defines_method(cls, "has_object_permission", ctx.class_index):
+            continue
+        if _class_defines_method(cls, "check_permissions", ctx.class_index):
+            continue
+        # Must bind a URL kwarg id to self via mount().
+        mount = _mount_method(cls)
+        if mount is None:
+            continue
+        attr_id = _mount_assigns_url_kwarg_id(mount)
+        if attr_id is None:
+            continue
+        # Must have at least one @event_handler that reads self.<attr>.
+        if not any(_event_handler_reads_self_attr(stmt, attr_id) for stmt in cls.body):
+            continue
+        ctx.emit(
+            "X008",
+            cls,
+            details=(
+                f"{cls.name} binds self.{attr_id} from a URL kwarg in mount() and exposes "
+                f"event handlers that read it, but does not override get_object() / "
+                f"has_object_permission() (ADR-017 v0.9.5-1a). See "
+                f"docs/website/guides/authorization.md for the migration pattern."
+            ),
+        )
+
+
+# ---------------------------------------------------------------------------
 # X006 / X007 — Template scanners (regex-based, not AST)
 # ---------------------------------------------------------------------------
 
@@ -733,6 +1012,7 @@ ALL_CHECKERS = (
     _check_sql_formatting,
     _check_open_redirect,
     _check_mark_safe,
+    _check_idor_shape_needs_object_permission,
 )
 
 

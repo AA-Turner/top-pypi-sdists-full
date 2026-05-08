@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from cpsl.constants import CollectionDecl, Column
 from cpsl.clients.capsule import (
     CollectionSchema,
+    DeleteManyResponse,
     FindResponse,
     GetCollectionSchemaResponse,
     UpsertCollectionSchemaResponse,
@@ -20,6 +21,8 @@ class FakeDataStub:
     def __init__(self):
         self.schemas = {}
         self.last_find = None
+        self.last_delete_many = None
+        self.find_docs = []
 
     def _key(self, schema_or_req):
         return (
@@ -42,7 +45,11 @@ class FakeDataStub:
 
     def find(self, req):
         self.last_find = req
-        return FindResponse(documents_json=[])
+        return FindResponse(documents_json=[json.dumps(d).encode() for d in self.find_docs])
+
+    def delete_many(self, req):
+        self.last_delete_many = req
+        return DeleteManyResponse(deleted=2)
 
 
 class DynamicCollectionTests(unittest.IsolatedAsyncioTestCase):
@@ -79,6 +86,48 @@ class DynamicCollectionTests(unittest.IsolatedAsyncioTestCase):
         await leads.find({"status": "open"})
 
         self.assertEqual(json.loads(stub.last_find.filter_json), {"_team_id": "org:o1", "status": "open"})
+
+    async def test_lazy_filter_limit_order_and_query_delete(self):
+        stub = FakeDataStub()
+        stub.find_docs = [{"_id": "row-1", "status": "archived"}]
+        manager = CollectionManager(stub, "app-1", collection_scopes={"leads": "owner"}, user_id="u1", owner_id="org:o1")
+
+        leads = await manager.get("leads")
+        rows = await leads.filter(status="archived", score__gt=80).order_by("-created_at").limit(10)
+
+        self.assertEqual(rows[0]["id"], "row-1")
+        self.assertEqual(json.loads(stub.last_find.filter_json), {
+            "_team_id": "org:o1",
+            "status": "archived",
+            "score": {"$gt": 80},
+        })
+        self.assertEqual(stub.last_find.limit, 10)
+        self.assertEqual(json.loads(stub.last_find.sort_json), {"created_at": -1})
+
+        await leads.filter(status="archived").delete()
+        self.assertEqual(json.loads(stub.last_delete_many.filter_json), {
+            "_team_id": "org:o1",
+            "status": "archived",
+        })
+
+    async def test_row_delete_and_delete_rows_use_ids(self):
+        stub = FakeDataStub()
+        stub.find_docs = [{"_id": {"$oid": "507f1f77bcf86cd799439011"}}, {"id": "row-2"}]
+        manager = CollectionManager(stub, "app-1", collection_scopes={"leads": "app"})
+
+        leads = await manager.get("leads")
+        rows = await leads.all().limit(2)
+        await rows[0].delete()
+        self.assertEqual(
+            json.loads(stub.last_delete_many.filter_json),
+            {"_id": {"$in": ["507f1f77bcf86cd799439011"]}},
+        )
+
+        await leads.delete_rows(rows)
+        self.assertEqual(
+            json.loads(stub.last_delete_many.filter_json),
+            {"_id": {"$in": ["507f1f77bcf86cd799439011", "row-2"]}},
+        )
 
     async def test_dynamic_collection_requires_scope_without_static_declaration(self):
         manager = CollectionManager(FakeDataStub(), "app-1")

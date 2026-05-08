@@ -159,3 +159,80 @@ class SessionHookTest(TestCase):
             },
             timeout=10,
         )
+
+
+class TestConnectionTest(TestCase):
+    def setUp(self) -> None:
+        self._session = SessionHook(mcd_session_conn_id=SAMPLE_CONN_ID)
+
+    def _make_permission(self, permission: str, effect: str) -> Mock:
+        p = Mock()
+        p.permission = permission
+        p.effect = effect
+        return p
+
+    def _make_result(self, permissions):
+        result = Mock()
+        result.__contains__ = Mock(return_value=False)  # "error" not in result
+        result.get_user.auth.permissions = permissions
+        return result
+
+    @patch.object(SessionHook, 'get_conn')
+    @patch('airflow_mcd.hooks.session_hook.Client')
+    def test_connection_succeeds_with_required_permissions(self, mock_client_cls, mock_get_conn):
+        """test_connection returns True when AssetsEdit and MonitorsAccess are both allowed."""
+        permissions = [
+            self._make_permission('AssetsEdit', 'Allow'),
+            self._make_permission('MonitorsAccess', 'Allow'),
+        ]
+        mock_client_cls.return_value.return_value = self._make_result(permissions)
+
+        success, message = self._session.test_connection()
+
+        self.assertTrue(success)
+        self.assertEqual(message, 'Connection successfully tested')
+
+    @patch.object(SessionHook, 'get_conn')
+    @patch('airflow_mcd.hooks.session_hook.Client')
+    def test_connection_fails_when_assets_edit_missing(self, mock_client_cls, mock_get_conn):
+        """test_connection returns False when AssetsEdit is not in the permission list."""
+        permissions = [
+            self._make_permission('MonitorsAccess', 'Allow'),
+        ]
+        mock_client_cls.return_value.return_value = self._make_result(permissions)
+
+        success, message = self._session.test_connection()
+
+        self.assertFalse(success)
+        self.assertIn('AssetsEdit', message)
+        self.assertNotIn('MonitorsAccess', message)
+
+    @patch.object(SessionHook, 'get_conn')
+    @patch('airflow_mcd.hooks.session_hook.Client')
+    def test_connection_fails_when_monitors_access_missing(self, mock_client_cls, mock_get_conn):
+        """test_connection returns False when MonitorsAccess is not in the permission list."""
+        permissions = [
+            self._make_permission('AssetsEdit', 'Allow'),
+        ]
+        mock_client_cls.return_value.return_value = self._make_result(permissions)
+
+        success, message = self._session.test_connection()
+
+        self.assertFalse(success)
+        self.assertIn('MonitorsAccess', message)
+        self.assertNotIn('AssetsEdit', message)
+
+    @patch.object(SessionHook, 'get_conn')
+    @patch('airflow_mcd.hooks.session_hook.Client')
+    def test_connection_fails_when_permission_effect_is_deny(self, mock_client_cls, mock_get_conn):
+        """test_connection returns False when permissions exist but are denied."""
+        permissions = [
+            self._make_permission('AssetsEdit', 'Deny'),
+            self._make_permission('MonitorsAccess', 'Allow'),
+        ]
+        mock_client_cls.return_value.return_value = self._make_result(permissions)
+
+        success, message = self._session.test_connection()
+
+        self.assertFalse(success)
+        self.assertIn('AssetsEdit', message)

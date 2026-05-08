@@ -1,9 +1,9 @@
 from unittest import mock
 
-from django.test import TestCase, RequestFactory
 from django import urls
-from django.contrib.auth.models import User, Group, Permission
+from django.contrib.auth.models import Group, Permission, User
 from django.core.exceptions import ObjectDoesNotExist
+from django.test import RequestFactory, TestCase
 
 from allianceauth.tests.auth_utils import AuthUtils
 
@@ -27,7 +27,7 @@ class OpenfireHooksTestCase(TestCase):
         member = AuthUtils.create_member(self.member)
         OpenfireUser.objects.create(user=member, username=self.member)
         self.none_user = 'none_user'
-        none_user = AuthUtils.create_user(self.none_user)
+        AuthUtils.create_user(self.none_user)
         self.service = OpenfireService
         add_permissions()
 
@@ -86,7 +86,7 @@ class OpenfireHooksTestCase(TestCase):
         service.validate_user(none_user)
         self.assertTrue(manager.delete_user.called)
         with self.assertRaises(ObjectDoesNotExist):
-            none_openfire = User.objects.get(username=self.none_user).openfire
+            _ = User.objects.get(username=self.none_user).openfire
 
     @mock.patch(MODULE_PATH + '.tasks.OpenfireManager')
     def test_delete_user(self, manager):
@@ -98,7 +98,7 @@ class OpenfireHooksTestCase(TestCase):
         self.assertTrue(result)
         self.assertTrue(manager.delete_user.called)
         with self.assertRaises(ObjectDoesNotExist):
-            openfire_user = User.objects.get(username=self.member).openfire
+            _ = User.objects.get(username=self.member).openfire
 
     def test_render_services_ctrl(self):
         service = self.service()
@@ -158,7 +158,7 @@ class OpenfireViewsTestCase(TestCase):
         self.assertTrue(manager.delete_user.called)
         self.assertRedirects(response, expected_url=urls.reverse('services:services'), target_status_code=200)
         with self.assertRaises(ObjectDoesNotExist):
-            openfire_user = User.objects.get(pk=self.member.pk).openfire
+            _ = User.objects.get(pk=self.member.pk).openfire
 
     @mock.patch(MODULE_PATH + '.views.OpenfireManager')
     def test_set_password(self, manager):

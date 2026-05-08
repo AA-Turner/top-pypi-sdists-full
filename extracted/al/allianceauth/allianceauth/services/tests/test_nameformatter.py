@@ -1,8 +1,10 @@
 from django.test import TestCase
+
+from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 from allianceauth.tests.auth_utils import AuthUtils
-from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo, EveCharacter
-from ..models import NameFormatConfig
+
 from ..hooks import NameFormatter
+from ..models import NameFormatConfig
 from ..modules.example.auth_hooks import ExampleService
 
 

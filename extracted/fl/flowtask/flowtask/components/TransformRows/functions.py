@@ -1774,6 +1774,9 @@ def coalesce(df: pandas.DataFrame, field: str, columns: list = None, column: str
     :param match: Optional, value or function to use for replacing null values. Defaults to None.
     :return: Modified pandas DataFrame with null values replaced.
     """
+    def _is_empty(series):
+        return series.isnull() | series.apply(lambda x: str(x).strip() == "" if isinstance(x, str) else False)
+
     if field not in df.columns:
         df[field] = np.nan
         
@@ -1781,13 +1784,15 @@ def coalesce(df: pandas.DataFrame, field: str, columns: list = None, column: str
         try:
             for col in columns:
                 if col in df.columns:
-                    df[field] = np.where(df[field].isnull(), df[col], df[field])
+                    mask = _is_empty(df[field])
+                    df[field] = np.where(mask, df[col], df[field])
         except Exception as err:
             print("COALESCE Error: ", err)
     elif column:
         try:
             if column in df.columns:
-                df[field] = np.where(df[field].isnull(), df[column], df[field])
+                mask = _is_empty(df[field])
+                df[field] = np.where(mask, df[column], df[field])
         except Exception as err:
             print("COALESCE Error: ", err)
     elif match:
@@ -1814,4 +1819,24 @@ def coalesce(df: pandas.DataFrame, field: str, columns: list = None, column: str
                     return df
         else:
             df[field] = np.where(df[field].isnull(), match, df[field])
+    return df
+
+def formula(
+    df: pandas.DataFrame,
+    field: str,
+    expression: str
+) -> pandas.DataFrame:
+    """
+    Evaluates a mathematical expression or formula string and assigns the result to a specified field.
+
+    :param df: pandas DataFrame to evaluate expression on.
+    :param field: Name of the column to store the formula result.
+    :param expression: The mathematical expression in string format to evaluate on DataFrame columns.
+    :return: Modified pandas DataFrame.
+    """
+    try:
+        # We fillna with 0 for evaluating math correctly with potential null columns
+        df[field] = df.fillna(0).eval(expression)
+    except Exception as err:
+        print(f"Error evaluating formula '{expression}' for field {field}: {err}")
     return df

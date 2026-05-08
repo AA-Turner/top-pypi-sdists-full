@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sage-ai-cli"
-version = "1.18.50"
+version = "1.18.77"
 description = "Sage — a local-first AI coding CLI (like Claude Code, using free/open models)"
 readme = "README.md"
 requires-python = ">=3.10"

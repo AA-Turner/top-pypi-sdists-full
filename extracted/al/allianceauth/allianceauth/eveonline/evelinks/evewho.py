@@ -4,10 +4,9 @@ from urllib.parse import urljoin
 
 from . import (
     _ESI_CATEGORY_ALLIANCE,
-    _ESI_CATEGORY_CORPORATION,
     _ESI_CATEGORY_CHARACTER,
+    _ESI_CATEGORY_CORPORATION,
 )
-
 
 _BASE_URL = 'https://evewho.com'
 

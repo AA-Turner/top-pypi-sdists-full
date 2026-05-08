@@ -24,7 +24,7 @@ class ModuleMetrics:
     instability: float = 0.0
     abstractness: float = 0.0
     distance: float = 0.0
-    zone: str = "healthy"
+    zone: str = "off_main_sequence"
     total_classes: int = 0
     abstract_classes: int = 0
     total_functions: int = 0
@@ -153,17 +153,17 @@ def _compute_abstractness(tree: ast.AST) -> dict[str, Any]:
 
 
 def _classify_zone(abstractness: float, instability: float) -> str:
-    if abstractness > 0.7 and instability < 0.3:
-        return "zone_of_pain"
-
-    if abstractness < 0.3 and instability > 0.7:
-        return "zone_of_uselessness"
-
     distance = abs(abstractness + instability - 1.0)
     if distance <= 0.2:
         return "main_sequence"
 
-    return "healthy"
+    if abstractness < 0.3 and instability < 0.3:
+        return "zone_of_pain"
+
+    if abstractness > 0.7 and instability > 0.7:
+        return "zone_of_uselessness"
+
+    return "off_main_sequence"
 
 
 def _has_main_guard(tree: ast.AST) -> bool:
@@ -240,7 +240,10 @@ def analyze_architecture(
                 metrics.protocols = abs_data["protocols"]
 
         metrics.distance = abs(metrics.abstractness + metrics.instability - 1.0)
-        metrics.zone = _classify_zone(metrics.abstractness, metrics.instability)
+        if metrics.total_coupling == 0:
+            metrics.zone = "disconnected"
+        else:
+            metrics.zone = _classify_zone(metrics.abstractness, metrics.instability)
 
         if module_loc and module_name in module_loc:
             metrics.loc = module_loc[module_name]
@@ -376,10 +379,15 @@ def analyze_architecture(
                 "main_sequence": sum(
                     1 for m in all_metrics if m.zone == "main_sequence"
                 ),
-                "healthy": sum(1 for m in all_metrics if m.zone == "healthy"),
+                "off_main_sequence": sum(
+                    1 for m in all_metrics if m.zone == "off_main_sequence"
+                ),
                 "zone_of_pain": sum(1 for m in all_metrics if m.zone == "zone_of_pain"),
                 "zone_of_uselessness": sum(
                     1 for m in all_metrics if m.zone == "zone_of_uselessness"
+                ),
+                "disconnected": sum(
+                    1 for m in all_metrics if m.zone == "disconnected"
                 ),
             },
         }
@@ -439,14 +447,14 @@ def _generate_findings(result: ArchitectureResult):
             if m.zone == "zone_of_pain":
                 zone_msg = (
                     f"Module '{name}' is in the Zone of Pain "
-                    f"(highly abstract A={m.abstractness:.2f}, highly stable I={m.instability:.2f}). "
-                    f"Changes here ripple widely. Consider reducing abstractness or allowing more instability."
+                    f"(concrete A={m.abstractness:.2f}, stable I={m.instability:.2f}). "
+                    f"Changes here can ripple widely. Consider introducing stable abstractions or reducing fan-in."
                 )
             else:
                 zone_msg = (
                     f"Module '{name}' is in the Zone of Uselessness "
-                    f"(concrete A={m.abstractness:.2f}, unstable I={m.instability:.2f}). "
-                    f"Nobody depends on it. Consider abstracting its interface or removing if unused."
+                    f"(abstract A={m.abstractness:.2f}, unstable I={m.instability:.2f}). "
+                    f"Few stable consumers depend on it. Consider moving abstractions toward stable packages or removing unused abstractions."
                 )
 
             result.findings.append(
@@ -502,7 +510,9 @@ def get_architecture_findings(
     module_abstractness: dict[str, dict[str, Any]] | None = None,
     module_loc: dict[str, int] | None = None,
     entrypoint_modules: set[str] | None = None,
+    package_boundary_modules: set[str] | None = None,
     private_helper_ce_limit: int = 2,
+    private_helper_ca_limit: int = 3,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     result = analyze_architecture(
         dependency_graph=dependency_graph,
@@ -521,8 +531,11 @@ def get_architecture_findings(
     findings = _filter_contextual_findings(
         result.findings,
         result.modules,
+        dependency_graph=dependency_graph,
         entrypoint_modules=contextual_entrypoints,
+        package_boundary_modules=set(package_boundary_modules or ()),
         private_helper_ce_limit=private_helper_ce_limit,
+        private_helper_ca_limit=private_helper_ca_limit,
     )
 
     summary = {
@@ -557,27 +570,89 @@ def _filter_contextual_findings(
     findings: list[dict[str, Any]],
     modules: dict[str, ModuleMetrics],
     *,
+    dependency_graph: dict[str, set[str]],
     entrypoint_modules: set[str],
+    package_boundary_modules: set[str],
     private_helper_ce_limit: int,
+    private_helper_ca_limit: int,
 ) -> list[dict[str, Any]]:
+    afferent: dict[str, set[str]] = defaultdict(set)
+    for importer, deps in dependency_graph.items():
+        for dep in deps:
+            afferent[dep].add(importer)
+
     filtered = []
     for finding in findings:
         rule_id = finding.get("rule_id")
         module_name = finding.get("name")
 
+        if (
+            rule_id in {"SKY-Q802", "SKY-Q803"}
+            and isinstance(module_name, str)
+            and _is_reexported_package_boundary_module(
+                module_name,
+                package_boundary_modules,
+                afferent,
+            )
+        ):
+            continue
+
+        if (
+            rule_id == "SKY-Q803"
+            and isinstance(module_name, str)
+            and _is_test_module(module_name, finding.get("file", ""))
+        ):
+            continue
+
         if rule_id == "SKY-Q803" and module_name in entrypoint_modules:
             continue
 
-        if rule_id == "SKY-Q802" and isinstance(module_name, str):
+        if rule_id in {"SKY-Q802", "SKY-Q803"} and isinstance(module_name, str):
             simple_name = module_name.rsplit(".", 1)[-1]
             metrics = modules.get(module_name)
             if (
-                simple_name.startswith("_")
+                rule_id == "SKY-Q802"
+                and simple_name.startswith("_")
                 and metrics is not None
                 and metrics.ce <= private_helper_ce_limit
+            ):
+                continue
+            if (
+                rule_id == "SKY-Q803"
+                and simple_name.startswith("_")
+                and metrics is not None
+                and metrics.zone in {"zone_of_pain", "zone_of_uselessness"}
+                and metrics.ca <= private_helper_ca_limit
             ):
                 continue
 
         filtered.append(finding)
 
     return filtered
+
+
+def _is_reexported_package_boundary_module(
+    module_name: str,
+    package_boundary_modules: set[str],
+    afferent: dict[str, set[str]],
+) -> bool:
+    if module_name not in package_boundary_modules or "." not in module_name:
+        return False
+
+    parent_package = module_name.rsplit(".", 1)[0]
+    return afferent.get(module_name, set()) == {parent_package}
+
+
+def _is_test_module(module_name: str, file_path: Any) -> bool:
+    path = Path(str(file_path)).as_posix() if file_path else ""
+    basename = Path(path).name if path else ""
+    parts = set(module_name.split("."))
+
+    return (
+        "tests" in parts
+        or module_name.startswith("test_")
+        or ".test_" in module_name
+        or basename.startswith("test_")
+        or basename.endswith("_test.py")
+        or "/tests/" in path
+    )

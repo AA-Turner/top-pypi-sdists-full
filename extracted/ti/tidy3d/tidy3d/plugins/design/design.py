@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import dataclasses
 import inspect
-from typing import TYPE_CHECKING, Any, Optional, get_args
+from typing import TYPE_CHECKING, Any, get_args
 
 from pydantic import Field, model_validator
 
@@ -25,12 +26,23 @@ from .parameter import ParameterAny, ParameterInt, ParameterType
 from .result import Result
 
 if TYPE_CHECKING:
-    from typing import Callable, Union
+    from collections.abc import Callable
 
     from tidy3d.log import Console
 
 WORKFLOW_TYPES = get_args(WorkflowType)
 WORKFLOW_DATA_TYPES = get_args(WorkflowDataType)
+
+
+@dataclasses.dataclass
+class _FnMidResult:
+    """Intermediate fn_pre execution data passed into fn_post."""
+
+    data: dict[int, Any]
+    task_names: list[Any]
+    task_ids: list[Any]
+    task_paths: list[Any]
+    sim_counter: int
 
 
 class DesignSpace(Tidy3dBaseModel):
@@ -95,7 +107,7 @@ class DesignSpace(Tidy3dBaseModel):
         "Only used when pre-post functions are supplied.",
     )
 
-    name: Optional[str] = Field(
+    name: str | None = Field(
         None,
         title="Name",
         description="Optional name for the design space.",
@@ -143,9 +155,10 @@ class DesignSpace(Tidy3dBaseModel):
         fn_args: list[dict[str, Any]],
         fn_values: list[Any],
         fn_source: str,
-        task_names: Optional[tuple[str]] = None,
-        task_paths: Optional[list] = None,
-        aux_values: Optional[list[Any]] = None,
+        task_names: tuple[str] | None = None,
+        task_ids: list | None = None,
+        task_paths: list | None = None,
+        aux_values: list[Any] | None = None,
         opt_output: Any = None,
     ) -> Result:
         """How to package results from ``method.run`` and ``method.run_batch``"""
@@ -160,6 +173,7 @@ class DesignSpace(Tidy3dBaseModel):
             coords=fn_args_coords_T,
             fn_source=fn_source,
             task_names=task_names,
+            task_ids=task_ids,
             task_paths=task_paths,
             aux_values=aux_values,
             optimizer=opt_output,
@@ -176,9 +190,9 @@ class DesignSpace(Tidy3dBaseModel):
     def run(
         self,
         fn: Callable,
-        fn_post: Optional[Callable] = None,
+        fn_post: Callable | None = None,
         verbose: bool = True,
-        priority: Optional[int] = None,
+        priority: int | None = None,
     ) -> Result:
         """Explore a parameter space with a supplied method using the user supplied function.
         Supplied functions are used to evaluate the design space and are called within the method.
@@ -273,10 +287,19 @@ class DesignSpace(Tidy3dBaseModel):
                 )
             fn_args, fn_values, aux_values, opt_output = self.run_single(fn, console)
             sim_names = None
+            sim_ids = None
             sim_paths = None
 
         else:
-            fn_args, fn_values, aux_values, opt_output, sim_names, sim_paths = self.run_pre_post(
+            (
+                fn_args,
+                fn_values,
+                aux_values,
+                opt_output,
+                sim_names,
+                sim_ids,
+                sim_paths,
+            ) = self.run_pre_post(
                 fn_pre=fn,
                 fn_post=fn_post,
                 console=console,
@@ -285,6 +308,8 @@ class DesignSpace(Tidy3dBaseModel):
 
             if len(sim_names) == 0:
                 sim_names = None
+                sim_ids = None
+                sim_paths = None
 
         fn_source = self.get_fn_source(fn)
 
@@ -295,6 +320,7 @@ class DesignSpace(Tidy3dBaseModel):
             fn_source=fn_source,
             aux_values=aux_values,
             task_names=sim_names,
+            task_ids=sim_ids,
             task_paths=sim_paths,
             opt_output=opt_output,
         )
@@ -309,7 +335,7 @@ class DesignSpace(Tidy3dBaseModel):
         fn_pre: Callable,
         fn_post: Callable,
         console: Console,
-        priority: Optional[int] = None,
+        priority: int | None = None,
     ) -> tuple[list[dict], list[dict], list[Any]]:
         """Run a function with Tidy3D implicitly called in between."""
         handler = self._get_evaluate_fn_pre_post(
@@ -322,7 +348,15 @@ class DesignSpace(Tidy3dBaseModel):
         fn_args, fn_values, aux_values, opt_output = self.method._run(
             run_fn=handler.fn_combined, parameters=self.parameters, console=console
         )
-        return fn_args, fn_values, aux_values, opt_output, handler.sim_names, handler.sim_paths
+        return (
+            fn_args,
+            fn_values,
+            aux_values,
+            opt_output,
+            handler.sim_names,
+            handler.sim_ids,
+            handler.sim_paths,
+        )
 
     """ Helpers """
 
@@ -341,14 +375,15 @@ class DesignSpace(Tidy3dBaseModel):
         fn_post: Callable,
         fn_mid: Callable,
         console: Console,
-        priority: Optional[int],
+        priority: int | None,
     ) -> Any:
         """Get function that tries to use batch processing on a set of arguments."""
 
         class Pre_Post_Handler:
-            def __init__(self, console: Console, priority: Optional[int]) -> None:
+            def __init__(self, console: Console, priority: int | None) -> None:
                 self.sim_counter = 0
                 self.sim_names = []
+                self.sim_ids = []
                 self.sim_paths = []
                 self.console = console
                 self.priority = priority
@@ -365,16 +400,17 @@ class DesignSpace(Tidy3dBaseModel):
                         "Unrecognized output of fn_pre. Please change the return of fn_pre."
                     )
 
-                data, task_names, task_paths, sim_counter = fn_mid(
+                fn_mid_result = fn_mid(
                     sim_dict,
                     self.sim_counter,
                     self.console,
                     self.priority,
                 )
-                self.sim_names.extend(task_names)
-                self.sim_paths.extend(task_paths)
-                self.sim_counter = sim_counter
-                post_out = [fn_post(val) for val in data.values()]
+                self.sim_names.extend(fn_mid_result.task_names)
+                self.sim_ids.extend(fn_mid_result.task_ids)
+                self.sim_paths.extend(fn_mid_result.task_paths)
+                self.sim_counter = fn_mid_result.sim_counter
+                post_out = [fn_post(val) for val in fn_mid_result.data.values()]
                 return post_out
 
         handler = Pre_Post_Handler(console, priority)
@@ -385,7 +421,7 @@ class DesignSpace(Tidy3dBaseModel):
     def _run_batch(
         batch: Batch,
         path_dir: str,
-        priority: Optional[int] = None,
+        priority: int | None = None,
     ) -> BatchData:
         """Run a batch and return the BatchData."""
         batch_out = batch.run(path_dir=path_dir, priority=priority)
@@ -396,8 +432,8 @@ class DesignSpace(Tidy3dBaseModel):
         pre_out: dict[int, Any],
         sim_counter: int,
         console: Console,
-        priority: Optional[int],
-    ) -> Union[dict[int, Any], BatchData]:
+        priority: int | None,
+    ) -> _FnMidResult:
         """A function of the output of ``fn_pre`` that gives the input to ``fn_post``."""
 
         # Keep copy of original to use if no tidy3d simulation required
@@ -442,7 +478,13 @@ class DesignSpace(Tidy3dBaseModel):
 
         # Exit fn_mid here if no td computation is required
         if not simulations and not batches:
-            return original_pre_out, [], [], sim_counter
+            return _FnMidResult(
+                data=original_pre_out,
+                task_names=[],
+                task_ids=[],
+                task_paths=[],
+                sim_counter=sim_counter,
+            )
 
         # Create task names for simulations
         named_sims = {}
@@ -491,12 +533,11 @@ class DesignSpace(Tidy3dBaseModel):
             else:
                 return_dict[split_key[0]] = return_obj
 
-        for (sim_name, sim), task_name, task_path in zip(
-            sims_out.items(), sims_out.task_ids.keys(), sims_out.task_paths.values()
-        ):
+        for sim_name, sim in sims_out.items():
             translated_name = translate_sims[sim_name]
-            sim.attrs["task_name"] = task_name
-            sim.attrs["task_path"] = task_path
+            sim.attrs["task_name"] = sim_name
+            sim.attrs["task_id"] = sims_out.task_ids[sim_name]
+            sim.attrs["task_path"] = sims_out.task_paths[sim_name]
             _return_to_dict(pre_out, translated_name, sim)
 
         for batch_name, batch in batch_results.items():
@@ -517,6 +558,8 @@ class DesignSpace(Tidy3dBaseModel):
                     elif isinstance(value, BatchData):
                         if attr_name == "task_name":
                             new_dict[key] = list(value.task_ids.keys())
+                        elif attr_name == "task_id":
+                            new_dict[key] = list(value.task_ids.values())
                         else:
                             new_dict[key] = list(value.task_paths.values())
 
@@ -524,28 +567,37 @@ class DesignSpace(Tidy3dBaseModel):
 
         # Build out a dict of task_name or task_path in the same shape as the original data
         task_names = _remove_or_replace(pre_out.copy(), "task_name")
+        task_ids = _remove_or_replace(pre_out.copy(), "task_id")
         task_paths = _remove_or_replace(pre_out.copy(), "task_path")
 
         # Reduce down to a list to be extended later
         task_names = list(task_names.values())
+        task_ids = list(task_ids.values())
         task_paths = list(task_paths.values())
 
         # Restore output to a list if a list was supplied
         if was_list:
             pre_out = {dict_idx: list(sub_dict.values()) for dict_idx, sub_dict in pre_out.items()}
             task_names = [list(sub_dict.values()) for sub_dict in task_names]
+            task_ids = [list(sub_dict.values()) for sub_dict in task_ids]
             task_paths = [list(sub_dict.values()) for sub_dict in task_paths]
 
-        return pre_out, task_names, task_paths, sim_counter
+        return _FnMidResult(
+            data=pre_out,
+            task_names=task_names,
+            task_ids=task_ids,
+            task_paths=task_paths,
+            sim_counter=sim_counter,
+        )
 
     def run_batch(
         self,
-        fn_pre: Callable[Any, Union[WorkflowType, list[WorkflowType], dict[str, WorkflowType]]],
+        fn_pre: Callable[Any, WorkflowType | list[WorkflowType] | dict[str, WorkflowType]],
         fn_post: Callable[
-            Union[WorkflowDataType, list[WorkflowDataType], dict[str, WorkflowDataType]], Any
+            WorkflowDataType | list[WorkflowDataType] | dict[str, WorkflowDataType], Any
         ],
         path_dir: str = ".",
-        priority: Optional[int] = None,
+        priority: int | None = None,
         **batch_kwargs: Any,
     ) -> Result:
         """
@@ -658,7 +710,7 @@ class DesignSpace(Tidy3dBaseModel):
             return None
         return round(per_run_estimate * run_count, 3)
 
-    def summarize(self, fn_pre: Optional[Callable] = None, verbose: bool = True) -> dict[str, Any]:
+    def summarize(self, fn_pre: Callable | None = None, verbose: bool = True) -> dict[str, Any]:
         """Summarize the setup of the DesignSpace
 
         Prints a summary of the DesignSpace including the method and associated args, the parameters,

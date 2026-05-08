@@ -1,11 +1,12 @@
 import logging
 
 from celery import shared_task
+from celery_once import AlreadyQueued, QueueOnce as BaseTask
+
 from django.contrib.auth.models import User
-from .hooks import ServicesHook
-from celery_once import QueueOnce as BaseTask, AlreadyQueued
 from django.core.cache import cache
 
+from .hooks import ServicesHook
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +39,12 @@ def validate_services(self, pk):
     for svc in ServicesHook.get_services():
         try:
             svc.validate_user(user)
-        except:
+        except Exception:
             logger.exception(f'Exception running validate_user for services module {svc} on user {user}')
 
 
 def disable_user(user):
-    logger.debug('Disabling all services for user %s' % user)
+    logger.debug(f'Disabling all services for user {user}')
     for svc in ServicesHook.get_services():
         if svc.service_active_for_user(user):
             svc.delete_user(user)

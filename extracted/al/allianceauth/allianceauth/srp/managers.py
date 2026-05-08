@@ -5,9 +5,9 @@ import requests
 from django.contrib.auth.models import User
 
 from allianceauth import __title_useragent__, __url__, __version__
-from allianceauth.srp.providers import esi
 
 from .models import SrpUserRequest
+from .providers import get_killmails_killmail_id_killmail_hash
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class SRPManager:
 
     @staticmethod
     def get_kill_data(kill_id):
-        url = ("https://zkillboard.com/api/killID/%s/" % kill_id)
+        url = (f"https://zkillboard.com/api/killID/{kill_id}/")
         headers = {
             'User-Agent': f'{__title_useragent__}/{__version__} (+{__url__})',
             'Content-Type': 'application/json',
@@ -32,14 +32,11 @@ class SRPManager:
         if result:
             killmail_id = result['killmail_id']
             killmail_hash = result['zkb']['hash']
-            km = esi.client.Killmails.get_killmails_killmail_id_killmail_hash(
-                killmail_id=killmail_id,
-                killmail_hash=killmail_hash
-            ).result()
+            km = get_killmails_killmail_id_killmail_hash(killmail_id=killmail_id, killmail_hash=killmail_hash)
         else:
             raise ValueError("Invalid Kill ID")
         if km:
-            ship_type = km['victim']['ship_type_id']
+            ship_type = km.victim.ship_type_id
             logger.debug(
                 f"Ship type for kill ID {kill_id} is {ship_type}"
             )
@@ -47,7 +44,7 @@ class SRPManager:
             logger.debug(
                 f"Total loss value for kill id {kill_id} is {ship_value}"
             )
-            victim_id = km['victim']['character_id']
+            victim_id = km.victim.character_id
             return ship_type, ship_value, victim_id
         else:
             raise ValueError("Invalid Kill ID or Hash.")

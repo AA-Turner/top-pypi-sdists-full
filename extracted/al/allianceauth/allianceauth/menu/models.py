@@ -41,16 +41,18 @@ class MenuItem(models.Model):
     is_hidden = models.BooleanField(
         default=False,
         verbose_name=_("is hidden"),
-        help_text=_(
-            "Hide this menu item."
-            "If this item is a folder all items under it will be hidden too"
-        ),
+        help_text=_("Hide this menu item." "If this item is a folder all items under it will be hidden too"),
     )
 
     # app related properties
     hook_hash = models.CharField(
-        max_length=64, default=None, null=True, unique=True, editable=False
-    )  # hash of a menu item hook. Must be nullable for unique comparison.
+        max_length=64,
+        default=None,
+        null=True,
+        unique=True,
+        editable=False,
+        help_text="hash of a menu item hook. Must be nullable for unique comparison.",
+    )
 
     # user defined properties
     classes = models.CharField(
@@ -58,10 +60,7 @@ class MenuItem(models.Model):
         default="",
         blank=True,
         verbose_name=_("icon classes"),
-        help_text=_(
-            "Font Awesome classes to show as icon on menu, "
-            "e.g. <code>fa-solid fa-house</code>"
-        ),
+        help_text=_("Font Awesome classes to show as icon on menu, " "e.g. <code>fa-solid fa-house</code>"),
     )
     url = models.TextField(
         default="",
@@ -74,7 +73,7 @@ class MenuItem(models.Model):
     def __str__(self) -> str:
         return self.text
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         if not self.hook_hash:
             self.hook_hash = None  # empty strings can create problems
         return super().save(*args, **kwargs)
@@ -120,14 +119,12 @@ class MenuItem(models.Model):
         if self.is_app_item:
             raise ValueError("The related hook objects should be used for app items.")
 
-        hook_obj = MenuItemHookCustom(
-            text=self.text, classes=self.classes, url_name="", order=self.order
-        )
+        hook_obj = MenuItemHookCustom(text=self.text, classes=self.classes, url_name="", order=self.order)
         hook_obj.navactive = []
         if self.is_folder and not self.classes:
             hook_obj.classes = DEFAULT_FOLDER_ICON_CLASSES
 
         hook_obj.url = self.url
         hook_obj.is_folder = self.is_folder
-        hook_obj.html_id = f"id-folder-{self.id}" if self.is_folder else ""
+        hook_obj.html_id = f"id-folder-{self.pk}" if self.is_folder else ""
         return hook_obj

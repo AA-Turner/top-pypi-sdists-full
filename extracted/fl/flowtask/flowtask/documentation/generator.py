@@ -43,6 +43,12 @@ class ComponentDocGenerator:
     # Marker that indicates a documentable docstring
     DOCSTRING_MARKER = ":widths: auto"
 
+    # Default category for components not listed in categories.json
+    DEFAULT_CATEGORY = "Other"
+
+    # Path to the curated category mapping, relative to this module
+    CATEGORIES_FILE = Path(__file__).parent / "categories.json"
+
     def __init__(self, output_dir: Path):
         """Initialize the documentation generator.
 
@@ -54,9 +60,45 @@ class ComponentDocGenerator:
         self.schema_gen = SchemaGenerator()
         self.logger = logging.getLogger(__name__)
         self._file_hashes: Dict[str, str] = {}
+        self._category_map: Dict[str, str] = self._load_category_map()
+
+    def _load_category_map(self) -> Dict[str, str]:
+        """Load the component-to-category mapping.
+
+        Reads ``categories.json`` (a category -> list-of-component-names mapping)
+        and inverts it into a flat ``{component: category}`` lookup.
+
+        Returns:
+            Dict mapping each component name to its category. Empty if the
+            mapping file is missing or unreadable.
+        """
+        path = self.CATEGORIES_FILE
+        if not path.exists():
+            self.logger.warning(f"Category map not found: {path}")
+            return {}
+        try:
+            data = orjson.loads(path.read_bytes())
+        except (orjson.JSONDecodeError, OSError) as e:
+            self.logger.warning(f"Failed to load category map {path}: {e}")
+            return {}
+
+        mapping: Dict[str, str] = {}
+        for category, names in data.items():
+            if category.startswith("_") or not isinstance(names, list):
+                continue
+            for name in names:
+                if isinstance(name, str):
+                    mapping[name] = category
+        return mapping
 
     def scan_components(self, paths: List[Path]) -> List[Type]:
         """Scan directories for component classes.
+
+        Recurses into subdirectories so components organized into their own
+        package (e.g. ``components/tMap/tMap.py``) are picked up. Files inside
+        ``__pycache__`` and modules whose name starts with ``_`` are skipped;
+        the AST + ``_is_component_class`` filters guard against pulling in
+        unrelated classes.
 
         Args:
             paths: List of directories to scan for .py files.
@@ -65,6 +107,7 @@ class ComponentDocGenerator:
             List of component class types found in the directories.
         """
         components = []
+        seen: set[int] = set()
         for path in paths:
             path = Path(path)
             if not path.exists():
@@ -72,17 +115,27 @@ class ComponentDocGenerator:
                 continue
 
             self.logger.debug(f"Scanning directory: {path}")
-            for py_file in path.glob("*.py"):
+            for py_file in path.rglob("*.py"):
                 # Skip __init__.py and private modules
                 if py_file.name.startswith("_"):
+                    continue
+                # Skip cache and other private package directories
+                if "__pycache__" in py_file.parts:
                     continue
 
                 try:
                     classes = self._extract_classes(py_file)
-                    components.extend(classes)
                 except Exception as e:
                     self.logger.warning(f"Error scanning {py_file}: {e}")
                     continue
+
+                # De-duplicate in case the same class is reachable from
+                # multiple scan roots.
+                for cls in classes:
+                    if id(cls) in seen:
+                        continue
+                    seen.add(id(cls))
+                    components.append(cls)
 
         return components
 
@@ -308,6 +361,11 @@ class ComponentDocGenerator:
                 if hasattr(cls, '_version'):
                     doc.version = cls._version
 
+                # Assign category from the curated mapping
+                doc.category = self._category_map.get(
+                    cls.__name__, self.DEFAULT_CATEGORY
+                )
+
                 # Generate schema
                 schema = self.schema_gen.generate(doc)
 
@@ -323,10 +381,13 @@ class ComponentDocGenerator:
                 doc_data = doc.model_dump()
                 self._write_json(doc_path, doc_data)
 
-                # Add to index
+                # Add to index — duplicate `category` and `description` here so
+                # the API list endpoint can avoid re-reading every doc file.
                 index_data["components"][cls.__name__] = {
                     "schema": f"components/{cls.__name__}.schema.json",
-                    "doc": f"components/{cls.__name__}.doc.json"
+                    "doc": f"components/{cls.__name__}.doc.json",
+                    "category": doc.category,
+                    "description": doc.description,
                 }
 
                 processed += 1

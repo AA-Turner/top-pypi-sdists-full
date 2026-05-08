@@ -2588,12 +2588,12 @@ https://docs.chalk.ai/cli/apply
         env_overrides: dict[str, str] | None = None,
         enable_profiling: bool = False,
         override_target_image_tag: Optional[str] = None,
-        feature_for_lower_upper_bound: Optional[FeatureReference] = None,
         use_job_queue: bool = False,
         *,  # Keyword-only: these were added later and must not be passed positionally.
         input_sql: str | None = None,
         use_metaplanner: bool | None = None,
         unload_resolvers: UnloadResolvers = None,
+        feature_for_lower_upper_bound: Optional[FeatureReference] = None,
     ) -> DatasetImpl:
         run_asynchronously = (
             use_multiple_computers
@@ -3075,8 +3075,9 @@ https://docs.chalk.ai/cli/apply
         env_overrides: dict[str, str] | None = None,
         enable_profiling: bool = False,
         override_target_image_tag: Optional[str] = None,
-        feature_for_lower_upper_bound: Optional[FeatureReference] = None,
         use_job_queue: bool = False,
+        *,  # Keyword-only: these were added later and must not be passed positionally.
+        feature_for_lower_upper_bound: Optional[FeatureReference] = None,
     ) -> Dataset:
         if (
             sum(

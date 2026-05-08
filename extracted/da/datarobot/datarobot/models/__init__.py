@@ -73,6 +73,7 @@ from .files import Files, FilesCatalogSearch, FilesStage, FilesDetails
 from .jdbc_data_preview import JdbcPreview, JdbcPreviewData, JdbcResultSchemaEntry
 from .job import FeatureImpactJob, Job, TrainingPredictionsJob
 from .key_values import KeyValue
+from .memory import Event, Session, MemorySpace
 from .model import (
     BlenderModel,
     ClusteringModel,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opendataloader-pdf
-Version: 2.4.2
+Version: 2.4.3
 Summary: A Python wrapper for the opendataloader-pdf Java CLI.
 Project-URL: Homepage, https://github.com/opendataloader-project/opendataloader-pdf
 Author-email: opendataloader-project <open.dataloader@hancom.com>

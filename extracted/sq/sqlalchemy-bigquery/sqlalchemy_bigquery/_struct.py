@@ -17,18 +17,19 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from sqlalchemy.sql import operators
+import sqlalchemy.sql.coercions
 import sqlalchemy.sql.default_comparator
+import sqlalchemy.sql.roles
 import sqlalchemy.sql.sqltypes
 import sqlalchemy.types
 
-from . import base
-
-import sqlalchemy.sql.coercions
-import sqlalchemy.sql.roles
+# from . import base  # Moved to _get_subtype_col_spec to break circular import
 
 
 def _get_subtype_col_spec(type_):
     global _get_subtype_col_spec
+    from . import base
 
     type_compiler = base.dialect.type_compiler(base.dialect())
     _get_subtype_col_spec = type_compiler.process
@@ -90,7 +91,7 @@ class STRUCT(sqlalchemy.sql.sqltypes.Indexable, sqlalchemy.types.UserDefinedType
             subtype = self.expr.type._STRUCT_byname.get(name.lower())
             if subtype is None:
                 raise KeyError(name)
-            operator = struct_getitem_op
+            operator = operators.json_getitem_op
             index = _field_index(self, name, operator)
             return operator, index, subtype
 
@@ -113,16 +114,7 @@ def _field_index(self, name, operator):
     )
 
 
-def struct_getitem_op(a, b):
-    raise NotImplementedError()
-
-
-sqlalchemy.sql.default_comparator.operator_lookup[
-    struct_getitem_op.__name__
-] = sqlalchemy.sql.default_comparator.operator_lookup["json_getitem_op"]
-
-
-class SQLCompiler:
-    def visit_struct_getitem_op_binary(self, binary, operator_, **kw):
-        left = self.process(binary.left, **kw)
-        return f"{left}.{binary.right.value}"
+# class SQLCompiler:
+#     def visit_json_getitem_op_binary(self, binary, operator_, **kw):
+#         left = self.process(binary.left, **kw)
+#         return f"{left}.{binary.right.value}"

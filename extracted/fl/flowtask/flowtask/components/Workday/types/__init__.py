@@ -15,6 +15,7 @@ from .custom_report import CustomReportType
 from .custom_punch_field_report import CustomPunchFieldReportType
 from .custom_punch_field_report_rest import CustomPunchFieldReportRestType
 from .recruiting_agency_users import RecruitingAgencyUsersType
+from .references import ReferencesType
 
 __all__ = [
     "TimeBlockType",
@@ -33,5 +34,6 @@ __all__ = [
     "CustomReportType",
     "CustomPunchFieldReportType",
     "CustomPunchFieldReportRestType",
-    "RecruitingAgencyUsersType"
+    "RecruitingAgencyUsersType",
+    "ReferencesType",
 ]

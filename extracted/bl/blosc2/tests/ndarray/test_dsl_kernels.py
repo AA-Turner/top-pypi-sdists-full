@@ -212,7 +212,7 @@ def test_dsl_kernel_integer_ops_kept_as_full_dsl_function():
         res = expr.compute()
     except RuntimeError as e:
         # Some DSL ops may still be unsupported by miniexpr backends.
-        if "DSL kernel requires miniexpr" not in str(e):
+        if "miniexpr compilation or execution failed for this DSL kernel" not in str(e):
             raise
     else:
         expected = kernel_integer_ops.func(a, b)
@@ -538,7 +538,9 @@ def test_dsl_kernel_scalar_only_inputs_specialization_injects_dummy_operand(monk
     try:
         shape = (8, 8)
         expr = blosc2.lazyudf(kernel_scalar_only, (3,), dtype=np.float32, shape=shape)
-        with pytest.raises(RuntimeError, match="DSL kernel requires miniexpr"):
+        with pytest.raises(
+            RuntimeError, match="miniexpr compilation or execution failed for this DSL kernel"
+        ):
             expr.compute()
         assert captured["calls"] >= 1
         assert captured["keys"] == ("__me_dummy0",)
@@ -672,9 +674,13 @@ def test_dsl_kernel_miniexpr_failure_raises_even_with_strict_disabled(monkeypatc
     try:
         _, _, a2, b2 = _make_arrays(shape=(32, 32), chunks=(16, 16), blocks=(8, 8))
         expr = blosc2.lazyudf(kernel_loop, (a2, b2), dtype=a2.dtype)
-        with pytest.raises(RuntimeError, match="DSL kernel requires miniexpr"):
+        with pytest.raises(
+            RuntimeError, match="miniexpr compilation or execution failed for this DSL kernel"
+        ):
             _ = expr.compute()
-        with pytest.raises(RuntimeError, match="DSL kernel requires miniexpr"):
+        with pytest.raises(
+            RuntimeError, match="miniexpr compilation or execution failed for this DSL kernel"
+        ):
             _ = expr.compute(strict_miniexpr=False)
     finally:
         lazyexpr_mod.try_miniexpr = old_try_miniexpr
@@ -695,7 +701,9 @@ def test_dsl_kernel_miniexpr_failure_includes_backend_error_details(monkeypatch)
     try:
         _, _, a2, b2 = _make_arrays(shape=(32, 32), chunks=(16, 16), blocks=(8, 8))
         expr = blosc2.lazyudf(kernel_loop, (a2, b2), dtype=a2.dtype)
-        with pytest.raises(RuntimeError, match="DSL kernel requires miniexpr") as excinfo:
+        with pytest.raises(
+            RuntimeError, match="miniexpr compilation or execution failed for this DSL kernel"
+        ) as excinfo:
             _ = expr.compute()
         msg = str(excinfo.value)
         assert "Backend error: forced miniexpr backend failure details" in msg
@@ -722,16 +730,18 @@ def test_dsl_kernel_miniexpr_failure_prefers_validate_dsl_error(monkeypatch):
         }
 
     monkeypatch.setattr(blosc2.NDArray, "_set_pref_expr", failing_set_pref_expr)
-    monkeypatch.setattr(lazyexpr_mod, "validate_dsl", fake_validate_dsl)
+    monkeypatch.setattr(lazyexpr_mod, "validate_dsl", fake_validate_dsl, raising=False)
 
     try:
         _, _, a2, b2 = _make_arrays(shape=(32, 32), chunks=(16, 16), blocks=(8, 8))
         expr = blosc2.lazyudf(kernel_loop, (a2, b2), dtype=a2.dtype)
-        with pytest.raises(RuntimeError, match="DSL kernel requires miniexpr") as excinfo:
+        with pytest.raises(
+            RuntimeError, match="miniexpr compilation or execution failed for this DSL kernel"
+        ) as excinfo:
             _ = expr.compute()
         msg = str(excinfo.value)
-        assert "synthetic validate_dsl diagnostics" in msg
-        assert "Backend error:" not in msg
+        assert "Backend error: forced backend failure hidden by validate_dsl message" in msg
+        assert "synthetic validate_dsl diagnostics" not in msg
     finally:
         lazyexpr_mod.try_miniexpr = old_try_miniexpr
 
@@ -784,9 +794,9 @@ def test_jit_backend_pragma_wrapping_dsl_source():
     ],
 )
 def test_dsl_kernel_flawed_syntax_detected_fallback_callable(kernel):
-    assert kernel.dsl_source is None
-    assert kernel.input_names is None
-    assert isinstance(kernel.dsl_error, DSLSyntaxError)
+    assert kernel.dsl_source is not None
+    assert kernel.input_names == ["x", "y"]
+    assert kernel.dsl_error is not None
 
     a, b, a2, b2 = _make_arrays()
     with pytest.raises(DSLSyntaxError, match="Invalid DSL kernel"):
@@ -800,13 +810,21 @@ def test_dsl_kernel_flawed_syntax_detected_fallback_callable(kernel):
 
 
 def test_dsl_kernel_ternary_rejected_with_actionable_error():
-    assert kernel_fallback_ternary.dsl_source is None
-    assert isinstance(kernel_fallback_ternary.dsl_error, DSLSyntaxError)
-    msg = str(kernel_fallback_ternary.dsl_error)
-    assert "Ternary expressions are not supported in DSL" in msg
-    assert "line" in msg
-    assert "column" in msg
-    assert "DSL kernel source:" in msg
+    assert kernel_fallback_ternary.dsl_source is not None
+    assert kernel_fallback_ternary.input_names == ["x"]
+    assert kernel_fallback_ternary.dsl_error is not None
+
+    _, _, a2, _ = _make_arrays()
+    with pytest.raises(DSLSyntaxError, match="Invalid DSL kernel") as excinfo:
+        _ = blosc2.lazyudf(
+            kernel_fallback_ternary,
+            (a2,),
+            dtype=np.int32,
+            chunks=a2.chunks,
+            blocks=a2.blocks,
+        )
+    msg = str(excinfo.value)
+    assert "Ternary expressions are not supported in DSL; use where(cond, a, b)" in msg
     assert "^" in msg
 
 
@@ -817,11 +835,14 @@ def test_validate_dsl_api_valid_and_invalid():
     assert "def kernel_loop(x, y):" in valid_report["dsl_source"]
     assert valid_report["input_names"] == ["x", "y"]
 
-    invalid_report = blosc2.validate_dsl(kernel_fallback_ternary)
-    assert invalid_report["valid"] is False
-    assert "Ternary expressions are not supported in DSL" in invalid_report["error"]
-    assert invalid_report["dsl_source"] is None
-    assert invalid_report["input_names"] is None
+    unsupported_report = blosc2.validate_dsl(kernel_fallback_ternary)
+    assert unsupported_report["valid"] is False
+    assert unsupported_report["error"] is not None
+    assert "def kernel_fallback_ternary(x):" in unsupported_report["dsl_source"]
+    assert unsupported_report["input_names"] == ["x"]
+    assert (
+        "Ternary expressions are not supported in DSL; use where(cond, a, b)" in unsupported_report["error"]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -851,7 +872,7 @@ def _save_reload_compute(kernel, inputs_np, inputs_b2, dtype, urlpaths, extra_kw
     """Save a LazyUDF backed by *kernel*, reload it, and return (reloaded_expr, result)."""
     lazy = blosc2.lazyudf(kernel, inputs_b2, dtype=dtype, **(extra_kwargs or {}))
     lazy.save(urlpath=urlpaths["lazy"])
-    reloaded = blosc2.open(urlpaths["lazy"])
+    reloaded = blosc2.open(urlpaths["lazy"], mode="r")
     return reloaded, reloaded.compute()
 
 
@@ -930,7 +951,7 @@ def test_dsl_save_getitem(tmp_path):
 
     lazy = blosc2.lazyudf(kernel_save_simple, (a, b), dtype=np.float64)
     lazy.save(urlpath=str(tmp_path / "lazy.b2nd"))
-    reloaded = blosc2.open(str(tmp_path / "lazy.b2nd"))
+    reloaded = blosc2.open(str(tmp_path / "lazy.b2nd"), mode="r")
 
     assert isinstance(reloaded.func, DSLKernel)
     expected = (na + nb) ** 2
@@ -949,8 +970,38 @@ def test_dsl_save_input_names_match(tmp_path):
 
     lazy = blosc2.lazyudf(kernel_save_simple, (a, b), dtype=np.float64)
     lazy.save(urlpath=str(tmp_path / "lazy.b2nd"))
-    reloaded = blosc2.open(str(tmp_path / "lazy.b2nd"))
+    reloaded = blosc2.open(str(tmp_path / "lazy.b2nd"), mode="r")
 
     assert isinstance(reloaded.func, DSLKernel)
     assert reloaded.func.input_names == ["x", "y"]
     assert list(reloaded.inputs_dict.keys()) == ["x", "y"]
+
+
+def test_dsl_save_dictstore_operands(tmp_path):
+    shape = (10,)
+    store_path = tmp_path / "ops.b2z"
+    ext_a = tmp_path / "a.b2nd"
+    ext_b = tmp_path / "b.b2nd"
+    expr_path = tmp_path / "lazy.b2nd"
+
+    a = blosc2.asarray(np.arange(shape[0], dtype=np.float64), urlpath=str(ext_a), mode="w")
+    b = blosc2.asarray(np.arange(shape[0], dtype=np.float64) * 2, urlpath=str(ext_b), mode="w")
+    with blosc2.DictStore(str(store_path), mode="w", threshold=None) as dstore:
+        dstore["/a"] = a
+        dstore["/b"] = b
+
+    with blosc2.DictStore(str(store_path), mode="r") as dstore:
+        a = dstore["/a"]
+        b = dstore["/b"]
+        lazy = blosc2.lazyudf(kernel_save_simple, (a, b), dtype=np.float64)
+        lazy.save(urlpath=str(expr_path))
+
+    carrier = blosc2.open(str(expr_path), mode="r").array
+    assert carrier.schunk.vlmeta["b2o"]["operands"] == {
+        "o0": {"kind": "dictstore_key", "version": 1, "urlpath": "ops.b2z", "key": "/a"},
+        "o1": {"kind": "dictstore_key", "version": 1, "urlpath": "ops.b2z", "key": "/b"},
+    }
+
+    reloaded = blosc2.open(str(expr_path), mode="r")
+    expected = (np.arange(shape[0], dtype=np.float64) * 3) ** 2
+    np.testing.assert_allclose(reloaded.compute()[...], expected, rtol=1e-5, atol=1e-6)

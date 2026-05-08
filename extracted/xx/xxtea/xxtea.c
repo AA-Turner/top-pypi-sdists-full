@@ -26,20 +26,16 @@
 
 
 #include <Python.h>
-#include <ctype.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
-#define VERSION "4.0.0"
+#define VERSION "5.0.0"
 
 #if PY_VERSION_HEX < 0x030900A4 && !defined(Py_SET_SIZE)
 static inline void _Py_SET_SIZE(PyVarObject *ob, Py_ssize_t size)
 { ob->ob_size = size; }
 #define Py_SET_SIZE(ob, size) _Py_SET_SIZE((PyVarObject*)(ob), size)
 #endif
-
-#define XFREE(o) do { if ((o) != NULL) free(o); } while (0)
 
 #define DELTA 0x9e3779b9U
 #define MX (((z>>5^y<<2) + (y>>3^z<<4)) ^ ((sum^y) + (key[(p&3)^e] ^ z)))
@@ -49,13 +45,13 @@ typedef struct xxtea_mod_state {
     PyObject *binascii_unhexlify;
 } xxtea_mod_state;
 
-static void btea(uint32_t *v, int n, uint32_t const key[4], unsigned int rounds)
+static inline void btea(uint32_t *v, int n, uint32_t const key[4], unsigned int rounds)
 {
     uint32_t y, z, sum;
     unsigned p, e;
 
     if (n > 1) {          /* Coding Part */
-        rounds = rounds == 0 ? 6 + 52 / n: rounds;
+        rounds = rounds == 0 ? (unsigned)(6 + 52 / n) : rounds;
         sum = 0;
         z = v[n - 1];
 
@@ -75,7 +71,7 @@ static void btea(uint32_t *v, int n, uint32_t const key[4], unsigned int rounds)
     }
     else if (n < -1) {    /* Decoding Part */
         n = -n;
-        rounds = rounds == 0 ? 6 + 52 / n: rounds;
+        rounds = rounds == 0 ? (unsigned)(6 + 52 / n) : rounds;
         sum = (uint32_t)(rounds * DELTA);
         y = v[0];
 
@@ -192,7 +188,7 @@ static Py_ssize_t longs2bytes(uint32_t *in, Py_ssize_t inlen, char *out, int pad
 /*
  * Parse all arguments in a single pass.  Returns 0 on success, -1 on error.
  */
-static int
+static inline int
 _parse_args(PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames,
             PyObject **data_obj, PyObject **key_obj,
             int *padding, unsigned int *rounds)
@@ -292,6 +288,26 @@ _parse_args(PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames,
     return 0;
 }
 
+/* Acquire buffers and validate key length. Returns 0 on success, -1 on error. */
+static inline int
+_get_buffers(PyObject *data_obj, PyObject *key_obj,
+             Py_buffer *data, Py_buffer *key)
+{
+    if (PyObject_GetBuffer(data_obj, data, PyBUF_SIMPLE) < 0)
+        return -1;
+    if (PyObject_GetBuffer(key_obj, key, PyBUF_SIMPLE) < 0) {
+        PyBuffer_Release(data);
+        return -1;
+    }
+    if (key->len != 16) {
+        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
+        PyBuffer_Release(data);
+        PyBuffer_Release(key);
+        return -1;
+    }
+    return 0;
+}
+
 /*
  * Internal encrypt implementation — takes raw buffers, returns PyBytes or NULL.
  */
@@ -299,14 +315,9 @@ static inline PyObject *
 _encrypt_impl(const char *data_buf, Py_ssize_t data_len,
               const char *key_buf, int padding, unsigned int rounds)
 {
-    Py_ssize_t alen;
-    PyObject *retval;
-    char *retbuf;
-    uint32_t *d, k[4];
-
-    d = NULL;
-    k[0] = k[1] = k[2] = k[3] = 0;
-    retval = NULL;
+    uint32_t *d = NULL;
+    uint32_t k[4] = {0};
+    PyObject *retval = NULL;
 
     if (!padding && (data_len < 8 || (data_len & 3) != 0)) {
         PyErr_SetString(PyExc_ValueError,
@@ -314,7 +325,7 @@ _encrypt_impl(const char *data_buf, Py_ssize_t data_len,
         return NULL;
     }
 
-    alen = data_len < 4 ? 2 : (data_len >> 2) + padding;
+    Py_ssize_t alen = data_len < 4 ? 2 : (data_len >> 2) + padding;
     if (alen > INT_MAX) {
         PyErr_SetString(PyExc_OverflowError, "data too large");
         return NULL;
@@ -338,8 +349,7 @@ _encrypt_impl(const char *data_buf, Py_ssize_t data_len,
         return NULL;
     }
 
-    retbuf = PyBytes_AsString(retval);
-    longs2bytes(d, alen, retbuf, 0);
+    longs2bytes(d, alen, PyBytes_AsString(retval), 0);
 
     free(d);
     return retval;
@@ -352,38 +362,22 @@ static inline PyObject *
 _decrypt_impl(const char *data_buf, Py_ssize_t data_len,
               const char *key_buf, int padding, unsigned int rounds)
 {
-    Py_ssize_t alen, rc;
-    PyObject *retval;
-    char *retbuf;
-    uint32_t *d, k[4];
+    uint32_t *d = NULL;
+    uint32_t k[4] = {0};
 
-    d = NULL;
-    k[0] = k[1] = k[2] = k[3] = 0;
-    retval = NULL;
-
-    if (!padding && (data_len < 8 || (data_len & 3))) {
+    if (data_len & 3 || data_len < 8) {
         PyErr_SetString(PyExc_ValueError,
             "Data length must be a multiple of 4 bytes and must not be less than 8 bytes");
         return NULL;
     }
 
-    retval = PyBytes_FromStringAndSize(NULL, data_len);
+    PyObject *retval = PyBytes_FromStringAndSize(NULL, data_len);
 
     if (!retval) {
         return NULL;
     }
 
-    retbuf = PyBytes_AsString(retval);
-
-    /* not divided by 4, or length < 8 */
-    if (data_len & 3 || data_len < 8) {
-        PyErr_SetString(PyExc_ValueError,
-            "Invalid data, data length is not a multiple of 4, or less than 8.");
-        Py_DECREF(retval);
-        return NULL;
-    }
-
-    alen = data_len / 4;
+    Py_ssize_t alen = data_len / 4;
     if (alen > INT_MAX) {
         PyErr_SetString(PyExc_OverflowError, "data too large");
         Py_DECREF(retval);
@@ -396,6 +390,8 @@ _decrypt_impl(const char *data_buf, Py_ssize_t data_len,
         return PyErr_NoMemory();
     }
 
+    char *retbuf = PyBytes_AsString(retval);
+    Py_ssize_t rc;
     Py_BEGIN_ALLOW_THREADS
     bytes2longs(data_buf, data_len, d, 0);
     bytes2longs(key_buf, 16, k, 0);
@@ -431,28 +427,16 @@ static PyObject *
 xxtea_encrypt(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     Py_buffer data = {NULL}, key = {NULL};
-    PyObject *data_obj, *key_obj, *retval;
+    PyObject *data_obj, *key_obj;
     int padding;
     unsigned int rounds;
 
     if (_parse_args(args, nargs, kwnames, &data_obj, &key_obj, &padding, &rounds) < 0)
         return NULL;
-
-    if (PyObject_GetBuffer(data_obj, &data, PyBUF_SIMPLE) < 0)
+    if (_get_buffers(data_obj, key_obj, &data, &key) < 0)
         return NULL;
-    if (PyObject_GetBuffer(key_obj, &key, PyBUF_SIMPLE) < 0) {
-        PyBuffer_Release(&data);
-        return NULL;
-    }
 
-    if (key.len != 16) {
-        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
-        PyBuffer_Release(&data);
-        PyBuffer_Release(&key);
-        return NULL;
-    }
-
-    retval = _encrypt_impl(data.buf, data.len, key.buf, padding, rounds);
+    PyObject *retval = _encrypt_impl(data.buf, data.len, key.buf, padding, rounds);
     PyBuffer_Release(&data);
     PyBuffer_Release(&key);
     return retval;
@@ -468,36 +452,29 @@ static PyObject *
 xxtea_encrypt_hex(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     Py_buffer data = {NULL}, key = {NULL};
-    PyObject *data_obj, *key_obj, *tmp, *retval;
+    PyObject *data_obj, *key_obj;
     int padding;
     unsigned int rounds;
 
     if (_parse_args(args, nargs, kwnames, &data_obj, &key_obj, &padding, &rounds) < 0)
         return NULL;
-
-    if (PyObject_GetBuffer(data_obj, &data, PyBUF_SIMPLE) < 0)
+    if (_get_buffers(data_obj, key_obj, &data, &key) < 0)
         return NULL;
-    if (PyObject_GetBuffer(key_obj, &key, PyBUF_SIMPLE) < 0) {
-        PyBuffer_Release(&data);
-        return NULL;
-    }
 
-    if (key.len != 16) {
-        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
-        PyBuffer_Release(&data);
-        PyBuffer_Release(&key);
-        return NULL;
-    }
-
-    tmp = _encrypt_impl(data.buf, data.len, key.buf, padding, rounds);
+    PyObject *tmp = _encrypt_impl(data.buf, data.len, key.buf, padding, rounds);
     PyBuffer_Release(&data);
     PyBuffer_Release(&key);
 
     if (!tmp)
         return NULL;
 
-    retval = PyObject_CallOneArg(
-        ((xxtea_mod_state*)PyModule_GetState(self))->binascii_hexlify, tmp);
+    xxtea_mod_state *state = (xxtea_mod_state*)PyModule_GetState(self);
+    if (!state || !state->binascii_hexlify) {
+        Py_DECREF(tmp);
+        PyErr_SetString(PyExc_RuntimeError, "module state not available");
+        return NULL;
+    }
+    PyObject *retval = PyObject_CallOneArg(state->binascii_hexlify, tmp);
     Py_DECREF(tmp);
     return retval;
 }
@@ -512,28 +489,16 @@ static PyObject *
 xxtea_decrypt(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     Py_buffer data = {NULL}, key = {NULL};
-    PyObject *data_obj, *key_obj, *retval;
+    PyObject *data_obj, *key_obj;
     int padding;
     unsigned int rounds;
 
     if (_parse_args(args, nargs, kwnames, &data_obj, &key_obj, &padding, &rounds) < 0)
         return NULL;
-
-    if (PyObject_GetBuffer(data_obj, &data, PyBUF_SIMPLE) < 0)
+    if (_get_buffers(data_obj, key_obj, &data, &key) < 0)
         return NULL;
-    if (PyObject_GetBuffer(key_obj, &key, PyBUF_SIMPLE) < 0) {
-        PyBuffer_Release(&data);
-        return NULL;
-    }
 
-    if (key.len != 16) {
-        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
-        PyBuffer_Release(&data);
-        PyBuffer_Release(&key);
-        return NULL;
-    }
-
-    retval = _decrypt_impl(data.buf, data.len, key.buf, padding, rounds);
+    PyObject *retval = _decrypt_impl(data.buf, data.len, key.buf, padding, rounds);
     PyBuffer_Release(&data);
     PyBuffer_Release(&key);
     return retval;
@@ -542,46 +507,36 @@ xxtea_decrypt(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject 
 
 PyDoc_STRVAR(
     xxtea_decrypt_hex_doc,
-    "decrypt_hex (data, key, padding = True)\n\n"
+    "decrypt_hex (data, key, padding=True, rounds=0)\n\n"
     "Decrypt hex encoded `data` with a 16-byte `key`, return original bytes.");
 
 static PyObject *
 xxtea_decrypt_hex(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     Py_buffer data = {NULL}, key = {NULL};
-    PyObject *data_obj, *key_obj, *tmp = NULL, *retval = NULL;
+    PyObject *data_obj, *key_obj;
     int padding;
     unsigned int rounds;
 
     if (_parse_args(args, nargs, kwnames, &data_obj, &key_obj, &padding, &rounds) < 0)
         return NULL;
 
-    /* Unhexlify hex string to bytes */
-    if (!(tmp = PyObject_CallOneArg(
-            ((xxtea_mod_state*)PyModule_GetState(self))->binascii_unhexlify,
-            data_obj)))
-        return NULL;
-
-    /* Get buffers from unhexlified data and key */
-    if (PyObject_GetBuffer(tmp, &data, PyBUF_SIMPLE) < 0) {
-        Py_DECREF(tmp);
+    /* Unhexlify hex string to bytes, then use shared buffer helper */
+    xxtea_mod_state *state = (xxtea_mod_state*)PyModule_GetState(self);
+    if (!state || !state->binascii_unhexlify) {
+        PyErr_SetString(PyExc_RuntimeError, "module state not available");
         return NULL;
     }
-    if (PyObject_GetBuffer(key_obj, &key, PyBUF_SIMPLE) < 0) {
-        PyBuffer_Release(&data);
-        Py_DECREF(tmp);
+    PyObject *tmp = PyObject_CallOneArg(state->binascii_unhexlify, data_obj);
+    if (!tmp)
         return NULL;
-    }
 
-    if (key.len != 16) {
-        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
-        PyBuffer_Release(&data);
-        PyBuffer_Release(&key);
+    if (_get_buffers(tmp, key_obj, &data, &key) < 0) {
         Py_DECREF(tmp);
         return NULL;
     }
 
-    retval = _decrypt_impl(data.buf, data.len, key.buf, padding, rounds);
+    PyObject *retval = _decrypt_impl(data.buf, data.len, key.buf, padding, rounds);
     PyBuffer_Release(&data);
     PyBuffer_Release(&key);
     Py_DECREF(tmp);
@@ -589,23 +544,188 @@ xxtea_decrypt_hex(PyObject *self, PyObject *const *args, Py_ssize_t nargs, PyObj
 }
 
 /*****************************************************************************
- * Module Init ****************************************************************
+ * XXTEA Type ****************************************************************
  ****************************************************************************/
 
-/* ref: https://docs.python.org/2/howto/cporting.html */
 
+
+typedef struct {
+    PyObject_HEAD
+    char key[16];
+    unsigned int rounds;
+    int padding;
+} xxtea_object;
+
+static int
+xxtea_object_init(xxtea_object *self, PyObject *args, PyObject *kwargs)
+{
+    static char *kwlist[] = {"key", "padding", "rounds", NULL};
+    Py_buffer key_buf = {NULL};
+    int padding = 1;
+    Py_ssize_t rounds = 0;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "y*|pn", kwlist,
+                                     &key_buf, &padding, &rounds))
+        return -1;
+
+    if (key_buf.len != 16) {
+        PyErr_SetString(PyExc_ValueError, "Need a 16-byte key.");
+        PyBuffer_Release(&key_buf);
+        return -1;
+    }
+
+    if (rounds < 0 || (size_t)rounds > UINT_MAX) {
+        PyErr_SetString(PyExc_OverflowError, "rounds value too large");
+        PyBuffer_Release(&key_buf);
+        return -1;
+    }
+
+    memcpy(self->key, key_buf.buf, 16);
+    self->rounds = (unsigned int)rounds;
+    self->padding = padding;
+    PyBuffer_Release(&key_buf);
+    return 0;
+}
+
+static void
+xxtea_object_dealloc(xxtea_object *self)
+{
+    PyTypeObject *tp = Py_TYPE(self);
+    tp->tp_free((PyObject *)self);
+    Py_DECREF(tp);
+}
+
+static PyObject *
+xxtea_object_encrypt(xxtea_object *self, PyObject *data_obj)
+{
+    Py_buffer data_buf = {NULL};
+
+    if (PyObject_GetBuffer(data_obj, &data_buf, PyBUF_SIMPLE) < 0)
+        return NULL;
+
+    PyObject *retval = _encrypt_impl(data_buf.buf, data_buf.len,
+                                      self->key, self->padding, self->rounds);
+    PyBuffer_Release(&data_buf);
+    return retval;
+}
+
+static PyObject *
+xxtea_object_decrypt(xxtea_object *self, PyObject *data_obj)
+{
+    Py_buffer data_buf = {NULL};
+
+    if (PyObject_GetBuffer(data_obj, &data_buf, PyBUF_SIMPLE) < 0)
+        return NULL;
+
+    PyObject *retval = _decrypt_impl(data_buf.buf, data_buf.len,
+                                      self->key, self->padding, self->rounds);
+    PyBuffer_Release(&data_buf);
+    return retval;
+}
+
+static PyObject *
+xxtea_object_encrypt_hex(xxtea_object *self, PyObject *data_obj)
+{
+    Py_buffer data_buf = {NULL};
+
+    if (PyObject_GetBuffer(data_obj, &data_buf, PyBUF_SIMPLE) < 0)
+        return NULL;
+
+    PyObject *tmp = _encrypt_impl(data_buf.buf, data_buf.len,
+                                   self->key, self->padding, self->rounds);
+    PyBuffer_Release(&data_buf);
+    if (!tmp)
+        return NULL;
+
+    xxtea_mod_state *state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state || !state->binascii_hexlify) {
+        Py_DECREF(tmp);
+        PyErr_SetString(PyExc_RuntimeError, "module state not available");
+        return NULL;
+    }
+    PyObject *retval = PyObject_CallOneArg(state->binascii_hexlify, tmp);
+    Py_DECREF(tmp);
+    return retval;
+}
+
+static PyObject *
+xxtea_object_decrypt_hex(xxtea_object *self, PyObject *data_obj)
+{
+    xxtea_mod_state *state = PyType_GetModuleState(Py_TYPE(self));
+    if (!state || !state->binascii_unhexlify) {
+        PyErr_SetString(PyExc_RuntimeError, "module state not available");
+        return NULL;
+    }
+    PyObject *tmp = PyObject_CallOneArg(state->binascii_unhexlify, data_obj);
+    if (!tmp)
+        return NULL;
+
+    Py_buffer data_buf = {NULL};
+    if (PyObject_GetBuffer(tmp, &data_buf, PyBUF_SIMPLE) < 0) {
+        Py_DECREF(tmp);
+        return NULL;
+    }
+
+    PyObject *retval = _decrypt_impl(data_buf.buf, data_buf.len,
+                                      self->key, self->padding, self->rounds);
+    PyBuffer_Release(&data_buf);
+    Py_DECREF(tmp);
+    return retval;
+}
+
+static PyMethodDef xxtea_object_methods[] = {
+    {"encrypt", (PyCFunction)xxtea_object_encrypt, METH_O,
+     "encrypt(data)\n\n"
+     "Encrypt data with the stored key, padding, and rounds."},
+    {"decrypt", (PyCFunction)xxtea_object_decrypt, METH_O,
+     "decrypt(data)\n\n"
+     "Decrypt data with the stored key, padding, and rounds."},
+    {"encrypt_hex", (PyCFunction)xxtea_object_encrypt_hex, METH_O,
+     "encrypt_hex(data)\n\n"
+     "Encrypt data and return hex-encoded bytes."},
+    {"decrypt_hex", (PyCFunction)xxtea_object_decrypt_hex, METH_O,
+     "decrypt_hex(data)\n\n"
+     "Decrypt hex-encoded data and return original bytes."},
+    {NULL, NULL, 0, NULL}
+};
+
+
+static PyType_Slot xxtea_type_slots[] = {
+    {Py_tp_dealloc, (void *)xxtea_object_dealloc},
+    {Py_tp_doc, (void *)"XXTEA(key, padding=True, rounds=0)\n\n"
+                "XXTEA cipher object.  rounds=0 means auto: 6 + 52 / n, "
+                "where n is the number of 32-bit words in the data.\n"
+                "Methods: encrypt(data), decrypt(data), "
+                "encrypt_hex(data), decrypt_hex(data)."},
+    {Py_tp_methods, xxtea_object_methods},
+    {Py_tp_init, (void *)xxtea_object_init},
+    {Py_tp_new, PyType_GenericNew},
+    {0, NULL}
+};
+
+static PyType_Spec xxtea_type_spec = {
+    .name = "xxtea.XXTEA",
+    .basicsize = sizeof(xxtea_object),
+    .flags = Py_TPFLAGS_DEFAULT
+#if PY_VERSION_HEX >= 0x030c0000
+           | Py_TPFLAGS_IMMUTABLETYPE
+#endif
+           ,
+    .slots = xxtea_type_slots,
+};
+
+/*****************************************************************************
+ * Module Init ****************************************************************
+ ****************************************************************************/
 
 static int _exec(PyObject *module)
 {
     xxtea_mod_state *state = (xxtea_mod_state*)PyModule_GetState(module);
-    if (state == NULL) {
+    if (state == NULL)
         return -1;
-    }
 
-    int err = 0;
     PyObject *binascii = PyImport_ImportModule("binascii");
     if (!binascii) {
-        PyErr_SetString(PyExc_ImportError, "Failed to import binascii module");
         return -1;
     }
 
@@ -613,23 +733,28 @@ static int _exec(PyObject *module)
     state->binascii_unhexlify = PyObject_GetAttrString(binascii, "unhexlify");
     Py_DECREF(binascii);
 
-    if (!state->binascii_hexlify) {
-        PyErr_SetString(PyExc_AttributeError, "Failed to get binascii.hexlify");
-        err = 2;
-    }
-    if (!state->binascii_hexlify) {
-        PyErr_SetString(PyExc_AttributeError, "Failed to get binascii.hexlify");
-        err = 3;
-    }
-
-    if (err) {
+    if (!state->binascii_hexlify || !state->binascii_unhexlify) {
         Py_XDECREF(state->binascii_hexlify);
         Py_XDECREF(state->binascii_unhexlify);
-        return -err;
-
+        state->binascii_hexlify = NULL;
+        state->binascii_unhexlify = NULL;
+        PyErr_SetString(PyExc_AttributeError,
+            "Failed to get binascii.hexlify or binascii.unhexlify");
+        return -1;
     }
 
-    PyModule_AddStringConstant(module, "VERSION", VERSION);
+    if (PyModule_AddStringConstant(module, "VERSION", VERSION) < 0)
+        return -1;
+
+    PyObject *xxtea_type = PyType_FromModuleAndSpec(module, &xxtea_type_spec, NULL);
+    if (xxtea_type == NULL)
+        return -1;
+
+    if (PyDict_SetItemString(PyModule_GetDict(module), "XXTEA", xxtea_type) < 0) {
+        Py_DECREF(xxtea_type);
+        return -1;
+    }
+    Py_DECREF(xxtea_type);
 
     return 0;
 }
@@ -644,6 +769,13 @@ static PyMethodDef methods[] = {
 
 static PyModuleDef_Slot slots[] = {
     {Py_mod_exec, _exec},
+#if PY_VERSION_HEX >= 0x030c0000
+    /* Subinterpreter + per-interpreter GIL support (3.12+).
+       Value 2 (PER_INTERPRETER_GIL_SUPPORTED) is required
+       because value 1 (SUPPORTED, the default) means "shared
+       GIL only", which _xxsubinterpreters rejects on 3.12. */
+    {Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
+#endif
 #ifdef Py_GIL_DISABLED
     {Py_mod_gil, Py_MOD_GIL_NOT_USED},
 #endif
@@ -653,20 +785,20 @@ static PyModuleDef_Slot slots[] = {
 
 static int _traverse(PyObject *module, visitproc visit, void *arg)
 {
-    xxtea_mod_state *module_state = (xxtea_mod_state*)PyModule_GetState(module);
-    if (module_state) {
-        Py_VISIT(module_state->binascii_hexlify);
-        Py_VISIT(module_state->binascii_unhexlify);
+    xxtea_mod_state *state = (xxtea_mod_state*)PyModule_GetState(module);
+    if (state) {
+        Py_VISIT(state->binascii_hexlify);
+        Py_VISIT(state->binascii_unhexlify);
     }
     return 0;
 }
 
 static int _clear(PyObject *module)
 {
-    xxtea_mod_state *module_state = (xxtea_mod_state*)PyModule_GetState(module);
-    if (module_state) {
-        Py_CLEAR(module_state->binascii_hexlify);
-        Py_CLEAR(module_state->binascii_unhexlify);
+    xxtea_mod_state *state = (xxtea_mod_state*)PyModule_GetState(module);
+    if (state) {
+        Py_CLEAR(state->binascii_hexlify);
+        Py_CLEAR(state->binascii_unhexlify);
     }
     return 0;
 }
@@ -677,15 +809,15 @@ static void _free(void *module)
 }
 
 static struct PyModuleDef moduledef = {
-    PyModuleDef_HEAD_INIT,
-    "xxtea",
-    NULL,
-    sizeof(struct xxtea_mod_state),
-    methods,
-    slots,
-    _traverse,
-    _clear,
-    _free
+    .m_base     = PyModuleDef_HEAD_INIT,
+    .m_name     = "xxtea",
+    .m_doc      = NULL,
+    .m_size     = sizeof(struct xxtea_mod_state),
+    .m_methods  = methods,
+    .m_slots    = slots,
+    .m_traverse = _traverse,
+    .m_clear    = _clear,
+    .m_free     = _free,
 };
 
 PyMODINIT_FUNC PyInit_xxtea(void)

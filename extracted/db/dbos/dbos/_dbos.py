@@ -26,6 +26,7 @@ from typing import (
     Literal,
     Optional,
     Protocol,
+    Sequence,
     Tuple,
     Type,
     TypedDict,
@@ -639,7 +640,28 @@ class DBOS:
             self._background_threads.append(bg_queue_thread)
 
             # Start the conductor thread if requested
-            if self.conductor_key is not None:
+            if GlobalParams.dbos_cloud:
+                cloud_app_name = os.environ.get("DBOS__CONDUCTOR_APP_NAME")
+                cloud_conductor_key = os.environ.get("DBOS__CONDUCTOR_KEY")
+                cloud_conductor_url = os.environ.get("DBOS__CONDUCTOR_URL")
+                if (
+                    cloud_app_name is not None
+                    and cloud_conductor_key is not None
+                    and cloud_conductor_url is not None
+                ):
+                    evt = threading.Event()
+                    self.background_thread_stop_events.append(evt)
+                    dbos_logger.debug("Starting Conductor thread (DBOS Cloud)")
+                    self.conductor_websocket = ConductorWebsocket(
+                        self,
+                        app_name=cloud_app_name,
+                        conductor_url=cloud_conductor_url,
+                        conductor_key=cloud_conductor_key,
+                        evt=evt,
+                    )
+                    self.conductor_websocket.start()
+                    self._background_threads.append(self.conductor_websocket)
+            elif self.conductor_key is not None:
                 if self.conductor_url is None:
                     dbos_domain = os.environ.get("DBOS_DOMAIN", "cloud.dbos.dev")
                     self.conductor_url = f"wss://{dbos_domain}/conductor/v1alpha1"
@@ -648,6 +670,7 @@ class DBOS:
                 dbos_logger.debug("Starting Conductor thread")
                 self.conductor_websocket = ConductorWebsocket(
                     self,
+                    app_name=self._config["name"],
                     conductor_url=self.conductor_url,
                     conductor_key=self.conductor_key,
                     evt=evt,
@@ -837,6 +860,7 @@ class DBOS:
 
         :returns: A :class:`Queue` reflecting the persisted configuration.
         """
+        check_async("register_queue")
         Queue._validate_queue(
             concurrency=concurrency,
             worker_concurrency=worker_concurrency,
@@ -872,6 +896,34 @@ class DBOS:
         return queue
 
     @classmethod
+    async def register_queue_async(
+        cls,
+        name: str,
+        *,
+        worker_concurrency: Optional[int] = None,
+        concurrency: Optional[int] = None,
+        limiter: Optional[QueueRateLimit] = None,
+        priority_enabled: bool = False,
+        partition_queue: bool = False,
+        polling_interval_sec: float = 1.0,
+        on_conflict: QueueConflictResolution = "update_if_latest_version",
+    ) -> Queue:
+        """Async version of :meth:`register_queue`."""
+        await cls._configure_asyncio_thread_pool()
+        return await asyncio.to_thread(
+            lambda: cls.register_queue(
+                name,
+                worker_concurrency=worker_concurrency,
+                concurrency=concurrency,
+                limiter=limiter,
+                priority_enabled=priority_enabled,
+                partition_queue=partition_queue,
+                polling_interval_sec=polling_interval_sec,
+                on_conflict=on_conflict,
+            )
+        )
+
+    @classmethod
     def retrieve_queue(cls, name: str) -> Optional[Queue]:
         """
         Retrieve a database-backed queue by name.
@@ -880,12 +932,26 @@ class DBOS:
         system database. The returned Queue is not added to the in-memory queue
         registry.
         """
+        check_async("retrieve_queue")
         return _get_dbos_instance()._sys_db.get_queue(name)
+
+    @classmethod
+    async def retrieve_queue_async(cls, name: str) -> Optional[Queue]:
+        """Async version of :meth:`retrieve_queue`."""
+        await cls._configure_asyncio_thread_pool()
+        return await asyncio.to_thread(cls.retrieve_queue, name)
 
     @classmethod
     def delete_queue(cls, name: str) -> None:
         """Delete a database-backed queue. Pending workflows on it are unrecoverable."""
+        check_async("delete_queue")
         _get_dbos_instance()._sys_db.delete_queue(name)
+
+    @classmethod
+    async def delete_queue_async(cls, name: str) -> None:
+        """Async version of :meth:`delete_queue`."""
+        await cls._configure_asyncio_thread_pool()
+        await asyncio.to_thread(cls.delete_queue, name)
 
     # Decorators for DBOS functionality
     @classmethod
@@ -1073,9 +1139,7 @@ class DBOS:
         **kwargs: P.kwargs,
     ) -> WorkflowHandle[R]:
         """Enqueue a workflow on a database-backed queue, returning a handle to the ongoing execution."""
-        queue = cls.retrieve_queue(queue_name)
-        if queue is None:
-            raise DBOSException(f"Queue {queue_name} is not registered")
+        queue = Queue(queue_name, database_backed_queue=True)
         return queue.enqueue(func, *args, **kwargs)
 
     @classmethod
@@ -1087,9 +1151,8 @@ class DBOS:
         **kwargs: P.kwargs,
     ) -> WorkflowHandleAsync[R]:
         """Async version of :meth:`enqueue_workflow`."""
-        queue = cls.retrieve_queue(queue_name)
-        if queue is None:
-            raise DBOSException(f"Queue {queue_name} is not registered")
+        await cls._configure_asyncio_thread_pool()
+        queue = Queue(queue_name, database_backed_queue=True)
         return await queue.enqueue_async(func, *args, **kwargs)
 
     @classmethod
@@ -3070,7 +3133,7 @@ class DBOS:
         return dbos_tracer
 
     @classmethod
-    def listen_queues(cls, queues: List[Union[Queue, str]]) -> None:
+    def listen_queues(cls, queues: Sequence[Union[Queue, str]]) -> None:
         """
         Configure this DBOS process to only listen to (dequeue workflows from) specific queues.
 

@@ -1,12 +1,14 @@
 import logging
 
+from celery import shared_task
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
-from celery import shared_task
 
 from allianceauth.notifications import notify
 from allianceauth.services.hooks import NameFormatter
 from allianceauth.services.tasks import QueueOnce
+
 from .manager import DiscourseManager
 from .models import DiscourseUser
 
@@ -20,7 +22,7 @@ class DiscourseTasks:
     @classmethod
     def delete_user(cls, user, notify_user=False):
         if cls.has_account(user) and user.discourse.enabled:
-            logger.debug("User %s has a Discourse account. Disabling login." % user)
+            logger.debug(f"User {user} has a Discourse account. Disabling login.")
             if DiscourseManager.disable_user(user):
                 user.discourse.delete()
                 if notify_user:
@@ -44,14 +46,14 @@ class DiscourseTasks:
     @shared_task(bind=True, name='discourse.update_groups', base=QueueOnce)
     def update_groups(self, pk):
         user = User.objects.get(pk=pk)
-        logger.debug("Updating discourse groups for user %s" % user)
+        logger.debug(f"Updating discourse groups for user {user}")
         try:
             DiscourseManager.update_groups(user)
         except Exception as e:
             logger.exception(e)
-            logger.warning("Discourse group sync failed for %s, retrying in 10 mins" % user)
-            raise self.retry(countdown=60 * 10)
-        logger.debug("Updated user %s discourse groups." % user)
+            logger.warning(f"Discourse group sync failed for {user}, retrying in 10 mins")
+            raise self.retry(exc=e, countdown=60 * 10) from e
+        logger.debug(f"Updated user {user} discourse groups.")
 
     @staticmethod
     @shared_task(name='discourse.update_all_groups')

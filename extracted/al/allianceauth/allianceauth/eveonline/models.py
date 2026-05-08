@@ -1,20 +1,23 @@
 import logging
-from typing import ClassVar, Union
+from typing import TYPE_CHECKING, ClassVar
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+
+from esi.exceptions import HTTPNotModified
+from django.utils.translation import gettext_lazy as _
 from esi.models import Token
+
+if TYPE_CHECKING:
+    from allianceauth.authentication.models import CharacterOwnership
 
 from allianceauth.notifications import notify
 
 from . import providers
 from .evelinks import eveimageserver
 from .managers import (
-    EveAllianceManager,
-    EveAllianceProviderManager,
-    EveCharacterManager,
-    EveCharacterProviderManager,
-    EveCorporationManager,
+    EveAllianceManager, EveAllianceProviderManager, EveCharacterManager,
+    EveCharacterProviderManager, EveCorporationManager,
     EveCorporationProviderManager,
 )
 
@@ -29,10 +32,16 @@ class EveFactionInfo(models.Model):
 
     faction_id = models.PositiveIntegerField(unique=True, db_index=True)
     faction_name = models.CharField(max_length=254, unique=True)
+    last_updated = models.DateTimeField(auto_now=True)
 
-    provider = providers.provider
+    provider = providers.open_api_provider
 
-    def __str__(self):
+    class Meta:
+        default_permissions = ()
+        verbose_name = _("faction")
+        verbose_name_plural = _("factions")
+
+    def __str__(self) -> str:
         return self.faction_name
 
     @staticmethod
@@ -73,35 +82,51 @@ class EveAllianceInfo(models.Model):
     alliance_id = models.PositiveIntegerField(unique=True)
     alliance_name = models.CharField(max_length=254, db_index=True)
     alliance_ticker = models.CharField(max_length=254)
-    executor_corp_id = models.PositiveIntegerField()
+    executor_corp_id = models.PositiveIntegerField(db_index=True)
+    last_updated = models.DateTimeField(auto_now=True)
 
-    objects: ClassVar[EveAllianceManager] = EveAllianceManager()
+    objects: ClassVar[EveAllianceManager] = EveAllianceManager()  # pyright: ignore[reportIncompatibleVariableOverride]
     provider: ClassVar[EveAllianceProviderManager] = EveAllianceProviderManager()
 
     class Meta:
-        indexes = [models.Index(fields=['executor_corp_id',])]
+        default_permissions = ()
+        verbose_name = _("alliance")
+        verbose_name_plural = _("alliances")
 
-    def populate_alliance(self):
-        alliance = self.provider.get_alliance(self.alliance_id)
-        for corp_id in alliance.corp_ids:
-            if not EveCorporationInfo.objects.filter(corporation_id=corp_id).exists():
-                EveCorporationInfo.objects.create_corporation(corp_id)
-        EveCorporationInfo.objects.filter(corporation_id__in=alliance.corp_ids).update(
-            alliance=self
-        )
-        EveCorporationInfo.objects.filter(alliance=self).exclude(
-            corporation_id__in=alliance.corp_ids
-        ).update(alliance=None)
-
-    def update_alliance(self, alliance: providers.Alliance = None):
-        if alliance is None:
-            alliance = self.provider.get_alliance(self.alliance_id)
-        self.executor_corp_id = alliance.executor_corp_id
-        self.save()
-        return self
-
-    def __str__(self):
+    def __str__(self) -> str:
         return self.alliance_name
+
+    def populate_alliance(self) -> None:
+        try:
+            corp_ids = self.provider.get_alliance_corps(self.alliance_id)
+            for corp_id in corp_ids:
+                if not EveCorporationInfo.objects.filter(corporation_id=corp_id).exists():
+                    EveCorporationInfo.objects.create_corporation(corp_id=corp_id, use_etag=False)
+            EveCorporationInfo.objects.filter(
+                corporation_id__in=corp_ids
+            ).update(
+                alliance=self
+            )
+            EveCorporationInfo.objects.filter(alliance=self).exclude(
+                corporation_id__in=corp_ids
+            ).update(
+                alliance=None
+            )
+        except HTTPNotModified:
+            # nothing to update
+            pass
+
+    def update_alliance(self, alliance: providers.Alliance = None) -> "EveAllianceInfo":
+        try:
+            if alliance is None:
+                alliance = self.provider.get_alliance(self.alliance_id)
+            self.executor_corp_id = alliance.executor_corp_id
+            self.save()
+        except HTTPNotModified:
+            # nothing to update
+            pass
+
+        return self
 
     @staticmethod
     def generic_logo_url(
@@ -146,27 +171,35 @@ class EveCorporationInfo(models.Model):
     alliance = models.ForeignKey(
         EveAllianceInfo, blank=True, null=True, on_delete=models.SET_NULL
     )
+    last_updated = models.DateTimeField(auto_now=True)
 
-    objects: ClassVar[EveCorporationManager] = EveCorporationManager()
+    objects: ClassVar[EveCorporationManager] = EveCorporationManager()  # pyright: ignore[reportIncompatibleVariableOverride]
     provider = EveCorporationProviderManager()
 
     class Meta:
         indexes = [models.Index(fields=['ceo_id',]),]
+        verbose_name = _("corporation")
+        verbose_name_plural = _("corporations")
 
-    def update_corporation(self, corp: providers.Corporation = None):
-        if corp is None:
-            corp = self.provider.get_corporation(self.corporation_id)
-        self.member_count = corp.members
-        self.ceo_id = corp.ceo_id
-        try:
-            self.alliance = EveAllianceInfo.objects.get(alliance_id=corp.alliance_id)
-        except EveAllianceInfo.DoesNotExist:
-            self.alliance = None
-        self.save()
-        return self
-
-    def __str__(self):
+    def __str__(self) -> str:
         return self.corporation_name
+
+    def update_corporation(self, corp: providers.Corporation = None) -> "EveCorporationInfo":
+        try:
+            if corp is None:
+                corp = self.provider.get_corporation(self.corporation_id)
+            self.member_count = corp.members
+            self.ceo_id = corp.ceo_id
+            try:
+                self.alliance = EveAllianceInfo.objects.get(alliance_id=corp.alliance_id)
+            except EveAllianceInfo.DoesNotExist:
+                self.alliance = None
+            self.save()
+        except HTTPNotModified:
+            # nothing to update
+            pass
+
+        return self
 
     @staticmethod
     def generic_logo_url(
@@ -213,8 +246,10 @@ class EveCharacter(models.Model):
     alliance_ticker = models.CharField(max_length=5, blank=True, null=True, default='')
     faction_id = models.PositiveIntegerField(blank=True, null=True, default=None)
     faction_name = models.CharField(max_length=254, blank=True, null=True, default='')
+    last_updated = models.DateTimeField(auto_now=True)
 
-    objects: ClassVar[EveCharacterManager] = EveCharacterManager()
+    objects: ClassVar[EveCharacterManager] = EveCharacterManager()  # pyright: ignore[reportIncompatibleVariableOverride]
+    character_ownership: models.OneToOneField["CharacterOwnership"]
     provider = EveCharacterProviderManager()
 
     class Meta:
@@ -225,8 +260,10 @@ class EveCharacter(models.Model):
             models.Index(fields=['alliance_name',]),
             models.Index(fields=['faction_id',]),
         ]
+        verbose_name = _("character")
+        verbose_name_plural = _("characters")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.character_name
 
     @property
@@ -235,7 +272,7 @@ class EveCharacter(models.Model):
         return self.corporation_id == DOOMHEIM_CORPORATION_ID
 
     @property
-    def alliance(self) -> Union[EveAllianceInfo, None]:
+    def alliance(self) -> EveAllianceInfo | None:
         """
         Pseudo foreign key from alliance_id to EveAllianceInfo
         :raises: EveAllianceInfo.DoesNotExist
@@ -255,7 +292,7 @@ class EveCharacter(models.Model):
         return EveCorporationInfo.objects.get(corporation_id=self.corporation_id)
 
     @property
-    def faction(self) -> Union[EveFactionInfo, None]:
+    def faction(self) -> EveFactionInfo | None:
         """
         Pseudo foreign key from faction_id to EveFactionInfo
         :raises: EveFactionInfo.DoesNotExist
@@ -266,20 +303,25 @@ class EveCharacter(models.Model):
         return EveFactionInfo.objects.get(faction_id=self.faction_id)
 
     def update_character(self, character: providers.Character = None):
-        if character is None:
-            character = self.provider.get_character(self.character_id)
-        self.character_name = character.name
-        self.corporation_id = character.corp.id
-        self.corporation_name = character.corp.name
-        self.corporation_ticker = character.corp.ticker
-        self.alliance_id = character.alliance.id
-        self.alliance_name = character.alliance.name
-        self.alliance_ticker = getattr(character.alliance, 'ticker', None)
-        self.faction_id = character.faction.id
-        self.faction_name = character.faction.name
-        self.save()
-        if self.is_biomassed:
-            self._remove_tokens_of_biomassed_character()
+        try:
+            if character is None:
+                character = self.provider.get_character(self.character_id)
+            self.character_name = character.name
+            self.corporation_id = character.corp.id
+            self.corporation_name = character.corp.name
+            self.corporation_ticker = character.corp.ticker
+            self.alliance_id = character.alliance.id
+            self.alliance_name = character.alliance.name
+            self.alliance_ticker = getattr(character.alliance, 'ticker', None)
+            self.faction_id = character.faction.id
+            self.faction_name = character.faction.name
+            self.save()
+            if self.is_biomassed:
+                self._remove_tokens_of_biomassed_character()
+        except HTTPNotModified:
+            # nothing to update
+            pass
+
         return self
 
     def _remove_tokens_of_biomassed_character(self) -> None:

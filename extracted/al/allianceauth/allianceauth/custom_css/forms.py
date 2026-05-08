@@ -3,11 +3,11 @@ Forms for custom_css app
 """
 
 # Alliance Auth Custom CSS
-from allianceauth.custom_css.models import CustomCSS
-from allianceauth.custom_css.widgets import CssEditorWidget
-
 # Django
 from django import forms
+
+from allianceauth.custom_css.models import CustomCSS
+from allianceauth.custom_css.widgets import CssEditorWidget
 
 
 class CustomCSSAdminForm(forms.ModelForm):

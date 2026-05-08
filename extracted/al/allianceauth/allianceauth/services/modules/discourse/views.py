@@ -1,20 +1,18 @@
+import base64
+import hashlib
+import hmac
+import logging
+from urllib.parse import parse_qs, unquote, urlencode
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
 
 from .manager import DiscourseManager
-from .tasks import DiscourseTasks
 from .models import DiscourseUser
-
-import base64
-import hmac
-import hashlib
-
-from urllib.parse import unquote, urlencode, parse_qs
-
-import logging
+from .tasks import DiscourseTasks
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +25,12 @@ def discourse_sso(request):
     # Check if user has access
     if not request.user.has_perm(ACCESS_PERM):
         messages.error(request, _('You are not authorized to access Discourse.'))
-        logger.warning('User %s attempted to access Discourse but does not have permission.' % request.user)
+        logger.warning(f'User {request.user} attempted to access Discourse but does not have permission.')
         return redirect('authentication:dashboard')
 
     if not request.user.profile.main_character:
         messages.error(request, _("You must have a main character set to access Discourse."))
-        logger.warning('User %s attempted to access Discourse but does not have a main character.' % request.user)
+        logger.warning(f'User {request.user} attempted to access Discourse but does not have a main character.')
         return redirect('authentication:characters')
 
     main_char = request.user.profile.main_character
@@ -92,5 +90,5 @@ def discourse_sso(request):
         DiscourseTasks.update_groups.apply_async(args=[request.user.pk], countdown=30)
 
     # Redirect back to Discourse
-    url = '%s/session/sso_login' % settings.DISCOURSE_URL
+    url = f'{settings.DISCOURSE_URL}/session/sso_login'
     return redirect(f'{url}?{query_string}')

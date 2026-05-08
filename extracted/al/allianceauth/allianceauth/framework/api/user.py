@@ -2,7 +2,6 @@
 Alliance Auth User API
 """
 
-from typing import Optional
 
 from django.contrib.auth.models import User
 
@@ -49,7 +48,7 @@ def get_all_characters_from_user(user: User, main_first: bool = False) -> list:
     return characters
 
 
-def get_main_character_from_user(user: User) -> Optional[EveCharacter]:
+def get_main_character_from_user(user: User) -> EveCharacter | None:
     """
     Get the main character from a user
 

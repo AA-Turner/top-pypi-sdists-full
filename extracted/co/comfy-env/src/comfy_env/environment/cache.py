@@ -47,15 +47,29 @@ def get_workspace_env_dir(comfyui_dir, env_name):
     return get_workspace_dir(comfyui_dir) / ".pixi" / "envs" / env_name
 
 
-def find_comfyui_dir_from_node(node_dir):
-    """Walk up from a node dir to find the ComfyUI base (has main.py + comfy/)."""
-    current = Path(node_dir).resolve()
-    for _ in range(10):
-        if (current / "main.py").exists() and (current / "comfy").exists():
-            return current
-        if current.parent == current:
-            break
-        current = current.parent
+def find_comfyui_dir_from_node(node_dir=None):
+    """Find the ComfyUI base directory.
+
+    Tries folder_paths.base_path first (works when ComfyUI is running),
+    then walks up from node_dir looking for ComfyUI markers.
+    """
+    try:
+        import folder_paths
+        return Path(folder_paths.base_path)
+    except ImportError:
+        pass
+    if node_dir is not None:
+        current = Path(node_dir).resolve()
+        for _ in range(10):
+            # Standard layout: has main.py + comfy/
+            if (current / "main.py").exists() and (current / "comfy").exists():
+                return current
+            # Desktop app layout: base_path has custom_nodes/ but no main.py
+            if (current / "custom_nodes").is_dir() and (current / "user").is_dir():
+                return current
+            if current.parent == current:
+                break
+            current = current.parent
     return None
 
 

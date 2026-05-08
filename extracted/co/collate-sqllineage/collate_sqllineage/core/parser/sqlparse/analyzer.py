@@ -1,7 +1,7 @@
 import logging
 from functools import reduce
 from operator import add
-from typing import List, Union, cast
+from typing import List, Union
 
 import sqlparse
 from sqlparse.sql import (
@@ -268,9 +268,9 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
                 ],
                 [],
             )
-        elif is_subquery(token):
+        elif is_subquery(token) and isinstance(token, Parenthesis):
             # Parenthesis for SubQuery without alias, this is valid syntax for certain SQL dialect
-            result = [SqlParseSubQuery.of(cast(Parenthesis, token), None)]
+            result = [SqlParseSubQuery.of(token, None)]
         return result
 
     @classmethod

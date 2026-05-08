@@ -1,6 +1,3 @@
-mod diagnostics;
-mod project;
-
 use std::error::Error;
 
 use crossbeam_channel::Sender;
@@ -14,7 +11,7 @@ use lsp_types::{
     InitializeParams, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, Uri,
 };
 
-use project::ProjectState;
+use chalk_lsp::project::ProjectState;
 
 fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     env_logger::init();

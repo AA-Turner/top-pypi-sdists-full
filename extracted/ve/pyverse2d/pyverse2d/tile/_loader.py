@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from ..shape import Rect, Polygon
 
-from ._tile import Tile, TileMeta
 from ._tile_map import TileMap, FLIP_H, FLIP_V, FLIP_D
 from ._map_asset import MapAsset
+from ._tile import Tile, TileMeta
 
 import json
 import numpy as np

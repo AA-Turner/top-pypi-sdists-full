@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openbb-core
-Version: 1.6.8
+Version: 1.6.9
 Summary: OpenBB package with core functionality.
 License: AGPL-3.0-only
 Author: OpenBB Team
@@ -21,7 +21,7 @@ Requires-Dist: pandas (>=1.5.3)
 Requires-Dist: pydantic (>=2.12.3,<3.0.0)
 Requires-Dist: pyjwt (>=2.12.0,<3.0.0)
 Requires-Dist: python-dotenv (>=1.0.0,<2.0.0)
-Requires-Dist: python-multipart (>=0.0.26,<0.0.27)
+Requires-Dist: python-multipart (>=0.0.27,<0.0.28)
 Requires-Dist: requests (>=2.33.0,<3.0.0)
 Requires-Dist: ruff (>=0.15,<0.16)
 Requires-Dist: uuid7 (>=0.1.0,<0.2.0)

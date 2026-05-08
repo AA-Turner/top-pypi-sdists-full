@@ -2,6 +2,7 @@
 
 from django.db import migrations
 
+
 def create_permissions(apps, schema_editor):
     User = apps.get_model('auth', 'User')
     ContentType = apps.get_model('contenttypes', 'ContentType')

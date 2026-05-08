@@ -1,9 +1,7 @@
 import logging
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.decorators import permission_required
-from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
 from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
 
@@ -12,7 +10,6 @@ from allianceauth.services.views import superuser_test
 from . import __title__
 from .models import DiscordUser
 from .utils import LoggerAddTag
-
 
 logger = LoggerAddTag(logging.getLogger(__name__), __title__)
 

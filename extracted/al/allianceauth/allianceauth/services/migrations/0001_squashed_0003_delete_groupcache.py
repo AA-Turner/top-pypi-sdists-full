@@ -6,8 +6,6 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
 
-    replaces = [('services', '0001_initial'), ('services', '0002_auto_20161016_0135'), ('services', '0003_delete_groupcache')]
-
     initial = True
 
     dependencies = [

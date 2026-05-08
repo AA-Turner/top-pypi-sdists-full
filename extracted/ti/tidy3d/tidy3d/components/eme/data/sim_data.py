@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 from pydantic import Field
@@ -99,19 +99,19 @@ class EMESimulationData(AbstractYeeGridSimulationData):
         "associated with the monitors of the original :class:`.EMESimulation`.",
     )
 
-    smatrix: Optional[EMESMatrixDataset] = Field(
+    smatrix: EMESMatrixDataset | None = Field(
         None,
         title="S Matrix",
         description="Scattering matrix of the EME simulation.",
     )
 
-    coeffs: Optional[Union[EMECoefficientData, EMECoefficientDataset]] = Field(
+    coeffs: EMECoefficientData | EMECoefficientDataset | None = Field(
         None,
         title="Coefficients",
         description="Coefficients from the EME simulation. Useful for debugging and optimization.",
     )
 
-    port_modes_raw: Optional[EMEModeSolverData] = Field(
+    port_modes_raw: EMEModeSolverData | None = Field(
         None,
         title="Port Modes",
         description="Modes associated with the two ports of the EME device. "
@@ -120,7 +120,7 @@ class EMESimulationData(AbstractYeeGridSimulationData):
     )
 
     @cached_property
-    def port_modes(self) -> Optional[EMEModeSolverData]:
+    def port_modes(self) -> EMEModeSolverData | None:
         """Modes associated with the two ports of the EME device.
         The scattering matrix is expressed in this basis.
         Note: these modes are symmetry expanded."""
@@ -129,7 +129,7 @@ class EMESimulationData(AbstractYeeGridSimulationData):
         return self.port_modes_raw.symmetry_expanded_copy
 
     def _extract_mode_solver_data(
-        self, data: EMEModeSolverData, eme_cell_index: int, sweep_index: Optional[int] = None
+        self, data: EMEModeSolverData, eme_cell_index: int, sweep_index: int | None = None
     ) -> ModeSolverData:
         """Extract :class:`.ModeSolverData` at a given ``eme_cell_index``.
         Assumes the :class:`.EMEModeSolverMonitor` spans the entire simulation and has
@@ -262,7 +262,7 @@ class EMESimulationData(AbstractYeeGridSimulationData):
         return port_modes_list
 
     def smatrix_in_basis(
-        self, modes1: Union[FieldData, ModeData] = None, modes2: Union[FieldData, ModeData] = None
+        self, modes1: FieldData | ModeData = None, modes2: FieldData | ModeData = None
     ) -> EMESMatrixDataset:
         """Express the scattering matrix in the provided basis.
         Change of basis is done by computing overlaps between provided modes and port modes.
@@ -318,32 +318,47 @@ class EMESimulationData(AbstractYeeGridSimulationData):
 
         modes1_provided = modes1 is not None
         modes2_provided = modes2 is not None
-        if not modes1_provided:
-            modes1 = port_modes1
-        if not modes2_provided:
-            modes2 = port_modes2
-        f1 = list(modes1.monitor.freqs)
-        f2 = list(modes2.monitor.freqs)
+        if not modes1_provided and not modes2_provided:
+            return self.smatrix
+
+        modes1_for_freq = modes1 if modes1_provided else port_modes1
+        modes2_for_freq = modes2 if modes2_provided else port_modes2
+        f1 = list(modes1_for_freq.monitor.freqs)
+        f2 = list(modes2_for_freq.monitor.freqs)
 
         f = np.array(sorted(set(f1).intersection(f2).intersection(self.simulation.freqs)))
 
-        mode_spec1 = modes1.monitor.mode_spec if isinstance(modes1, ModeData) else None
-        mode_spec2 = modes2.monitor.mode_spec if isinstance(modes2, ModeData) else None
+        mode_spec1 = (
+            modes1.monitor.mode_spec if modes1_provided and isinstance(modes1, ModeData) else None
+        )
+        mode_spec2 = (
+            modes2.monitor.mode_spec if modes2_provided and isinstance(modes2, ModeData) else None
+        )
 
         interp_spec1 = mode_spec1.interp_spec if mode_spec1 is not None else None
         interp_spec2 = mode_spec2.interp_spec if mode_spec2 is not None else None
 
-        modes_in_1 = "mode_index" in list(modes1.field_components.values())[0].coords
-        modes_in_2 = "mode_index" in list(modes2.field_components.values())[0].coords
+        if modes1_provided:
+            modes_in_1 = "mode_index" in list(modes1.field_components.values())[0].coords
+        else:
+            modes_in_1 = True
+        if modes2_provided:
+            modes_in_2 = "mode_index" in list(modes2.field_components.values())[0].coords
+        else:
+            modes_in_2 = True
 
-        if modes_in_1:
+        if modes1_provided and modes_in_1:
             mode_index_1 = list(modes1.field_components.values())[0].mode_index.to_numpy()
-        else:
+        elif modes1_provided:
             mode_index_1 = [0]
-        if modes_in_2:
-            mode_index_2 = list(modes2.field_components.values())[0].mode_index.to_numpy()
         else:
+            mode_index_1 = list(self.smatrix.S11.mode_index_in.to_numpy())
+        if modes2_provided and modes_in_2:
+            mode_index_2 = list(modes2.field_components.values())[0].mode_index.to_numpy()
+        elif modes2_provided:
             mode_index_2 = [0]
+        else:
+            mode_index_2 = list(self.smatrix.S22.mode_index_in.to_numpy())
 
         sweep = "sweep_index" in self.smatrix.S11.coords
         if sweep:
@@ -369,26 +384,25 @@ class EMESimulationData(AbstractYeeGridSimulationData):
             S21 = self.smatrix.S21.sel(f=f, sweep_index=sweep_index)
             S22 = self.smatrix.S22.sel(f=f, sweep_index=sweep_index)
 
-            # nans in S-matrix indicate invalid EME modes
-            # we skip these in change of basis
-            nan_inds1 = np.argwhere(np.any(np.isnan(S11.to_numpy()), axis=0))
-            nan_inds2 = np.argwhere(np.any(np.isnan(S22.to_numpy()), axis=0))
-            keep_inds1 = np.setdiff1d(np.arange(len(S11.mode_index_in)), nan_inds1)
-            keep_inds2 = np.setdiff1d(np.arange(len(S22.mode_index_in)), nan_inds2)
+            # Keep only port modes present at this sweep point.
+            diag1_nan = np.isnan(np.diagonal(S11.to_numpy(), axis1=-2, axis2=-1)).any(axis=0)
+            diag2_nan = np.isnan(np.diagonal(S22.to_numpy(), axis1=-2, axis2=-1)).any(axis=0)
+            keep_inds1 = np.where(~diag1_nan)[0]
+            keep_inds2 = np.where(~diag2_nan)[0]
             keep_mode_inds1 = [S11.mode_index_in[i] for i in keep_inds1]
             keep_mode_inds2 = [S22.mode_index_in[i] for i in keep_inds2]
 
-            S11 = S11.sel(mode_index_in=keep_mode_inds1, mode_index_out=keep_mode_inds1)
-            S12 = S12.sel(mode_index_in=keep_mode_inds2, mode_index_out=keep_mode_inds1)
-            S21 = S21.sel(mode_index_in=keep_mode_inds1, mode_index_out=keep_mode_inds2)
-            S22 = S22.sel(mode_index_in=keep_mode_inds2, mode_index_out=keep_mode_inds2)
+            if modes1_provided:
+                S11 = S11.sel(mode_index_in=keep_mode_inds1, mode_index_out=keep_mode_inds1)
+                S12 = S12.sel(mode_index_out=keep_mode_inds1)
+                S21 = S21.sel(mode_index_in=keep_mode_inds1)
+            if modes2_provided:
+                S12 = S12.sel(mode_index_in=keep_mode_inds2)
+                S21 = S21.sel(mode_index_out=keep_mode_inds2)
+                S22 = S22.sel(mode_index_in=keep_mode_inds2, mode_index_out=keep_mode_inds2)
 
             if self.simulation._sweep_modes:
                 port_modes1, port_modes2 = self.port_modes_list_sweep[sweep_index]
-                if not modes1_provided:
-                    modes1 = port_modes1
-                if not modes2_provided:
-                    modes2 = port_modes2
 
             if modes1_provided:
                 overlaps1 = modes1.outer_dot(port_modes1, conjugate=False)
@@ -509,7 +523,7 @@ class EMESimulationData(AbstractYeeGridSimulationData):
     def field_in_basis(
         self,
         field: EMEFieldData,
-        modes: Union[FieldData, ModeData] = None,
+        modes: FieldData | ModeData = None,
         port_index: Literal[0, 1] = 0,
     ) -> EMEFieldData:
         """Express the electromagnetic field in the provided basis.

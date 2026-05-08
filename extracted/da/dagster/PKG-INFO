@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster
-Version: 1.13.3
+Version: 1.13.4
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Project-URL: Homepage, https://dagster.io
 Project-URL: GitHub, https://github.com/dagster-io/dagster
@@ -34,8 +34,8 @@ Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
 Requires-Dist: antlr4-python3-runtime
 Requires-Dist: click<9.0,>=5.0
 Requires-Dist: coloredlogs<=14.0,>=6.1
-Requires-Dist: dagster-pipes==1.13.3
-Requires-Dist: dagster-shared==1.13.3
+Requires-Dist: dagster-pipes==1.13.4
+Requires-Dist: dagster-shared==1.13.4
 Requires-Dist: docstring-parser
 Requires-Dist: filelock
 Requires-Dist: grpcio-health-checking>=1.44.0; python_version < '3.13'
@@ -107,12 +107,35 @@ Requires-Dist: rapidfuzz; extra == 'test'
 Requires-Dist: responses<=0.23.1; extra == 'test'
 Requires-Dist: ruff==0.15.0; extra == 'test'
 Requires-Dist: syrupy>=4.0.0; extra == 'test'
+Requires-Dist: tox-uv>=1; extra == 'test'
 Requires-Dist: tox>=4; extra == 'test'
 Provides-Extra: test-components
 Requires-Dist: duckdb; extra == 'test-components'
 Requires-Dist: jsonschema; extra == 'test-components'
 Requires-Dist: pandas<3.0.0; extra == 'test-components'
 Requires-Dist: tomlkit; extra == 'test-components'
+Provides-Extra: ty
+Requires-Dist: boto3-stubs[essential]; extra == 'ty'
+Requires-Dist: pandas-stubs; extra == 'ty'
+Requires-Dist: types-backports; extra == 'ty'
+Requires-Dist: types-certifi; extra == 'ty'
+Requires-Dist: types-chardet; extra == 'ty'
+Requires-Dist: types-cryptography; extra == 'ty'
+Requires-Dist: types-freezegun; extra == 'ty'
+Requires-Dist: types-mock; extra == 'ty'
+Requires-Dist: types-paramiko; extra == 'ty'
+Requires-Dist: types-protobuf; extra == 'ty'
+Requires-Dist: types-pyopenssl; extra == 'ty'
+Requires-Dist: types-python-dateutil~=2.9.0.20240316; extra == 'ty'
+Requires-Dist: types-pytz; extra == 'ty'
+Requires-Dist: types-pyyaml; extra == 'ty'
+Requires-Dist: types-redis; extra == 'ty'
+Requires-Dist: types-requests; extra == 'ty'
+Requires-Dist: types-simplejson; extra == 'ty'
+Requires-Dist: types-six; extra == 'ty'
+Requires-Dist: types-tabulate; extra == 'ty'
+Requires-Dist: types-toml; extra == 'ty'
+Requires-Dist: types-tzlocal; extra == 'ty'
 Description-Content-Type: text/markdown
 
 <div align="center">

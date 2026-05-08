@@ -160,6 +160,117 @@ def _filter_step(col, p):
     return f'df.filter(F.col("{col}").isNotNull())'
 
 
+def _resolve_derived_sources(p, col, *, prefix=None, suffix=None, infix=None):
+    """Resolve source-column name(s) for a silver-derived rec.
+
+    Prefers explicit ``source_columns`` (set by FW-2's hydration when
+    ``add_silver_derived(..., source_columns=[...])`` was called). Falls
+    back to the deterministic column-name pattern emitted by
+    `stages/profiling/temporal_analyzer.py`:
+      - prefix=`days_since_`     -> `days_since_<src>`     -> [<src>]
+      - prefix=`tenure_from_`    -> `tenure_from_<src>`    -> [<src>]
+      - suffix=`_month_sin_cos`  -> `<src>_month_sin_cos`  -> [<src>]
+      - suffix=`_is_weekend`     -> `<src>_is_weekend`     -> [<src>]
+      - infix=`_and_`            -> `days_between_<a>_and_<b>` -> [<a>, <b>]
+    Returns possibly-empty list; caller emits a no-op rendering when empty.
+    """
+    explicit = p.get("source_columns") or []
+    if explicit:
+        return list(explicit)
+    if prefix and col.startswith(prefix):
+        return [col[len(prefix):]]
+    if suffix and col.endswith(suffix):
+        return [col[:-len(suffix)]]
+    if infix and infix in col:
+        rest = col[len("days_between_"):] if col.startswith("days_between_") else col
+        a, b = rest.split(infix, 1)
+        return [a, b]
+    return []
+
+
+def _derived_recency(col, p):
+    sources = _resolve_derived_sources(p, col, prefix="days_since_")
+    if not sources:
+        return f'df  # silver_derived recency {col!r}: source unresolvable'
+    src = sources[0]
+    return (
+        f'df.withColumn("{col}", '
+        f'F.when(F.col("{src}").isNotNull() & F.col("as_of_date").isNotNull(), '
+        f'F.datediff(F.col("as_of_date"), F.to_date(F.col("{src}"))).cast("double"))'
+        f'.otherwise(F.lit(None)))'
+    )
+
+
+def _derived_duration(col, p):
+    sources = _resolve_derived_sources(p, col, infix="_and_")
+    if len(sources) < 2:
+        return f'df  # silver_derived duration {col!r}: source unresolvable'
+    a, b = sources[0], sources[1]
+    return (
+        f'df.withColumn("{col}", '
+        f'F.when(F.col("{a}").isNotNull() & F.col("{b}").isNotNull(), '
+        f'F.datediff(F.to_date(F.col("{b}")), F.to_date(F.col("{a}"))).cast("double"))'
+        f'.otherwise(F.lit(None)))'
+    )
+
+
+def _derived_cyclical(col, p):
+    """Emits two columns: ``<src>_month_sin`` and ``<src>_month_cos``.
+
+    The recommendation's ``target_column`` is the umbrella ``<src>_month_sin_cos``
+    name; downstream feature selection lists the same umbrella name and the
+    silver_derived parity gate greps for it. The actual columns persisted
+    to silver carry the suffix variants, so this handler emits BOTH and the
+    umbrella name is recorded in the apply_derived_columns provenance comment
+    above the call (see ``spark_provenance_block``).
+    """
+    sources = _resolve_derived_sources(p, col, suffix="_month_sin_cos")
+    if not sources:
+        return f'df  # silver_derived cyclical {col!r}: source unresolvable'
+    src = sources[0]
+    return (
+        f'df.withColumn("{src}_month_sin", '
+        f'F.when(F.col("{src}").isNotNull(), '
+        f'F.sin(2 * 3.141592653589793 * F.month(F.col("{src}")) / 12)).otherwise(F.lit(None)))'
+        f'.withColumn("{src}_month_cos", '
+        f'F.when(F.col("{src}").isNotNull(), '
+        f'F.cos(2 * 3.141592653589793 * F.month(F.col("{src}")) / 12)).otherwise(F.lit(None)))'
+    )
+
+
+def _derived_tenure(col, p):
+    sources = _resolve_derived_sources(p, col, prefix="tenure_from_")
+    if not sources:
+        return f'df  # silver_derived tenure {col!r}: source unresolvable'
+    src = sources[0]
+    return (
+        f'df.withColumn("{col}", '
+        f'F.when(F.col("{src}").isNotNull() & F.col("as_of_date").isNotNull(), '
+        f'(F.datediff(F.col("as_of_date"), F.to_date(F.col("{src}"))) / 365.25).cast("double"))'
+        f'.otherwise(F.lit(None)))'
+    )
+
+
+def _derived_extraction(col, p):
+    """``<src>_is_weekend`` — produced by the upstream landing template's
+    ``derive_datetime_features`` for every ``datetime_derivation_sources``
+    entry. The runtime check ``"<col>" in df.columns`` makes silver a
+    passthrough when landing already emitted it; otherwise silver re-derives
+    from the raw source so the column is always present at silver_merged.
+    """
+    sources = _resolve_derived_sources(p, col, suffix="_is_weekend")
+    if not sources:
+        return f'df  # silver_derived extraction {col!r}: source unresolvable'
+    src = sources[0]
+    return (
+        f'df if "{col}" in df.columns else '
+        f'df.withColumn("{col}", '
+        f'F.when(F.col("{src}").isNotNull(), '
+        f'F.when(F.dayofweek(F.to_date(F.col("{src}"))).isin(1, 7), 1.0).otherwise(0.0))'
+        f'.otherwise(F.lit(None)))'
+    )
+
+
 def _dispatch_derived(col, p):
     action = p.get("action", "ratio")
     if action == "ratio":
@@ -168,6 +279,16 @@ def _dispatch_derived(col, p):
         return _derived_interaction(col, p)
     if action == "composite":
         return _derived_composite(col, p)
+    if action == "recency":
+        return _derived_recency(col, p)
+    if action == "duration":
+        return _derived_duration(col, p)
+    if action == "cyclical":
+        return _derived_cyclical(col, p)
+    if action == "tenure":
+        return _derived_tenure(col, p)
+    if action == "extraction":
+        return _derived_extraction(col, p)
     return _derived_ratio(col, p)
 
 
@@ -1992,11 +2113,16 @@ if _NAMESPACE is not None:
             parse_aggregation_feature_name as _parse_aggregation_feature_name,
             write_feature_meta_sidecar as _write_feature_meta_sidecar,
         )
+        # Source table for feature_meta. The pipeline's primary source is
+        # the first entry of config.sources; fall back to composite_name
+        # for purely derived pipelines. Without this, source_table lands
+        # NULL in feature_meta and cascades NULL into v_feature_provenance.
+        _PRIMARY_BRONZE_TABLE = bronze_table("{{ config.sources[0].name if config.sources else (config.composite_name or config.name) }}")
         _fm_lineages = []
         for _col in result.columns:
             if _col in _meta_cols:
                 continue
-            _lineage = _parse_aggregation_feature_name(_col)
+            _lineage = _parse_aggregation_feature_name(_col, source_table=_PRIMARY_BRONZE_TABLE)
             if _lineage is None:
                 # Defensive fallback — always emit a non-empty source_columns
                 # so compile_predicate_prose has a column to look up in
@@ -2004,6 +2130,7 @@ if _NAMESPACE is not None:
                 _lineage = _FeatureLineage(
                     feature_name=_col,
                     source_columns=[_col],
+                    source_table=_PRIMARY_BRONZE_TABLE,
                     aggregation_kind="passthrough",
                 )
             _fm_lineages.append(_lineage)
@@ -2910,6 +3037,21 @@ def run_landing():
     df = df.withColumnRenamed("{{ config.original_target_column }}", TARGET_COLUMN)
 {%- endif %}
 {%- if config.filters %}
+{%- set _all_sibling_views = [] %}
+{%- for step in config.filters %}
+{%- for v in (step.parameters.sibling_views or []) %}
+{%- if v not in _all_sibling_views %}{% set _ = _all_sibling_views.append(v) %}{% endif %}
+{%- endfor %}
+{%- endfor %}
+{%- if _all_sibling_views %}
+    # Cohort-scope sample_filter siblings: the operator's NB00 predicate
+    # references these datasets by their bare names (e.g. "from contract"),
+    # which only resolves in Spark SQL when each name is a registered temp
+    # view. Mirrors `analysis.auto_explorer.sampling._expose_frames_as_views`
+    # so the same predicate string runs unchanged in production.
+    for _v in {{ _all_sibling_views | python_repr }}:
+        spark.read.format("delta").table(landing_table(_v)).createOrReplaceTempView(_v)
+{%- endif %}
 {%- for step in config.filters %}
     df = df.filter({{ step.parameters.predicate | python_repr }})
 {%- endfor %}

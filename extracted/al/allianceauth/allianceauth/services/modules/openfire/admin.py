@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from .models import OpenfireUser
 from ...admin import ServicesUserAdmin
+from .models import OpenfireUser
 
 
 @admin.register(OpenfireUser)

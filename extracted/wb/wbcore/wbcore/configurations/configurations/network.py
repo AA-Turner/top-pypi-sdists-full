@@ -13,7 +13,7 @@ class Network:
 
 
 class SSLNetwork(Network):
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = values.BooleanValue(True, environ_prefix=None)
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = values.BooleanValue(True, environ_prefix=None)
+    CSRF_COOKIE_SECURE = values.BooleanValue(True, environ_prefix=None)

@@ -1,8 +1,6 @@
 from django.test import TestCase
 
-from ...models import EveCharacter, EveCorporationInfo, EveAllianceInfo
-from .. import dotlan, zkillboard, evewho, eveimageserver
-from ...templatetags import evelinks
+from .. import dotlan, eveimageserver, evewho, zkillboard
 
 
 class TestEveWho(TestCase):

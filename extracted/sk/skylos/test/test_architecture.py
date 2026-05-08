@@ -72,19 +72,45 @@ class Baz:
 
 
 class TestClassifyZone:
+    def test_canonical_truth_table(self):
+        cases = [
+            (0.0, 0.0, "zone_of_pain"),
+            (1.0, 1.0, "zone_of_uselessness"),
+            (0.0, 1.0, "main_sequence"),
+            (1.0, 0.0, "main_sequence"),
+            (0.0, 0.5, "off_main_sequence"),
+            (0.5, 0.0, "off_main_sequence"),
+        ]
+
+        for abstractness, instability, expected in cases:
+            assert _classify_zone(abstractness, instability) == expected
+
     def test_main_sequence(self):
         assert _classify_zone(0.5, 0.5) == "main_sequence"
         assert _classify_zone(0.4, 0.6) == "main_sequence"
         assert _classify_zone(0.6, 0.4) == "main_sequence"
+        assert _classify_zone(0.0, 0.9) == "main_sequence"
 
     def test_zone_of_pain(self):
-        assert _classify_zone(0.9, 0.0) == "zone_of_pain"
+        assert _classify_zone(0.0, 0.0) == "zone_of_pain"
 
     def test_zone_of_uselessness(self):
-        assert _classify_zone(0.0, 0.9) == "zone_of_uselessness"
+        assert _classify_zone(0.9, 0.9) == "zone_of_uselessness"
 
-    def test_healthy(self):
-        assert _classify_zone(0.5, 0.2) == "healthy"
+    def test_off_main_sequence(self):
+        assert _classify_zone(0.5, 0.2) == "off_main_sequence"
+        assert _classify_zone(0.0, 0.4) == "off_main_sequence"
+
+    def test_disconnected_module_is_not_labeled_pain(self):
+        result = analyze_architecture(
+            dependency_graph={"mypkg": set()},
+            module_files={"mypkg": "/p/mypkg/__init__.py"},
+        )
+
+        assert result.modules["mypkg"].total_coupling == 0
+        assert result.modules["mypkg"].zone == "disconnected"
+        assert result.system_metrics["zone_distribution"]["zone_of_pain"] == 0
+        assert result.system_metrics["zone_distribution"]["disconnected"] == 1
 
 
 class TestArchitectureContext:
@@ -117,6 +143,14 @@ if __name__ == "__main__":
         raw_findings, _ = get_architecture_findings(
             dependency_graph=graph,
             module_files=module_files,
+            module_trees={
+                "mypkg.cli": ast.parse("""
+from typing import Protocol
+
+class Command(Protocol):
+    ...
+""")
+            },
             private_helper_ce_limit=-1,
         )
         assert ("SKY-Q803", "mypkg.cli") in {
@@ -129,6 +163,14 @@ if __name__ == "__main__":
         findings, summary = get_architecture_findings(
             dependency_graph=graph,
             module_files=module_files,
+            module_trees={
+                "mypkg.cli": ast.parse("""
+from typing import Protocol
+
+class Command(Protocol):
+    ...
+""")
+            },
             entrypoint_modules={"mypkg.cli"},
         )
 
@@ -138,9 +180,133 @@ if __name__ == "__main__":
         assert summary["module_metrics"]["mypkg.cli"]["zone"] == "zone_of_uselessness"
         assert summary["module_metrics"]["mypkg._helpers"]["distance"] == 1.0
 
+    def test_private_helper_low_fan_in_filters_q803_zone_of_pain(self):
+        graph = {
+            "mypkg.cli": {"mypkg._banner"},
+            "mypkg._banner": set(),
+        }
+        module_files = {
+            "mypkg.cli": "/p/mypkg/cli.py",
+            "mypkg._banner": "/p/mypkg/_banner.py",
+        }
+
+        raw_findings, _ = get_architecture_findings(
+            dependency_graph=graph,
+            module_files=module_files,
+            private_helper_ca_limit=0,
+        )
+        assert ("SKY-Q803", "mypkg._banner") in {
+            (f["rule_id"], f["name"]) for f in raw_findings
+        }
+
+        findings, summary = get_architecture_findings(
+            dependency_graph=graph,
+            module_files=module_files,
+        )
+
+        rules = {(f["rule_id"], f["name"]) for f in findings}
+        assert summary["module_metrics"]["mypkg._banner"]["ca"] == 1
+        assert summary["module_metrics"]["mypkg._banner"]["zone"] == "zone_of_pain"
+        assert ("SKY-Q803", "mypkg._banner") not in rules
+
+    def test_private_helper_three_importers_filters_q803_zone_of_pain(self):
+        graph = {
+            "consumer_a": {"mypkg._shared"},
+            "consumer_b": {"mypkg._shared"},
+            "consumer_c": {"mypkg._shared"},
+            "mypkg._shared": set(),
+        }
+        module_files = {
+            "consumer_a": "/p/consumer_a.py",
+            "consumer_b": "/p/consumer_b.py",
+            "consumer_c": "/p/consumer_c.py",
+            "mypkg._shared": "/p/mypkg/_shared.py",
+        }
+
+        findings, summary = get_architecture_findings(
+            dependency_graph=graph,
+            module_files=module_files,
+        )
+
+        assert summary["module_metrics"]["mypkg._shared"]["ca"] == 3
+        assert ("SKY-Q803", "mypkg._shared") not in {
+            (f["rule_id"], f["name"]) for f in findings
+        }
+
+    def test_private_helper_high_fan_in_keeps_q803_zone_of_pain(self):
+        graph = {
+            "consumer_a": {"mypkg._shared"},
+            "consumer_b": {"mypkg._shared"},
+            "consumer_c": {"mypkg._shared"},
+            "consumer_d": {"mypkg._shared"},
+            "mypkg._shared": set(),
+        }
+        module_files = {
+            "consumer_a": "/p/consumer_a.py",
+            "consumer_b": "/p/consumer_b.py",
+            "consumer_c": "/p/consumer_c.py",
+            "consumer_d": "/p/consumer_d.py",
+            "mypkg._shared": "/p/mypkg/_shared.py",
+        }
+
+        findings, summary = get_architecture_findings(
+            dependency_graph=graph,
+            module_files=module_files,
+        )
+
+        assert summary["module_metrics"]["mypkg._shared"]["ca"] == 4
+        assert ("SKY-Q803", "mypkg._shared") in {
+            (f["rule_id"], f["name"]) for f in findings
+        }
+
+    def test_private_helper_filters_q803_zone_of_uselessness(self):
+        graph = {
+            "mypkg._contracts": {"mypkg.impl"},
+            "mypkg.impl": set(),
+        }
+        module_files = {
+            "mypkg._contracts": "/p/mypkg/_contracts.py",
+            "mypkg.impl": "/p/mypkg/impl.py",
+        }
+        module_trees = {
+            "mypkg._contracts": ast.parse("""
+from typing import Protocol
+from .impl import build
+
+class Builder(Protocol):
+    ...
+""")
+        }
+
+        findings, summary = get_architecture_findings(
+            dependency_graph=graph,
+            module_files=module_files,
+            module_trees=module_trees,
+        )
+
+        assert summary["module_metrics"]["mypkg._contracts"]["zone"] == (
+            "zone_of_uselessness"
+        )
+        assert ("SKY-Q803", "mypkg._contracts") not in {
+            (f["rule_id"], f["name"]) for f in findings
+        }
+
     def test_main_guard_module_filters_zone_warning(self):
         tree = ast.parse("""
+from typing import Protocol
 from worker import run
+
+class CommandA(Protocol):
+    ...
+
+class CommandB(Protocol):
+    ...
+
+class CommandC(Protocol):
+    ...
+
+class CommandD(Protocol):
+    ...
 
 def main():
     run()
@@ -158,6 +324,74 @@ if __name__ == "__main__":
         rules = {(f["rule_id"], f["name"]) for f in findings}
         assert summary["module_metrics"]["cli"]["zone"] == "zone_of_uselessness"
         assert ("SKY-Q803", "cli") not in rules
+
+    def test_reexported_package_boundary_filters_structural_findings(self):
+        graph = {
+            "mini_pkg": {"mini_pkg.core"},
+            "mini_pkg.core": set(),
+        }
+        module_files = {
+            "mini_pkg": "/p/mini_pkg/__init__.py",
+            "mini_pkg.core": "/p/mini_pkg/core.py",
+        }
+
+        raw_findings, _ = get_architecture_findings(
+            dependency_graph=graph,
+            module_files=module_files,
+        )
+        assert ("SKY-Q802", "mini_pkg.core") in {
+            (f["rule_id"], f["name"]) for f in raw_findings
+        }
+        assert ("SKY-Q803", "mini_pkg.core") in {
+            (f["rule_id"], f["name"]) for f in raw_findings
+        }
+
+        findings, summary = get_architecture_findings(
+            dependency_graph=graph,
+            module_files=module_files,
+            package_boundary_modules={"mini_pkg.core"},
+        )
+
+        rules = {(f["rule_id"], f["name"]) for f in findings}
+        assert ("SKY-Q802", "mini_pkg.core") not in rules
+        assert ("SKY-Q803", "mini_pkg.core") not in rules
+        assert summary["module_metrics"]["mini_pkg.core"]["zone"] == "zone_of_pain"
+
+    def test_q803_skips_test_modules(self):
+        test_tree = ast.parse("""
+from typing import Protocol
+
+class CommandA(Protocol):
+    ...
+
+class CommandB(Protocol):
+    ...
+
+class CommandC(Protocol):
+    ...
+
+class CommandD(Protocol):
+    ...
+
+def test_contract():
+    assert True
+""")
+
+        findings, summary = get_architecture_findings(
+            dependency_graph={"tests.test_contract": {"app"}, "app": set()},
+            module_files={
+                "tests.test_contract": "/p/tests/test_contract.py",
+                "app": "/p/app.py",
+            },
+            module_trees={"tests.test_contract": test_tree},
+        )
+
+        assert summary["module_metrics"]["tests.test_contract"]["zone"] == (
+            "zone_of_uselessness"
+        )
+        assert ("SKY-Q803", "tests.test_contract") not in {
+            (f["rule_id"], f["name"]) for f in findings
+        }
 
 
 class TestAnalyzeArchitecture:
@@ -254,6 +488,8 @@ class TestAnalyzeArchitecture:
         assert "architecture_fitness" in sm
         assert "coupling_health" in sm
         assert "zone_distribution" in sm
+        assert "off_main_sequence" in sm["zone_distribution"]
+        assert "healthy" not in sm["zone_distribution"]
 
     def test_abstractness_from_trees(self):
         tree_a = ast.parse("""
@@ -304,3 +540,37 @@ class Base2(ABC):
             module_trees={"a": tree_a},
         )
         assert isinstance(findings, list)
+
+    def test_high_distance_message_does_not_call_fallback_healthy(self):
+        result = analyze_architecture(
+            dependency_graph={
+                "stableish": set(),
+                "consumer_a": {"stableish"},
+                "consumer_b": {"stableish"},
+            },
+            module_files={
+                "stableish": "/p/stableish.py",
+                "consumer_a": "/p/consumer_a.py",
+                "consumer_b": "/p/consumer_b.py",
+            },
+            module_abstractness={
+                "stableish": {
+                    "abstractness": 0.4,
+                    "total_classes": 1,
+                    "abstract_classes": 0,
+                    "total_functions": 0,
+                    "abstract_methods": 0,
+                    "type_vars": 0,
+                    "protocols": 0,
+                },
+            },
+        )
+
+        q802 = next(
+            f
+            for f in result.findings
+            if f["rule_id"] == "SKY-Q802" and f["name"] == "stableish"
+        )
+        assert result.modules["stableish"].zone == "off_main_sequence"
+        assert "Zone: off main sequence." in q802["message"]
+        assert "Zone: healthy." not in q802["message"]

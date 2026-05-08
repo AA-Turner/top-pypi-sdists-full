@@ -1,13 +1,12 @@
 from copy import deepcopy
 from unittest import mock
 
-from django.test import override_settings, TestCase, TransactionTestCase
 from django.contrib.auth.models import Group, Permission
+from django.test import TestCase, TransactionTestCase, override_settings
 
 from allianceauth.authentication.models import State
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.tests.auth_utils import AuthUtils
-
 
 MODULE_PATH = 'allianceauth.services.signals'
 

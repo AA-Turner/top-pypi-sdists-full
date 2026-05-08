@@ -46,6 +46,8 @@ from .decorators import (
     _ENTER_ATTR,
     _EXIT_ATTR,
     _MESSAGE_ATTR,
+    _MESSAGE_LABEL_ATTR,
+    _MESSAGE_NAME_ATTR,
     _SCHEDULE_ATTR,
     _ENDPOINT_ATTR,
     _ASGI_ATTR,
@@ -156,6 +158,8 @@ class App:
         self._page_order: int = 0
         self._theme: Theme | None = None
         self._workflows: list[Workflow] = []
+        self._message_handlers: dict[str, Callable] = {}
+        self._message_handler_labels: dict[str, str] = {}
         self._home_title: str | None = None
         self._home_subtitle: str | None = None
         self._home_suggestions: tuple[Suggestion, ...] = ()
@@ -209,6 +213,7 @@ class App:
                 "chat": None,
                 "shell": None,
                 "has_message_handler": False,
+                "message_handlers": [],
                 "theme": None,
                 "module": None,
                 "class_name": None,
@@ -793,6 +798,13 @@ class App:
 
         return decorator
 
+    def _message_meta(self) -> list[dict[str, str]]:
+        return [
+            {"name": name, "label": label}
+            for name, label in sorted(self._message_handler_labels.items())
+            if name
+        ]
+
     def boot(self) -> Callable[[F], F]:
         """Register a boot handler (functional apps)."""
         return self._hook_decorator(_BOOT_ATTR, "boot")
@@ -809,9 +821,25 @@ class App:
         """Register a session-exit handler (functional apps)."""
         return self._hook_decorator(_EXIT_ATTR, "exit")
 
-    def message(self) -> Callable[[F], F]:
-        """Register the message handler (functional apps)."""
-        return self._hook_decorator(_MESSAGE_ATTR, "message")
+    def message(self, name: str | None = None, *, label: str | None = None) -> Callable[[F], F]:
+        """Register a default or named message handler (functional apps)."""
+        self._require_functional("message")
+        handler_name = name or ""
+
+        def decorator(fn: F) -> F:
+            setattr(fn, _MESSAGE_ATTR, True)
+            setattr(fn, _MESSAGE_NAME_ATTR, handler_name)
+            setattr(fn, _MESSAGE_LABEL_ATTR, label or name or "")
+            self._message_handlers[handler_name] = fn
+            if handler_name:
+                self._message_handler_labels[handler_name] = label or name or handler_name
+            else:
+                setattr(self, "_message_handler", fn)
+            self._cpsl_config["has_message_handler"] = True
+            self._cpsl_config["message_handlers"] = self._message_meta()
+            return fn
+
+        return decorator
 
     def schedule(self, cron: str) -> Callable[[F], F]:
         """Register a handler that runs on a cron schedule.
@@ -1013,11 +1041,17 @@ class App:
 
         def decorator(klass: type[T]) -> type[T]:
             schedule_specs: list[dict[str, str]] = []
+            message_specs: list[dict[str, str]] = []
             for attr_name in dir(klass):
                 fn = getattr(klass, attr_name, None)
                 cron_val = getattr(fn, _SCHEDULE_ATTR, None)
                 if cron_val and isinstance(cron_val, str):
                     schedule_specs.append({"name": attr_name, "cron": cron_val})
+                if getattr(fn, _MESSAGE_ATTR, False):
+                    msg_name = getattr(fn, _MESSAGE_NAME_ATTR, "")
+                    msg_label = getattr(fn, _MESSAGE_LABEL_ATTR, "") or msg_name
+                    if msg_name:
+                        message_specs.append({"name": msg_name, "label": msg_label})
 
             config = {
                 "app_name": app_name,
@@ -1046,6 +1080,7 @@ class App:
                     getattr(getattr(klass, attr_name, None), _MESSAGE_ATTR, False)
                     for attr_name in dir(klass)
                 ),
+                "message_handlers": message_specs,
                 "theme": theme_dict,
                 "module": klass.__module__,
                 "class_name": klass.__qualname__,
@@ -1078,7 +1113,8 @@ class App:
         cfg["home"] = self._serialize_home()
         cfg["chat"] = dict(self._chat_widget_tree) if self._chat_widget_tree else None
         cfg["shell"] = self._shell_config
-        cfg["has_message_handler"] = hasattr(self, "_message_handler")
+        cfg["has_message_handler"] = bool(self._message_handlers)
+        cfg["message_handlers"] = self._message_meta()
         cfg["theme"] = self._theme.to_dict() if self._theme else None
 
     def _serialize(self) -> dict[str, Any] | None:

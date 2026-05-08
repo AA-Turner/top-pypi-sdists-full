@@ -1,14 +1,11 @@
-from django.urls import include
-from django.contrib.auth.decorators import user_passes_test
-from django.core.exceptions import PermissionDenied
+from collections.abc import Callable, Iterable
 from functools import wraps
-from typing import Callable, Iterable, Optional
 
-from django.urls import include
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
+from django.urls import include
 from django.utils.translation import gettext_lazy as _
 
 
@@ -17,7 +14,7 @@ def user_has_main_character(user):
 
 
 def decorate_url_patterns(
-    urls, decorator: Callable, excluded_views: Optional[Iterable] = None
+    urls, decorator: Callable, excluded_views: Iterable | None = None
 ):
     """Decorate views given in url patterns except when they are explicitly excluded.
 

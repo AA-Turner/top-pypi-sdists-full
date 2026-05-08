@@ -1,6 +1,5 @@
 from .utils import clean_setting
 
-
 DISCORD_APP_ID = clean_setting('DISCORD_APP_ID', '')
 """App ID for the AA bot on Discord. Needs to be set."""
 

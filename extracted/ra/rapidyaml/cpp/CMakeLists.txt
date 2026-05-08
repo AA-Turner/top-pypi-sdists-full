@@ -2,13 +2,13 @@ cmake_minimum_required(VERSION 3.12)
 include(./ext/c4core/cmake/c4Project.cmake)
 cmake_policy(SET CMP0048 NEW) # pass VERSION to project()
 project(ryml
-    VERSION 0.11.1
+    VERSION 0.12.1
     DESCRIPTION "Rapid YAML parsing and emitting"
     HOMEPAGE_URL "https://github.com/biojppm/rapidyaml"
     LANGUAGES CXX)
 include(./compat.cmake)
 
-c4_project(VERSION 0.11.1 STANDALONE
+c4_project(VERSION 0.12.1 STANDALONE
     AUTHOR "Joao Paulo Magalhaes <dev@jpmag.me>")
 
 
@@ -131,6 +131,20 @@ endif()
 
 #-------------------------------------------------------
 # developer targets
+
+option(RYML_SAVE_TEST_YAML "" OFF)
+if(RYML_SAVE_TEST_YAML)
+    target_compile_definitions(ryml PUBLIC RYML_SAVE_TEST_YAML)
+    set(RYML_TEST_FUZZ OFF CACHE BOOL "" FORCE)
+    set(RYML_TEST_SUITE OFF CACHE BOOL "" FORCE)
+endif()
+function(ryml_maybe_dump_test_yaml target)
+    if(RYML_SAVE_TEST_YAML)
+        target_compile_definitions(${target} PRIVATE RYML_SAVE_TEST_YAML)
+        target_sources(${target} PRIVATE ${PROJECT_SOURCE_DIR}/test/test_lib/test_save.cpp)
+        target_link_libraries(${target} PRIVATE c4fs gtest)
+    endif()
+endfunction()
 
 # extern libraries, used only for testing/benchmarking
 if(RYML_BUILD_TESTS OR RYML_BUILD_BENCHMARKS OR RYML_BUILD_TOOLS)

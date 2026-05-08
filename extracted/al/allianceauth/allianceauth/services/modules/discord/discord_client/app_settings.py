@@ -9,7 +9,6 @@ To overwrite a default set the variable in your local Django settings, e.g:
 
 from ..utils import clean_setting
 
-
 DISCORD_API_BASE_URL = clean_setting(
     'DISCORD_API_BASE_URL', 'https://discord.com/api/'
 )

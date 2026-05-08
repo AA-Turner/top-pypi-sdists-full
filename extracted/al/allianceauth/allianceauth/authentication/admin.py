@@ -1,43 +1,21 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.contrib.auth.models import Group
-from django.contrib.auth.models import Permission as BasePermission
-from django.contrib.auth.models import User as BaseUser
+from django.contrib.auth.models import Group, Permission as BasePermission, User as BaseUser
 from django.db.models import Count, Q
 from django.db.models.functions import Lower
-from django.db.models.signals import (
-    m2m_changed,
-    post_delete,
-    post_save,
-    pre_delete,
-    pre_save
-)
+from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.text import slugify
 
-from allianceauth.authentication.models import (
-    CharacterOwnership,
-    OwnershipRecord,
-    State,
-    UserProfile,
-    get_guest_state
-)
-from allianceauth.eveonline.models import (
-    EveAllianceInfo,
-    EveCharacter,
-    EveCorporationInfo,
-    EveFactionInfo
-)
+from allianceauth.authentication.models import CharacterOwnership, OwnershipRecord, State, UserProfile, get_guest_state
+from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo
 from allianceauth.eveonline.tasks import update_character
 from allianceauth.hooks import get_hooks
 from allianceauth.services.hooks import ServicesHook
 
-from .app_settings import (
-    AUTHENTICATION_ADMIN_USERS_MAX_CHARS,
-    AUTHENTICATION_ADMIN_USERS_MAX_GROUPS
-)
+from .app_settings import AUTHENTICATION_ADMIN_USERS_MAX_CHARS, AUTHENTICATION_ADMIN_USERS_MAX_GROUPS
 from .forms import UserChangeForm, UserProfileForm
 
 
@@ -132,10 +110,7 @@ def user_username(obj):
     To be used for all user based admin lists
     """
     link = reverse(
-        'admin:{}_{}_change'.format(
-            obj._meta.app_label,
-            type(obj).__name__.lower()
-        ),
+        f'admin:{obj._meta.app_label}_{type(obj).__name__.lower()}_change',
         args=(obj.pk,)
     )
     user_obj = obj.user if hasattr(obj, 'user') else obj
@@ -166,12 +141,12 @@ def user_main_organization(obj):
     user_obj = obj.user if hasattr(obj, 'user') else obj
     if not user_obj.profile.main_character:
         return ''
-    result = user_obj.profile.main_character.corporation_name
-    if user_obj.profile.main_character.alliance_id:
-        result += f'<br>{user_obj.profile.main_character.alliance_name}'
-    elif user_obj.profile.main_character.faction_name:
-        result += f'<br>{user_obj.profile.main_character.faction_name}'
-    return format_html(result)
+    main_char = user_obj.profile.main_character
+    if main_char.alliance_id:
+        return format_html('{}<br>{}', main_char.corporation_name, main_char.alliance_name)
+    elif main_char.faction_name:
+        return format_html('{}<br>{}', main_char.corporation_name, main_char.faction_name)
+    return main_char.corporation_name
 
 
 class MainCorporationsFilter(admin.SimpleListFilter):
@@ -548,7 +523,7 @@ class BaseOwnershipAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.pk:
             return 'owner_hash', 'character'
-        return tuple()
+        return ()
 
 
 @admin.register(OwnershipRecord)

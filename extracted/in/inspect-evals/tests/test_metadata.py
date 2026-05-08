@@ -12,7 +12,6 @@ from inspect_evals.metadata import (
     EvaluationReportResult,
     ExternalEvalMetadata,
     InternalEvalMetadata,
-    SandboxEnvironment,
     TaskMetadata,
     TaskVersion,
     load_eval_metadata,
@@ -245,64 +244,93 @@ def test_type_check():
         TaskVersion(123)  # must be a string
 
 
-def test_sandbox_and_sandbox_environment_consistent(listing):
-    """An eval declares either both sandbox-related fields or neither."""
-    mismatched = []
-    for ev in listing.evals:
-        rm = ev.runtime_metadata
-        if rm is None:
-            continue
-        if bool(rm.sandbox) != bool(rm.sandbox_environment):
-            mismatched.append((ev.id, rm.sandbox, rm.sandbox_environment))
-    assert not mismatched, (
-        f"sandbox and sandbox_environment must be set together: {mismatched}"
+def _minimal_eval_kwargs(**overrides):
+    kwargs = dict(
+        title="T",
+        description="D",
+        id="fake",
+        group="Coding",
+        contributors=["x"],
+        tasks=[TaskMetadata(name="t", dataset_samples=1)],
+        version=TaskVersion("1-A"),
+        external_assets=[],
+    )
+    kwargs.update(overrides)
+    return kwargs
+
+
+def test_supports_k8s_defaults_to_false():
+    """Absence in yaml means we have not verified k8s support for the eval."""
+    rm = EvalRuntimeMetadata.model_validate({})
+    assert rm.supports_k8s is False
+
+
+def test_supports_k8s_round_trips():
+    rm = EvalRuntimeMetadata.model_validate({"supports_k8s": True})
+    assert rm.supports_k8s is True
+
+
+def test_supports_k8s_set_only_for_verified_evals(listing):
+    """Catch accidental drift — only evals known to run on k8s should set the flag.
+
+    Update this allowlist when new k8s-verified evals are added.
+    """
+    verified = {
+        "assistant_bench",
+        "cve_bench",
+        "cybench",
+        "gaia",
+        "gdm_self_reasoning",
+        "swe_bench",
+    }
+    actual = {
+        ev.id
+        for ev in listing.evals
+        if ev.runtime_metadata is not None and ev.runtime_metadata.supports_k8s
+    }
+    assert actual == verified, (
+        f"supports_k8s set diverged from verified allowlist: extra={actual - verified} missing={verified - actual}"
     )
 
 
-def test_sandbox_environment_rejects_unknown_value():
+def test_internal_eval_metadata_rejects_unknown_fields():
+    """Typos and stale yaml keys should fail loudly, not get silently dropped."""
     with pytest.raises(ValidationError):
-        EvalRuntimeMetadata.model_validate({"sandbox_environment": ["podman"]})
+        # top-level typo: sandbox belongs under metadata, not at root
+        InternalEvalMetadata(**_minimal_eval_kwargs(sandbox=["solver"]))
+    with pytest.raises(ValidationError):
+        InternalEvalMetadata(**_minimal_eval_kwargs(totally_made_up="nope"))
 
 
-def test_sandbox_environment_coerces_strings_to_enum():
-    rm = EvalRuntimeMetadata.model_validate({"sandbox_environment": ["docker", "k8s"]})
-    assert rm.sandbox_environment == [SandboxEnvironment.DOCKER, SandboxEnvironment.K8S]
-
-
-@pytest.mark.xfail(
-    reason=(
-        "InternalEvalMetadata silently drops a stray 'source:' field (Pydantic's "
-        "default extra='ignore'). Enabling extra='forbid' would catch this but "
-        "surfaces unrelated legacy cruft in existing eval.yamls; deferred to a "
-        "follow-up PR."
-    ),
-    strict=True,
-)
-def test_internal_eval_rejects_source_field():
-    """A `source:` key on an internal eval.yaml should fail loudly.
-
-    Currently it doesn't — Pydantic ignores unknown fields by default. This
-    test documents the desired behaviour and will pass once extra='forbid' is
-    applied (which requires a separate pass to scrub legacy `path:` entries
-    and anything else that fails under strict parsing).
-    """
+def test_internal_eval_metadata_rejects_source_field():
+    """A `source:` key on an internal eval.yaml should fail loudly — it's exclusive to external evals."""
     with pytest.raises(ValidationError):
         InternalEvalMetadata(
-            id="fake",
-            title="T",
-            description="D",
-            group="Coding",
-            contributors=["x"],
-            tasks=[TaskMetadata(name="t", dataset_samples=1)],
-            version=TaskVersion("1-A"),
-            external_assets=[],
-            source={
-                "repository_url": "https://example.com",
-                "repository_commit": "abc",
-                "package_name": "x",
-                "maintainers": ["y"],
-            },
+            **_minimal_eval_kwargs(
+                source={
+                    "repository_url": "https://example.com",
+                    "repository_commit": "abc",
+                    "package_name": "x",
+                    "maintainers": ["y"],
+                }
+            )
         )
+
+
+def test_task_metadata_rejects_unknown_fields():
+    with pytest.raises(ValidationError):
+        TaskMetadata(name="t", dataset_samples=1, bogus=True)
+
+
+def test_runtime_metadata_extras_accepts_arbitrary_fields():
+    """`extras` is the escape hatch — it accepts any keys, while the rest of the model rejects them."""
+    rm = EvalRuntimeMetadata(
+        extras={"custom_key": "value", "nested": {"a": 1}, "flag": True}
+    )
+    assert rm.extras == {"custom_key": "value", "nested": {"a": 1}, "flag": True}
+
+    with pytest.raises(ValidationError):
+        EvalRuntimeMetadata(custom_key="value")
 
 
 def test_to_metadata_returns_correct_structure():

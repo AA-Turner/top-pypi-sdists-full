@@ -10,8 +10,8 @@ from allianceauth.authentication.task_statistics.counters import (
     succeeded_tasks,
 )
 from allianceauth.authentication.task_statistics.signals import (
-    reset_counters,
     is_enabled,
+    reset_counters,
 )
 from allianceauth.eveonline.tasks import update_character
 

@@ -42,6 +42,7 @@ from .common import _CreateEvaluationSetParameters
 from .common import _CreateMultimodalDatasetParameters
 from .common import _CreateSandboxEnvironmentSnapshotRequestParameters
 from .common import _CreateSandboxEnvironmentTemplateRequestParameters
+from .common import _CreateSkillRequestParameters
 from .common import _CustomJobParameters
 from .common import _CustomJobParameters
 from .common import _DeleteAgentEngineMemoryRequestParameters
@@ -90,6 +91,8 @@ from .common import _GetMultimodalDatasetParameters
 from .common import _GetSandboxEnvironmentSnapshotRequestParameters
 from .common import _GetSandboxEnvironmentTemplateOperationParameters
 from .common import _GetSandboxEnvironmentTemplateRequestParameters
+from .common import _GetSkillOperationParameters
+from .common import _GetSkillRequestParameters
 from .common import _IngestEventsRequestParameters
 from .common import _ListAgentEngineMemoryRequestParameters
 from .common import _ListAgentEngineMemoryRevisionsRequestParameters
@@ -114,6 +117,7 @@ from .common import _QueryAgentEngineRuntimeRevisionRequestParameters
 from .common import _RestoreVersionRequestParameters
 from .common import _RetrieveAgentEngineMemoriesRequestParameters
 from .common import _RetrieveMemoryProfilesRequestParameters
+from .common import _RetrieveSkillsRequestParameters
 from .common import _RollbackAgentEngineMemoryRequestParameters
 from .common import _RunQueryJobAgentEngineConfig
 from .common import _RunQueryJobAgentEngineConfigDict
@@ -298,6 +302,9 @@ from .common import CreatePromptVersionConfigOrDict
 from .common import CreateSandboxEnvironmentTemplateConfig
 from .common import CreateSandboxEnvironmentTemplateConfigDict
 from .common import CreateSandboxEnvironmentTemplateConfigOrDict
+from .common import CreateSkillConfig
+from .common import CreateSkillConfigDict
+from .common import CreateSkillConfigOrDict
 from .common import CustomCodeExecutionSpec
 from .common import CustomCodeExecutionSpecDict
 from .common import CustomCodeExecutionSpecOrDict
@@ -608,6 +615,12 @@ from .common import GetSandboxEnvironmentSnapshotConfigOrDict
 from .common import GetSandboxEnvironmentTemplateConfig
 from .common import GetSandboxEnvironmentTemplateConfigDict
 from .common import GetSandboxEnvironmentTemplateConfigOrDict
+from .common import GetSkillConfig
+from .common import GetSkillConfigDict
+from .common import GetSkillConfigOrDict
+from .common import GetSkillOperationConfig
+from .common import GetSkillOperationConfigDict
+from .common import GetSkillOperationConfigOrDict
 from .common import IdentityType
 from .common import Importance
 from .common import IngestEventsConfig
@@ -1042,6 +1055,9 @@ from .common import RestoreVersionOperationOrDict
 from .common import RetrieveAgentEngineMemoriesConfig
 from .common import RetrieveAgentEngineMemoriesConfigDict
 from .common import RetrieveAgentEngineMemoriesConfigOrDict
+from .common import RetrievedSkill
+from .common import RetrievedSkillDict
+from .common import RetrievedSkillOrDict
 from .common import RetrieveMemoriesRequestSimilaritySearchParams
 from .common import RetrieveMemoriesRequestSimilaritySearchParamsDict
 from .common import RetrieveMemoriesRequestSimilaritySearchParamsOrDict
@@ -1060,6 +1076,12 @@ from .common import RetrieveMemoryProfilesConfigOrDict
 from .common import RetrieveProfilesResponse
 from .common import RetrieveProfilesResponseDict
 from .common import RetrieveProfilesResponseOrDict
+from .common import RetrieveSkillsConfig
+from .common import RetrieveSkillsConfigDict
+from .common import RetrieveSkillsConfigOrDict
+from .common import RetrieveSkillsResponse
+from .common import RetrieveSkillsResponseDict
+from .common import RetrieveSkillsResponseOrDict
 from .common import RollbackAgentEngineMemoryConfig
 from .common import RollbackAgentEngineMemoryConfigDict
 from .common import RollbackAgentEngineMemoryConfigOrDict
@@ -1243,6 +1265,13 @@ from .common import SessionEvent
 from .common import SessionEventDict
 from .common import SessionEventOrDict
 from .common import SessionOrDict
+from .common import Skill
+from .common import SkillDict
+from .common import SkillOperation
+from .common import SkillOperationDict
+from .common import SkillOperationOrDict
+from .common import SkillOrDict
+from .common import SkillState
 from .common import State
 from .common import Strategy
 from .common import StructuredMemoryConfig
@@ -2478,6 +2507,30 @@ __all__ = [
     "UpdatePromptConfig",
     "UpdatePromptConfigDict",
     "UpdatePromptConfigOrDict",
+    "GetSkillConfig",
+    "GetSkillConfigDict",
+    "GetSkillConfigOrDict",
+    "Skill",
+    "SkillDict",
+    "SkillOrDict",
+    "RetrieveSkillsConfig",
+    "RetrieveSkillsConfigDict",
+    "RetrieveSkillsConfigOrDict",
+    "RetrievedSkill",
+    "RetrievedSkillDict",
+    "RetrievedSkillOrDict",
+    "RetrieveSkillsResponse",
+    "RetrieveSkillsResponseDict",
+    "RetrieveSkillsResponseOrDict",
+    "CreateSkillConfig",
+    "CreateSkillConfigDict",
+    "CreateSkillConfigOrDict",
+    "SkillOperation",
+    "SkillOperationDict",
+    "SkillOperationOrDict",
+    "GetSkillOperationConfig",
+    "GetSkillOperationConfigDict",
+    "GetSkillOperationConfigOrDict",
     "PromptOptimizerConfig",
     "PromptOptimizerConfigDict",
     "PromptOptimizerConfigOrDict",
@@ -2591,6 +2644,7 @@ __all__ = [
     "OptimizeTarget",
     "MemoryMetadataMergeStrategy",
     "GenerateMemoriesResponseGeneratedMemoryAction",
+    "SkillState",
     "PromptOptimizerMethod",
     "OptimizationMethod",
     "PromptData",
@@ -2714,6 +2768,10 @@ __all__ = [
     "_CustomJobParameters",
     "_GetCustomJobParameters",
     "_OptimizeRequestParameters",
+    "_GetSkillRequestParameters",
+    "_RetrieveSkillsRequestParameters",
+    "_CreateSkillRequestParameters",
+    "_GetSkillOperationParameters",
     "evals",
     "agent_engines",
     "prompts",

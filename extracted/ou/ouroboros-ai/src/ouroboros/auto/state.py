@@ -32,6 +32,141 @@ class AutoPolicy(StrEnum):
     BALANCED = "balanced"
 
 
+class SeedOrigin(StrEnum):
+    """Provenance of the persisted Seed for an auto session.
+
+    ``auto_pipeline`` marks a Seed produced by ``AutoPipeline.run()`` itself.
+    ``none`` means no Seed has been persisted yet for this session — the
+    schema default for legacy state files is also ``none`` and the pipeline
+    backfills ``auto_pipeline`` once on first post-PR resume of a session
+    that already had a ``seed_artifact`` or ``seed_path``.
+
+    Additional provenance values (e.g. for Seeds attached via a side-channel
+    ``ouroboros_generate_seed`` writer) are intentionally deferred until the
+    matching producer path lands; introducing an enum value without a writer
+    creates a public contract that the runtime cannot honor.
+    """
+
+    NONE = "none"
+    AUTO_PIPELINE = "auto_pipeline"
+
+
+DEFAULT_TIMEOUT_SECONDS_BY_PHASE: dict[str, int] = {
+    AutoPhase.INTERVIEW.value: 120,
+    AutoPhase.SEED_GENERATION.value: 120,
+    AutoPhase.REVIEW.value: 90,
+    AutoPhase.REPAIR.value: 90,
+    AutoPhase.RUN.value: 60,
+}
+
+# Allowed keys for the optional gateway-provenance metadata recorded on auto state.
+# Strict allowlist: anything not listed here is dropped during redaction so that
+# tokens, credentials, or raw user utterances cannot be persisted by accident.
+PROVENANCE_ALLOWED_KEYS: frozenset[str] = frozenset(
+    {
+        "source",
+        "rewrite",
+        "original_utterance_hash",
+        "channel_id_hash",
+        "user_id_hash",
+        "platform_message_id",
+        "gateway_version",
+    }
+)
+
+# Per-key validators. Each returns the cleaned value or raises ValueError.
+_PROVENANCE_HEX_KEYS = {
+    "original_utterance_hash",
+    "channel_id_hash",
+    "user_id_hash",
+}
+_PROVENANCE_MAX_LENGTHS = {
+    "source": 32,
+    "platform_message_id": 64,
+    "gateway_version": 32,
+    "original_utterance_hash": 128,
+    "channel_id_hash": 128,
+    "user_id_hash": 128,
+}
+# Surface a clear ImportError instead of a runtime KeyError when the allowlist
+# grows but a length cap is not added alongside it.
+assert (PROVENANCE_ALLOWED_KEYS - {"rewrite"}).issubset(  # noqa: S101
+    _PROVENANCE_MAX_LENGTHS.keys()
+), "every non-rewrite provenance key needs an entry in _PROVENANCE_MAX_LENGTHS"
+
+
+def _clean_provenance_value(key: str, value: Any) -> Any:
+    if key == "rewrite":
+        if not isinstance(value, bool):
+            msg = "provenance.rewrite must be a boolean"
+            raise ValueError(msg)
+        return value
+    if not isinstance(value, str):
+        msg = f"provenance.{key} must be a string"
+        raise ValueError(msg)
+    cleaned = value.strip()
+    if not cleaned:
+        msg = f"provenance.{key} must be a non-empty string"
+        raise ValueError(msg)
+    limit = _PROVENANCE_MAX_LENGTHS[key]
+    if len(cleaned) > limit:
+        msg = f"provenance.{key} exceeds {limit}-character limit"
+        raise ValueError(msg)
+    if key in _PROVENANCE_HEX_KEYS:
+        lowered = cleaned.lower()
+        if not all(c in "0123456789abcdef" for c in lowered):
+            msg = f"provenance.{key} must be a lowercase hex digest"
+            raise ValueError(msg)
+        return lowered
+    if any(c.isspace() or not c.isprintable() for c in cleaned):
+        msg = f"provenance.{key} must be printable without whitespace"
+        raise ValueError(msg)
+    return cleaned
+
+
+def redact_provenance(raw: Any) -> dict[str, Any] | None:
+    """Return an allowlisted, type-checked provenance dict (or None).
+
+    Unknown keys are silently dropped so that callers cannot smuggle private
+    data via ad-hoc fields. Validation errors on allowed keys raise instead of
+    being swallowed so that bad gateway integrations surface early.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        msg = "provenance must be an object or null"
+        raise ValueError(msg)
+    cleaned: dict[str, Any] = {}
+    for key, value in raw.items():
+        if key not in PROVENANCE_ALLOWED_KEYS:
+            continue
+        cleaned[key] = _clean_provenance_value(key, value)
+    if not cleaned:
+        return None
+    return cleaned
+
+
+class AutoResumeCapability(StrEnum):
+    """Classification of what ``--resume`` will actually do for a session.
+
+    The value is **never persisted** — it is a pure derivation from the
+    persisted :class:`AutoPipelineState` fields. See
+    :meth:`AutoPipelineState.resume_capability` for the decision matrix.
+    """
+
+    NONE = "none"
+    """Cannot resume; the session is done or unrecoverable."""
+
+    RETRY = "retry"
+    """Re-runs the failed step from scratch — no prior progress is reused."""
+
+    PARTIAL_RESUME = "partial_resume"
+    """Resumes with some context preserved; pick-up point is approximate."""
+
+    RESUME = "resume"
+    """Continues exactly where it left off with full context."""
+
+
 TERMINAL_PHASES = {AutoPhase.COMPLETE, AutoPhase.BLOCKED, AutoPhase.FAILED}
 _ALLOWED_TRANSITIONS: dict[AutoPhase, set[AutoPhase]] = {
     AutoPhase.CREATED: {AutoPhase.INTERVIEW, AutoPhase.BLOCKED, AutoPhase.FAILED},
@@ -95,34 +230,56 @@ class AutoPipelineState:
     interview_completed: bool = False
     seed_id: str | None = None
     seed_path: str | None = None
+    seed_origin: SeedOrigin = SeedOrigin.NONE
     seed_artifact: dict[str, Any] = field(default_factory=dict)
     execution_id: str | None = None
     job_id: str | None = None
     run_session_id: str | None = None
     run_subagent: dict[str, Any] = field(default_factory=dict)
     run_start_attempted: bool = False
+    run_handoff_status: str | None = None
+    run_handoff_guidance: str | None = None
+    attached_run_handle: str | None = None
+    attached_run_source: str | None = None
+    attached_at: str | None = None
+    run_reconciliation_status: str | None = None
+    run_reconciliation_source: str | None = None
+    run_reconciled_at: str | None = None
     ledger: dict[str, Any] = field(default_factory=dict)
     last_grade: str | None = None
     findings: list[dict[str, Any]] = field(default_factory=list)
+    auto_answer_log: list[dict[str, Any]] = field(default_factory=list)
     repair_round: int = 0
     current_round: int = 0
     pending_question: str | None = None
     last_tool_name: str | None = None
     last_error: str | None = None
+    last_authoring_backend: str | None = None
     last_progress_message: str = "created"
     phase_started_at: str = field(default_factory=utc_now_iso)
     last_progress_at: str = field(default_factory=utc_now_iso)
     created_at: str = field(default_factory=utc_now_iso)
     updated_at: str = field(default_factory=utc_now_iso)
     timeout_seconds_by_phase: dict[str, int] = field(
-        default_factory=lambda: {
-            AutoPhase.INTERVIEW.value: 120,
-            AutoPhase.SEED_GENERATION.value: 120,
-            AutoPhase.REVIEW.value: 90,
-            AutoPhase.REPAIR.value: 90,
-            AutoPhase.RUN.value: 60,
-        }
+        default_factory=lambda: dict(DEFAULT_TIMEOUT_SECONDS_BY_PHASE)
     )
+    # Optional provenance metadata supplied by an external gateway when it
+    # rewrote a natural-language request into ``ooo auto`` shell command. None
+    # for direct CLI invocations so legacy state files load unchanged.
+    provenance: dict[str, Any] | None = None
+
+    def phase_timeout_seconds(self, phase: AutoPhase) -> float:
+        """Return the configured timeout for ``phase`` in seconds.
+
+        Falls back to the canonical default policy when the persisted entry
+        is missing or has an unusable type. The fallback matches the dataclass
+        default so legacy/partial state never silently halves an operator's
+        budget.
+        """
+        raw = self.timeout_seconds_by_phase.get(phase.value)
+        if isinstance(raw, bool) or not isinstance(raw, int) or raw <= 0:
+            return float(DEFAULT_TIMEOUT_SECONDS_BY_PHASE[phase.value])
+        return float(raw)
 
     def transition(self, next_phase: AutoPhase, message: str, *, error: str | None = None) -> None:
         """Move to ``next_phase`` after validating the phase state machine."""
@@ -136,6 +293,13 @@ class AutoPipelineState:
         self.updated_at = now
         self.last_progress_message = message
         self.last_error = error
+        # Authoring-backend attribution is scoped to the most recent
+        # authoring failure; reset on every transition so a later
+        # non-authoring blocker (grade_gate, seed_saver, run_starter)
+        # cannot inherit stale metadata. Authoring-side call sites must
+        # call ``record_authoring_backend(state)`` *after* mark_blocked
+        # / mark_failed to repopulate the field.
+        self.last_authoring_backend = None
 
     def mark_progress(self, message: str, *, tool_name: str | None = None) -> None:
         """Record non-terminal progress within the current phase."""
@@ -163,6 +327,23 @@ class AutoPipelineState:
         """Return True when the state cannot continue automatically."""
         return self.phase in TERMINAL_PHASES
 
+    def invoked_by(self) -> str:
+        """Return the high-level invocation source for blocker/summary output.
+
+        ``direct`` covers all CLI-originated runs (no provenance, or
+        ``source == "cli"``). Anything else with a recognized non-cli source
+        is ``gateway``. Provenance present but missing a usable ``source``
+        becomes ``unknown`` so misconfigured integrations are visible.
+        """
+        if not self.provenance:
+            return "direct"
+        source = self.provenance.get("source")
+        if source == "cli":
+            return "direct"
+        if isinstance(source, str) and source.strip():
+            return "gateway"
+        return "unknown"
+
     def is_stale(self, now: datetime | None = None) -> bool:
         """Return True when current phase has exceeded its configured timeout."""
         if self.is_terminal():
@@ -174,11 +355,118 @@ class AutoPipelineState:
         last = datetime.fromisoformat(self.last_progress_at)
         return (current - last).total_seconds() > timeout
 
+    def resume_capability(self) -> AutoResumeCapability:
+        """Classify what ``--resume`` will actually do for the current state.
+
+        This is a pure derivation — the result is never persisted. The
+        classification mirrors the actual control flow in
+        :meth:`AutoPipeline.run` and :meth:`AutoInterviewDriver.run`.
+
+        Decision matrix (only the highlights — see the plan and tests for
+        the full table):
+
+        * :attr:`AutoPhase.COMPLETE` -> :attr:`AutoResumeCapability.NONE`
+          (completed sessions render no resume hint).
+        * :attr:`AutoPhase.REPAIR` is non-terminal — a fresh ``--resume``
+          will transition the state back to ``REVIEW``, so the capability
+          is :attr:`AutoResumeCapability.RESUME`.
+        * Other non-terminal phases also classify as ``RESUME``.
+        * :attr:`AutoPhase.BLOCKED` / :attr:`AutoPhase.FAILED` consult
+          ``_recoverable_phase_for_tool`` first; an unmapped or missing
+          ``last_tool_name`` yields ``NONE``.
+        * The hot ``#688`` cell: ``BLOCKED`` + ``last_tool_name ==
+          "interview.start"`` + ``interview_session_id is None``
+          classifies as :attr:`AutoResumeCapability.RETRY` because
+          resuming re-runs ``interview.start`` from scratch with no
+          recovered state.
+
+        Returns:
+            The :class:`AutoResumeCapability` value for the current state.
+        """
+        # Lazy import to avoid the ``state.py`` <-> ``pipeline.py`` cycle.
+        from ouroboros.auto.pipeline import _recoverable_phase_for_tool  # noqa: PLC0415
+
+        if self.phase == AutoPhase.COMPLETE:
+            return AutoResumeCapability.NONE
+
+        if self.phase not in {AutoPhase.BLOCKED, AutoPhase.FAILED}:
+            # CREATED, INTERVIEW, SEED_GENERATION, REVIEW, REPAIR, RUN.
+            # Pipeline.run() will simply continue from the current phase.
+            # REPAIR explicitly transitions to REVIEW on resume, so this is
+            # still a true RESUME (not a partial one).
+            return AutoResumeCapability.RESUME
+
+        # --- BLOCKED or FAILED ---
+        recoverable = _recoverable_phase_for_tool(self.last_tool_name)
+        if recoverable is None:
+            return AutoResumeCapability.NONE
+
+        tool = self.last_tool_name
+
+        # Interview phase tools.
+        if recoverable == AutoPhase.INTERVIEW:
+            if tool == "interview.start" and not self.interview_session_id:
+                # The #688 case: interview.start timed out before producing
+                # a session id. Resuming re-runs interview.start from
+                # scratch — that is a retry, not a continuation.
+                return AutoResumeCapability.RETRY
+            if self.interview_session_id:
+                if self.pending_question:
+                    return AutoResumeCapability.RESUME
+                return AutoResumeCapability.PARTIAL_RESUME
+            # Interview-tool but no session id (rare for tools other than
+            # interview.start); treat as a retry rather than asserting.
+            return AutoResumeCapability.RETRY
+
+        # Seed generation. We reconcile seed_artifact, seed_path, and
+        # interview_session_id: a persisted artifact is the strongest
+        # signal; a seed_path means we can re-load the Seed; otherwise we
+        # need the interview session to regenerate.
+        if recoverable == AutoPhase.SEED_GENERATION:
+            if self.seed_artifact:
+                return AutoResumeCapability.RESUME
+            if self.seed_path:
+                return AutoResumeCapability.PARTIAL_RESUME
+            if self.interview_session_id:
+                # Interview context carries forward, but seed generation
+                # itself re-runs from scratch — no prior generation work
+                # is reused. That matches the RETRY semantics, not RESUME.
+                return AutoResumeCapability.RETRY
+            return AutoResumeCapability.NONE
+
+        # Review phase tools (seed_saver / grade_gate / seed_loader).
+        if recoverable == AutoPhase.REVIEW:
+            if self.seed_artifact:
+                return AutoResumeCapability.RESUME
+            if self.seed_path:
+                return AutoResumeCapability.PARTIAL_RESUME
+            return AutoResumeCapability.NONE
+
+        # Run phase. Persisted run handles let us short-circuit to
+        # COMPLETE; otherwise we need a Seed (artifact > path). When the
+        # pipeline already attempted to start a run but produced no durable
+        # handle, ``AutoPipeline.run()`` immediately re-blocks at
+        # ``run_starter`` to refuse a duplicate execution — so ``--resume``
+        # cannot make progress and the capability must be ``NONE``.
+        if recoverable == AutoPhase.RUN:
+            if any((self.job_id, self.execution_id, self.run_session_id)):
+                return AutoResumeCapability.RESUME
+            if self.run_start_attempted:
+                return AutoResumeCapability.NONE
+            if self.seed_artifact:
+                return AutoResumeCapability.RESUME
+            if self.seed_path:
+                return AutoResumeCapability.PARTIAL_RESUME
+            return AutoResumeCapability.NONE
+
+        return AutoResumeCapability.NONE  # defensive
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a JSON-compatible dictionary."""
         data = asdict(self)
         data["phase"] = self.phase.value
         data["policy"] = self.policy.value
+        data["seed_origin"] = self.seed_origin.value
         return data
 
     @classmethod
@@ -190,6 +478,18 @@ class AutoPipelineState:
         # persisting them with subsequent saves.
         payload.setdefault("max_interview_rounds", 12)
         payload.setdefault("max_repair_rounds", 5)
+        payload.setdefault("run_handoff_status", None)
+        payload.setdefault("run_handoff_guidance", None)
+        payload.setdefault("attached_run_handle", None)
+        payload.setdefault("attached_run_source", None)
+        payload.setdefault("attached_at", None)
+        payload.setdefault("run_reconciliation_status", None)
+        payload.setdefault("run_reconciliation_source", None)
+        payload.setdefault("run_reconciled_at", None)
+        payload.setdefault("provenance", None)
+        payload.setdefault("auto_answer_log", [])
+        payload.setdefault("seed_origin", SeedOrigin.NONE.value)
+        payload.setdefault("last_authoring_backend", None)
         required_fields = {item.name for item in fields(cls)}
         missing_fields = sorted(required_fields - payload.keys())
         if missing_fields:
@@ -197,6 +497,11 @@ class AutoPipelineState:
             raise ValueError(msg)
         payload["phase"] = AutoPhase(payload["phase"])
         payload["policy"] = AutoPolicy(payload["policy"])
+        try:
+            payload["seed_origin"] = SeedOrigin(payload["seed_origin"])
+        except ValueError as exc:
+            msg = f"seed_origin must be one of {[item.value for item in SeedOrigin]}"
+            raise ValueError(msg) from exc
         state = cls(**payload)
         state._validate_loaded()
         return state
@@ -273,6 +578,14 @@ class AutoPipelineState:
         if not isinstance(self.run_subagent, dict):
             msg = "run_subagent must be an object"
             raise ValueError(msg)
+        if self.provenance is not None:
+            if not isinstance(self.provenance, dict):
+                msg = "provenance must be an object or null"
+                raise ValueError(msg)
+            cleaned = redact_provenance(self.provenance)
+            if cleaned != self.provenance:
+                msg = "provenance contains unallowed keys; pass through redact_provenance() before persisting"
+                raise ValueError(msg)
         if self.ledger:
             try:
                 from ouroboros.auto.ledger import SeedDraftLedger
@@ -290,6 +603,14 @@ class AutoPipelineState:
             "execution_id",
             "job_id",
             "run_session_id",
+            "run_handoff_status",
+            "run_handoff_guidance",
+            "attached_run_handle",
+            "attached_run_source",
+            "attached_at",
+            "run_reconciliation_status",
+            "run_reconciliation_source",
+            "run_reconciled_at",
             "last_grade",
             "pending_question",
             "last_tool_name",
@@ -309,7 +630,7 @@ class AutoPipelineState:
             if type(getattr(self, field_name)) is not bool:
                 msg = f"{field_name} must be a boolean"
                 raise ValueError(msg)
-        for field_name in ("findings",):
+        for field_name in ("findings", "auto_answer_log"):
             value = getattr(self, field_name)
             if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
                 msg = f"{field_name} must be a list of objects"

@@ -657,6 +657,7 @@ class AsyncChalkClient:
         input_sql: str | None = None,
         use_metaplanner: bool | None = None,
         unload_resolvers: UnloadResolvers = None,
+        feature_for_lower_upper_bound: FeatureReference | None = None,
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.
@@ -732,6 +733,10 @@ class AsyncChalkClient:
         upper_bound
             If specified, the query will only be run on data observed before this timestamp.
             Accepts strings in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format.
+        feature_for_lower_upper_bound
+            Override the feature whose values are filtered against `lower_bound` and `upper_bound`.
+            By default, the bounds filter against the `FeatureTime` feature of each output's namespace.
+            Must reference a scalar or `FeatureTime` feature.
         store_plan_stages
             If `True`, the output of each of the query plan stages will be stored
             in S3/GCS. This will dramatically impact the performance of the query,
@@ -912,6 +917,8 @@ class AsyncChalkClient:
         num_workers: int | None = None,
         completion_deadline: timedelta | None = None,
         max_retries: int | None = None,
+        *,  # Keyword-only: these were added later and must not be passed positionally.
+        feature_for_lower_upper_bound: FeatureReference | None = None,
     ) -> Dataset:
         """Runs an evaluation on a set of prompts.
         See https://docs.chalk.ai/docs/prompts#prompt-evaluation for more information.
@@ -1012,6 +1019,10 @@ class AsyncChalkClient:
         upper_bound
             If specified, the query will only be run on data observed before this timestamp.
             Accepts strings in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format.
+        feature_for_lower_upper_bound
+            Override the feature whose values are filtered against `lower_bound` and `upper_bound`.
+            By default, the bounds filter against the `FeatureTime` feature of each output's namespace.
+            Must reference a scalar or `FeatureTime` feature.
         store_plan_stages
             If `True`, the output of each of the query plan stages will be stored
             in S3/GCS. This will dramatically impact the performance of the query,

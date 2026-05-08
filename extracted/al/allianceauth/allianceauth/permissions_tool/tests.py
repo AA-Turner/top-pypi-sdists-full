@@ -1,8 +1,10 @@
 from django_webtest import WebTest
+
 from django import urls
 from django.contrib.auth.models import Group, Permission
 
 from allianceauth.tests.auth_utils import AuthUtils
+
 
 class PermissionsToolViewsTestCase(WebTest):
     def setUp(self):

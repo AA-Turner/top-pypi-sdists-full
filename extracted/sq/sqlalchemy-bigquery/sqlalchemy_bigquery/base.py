@@ -21,47 +21,45 @@
 
 import datetime
 from decimal import Decimal
-import random
 import operator
+import random
+import re
 import uuid
 
 from google import auth
 import google.api_core.exceptions
-from google.cloud.bigquery import dbapi, ConnectionProperty
+from google.api_core.exceptions import NotFound
+from google.cloud.bigquery import ConnectionProperty, QueryJobConfig, dbapi
 from google.cloud.bigquery.table import (
     RangePartitioning,
     TableReference,
     TimePartitioning,
 )
-from google.api_core.exceptions import NotFound
 import packaging.version
 import sqlalchemy
+from sqlalchemy import util
+from sqlalchemy.engine.base import Engine
+from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
+from sqlalchemy.exc import NoSuchColumnError, NoSuchTableError
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql import elements, selectable
+from sqlalchemy.sql.compiler import (
+    DDLCompiler,
+    GenericTypeCompiler,
+    IdentifierPreparer,
+    SQLCompiler,
+)
 import sqlalchemy.sql.expression
 import sqlalchemy.sql.functions
-import sqlalchemy.sql.sqltypes
-import sqlalchemy.sql.type_api
-from sqlalchemy.exc import NoSuchTableError, NoSuchColumnError
-from sqlalchemy import util
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.sql.compiler import (
-    SQLCompiler,
-    GenericTypeCompiler,
-    DDLCompiler,
-    IdentifierPreparer,
-)
-from sqlalchemy.sql.sqltypes import Integer, String, NullType, Numeric
-from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
-from sqlalchemy.engine.base import Engine
-from sqlalchemy.sql.schema import Column
-from sqlalchemy.sql.schema import Table
+from sqlalchemy.sql.schema import Column, Table
 from sqlalchemy.sql.selectable import CTE
-from sqlalchemy.sql import elements, selectable
-import re
-
-from .parse_url import parse_url
-from . import _helpers, _struct, _types
+import sqlalchemy.sql.sqltypes
+from sqlalchemy.sql.sqltypes import Integer, NullType, Numeric, String
+import sqlalchemy.sql.type_api
 import sqlalchemy_bigquery_vendored.sqlalchemy.postgresql.base as vendored_postgresql
-from google.cloud.bigquery import QueryJobConfig
+
+from . import _helpers, _types
+from .parse_url import parse_url
 
 # Illegal characters is intended to be all characters that are not explicitly
 # allowed as part of the flexible column names.
@@ -191,7 +189,7 @@ class BigQueryExecutionContext(DefaultExecutionContext):
         )
 
 
-class BigQueryCompiler(_struct.SQLCompiler, vendored_postgresql.PGCompiler):
+class BigQueryCompiler(vendored_postgresql.PGCompiler, SQLCompiler):
     compound_keywords = SQLCompiler.compound_keywords.copy()
     compound_keywords[selectable.CompoundSelect.UNION] = "UNION DISTINCT"
     compound_keywords[selectable.CompoundSelect.UNION_ALL] = "UNION ALL"
@@ -216,6 +214,10 @@ class BigQueryCompiler(_struct.SQLCompiler, vendored_postgresql.PGCompiler):
         return super(BigQueryCompiler, self).visit_insert(
             insert_stmt, asfrom=False, **kw
         )
+
+    def visit_json_getitem_op_binary(self, binary, operator_, **kw):
+        left = self.process(binary.left, **kw)
+        return f"{left}.{binary.right.value}"
 
     def visit_table_valued_alias(self, element, **kw):
         # When using table-valued functions, like UNNEST, BigQuery requires a
@@ -619,6 +621,9 @@ class BigQueryTypeCompiler(GenericTypeCompiler):
         return "BYTES"
 
     visit_VARBINARY = visit_BLOB = visit_BINARY
+
+    def visit_JSON(self, type_, **kw):
+        return "JSON"
 
     def visit_NUMERIC(self, type_, **kw):
         if (type_.precision is not None) and isinstance(
@@ -1409,10 +1414,10 @@ else:
     from alembic.ddl.base import (
         ColumnName,
         ColumnType,
+        alter_column,
+        alter_table,
         format_column_name,
         format_type,
-        alter_table,
-        alter_column,
     )
 
     class SqlalchemyBigqueryImpl(impl.DefaultImpl):

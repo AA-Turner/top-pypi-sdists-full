@@ -1,17 +1,17 @@
-import random
-import string
 import calendar
 import datetime as dt
 import hashlib
 import logging
+import random
 import re
-from typing import Tuple
+import string
+from datetime import datetime
 
 from packaging import version
 
-from django.db import connections
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db import connections
 
 from allianceauth.eveonline.models import EveCharacter
 
@@ -26,43 +26,43 @@ class SmfManager:
         pass
 
     # For SMF < 2.1
-    SQL_ADD_USER_SMF_20 = r"INSERT INTO %smembers (member_name, passwd, email_address, date_registered, real_name," \
+    SQL_ADD_USER_SMF_20 = rf"INSERT INTO {TABLE_PREFIX}members (member_name, passwd, email_address, date_registered, real_name," \
                             r" buddy_list, message_labels, openid_uri, signature, ignore_boards) " \
-                            r"VALUES (%%s, %%s, %%s, %%s, %%s, 0, 0, 0, 0, 0)" % TABLE_PREFIX
+                            r"VALUES (%s, %s, %s, %s, %s, 0, 0, 0, 0, 0)"
 
     # For SMF >= 2.1
-    SQL_ADD_USER_SMF_21 = r"INSERT INTO %smembers (member_name, passwd, email_address, date_registered, real_name," \
+    SQL_ADD_USER_SMF_21 = rf"INSERT INTO {TABLE_PREFIX}members (member_name, passwd, email_address, date_registered, real_name," \
                             r" buddy_list, signature, ignore_boards) " \
-                            r"VALUES (%%s, %%s, %%s, %%s, %%s, 0, 0, 0)" % TABLE_PREFIX
+                            r"VALUES (%s, %s, %s, %s, %s, 0, 0, 0)"
 
     # returns something like »window.smfVersion = "SMF 2.0.19";«
-    SQL_GET_CURRENT_SMF_VERSION = r"SELECT data FROM %sadmin_info_files WHERE filename = %%s" % TABLE_PREFIX
+    SQL_GET_CURRENT_SMF_VERSION = rf"SELECT data FROM {TABLE_PREFIX}admin_info_files WHERE filename = %s"
 
-    SQL_DEL_USER = r"DELETE FROM %smembers where member_name = %%s" % TABLE_PREFIX
+    SQL_DEL_USER = rf"DELETE FROM {TABLE_PREFIX}members where member_name = %s"
 
-    SQL_UPD_USER = r"UPDATE %smembers SET email_address = %%s, passwd = %%s, real_name = %%s WHERE member_name = %%s" % TABLE_PREFIX
+    SQL_UPD_USER = rf"UPDATE {TABLE_PREFIX}members SET email_address = %s, passwd = %s, real_name = %s WHERE member_name = %s"
 
-    SQL_UPD_DISPLAY_NAME = r"UPDATE %smembers SET real_name = %%s WHERE member_name = %%s" % TABLE_PREFIX
+    SQL_UPD_DISPLAY_NAME = rf"UPDATE {TABLE_PREFIX}members SET real_name = %s WHERE member_name = %s"
 
-    SQL_DIS_USER = r"UPDATE %smembers SET email_address = %%s, passwd = %%s WHERE member_name = %%s" % TABLE_PREFIX
+    SQL_DIS_USER = rf"UPDATE {TABLE_PREFIX}members SET email_address = %s, passwd = %s WHERE member_name = %s"
 
-    SQL_USER_ID_FROM_USERNAME = r"SELECT id_member from %smembers WHERE member_name = %%s" % TABLE_PREFIX
+    SQL_USER_ID_FROM_USERNAME = rf"SELECT id_member from {TABLE_PREFIX}members WHERE member_name = %s"
 
-    SQL_ADD_USER_GROUP = r"UPDATE %smembers SET additional_groups = %%s WHERE id_member = %%s" % TABLE_PREFIX
+    SQL_ADD_USER_GROUP = rf"UPDATE {TABLE_PREFIX}members SET additional_groups = %s WHERE id_member = %s"
 
-    SQL_GET_GROUP_ID = r"SELECT id_group from %smembergroups WHERE group_name = %%s" % TABLE_PREFIX
+    SQL_GET_GROUP_ID = rf"SELECT id_group from {TABLE_PREFIX}membergroups WHERE group_name = %s"
 
-    SQL_ADD_GROUP = r"INSERT INTO %smembergroups (group_name,description) VALUES (%%s,%%s)" % TABLE_PREFIX
+    SQL_ADD_GROUP = rf"INSERT INTO {TABLE_PREFIX}membergroups (group_name,description) VALUES (%s,%s)"
 
-    SQL_UPDATE_USER_PASSWORD = r"UPDATE %smembers SET passwd = %%s WHERE member_name = %%s" % TABLE_PREFIX
+    SQL_UPDATE_USER_PASSWORD = rf"UPDATE {TABLE_PREFIX}members SET passwd = %s WHERE member_name = %s"
 
-    SQL_REMOVE_USER_GROUP = r"UPDATE %smembers SET additional_groups = %%s WHERE id_member = %%s" % TABLE_PREFIX
+    SQL_REMOVE_USER_GROUP = rf"UPDATE {TABLE_PREFIX}members SET additional_groups = %s WHERE id_member = %s"
 
-    SQL_GET_ALL_GROUPS = r"SELECT id_group, group_name FROM %smembergroups" % TABLE_PREFIX
+    SQL_GET_ALL_GROUPS = rf"SELECT id_group, group_name FROM {TABLE_PREFIX}membergroups"
 
-    SQL_GET_USER_GROUPS = r"SELECT additional_groups FROM %smembers WHERE id_member = %%s" % TABLE_PREFIX
+    SQL_GET_USER_GROUPS = rf"SELECT additional_groups FROM {TABLE_PREFIX}members WHERE id_member = %s"
 
-    SQL_ADD_USER_AVATAR = r"UPDATE %smembers SET avatar = %%s WHERE id_member = %%s" % TABLE_PREFIX
+    SQL_ADD_USER_AVATAR = rf"UPDATE {TABLE_PREFIX}members SET avatar = %s WHERE id_member = %s"
 
     @classmethod
     def _get_current_smf_version(cls) -> str:
@@ -181,7 +181,7 @@ class SmfManager:
         return out
 
     @classmethod
-    def add_user(cls, username, email_address, groups, main_character: EveCharacter) -> Tuple:
+    def add_user(cls, username, email_address, groups, main_character: EveCharacter) -> tuple:
         """
         Add a user to SMF
         :param username:

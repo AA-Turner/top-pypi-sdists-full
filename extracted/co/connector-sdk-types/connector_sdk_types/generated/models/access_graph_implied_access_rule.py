@@ -24,7 +24,7 @@ from typing_extensions import Self
 
 class AccessGraphImpliedAccessRule(BaseModel):
     """
-    A rule declaring how entitlement access propagates, either within a single resource (when relationship_label is omitted) or across related resources (when relationship_label is set).  Examples: - Same-resource hierarchy: org-admin → org-manager on the same tenant - Cross-resource propagation: role/org-member on tenant → store_role/viewer on contained stores
+    A rule declaring how entitlement access propagates, either within a single resource (when relationship_label is omitted) or across related resources (when relationship_label is set).  Examples: - Same-resource hierarchy: org-admin -> org-manager on the same tenant - Cross-resource propagation: role/org-member on tenant -> store_role/viewer on contained stores
     """ # noqa: E501
     from_entitlement_type: StrictStr
     from_entitlement_id: StrictStr

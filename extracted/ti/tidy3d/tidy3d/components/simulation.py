@@ -6,7 +6,7 @@ import math
 import pathlib
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union, get_args
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import autograd.numpy as np
 import xarray as xr
@@ -148,8 +148,8 @@ from .viz import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from os import PathLike
-    from typing import Callable
 
     from numpy.typing import NDArray
 
@@ -350,7 +350,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         * `Using automatic nonuniform meshing <../../notebooks/AutoGrid.html>`_
     """
 
-    subpixel: Union[bool, SubpixelSpec] = Field(
+    subpixel: bool | SubpixelSpec = Field(
         default_factory=SubpixelSpec,
         title="Subpixel Averaging",
         description="Apply subpixel averaging methods of the permittivity on structure interfaces "
@@ -405,14 +405,14 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         *  `Dielectric constant assignment on Yee grids <https://www.flexcompute.com/fdtd101/Lecture-9-Dielectric-constant-assignment-on-Yee-grids/>`_
     """
 
-    simulation_type: Optional[Literal["autograd_fwd", "autograd_bwd", "tidy3d"]] = Field(
+    simulation_type: Literal["autograd_fwd", "autograd_bwd", "tidy3d"] | None = Field(
         "tidy3d",
         title="Simulation Type",
         description="Tag used internally to distinguish types of simulations for "
         "``autograd`` gradient processing.",
     )
 
-    post_norm: Union[float, FreqDataArray] = Field(
+    post_norm: float | FreqDataArray = Field(
         1.0,
         title="Post Normalization Values",
         description="Factor to multiply the fields by after running, "
@@ -429,7 +429,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
     @field_validator("simulation_type")
     @classmethod
     def _validate_simulation_type_tidy3d(
-        cls, val: Optional[Literal["autograd_fwd", "autograd_bwd", "tidy3d"]]
+        cls, val: Literal["autograd_fwd", "autograd_bwd", "tidy3d"] | None
     ) -> Literal["autograd_fwd", "autograd_bwd", "tidy3d"]:
         """Enforce the simulation_type is 'tidy3d' if passed as None for bkwrds compatibility."""
         return "tidy3d" if val is None else val
@@ -548,12 +548,12 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
     @add_ax_if_none
     def plot_absorbers(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
-        hlim: Optional[tuple[float, float]] = None,
-        vlim: Optional[tuple[float, float]] = None,
-        alpha: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
+        hlim: tuple[float, float] | None = None,
+        vlim: tuple[float, float] | None = None,
+        alpha: float | None = None,
         ax: Ax = None,
         shifted: bool = False,
     ) -> Ax:
@@ -598,17 +598,17 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
     @add_ax_if_none
     def plot(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
         ax: Ax = None,
-        source_alpha: Optional[float] = None,
-        monitor_alpha: Optional[float] = None,
-        lumped_element_alpha: Optional[float] = None,
-        absorber_alpha: Optional[float] = None,
+        source_alpha: float | None = None,
+        monitor_alpha: float | None = None,
+        lumped_element_alpha: float | None = None,
+        absorber_alpha: float | None = None,
         absorber_actual_placement: bool = False,
-        hlim: Optional[tuple[float, float]] = None,
-        vlim: Optional[tuple[float, float]] = None,
+        hlim: tuple[float, float] | None = None,
+        vlim: tuple[float, float] | None = None,
         fill_structures: bool = True,
         **patch_kwargs: Any,
     ) -> Ax:
@@ -695,21 +695,21 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
     @add_ax_if_none
     def plot_eps(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
-        freq: Optional[float] = None,
-        alpha: Optional[float] = None,
-        source_alpha: Optional[float] = None,
-        monitor_alpha: Optional[float] = None,
-        lumped_element_alpha: Optional[float] = None,
-        absorber_alpha: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
+        freq: float | None = None,
+        alpha: float | None = None,
+        source_alpha: float | None = None,
+        monitor_alpha: float | None = None,
+        lumped_element_alpha: float | None = None,
+        absorber_alpha: float | None = None,
         absorber_actual_placement: bool = False,
-        hlim: Optional[tuple[float, float]] = None,
-        vlim: Optional[tuple[float, float]] = None,
+        hlim: tuple[float, float] | None = None,
+        vlim: tuple[float, float] | None = None,
         ax: Ax = None,
-        eps_component: Optional[PermittivityComponent] = None,
-        eps_lim: tuple[Union[float, None], Union[float, None]] = (None, None),
+        eps_component: PermittivityComponent | None = None,
+        eps_lim: tuple[float | None, float | None] = (None, None),
     ) -> Ax:
         """Plot each of simulation's components on a plane defined by one nonzero x,y,z coordinate.
         The permittivity is plotted in grayscale based on its value at the specified frequency.
@@ -818,18 +818,18 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
     @add_ax_if_none
     def plot_structures_eps(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
-        freq: Optional[float] = None,
-        alpha: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
+        freq: float | None = None,
+        alpha: float | None = None,
         cbar: bool = True,
         reverse: bool = False,
         ax: Ax = None,
-        hlim: Optional[tuple[float, float]] = None,
-        vlim: Optional[tuple[float, float]] = None,
-        eps_component: Optional[PermittivityComponent] = None,
-        eps_lim: tuple[Union[float, None], Union[float, None]] = (None, None),
+        hlim: tuple[float, float] | None = None,
+        vlim: tuple[float, float] | None = None,
+        eps_component: PermittivityComponent | None = None,
+        eps_lim: tuple[float | None, float | None] = (None, None),
     ) -> Ax:
         """Plot each of simulation's structures on a plane defined by one nonzero x,y,z coordinate.
         The permittivity is plotted in grayscale based on its value at the specified frequency.
@@ -909,11 +909,11 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
     @add_ax_if_none
     def plot_pml(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
-        hlim: Optional[tuple[float, float]] = None,
-        vlim: Optional[tuple[float, float]] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
+        hlim: tuple[float, float] | None = None,
+        vlim: tuple[float, float] | None = None,
         ax: Ax = None,
     ) -> Ax:
         """Plot each of simulation's absorbing boundaries
@@ -1005,7 +1005,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         return pml_box
 
     # candidate for removal in 3.0
-    def eps_bounds(self, freq: Optional[float] = None) -> tuple[float, float]:
+    def eps_bounds(self, freq: float | None = None) -> tuple[float, float]:
         """Compute range of (real) permittivity present in the simulation at frequency "freq"."""
 
         log.warning(
@@ -1033,7 +1033,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         return pml_thicknesses
 
     @cached_property
-    def _internal_layerrefinement_boundary_types(self) -> list[list[Optional[str]]]:
+    def _internal_layerrefinement_boundary_types(self) -> list[list[str | None]]:
         """Boundary types for layer refinement."""
         boundary_types = [[None, None], [None, None], [None, None]]
         for dim, boundary in enumerate(self.boundary_spec.to_list):
@@ -1120,12 +1120,12 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
     @add_ax_if_none
     def plot_lumped_elements(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
-        hlim: Optional[tuple[float, float]] = None,
-        vlim: Optional[tuple[float, float]] = None,
-        alpha: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
+        hlim: tuple[float, float] | None = None,
+        vlim: tuple[float, float] | None = None,
+        alpha: float | None = None,
         ax: Ax = None,
     ) -> Ax:
         """Plot each of simulation's lumped elements on a plane defined by one
@@ -1165,12 +1165,12 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
     @add_ax_if_none
     def plot_grid(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
         ax: Ax = None,
-        hlim: Optional[tuple[float, float]] = None,
-        vlim: Optional[tuple[float, float]] = None,
+        hlim: tuple[float, float] | None = None,
+        vlim: tuple[float, float] | None = None,
         override_structures_alpha: float = 1,
         snapping_points_alpha: float = 1,
         finest_grid_region_alpha: float = 0.1,
@@ -1367,9 +1367,9 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
     @add_ax_if_none
     def plot_boundaries(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
         ax: Ax = None,
         **kwargs: Any,
     ) -> Ax:
@@ -1399,7 +1399,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         import matplotlib as mpl
 
         def set_plot_params(
-            boundary_edge: Union[ABCBoundary, ModeABCBoundary, BoundaryEdgeType],
+            boundary_edge: ABCBoundary | ModeABCBoundary | BoundaryEdgeType,
             lim: float,
             side: Literal[-1, 1],
             thickness: float,
@@ -1639,7 +1639,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
 
         return num_layers
 
-    def _snap_zero_dim(self, grid: Grid, skip_axis: Optional[Axis] = None) -> Grid:
+    def _snap_zero_dim(self, grid: Grid, skip_axis: Axis | None = None) -> Grid:
         """Snap a grid to the simulation center along any dimension along which simulation is
         effectively 0D, defined as having a single pixel. This is more general than just checking
         size = 0."""
@@ -1664,7 +1664,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         return self._subgrid(span_inds=span_inds, grid=grid)
 
     def _discretize_inds_monitor(
-        self, monitor: Union[Monitor, Box], colocate: Optional[bool] = None
+        self, monitor: Monitor | Box, colocate: bool | None = None
     ) -> NDArray:
         """Start and stopping indexes for the cells where data needs to be recorded to fully cover
         a ``monitor``. This is used during the solver run. The final grid on which a monitor data
@@ -1724,7 +1724,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         self,
         box: Box,
         coord_key: str = "centers",
-        freq: Optional[float] = None,
+        freq: float | None = None,
     ) -> xr.DataArray:
         """Get array of permittivity at volume specified by box and freq.
 
@@ -1775,7 +1775,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         self,
         grid: Grid,
         coord_key: str = "centers",
-        freq: Optional[float] = None,
+        freq: float | None = None,
     ) -> xr.DataArray:
         """Get array of permittivity at a given freq on a given grid.
 
@@ -2038,18 +2038,18 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         self,
         region: Box,
         boundary_spec: BoundarySpec = None,
-        grid_spec: Union[GridSpec, Literal["identical"]] = None,
-        symmetry: Optional[tuple[Symmetry, Symmetry, Symmetry]] = None,
+        grid_spec: GridSpec | Literal["identical"] = None,
+        symmetry: tuple[Symmetry, Symmetry, Symmetry] | None = None,
         warn_symmetry_expansion: bool = True,
-        sources: Optional[tuple[SourceType, ...]] = None,
-        monitors: Optional[tuple[MonitorType, ...]] = None,
+        sources: tuple[SourceType, ...] | None = None,
+        monitors: tuple[MonitorType, ...] | None = None,
         remove_outside_structures: bool = True,
         remove_outside_grid_spec: bool = False,
         remove_outside_custom_mediums: bool = False,
         include_pml_cells: bool = False,
         validate_geometries: bool = True,
         deep_copy: bool = True,
-        internal_absorbers: Optional[tuple[InternalAbsorber, ...]] = None,
+        internal_absorbers: tuple[InternalAbsorber, ...] | None = None,
         **kwargs: Any,
     ) -> Self:
         """Generate a simulation instance containing only the ``region``.
@@ -2332,7 +2332,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
         self._validate_finalized()
         log.end_capture(self)
 
-    def _make_pec_frame(self, obj: Union[AbstractModeSource, InternalAbsorber]) -> Structure:
+    def _make_pec_frame(self, obj: AbstractModeSource | InternalAbsorber) -> Structure:
         """Make a pec frame around a mode source or an internal absorber. For mode sources,
         the frame is added around the injection plane. For internal absorbers, a backing pec
         plate is also added on the non-absorbing side.
@@ -2359,41 +2359,38 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
 
         return structure
 
-    def _pec_frame_box(
-        self, obj: Union[AbstractModeSource, InternalAbsorber], expand: bool = False
-    ) -> tuple[Box, int, str]:
-        """Return pec bounding box, frame axis and object's direction"""
+    def _pec_frame_box(self, obj: AbstractModeSource | InternalAbsorber) -> tuple[Box, int, str]:
+        """Return pec bounding box, frame axis and object's direction."""
+        from tidy3d.components.mode.mode_solver import ModeSolver
 
-        span_inds = np.array(self.grid.discretize_inds(obj, relax_precision=True))
-        coords = self.grid.boundaries.to_list
         direction = obj.direction
         if isinstance(obj, AbstractModeSource):
             axis = obj.injection_axis
-            length = obj.frame.length
-            if direction == "+":
-                span_inds[axis][1] += length - 1
-            else:
-                span_inds[axis][0] -= length - 1
         else:
             axis = obj.size.index(0.0)
 
-        # ensure that the pec frame is at least one cell larger than wave port plane
-        if expand:
-            for dim in range(3):
-                if dim != axis:
-                    grid_size = len(coords[dim])
-                    (beg, end) = span_inds[dim]
-                    span_inds[dim] = [np.maximum(0, beg - 1), np.minimum(grid_size - 1, end + 1)]
+        # Tangential axes: snap using same logic as mode solver PEC boundaries
+        snapped = ModeSolver._snapped_mode_domain(self.grid, obj, axis)
 
-        box_bounds = [
-            [
-                c[beg],
-                c[end],
-            ]
-            for c, (beg, end) in zip(coords, span_inds)
-        ]
+        min_b, max_b = list(snapped.bounds[0]), list(snapped.bounds[1])
 
-        return (Box.from_bounds(*np.transpose(box_bounds)), axis, direction)
+        # Injection axis: index-based extension by frame.length cells
+        span_inds_axis = self.grid.discretize_inds(obj, relax_precision=True)[axis]
+        coords_axis = self.grid.boundaries.to_list[axis]
+        if isinstance(obj, AbstractModeSource):
+            length = obj.frame.length
+            ind_min, ind_max = span_inds_axis
+            if direction == "+":
+                ind_max += length - 1
+            else:
+                ind_min -= length - 1
+            min_b[axis] = coords_axis[ind_min]
+            max_b[axis] = coords_axis[ind_max]
+        else:
+            min_b[axis] = coords_axis[span_inds_axis[0]]
+            max_b[axis] = coords_axis[span_inds_axis[1]]
+
+        return (Box.from_bounds(min_b, max_b), axis, direction)
 
     @cached_property
     def _modal_plane_frames(self) -> list[Structure]:
@@ -2945,7 +2942,7 @@ class Simulation(AbstractYeeGridSimulation):
 
     """
 
-    normalize_index: Optional[NonNegativeInt] = Field(
+    normalize_index: NonNegativeInt | None = Field(
         0,
         title="Normalization index",
         description="Index of the source in the tuple of sources whose spectrum will be used to "
@@ -3122,7 +3119,7 @@ class Simulation(AbstractYeeGridSimulation):
     """
 
     # TODO: at a later time (once well tested) we could consider making default of RunTimeSpec()
-    run_time: Union[PositiveFloat, RunTimeSpec] = Field(
+    run_time: PositiveFloat | RunTimeSpec = Field(
         title="Run Time",
         description="Total electromagnetic evolution time in seconds. "
         "Note: If simulation 'shutoff' is specified, "
@@ -3182,7 +3179,7 @@ class Simulation(AbstractYeeGridSimulation):
 
     """
 
-    low_freq_smoothing: Optional[LowFrequencySmoothingSpec] = Field(
+    low_freq_smoothing: LowFrequencySmoothingSpec | None = Field(
         None,
         title="Low Frequency Smoothing",
         description="The low frequency smoothing parameters for the simulation.",
@@ -3209,6 +3206,7 @@ class Simulation(AbstractYeeGridSimulation):
         super()._run_after_validators()
         call_wrapped_validator(validate_boundaries_for_zero_dims, self)
         self._validate_auto_grid_wavelength()
+        self._warn_3d_structures_missing_2d_yee_sampling_plane()
         call_wrapped_validator(
             assert_objects_in_sim_bounds, self, "sources", strict_inequality=True
         )
@@ -3252,6 +3250,65 @@ class Simulation(AbstractYeeGridSimulation):
         self._validate_low_freq_smoothing()
         self._warn_source_monitor_normalization_grid()
         self._validate_scene()
+        return self
+
+    def _warn_3d_structures_missing_2d_yee_sampling_plane(self) -> Self:
+        """Warn if a 3D structure in a 2D simulation misses the tangential E-field Yee plane."""
+        if self.size.count(0.0) != 1:
+            return self
+
+        collapsed_axis = self.size.index(0.0)
+        collapsed_axis_name = "xyz"[collapsed_axis]
+        tangential_axes = [axis for axis in range(3) if axis != collapsed_axis]
+        tangential_components = [f"E{'xyz'[axis]}" for axis in tangential_axes]
+
+        yee_plane_positions = {
+            float(np.ravel(self.grid[component].to_list[collapsed_axis])[0])
+            for component in tangential_components
+        }
+
+        with log as consolidated_logger:
+            for i, structure in enumerate(self.structures):
+                static_geometry = structure.geometry.to_static()
+                if isinstance(structure.medium, (Medium2D, AnisotropicMediumFromMedium2D)):
+                    if any(
+                        len(geom.zero_dims) == 1 and geom.zero_dims[0] == collapsed_axis
+                        for geom in flatten_groups(static_geometry)
+                    ):
+                        obj_descr = named_obj_descr(structure, "structures", i)
+                        consolidated_logger.warning(
+                            f"Structure: {obj_descr} uses a 'Medium2D' in a 2D simulation with "
+                            f"the same collapsed axis '{collapsed_axis_name}'. This is ambiguous "
+                            "because 'Medium2D' represents an infinitely thin sheet, while a 2D "
+                            "simulation represents infinite extent along the collapsed axis. "
+                            "Consider using a 3D medium with nonzero thickness instead."
+                        )
+                    continue
+                # Exact zero-thickness geometries are already covered by the existing
+                # "geometry has zero size" warning, so keep this validator focused on
+                # thin-but-nonzero 3D structures that miss the 2D Yee sampling plane.
+                if any(len(geom.zero_dims) > 0 for geom in flatten_groups(static_geometry)):
+                    continue
+
+                if any(
+                    len(static_geometry.intersections_plane(**{collapsed_axis_name: pos})) > 0
+                    for pos in yee_plane_positions
+                ):
+                    continue
+
+                obj_descr = named_obj_descr(structure, "structures", i)
+                tangential_str = ", ".join(tangential_components)
+                positions_str = ", ".join(f"{pos:.6g}" for pos in sorted(yee_plane_positions))
+                consolidated_logger.warning(
+                    f"Structure: {obj_descr} is a 3D structure in a 2D simulation, but it does "
+                    f"not intersect the collapsed-axis Yee sampling plane used for {tangential_str} "
+                    f"along '{collapsed_axis_name}' (at {positions_str}). As a result, the "
+                    "structure may appear in plots while its in-plane permittivity is sampled as "
+                    "background. Consider increasing the structure thickness "
+                    "along the collapsed axis so that it extends at least one grid cell across "
+                    "the Yee sampling plane."
+                )
+
         return self
 
     def _validate_auto_grid_wavelength(self) -> Self:
@@ -3406,6 +3463,19 @@ class Simulation(AbstractYeeGridSimulation):
 
             norm_dir, tan_dirs = self.pop_axis([0, 1, 2], axis=source.injection_axis)
             src_bounds = source.bounds
+            clipped_bounds = Box.bounds_intersection(src_bounds, sim_bounds)
+            clipped_tan_sizes = [
+                clipped_bounds[1][tan_dir] - clipped_bounds[0][tan_dir] for tan_dir in tan_dirs
+            ]
+
+            if not any(size > 0 for size in clipped_tan_sizes):
+                self._raise_validation_error_at_loc(
+                    f"The TFSF source at index '{src_idx}' must have a nonzero in-domain "
+                    "tangential extent in at least one direction after intersecting with the "
+                    "simulation domain.",
+                    "sources",
+                    src_idx,
+                )
 
             # make a dummy source that represents the injection surface to get the intersecting
             # medium, which is later used to test the Bloch vector for correctness
@@ -3593,7 +3663,7 @@ class Simulation(AbstractYeeGridSimulation):
         """Warn if ModeABCBoundary expects a frequency from a source, but there are multiple sources with different central frequencies."""
 
         def boundary_needs_freq(
-            boundary: Union[ModeABCBoundary, ABCBoundary, BoundaryEdgeType],
+            boundary: ModeABCBoundary | ABCBoundary | BoundaryEdgeType,
         ) -> bool:
             return (isinstance(boundary, ModeABCBoundary) and boundary.freq_spec is None) or (
                 isinstance(boundary, ABCBoundary)
@@ -3652,8 +3722,8 @@ class Simulation(AbstractYeeGridSimulation):
     @field_validator("sources")
     @classmethod
     def _validate_num_sources(
-        cls, val: Optional[tuple[SourceType, ...]]
-    ) -> Optional[tuple[SourceType, ...]]:
+        cls, val: tuple[SourceType, ...] | None
+    ) -> tuple[SourceType, ...] | None:
         """Error if too many sources present."""
 
         if val is None:
@@ -3896,7 +3966,7 @@ class Simulation(AbstractYeeGridSimulation):
         cls,
         center: Coordinate,
         size: Coordinate,
-        monitor: Union[FieldMonitor, SurfaceIntegrationMonitor, DiffractionMonitor],
+        monitor: FieldMonitor | SurfaceIntegrationMonitor | DiffractionMonitor,
         structures: list[Structure],
     ) -> set[MediumType3D]:
         """Get media intersecting the in-domain portion of a projection surface or monitor."""
@@ -4713,7 +4783,7 @@ class Simulation(AbstractYeeGridSimulation):
         from .mode.mode_solver import ModeSolver
 
         def validate_mode_object(
-            mode_obj: Union[ModeSource, AbstractModeMonitor], msg_prefix: str
+            mode_obj: ModeSource | AbstractModeMonitor, msg_prefix: str
         ) -> None:
             # Warn if pml is too thick
             ModeSolver._warn_thick_pml(
@@ -5785,14 +5855,13 @@ class Simulation(AbstractYeeGridSimulation):
 
     def to_gdstk(
         self,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
         permittivity_threshold: NonNegativeFloat = 1,
         frequency: PositiveFloat = 0,
-        gds_layer_dtype_map: Optional[
-            dict[AbstractMedium, tuple[NonNegativeInt, NonNegativeInt]]
-        ] = None,
+        gds_layer_dtype_map: dict[AbstractMedium, tuple[NonNegativeInt, NonNegativeInt]]
+        | None = None,
         pixel_exact: bool = False,
     ) -> list:
         """Convert a simulation's planar slice to a .gds type polygon list.
@@ -5860,14 +5929,13 @@ class Simulation(AbstractYeeGridSimulation):
     def to_gds(
         self,
         cell: gdstk.Cell,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
         permittivity_threshold: NonNegativeFloat = 1,
         frequency: PositiveFloat = 0,
-        gds_layer_dtype_map: Optional[
-            dict[AbstractMedium, tuple[NonNegativeInt, NonNegativeInt]]
-        ] = None,
+        gds_layer_dtype_map: dict[AbstractMedium, tuple[NonNegativeInt, NonNegativeInt]]
+        | None = None,
         pixel_exact: bool = False,
     ) -> None:
         """Append the simulation structures to a .gds cell.
@@ -5918,14 +5986,13 @@ class Simulation(AbstractYeeGridSimulation):
     def to_gds_file(
         self,
         fname: PathLike,
-        x: Optional[float] = None,
-        y: Optional[float] = None,
-        z: Optional[float] = None,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
         permittivity_threshold: NonNegativeFloat = 1,
         frequency: PositiveFloat = 0,
-        gds_layer_dtype_map: Optional[
-            dict[AbstractMedium, tuple[NonNegativeInt, NonNegativeInt]]
-        ] = None,
+        gds_layer_dtype_map: dict[AbstractMedium, tuple[NonNegativeInt, NonNegativeInt]]
+        | None = None,
         gds_cell_name: str = "MAIN",
         pixel_exact: bool = False,
     ) -> None:
@@ -6503,9 +6570,9 @@ class Simulation(AbstractYeeGridSimulation):
 
     def padded_copy(
         self,
-        x: Optional[tuple[NonNegativeFloat, NonNegativeFloat]] = None,
-        y: Optional[tuple[NonNegativeFloat, NonNegativeFloat]] = None,
-        z: Optional[tuple[NonNegativeFloat, NonNegativeFloat]] = None,
+        x: tuple[NonNegativeFloat, NonNegativeFloat] | None = None,
+        y: tuple[NonNegativeFloat, NonNegativeFloat] | None = None,
+        z: tuple[NonNegativeFloat, NonNegativeFloat] | None = None,
     ) -> Simulation:
         """Created a copy of simulation with padded simulation domain.
 

@@ -74,6 +74,12 @@ class PgVectorOutput(CredentialsInterface, FlowComponent):
         self.document_column: str = kwargs.pop('document_column', 'document')
         self.metadata_column: str = kwargs.pop('metadata_column', 'cmetadata')
         self.text_column: str = kwargs.pop('text_column', 'text')
+        # FEAT-127: contextual embedding headers (opt-in, per-store)
+        self.contextual_embedding: bool = kwargs.pop('contextual_embedding', False)
+        self.contextual_template = kwargs.pop('contextual_template', None)
+        self.contextual_max_header_tokens: int = kwargs.pop(
+            'contextual_max_header_tokens', 100
+        )
         super().__init__(loop=loop, job=job, stat=stat, **kwargs)
 
     async def start(self, **kwargs):
@@ -194,6 +200,15 @@ class PgVectorOutput(CredentialsInterface, FlowComponent):
         }
         if self._embedding_model is not None:
             store_kwargs["embedding_model"] = self._embedding_model
+        # FEAT-127: forward contextual-header config to the store so
+        # add_documents() prepends the metadata-driven header before embed.
+        if self.contextual_embedding:
+            store_kwargs["contextual_embedding"] = True
+            store_kwargs["contextual_max_header_tokens"] = (
+                self.contextual_max_header_tokens
+            )
+            if self.contextual_template is not None:
+                store_kwargs["contextual_template"] = self.contextual_template
         _store = PgVectorStore(**store_kwargs)
         
         self._result = None

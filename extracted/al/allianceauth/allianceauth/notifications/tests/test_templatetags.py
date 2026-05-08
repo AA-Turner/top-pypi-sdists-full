@@ -1,11 +1,10 @@
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 
 from allianceauth.tests.auth_utils import AuthUtils
-from ..templatetags.auth_notifications import (
-    user_unread_notification_count, notifications_refresh_time
-)
+
+from ..templatetags.auth_notifications import notifications_refresh_time, user_unread_notification_count
 
 MODULE_PATH = 'allianceauth.notifications.templatetags.auth_notifications'
 

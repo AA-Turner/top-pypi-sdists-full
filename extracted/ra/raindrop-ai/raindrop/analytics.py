@@ -839,6 +839,23 @@ def begin(
     """
     Starts (or resumes) an interaction and returns a helper object.
     """
+    if not isinstance(user_id, str) or not user_id.strip():
+        # The API rejects events without a user_id; return a disabled
+        # Interaction whose mutators/finish/span/tool calls all no-op so
+        # caller code keeps running. Log the type only (never the value)
+        # so non-string user_id objects can't leak PII into log sinks.
+        logger.warning(
+            "[raindrop] begin(): empty user_id (type=%s); returning disabled interaction.",
+            type(user_id).__name__,
+        )
+        return Interaction(
+            event_id=event_id,
+            user_id=user_id if isinstance(user_id, str) else None,
+            event=event,
+            convo_id=convo_id,
+            disabled=True,
+        )
+
     eid = event_id or str(uuid.uuid4())
 
     # Instantiate ai_data if either input or convo_id is supplied so that convo_id isn't lost when input is set later

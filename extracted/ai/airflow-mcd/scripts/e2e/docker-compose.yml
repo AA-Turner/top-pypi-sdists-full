@@ -1,0 +1,150 @@
+---
+# E2E test stack for airflow-mcd / YET-792
+#
+# Services
+#   mock-server  — mock Monte Carlo API; captures callbacks and verifies URLs
+#   postgres2    — metadata DB for Airflow 2
+#   postgres3    — metadata DB for Airflow 3
+#   airflow2     — Airflow 2 with airflow-mcd installed
+#   airflow3     — Airflow 3 with airflow-mcd installed
+#
+# Usage:  cd scripts/e2e && ./run_e2e.sh
+#         (or:  docker compose up --build   for a manual run)
+
+x-airflow-common-env: &airflow-common-env
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+  AIRFLOW__WEBSERVER__SECRET_KEY: "e2e-test-static-secret"
+  AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+  # Connection is created by entrypoint.sh via `airflow connections add`.
+
+x-airflow-common: &airflow-common
+  build:
+    # Build context is the repo root so the Dockerfile can COPY the source.
+    context: ../..
+    dockerfile: scripts/e2e/Dockerfile
+  volumes:
+    - ./dags:/opt/airflow/dags:ro
+  depends_on:
+    mock-server:
+      condition: service_healthy
+  networks:
+    - e2e
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Mock Monte Carlo server
+  # ---------------------------------------------------------------------------
+  mock-server:
+    image: python:3.12-slim
+    volumes:
+      - ./mock_server:/app:ro
+    command: python /app/server.py
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\""]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+    networks:
+      - e2e
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — separate instances so the two Airflow versions are fully isolated
+  # ---------------------------------------------------------------------------
+  postgres2:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow2
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow", "-d", "airflow2"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - e2e
+
+  postgres3:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow3
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow", "-d", "airflow3"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - e2e
+
+  # ---------------------------------------------------------------------------
+  # Airflow 2
+  # The official apache/airflow:2.x image sets AIRFLOW_VERSION=2.x.y so
+  # airflow-mcd's AirflowEnv picks it up automatically via the AIRFLOW_VERSION
+  # env var — no extra configuration needed.
+  # ---------------------------------------------------------------------------
+  airflow2:
+    <<: *airflow-common
+    build:
+      context: ../..
+      dockerfile: scripts/e2e/Dockerfile
+      args:
+        AIRFLOW_BASE_IMAGE: apache/airflow:2.10.4
+    environment:
+      <<: *airflow-common-env
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres2/airflow2
+    depends_on:
+      postgres2:
+        condition: service_healthy
+      mock-server:
+        condition: service_healthy
+    ports:
+      - "8082:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob 2>/dev/null"]
+      interval: 15s
+      timeout: 15s
+      retries: 20
+      start_period: 120s
+    networks:
+      - e2e
+
+  # ---------------------------------------------------------------------------
+  # Airflow 3
+  # The official apache/airflow:3.x image sets AIRFLOW_VERSION=3.x.y.
+  # ---------------------------------------------------------------------------
+  airflow3:
+    <<: *airflow-common
+    build:
+      context: ../..
+      dockerfile: scripts/e2e/Dockerfile
+      args:
+        AIRFLOW_BASE_IMAGE: apache/airflow:3.0.0
+    environment:
+      <<: *airflow-common-env
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres3/airflow3
+    depends_on:
+      postgres3:
+        condition: service_healthy
+      mock-server:
+        condition: service_healthy
+    ports:
+      - "8083:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob 2>/dev/null"]
+      interval: 15s
+      timeout: 15s
+      retries: 20
+      start_period: 120s
+    networks:
+      - e2e
+
+networks:
+  e2e:
+    driver: bridge

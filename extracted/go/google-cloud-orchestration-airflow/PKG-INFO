@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-orchestration-airflow
-Version: 1.20.0
+Version: 1.21.0
 Summary: Google Cloud Orchestration Airflow API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-orchestration-airflow
 Author: Google LLC
@@ -46,7 +46,7 @@ Python Client for Cloud Composer
 
 |stable| |pypi| |versions|
 
-`Cloud Composer`_: is a managed Apache Airflow service that helps you create, schedule, monitor and manage workflows. Cloud Composer automation helps you create Airflow environments quickly and use Airflow-native tools, such as the powerful Airflow web interface and command line tools, so you can focus on your workflows and not your infrastructure.
+`Cloud Composer`_: Manages Apache Airflow environments on Google Cloud Platform.
 
 - `Client Library Documentation`_
 - `Product Documentation`_

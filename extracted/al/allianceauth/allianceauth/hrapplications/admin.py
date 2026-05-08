@@ -1,7 +1,13 @@
 from django.contrib import admin
 
-from .models import Application, ApplicationChoice, ApplicationComment, ApplicationForm, ApplicationQuestion, \
-    ApplicationResponse
+from .models import (
+    Application,
+    ApplicationChoice,
+    ApplicationComment,
+    ApplicationForm,
+    ApplicationQuestion,
+    ApplicationResponse,
+)
 
 
 class ChoiceInline(admin.TabularInline):

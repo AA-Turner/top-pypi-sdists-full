@@ -1,5 +1,6 @@
-from allianceauth import hooks
 from django.utils.translation import gettext_lazy as _
+
+from allianceauth import hooks
 
 from ..menu.hooks import MenuItemHook
 from .hooks import ServicesHook

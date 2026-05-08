@@ -2,8 +2,8 @@
 Django system checks for Alliance Auth
 """
 
+from datetime import datetime, timezone
 from sqlite3.dbapi2 import sqlite_version_info
-from typing import List
 
 from celery import current_app
 from packaging.version import InvalidVersion, Version as Pep440Version
@@ -11,7 +11,6 @@ from packaging.version import InvalidVersion, Version as Pep440Version
 from django import db
 from django.conf import settings
 from django.core.checks import CheckMessage, Error, Warning, register
-from django.utils import timezone
 
 from allianceauth.utils.cache import get_redis_client
 
@@ -22,7 +21,7 @@ B = Configuration
 
 
 @register()
-def django_settings(app_configs, **kwargs) -> List[CheckMessage]:
+def django_settings(app_configs, **kwargs) -> list[CheckMessage]:
     """
     Check that Django settings are correctly configured
 
@@ -34,7 +33,7 @@ def django_settings(app_configs, **kwargs) -> List[CheckMessage]:
     :rtype:
     """
 
-    errors: List[CheckMessage] = []
+    errors: list[CheckMessage] = []
 
     # Check for SITE_URL
     if hasattr(settings, "SITE_URL"):
@@ -112,7 +111,7 @@ def django_settings(app_configs, **kwargs) -> List[CheckMessage]:
 
 
 @register()
-def system_package_redis(app_configs, **kwargs) -> List[CheckMessage]:
+def system_package_redis(app_configs, **kwargs) -> list[CheckMessage]:
     """
     Check that Redis is a supported version
 
@@ -126,7 +125,7 @@ def system_package_redis(app_configs, **kwargs) -> List[CheckMessage]:
 
     allianceauth_redis_install_link = "https://allianceauth.readthedocs.io/en/latest/installation/allianceauth.html#redis-and-other-tools"
 
-    errors: List[CheckMessage] = []
+    errors: list[CheckMessage] = []
 
     try:
         # Traditional Redis Version
@@ -140,7 +139,7 @@ def system_package_redis(app_configs, **kwargs) -> List[CheckMessage]:
         return errors
 
     if (
-        redis_version.major == 7 and redis_version.minor == 2 and timezone.now() > timezone.datetime(year=2025, month=8, day=31, tzinfo=timezone.utc)
+        redis_version.major == 7 and redis_version.minor == 2 and datetime.now(timezone.utc) > datetime(year=2025, month=8, day=31, tzinfo=timezone.utc)
     ):
         errors.append(
             Error(
@@ -178,7 +177,7 @@ def system_package_redis(app_configs, **kwargs) -> List[CheckMessage]:
 
 
 @register()
-def system_package_valkey(app_configs, **kwargs) -> List[CheckMessage]:
+def system_package_valkey(app_configs, **kwargs) -> list[CheckMessage]:
     """
     Check that Valkey is a supported version
 
@@ -192,7 +191,7 @@ def system_package_valkey(app_configs, **kwargs) -> List[CheckMessage]:
 
     allianceauth_redis_install_link = "https://allianceauth.readthedocs.io/en/latest/installation/allianceauth.html#redis-and-other-tools"
 
-    errors: List[CheckMessage] = []
+    errors: list[CheckMessage] = []
 
     try:
         # Valkey has both redis_version and valkey_version in info
@@ -207,7 +206,7 @@ def system_package_valkey(app_configs, **kwargs) -> List[CheckMessage]:
 
         return errors
 
-    if valkey_version.major == 7 and valkey_version.minor == 2 and timezone.now() > timezone.datetime(year=2027, month=4, day=16, tzinfo=timezone.utc):
+    if valkey_version.major == 7 and valkey_version.minor == 2 and datetime.now(timezone.utc) > datetime(year=2027, month=4, day=16, tzinfo=timezone.utc):
         errors.append(
             Error(
                 msg=f"Valkey {valkey_version.public} in Security Support only, Updating Suggested",
@@ -215,7 +214,7 @@ def system_package_valkey(app_configs, **kwargs) -> List[CheckMessage]:
                 id="allianceauth.checks.A021",
             )
         )
-    elif valkey_version.major == 8 and valkey_version.minor == 0 and timezone.now() > timezone.datetime(year=2027, month=9, day=15, tzinfo=timezone.utc):
+    elif valkey_version.major == 8 and valkey_version.minor == 0 and datetime.now(timezone.utc) > datetime(year=2027, month=9, day=15, tzinfo=timezone.utc):
         errors.append(
             Warning(
                 msg=f"Valkey {valkey_version.public} in Security Support only, Updating Suggested",
@@ -223,7 +222,7 @@ def system_package_valkey(app_configs, **kwargs) -> List[CheckMessage]:
                 id="allianceauth.checks.A022",
             )
         )
-    elif valkey_version.major == 8 and valkey_version.minor == 1 and timezone.now() > timezone.datetime(year=2028, month=5, day=31, tzinfo=timezone.utc):
+    elif valkey_version.major == 8 and valkey_version.minor == 1 and datetime.now(timezone.utc) > datetime(year=2028, month=5, day=31, tzinfo=timezone.utc):
         errors.append(
             Warning(
                 msg=f"Valkey {valkey_version.public} in Security Support only, Updating Suggested",
@@ -231,7 +230,7 @@ def system_package_valkey(app_configs, **kwargs) -> List[CheckMessage]:
                 id="allianceauth.checks.A023",
             )
         )
-    elif valkey_version.major == 9 and valkey_version.minor == 0 and timezone.now() > timezone.datetime(year=2028, month=10, day=21, tzinfo=timezone.utc):
+    elif valkey_version.major == 9 and valkey_version.minor == 0 and datetime.now(timezone.utc) > datetime(year=2028, month=10, day=21, tzinfo=timezone.utc):
         errors.append(
             Warning(
                 msg=f"Valkey {valkey_version.public} in Security Support only, Updating Suggested",
@@ -243,7 +242,7 @@ def system_package_valkey(app_configs, **kwargs) -> List[CheckMessage]:
 
 
 @register()
-def system_package_mysql(app_configs, **kwargs) -> List[CheckMessage]:
+def system_package_mysql(app_configs, **kwargs) -> list[CheckMessage]:
     """
     Check that MySQL is a supported version
 
@@ -257,7 +256,7 @@ def system_package_mysql(app_configs, **kwargs) -> List[CheckMessage]:
 
     mysql_quick_guide_link = "https://dev.mysql.com/doc/mysql-apt-repo-quick-guide/en/"
 
-    errors: List[CheckMessage] = []
+    errors: list[CheckMessage] = []
 
     for connection in db.connections.all():
         if connection.vendor == "mysql":
@@ -272,7 +271,7 @@ def system_package_mysql(app_configs, **kwargs) -> List[CheckMessage]:
 
             #  MySQL 8
             if mysql_version.major == 8:
-                if mysql_version.minor == 4 and timezone.now() > timezone.datetime(
+                if mysql_version.minor == 4 and datetime.now(timezone.utc) > datetime(
                     year=2032, month=4, day=30, tzinfo=timezone.utc
                 ):
                     errors.append(
@@ -282,7 +281,8 @@ def system_package_mysql(app_configs, **kwargs) -> List[CheckMessage]:
                             id="allianceauth.checks.A004",
                         )
                     )
-                elif mysql_version.minor == 3:
+                # Demote versions down here once EOL
+                elif mysql_version.minor in [1, 2, 3]:
                     errors.append(
                         Warning(
                             msg=f"MySQL {mysql_version.public} Non LTS",
@@ -290,23 +290,7 @@ def system_package_mysql(app_configs, **kwargs) -> List[CheckMessage]:
                             id="allianceauth.checks.A005",
                         )
                     )
-                elif mysql_version.minor == 2:
-                    errors.append(
-                        Warning(
-                            msg=f"MySQL {mysql_version.public} Non LTS",
-                            hint=mysql_quick_guide_link,
-                            id="allianceauth.checks.A006",
-                        )
-                    )
-                elif mysql_version.minor == 1:
-                    errors.append(
-                        Error(
-                            msg=f"MySQL {mysql_version.public} EOL",
-                            hint=mysql_quick_guide_link,
-                            id="allianceauth.checks.A007",
-                        )
-                    )
-                elif mysql_version.minor == 0 and timezone.now() > timezone.datetime(
+                elif mysql_version.minor == 0 and datetime.now(timezone.utc) > datetime(
                     year=2026, month=4, day=30, tzinfo=timezone.utc
                 ):
                     errors.append(
@@ -332,21 +316,14 @@ def system_package_mysql(app_configs, **kwargs) -> List[CheckMessage]:
 
 
 @register()
-def system_package_mariadb(app_configs, **kwargs) -> List[CheckMessage]:
+def system_package_mariadb(app_configs, **kwargs) -> list[CheckMessage]:
     """
     Check that MariaDB is a supported version
-
-    :param app_configs:
-    :type app_configs:
-    :param kwargs:
-    :type kwargs:
-    :return:
-    :rtype:
     """
 
     mariadb_download_link = "https://mariadb.org/download/?t=repo-config"
 
-    errors: List[CheckMessage] = []
+    errors: list[CheckMessage] = []
 
     for connection in db.connections.all():
         # TODO: Find a way to determine MySQL vs. MariaDB
@@ -362,7 +339,7 @@ def system_package_mariadb(app_configs, **kwargs) -> List[CheckMessage]:
 
             # MariaDB 11
             if mariadb_version.major == 11:
-                if mariadb_version.minor == 4 and timezone.now() > timezone.datetime(
+                if mariadb_version.minor == 4 and datetime.now(timezone.utc) > datetime(
                     year=2029, month=5, day=19, tzinfo=timezone.utc
                 ):
                     errors.append(
@@ -372,46 +349,8 @@ def system_package_mariadb(app_configs, **kwargs) -> List[CheckMessage]:
                             id="allianceauth.checks.A010",
                         )
                     )
-                elif mariadb_version.minor == 2:
-                    errors.append(
-                        Warning(
-                            msg=f"MariaDB {mariadb_version.public} Non LTS",
-                            hint=mariadb_download_link,
-                            id="allianceauth.checks.A018",
-                        )
-                    )
-
-                    if timezone.now() > timezone.datetime(
-                        year=2024, month=11, day=21, tzinfo=timezone.utc
-                    ):
-                        errors.append(
-                            Error(
-                                msg=f"MariaDB {mariadb_version.public} EOL",
-                                hint=mariadb_download_link,
-                                id="allianceauth.checks.A011",
-                            )
-                        )
-                elif mariadb_version.minor == 1:
-                    errors.append(
-                        Warning(
-                            msg=f"MariaDB {mariadb_version.public} Non LTS",
-                            hint=mariadb_download_link,
-                            id="allianceauth.checks.A019",
-                        )
-                    )
-
-                    if timezone.now() > timezone.datetime(
-                        year=2024, month=8, day=21, tzinfo=timezone.utc
-                    ):
-                        errors.append(
-                            Error(
-                                msg=f"MariaDB {mariadb_version.public} EOL",
-                                hint=mariadb_download_link,
-                                id="allianceauth.checks.A012",
-                            )
-                        )
                 # Demote versions down here once EOL
-                elif mariadb_version.minor in [0, 3]:
+                elif mariadb_version.minor in [0, 1, 2, 3, 5, 6]:
                     errors.append(
                         Error(
                             msg=f"MariaDB {mariadb_version.public} EOL",
@@ -422,7 +361,7 @@ def system_package_mariadb(app_configs, **kwargs) -> List[CheckMessage]:
 
             # MariaDB 10
             elif mariadb_version.major == 10:
-                if mariadb_version.minor == 11 and timezone.now() > timezone.datetime(
+                if mariadb_version.minor == 11 and datetime.now(timezone.utc) > datetime(
                     year=2028, month=2, day=10, tzinfo=timezone.utc
                 ):
                     errors.append(
@@ -432,7 +371,7 @@ def system_package_mariadb(app_configs, **kwargs) -> List[CheckMessage]:
                             id="allianceauth.checks.A014",
                         )
                     )
-                elif mariadb_version.minor == 6 and timezone.now() > timezone.datetime(
+                elif mariadb_version.minor == 6 and datetime.now(timezone.utc) > datetime(
                     year=2026, month=7, day=6, tzinfo=timezone.utc
                 ):
                     errors.append(
@@ -442,7 +381,7 @@ def system_package_mariadb(app_configs, **kwargs) -> List[CheckMessage]:
                             id="allianceauth.checks.A0015",
                         )
                     )
-                elif mariadb_version.minor == 5 and timezone.now() > timezone.datetime(
+                elif mariadb_version.minor == 5 and datetime.now(timezone.utc) > datetime(
                     year=2025, month=6, day=24, tzinfo=timezone.utc
                 ):
                     errors.append(
@@ -466,7 +405,7 @@ def system_package_mariadb(app_configs, **kwargs) -> List[CheckMessage]:
 
 
 @register()
-def system_package_sqlite(app_configs, **kwargs) -> List[CheckMessage]:
+def system_package_sqlite(app_configs, **kwargs) -> list[CheckMessage]:
     """
     Check that SQLite is a supported version
 
@@ -478,7 +417,7 @@ def system_package_sqlite(app_configs, **kwargs) -> List[CheckMessage]:
     :rtype:
     """
 
-    errors: List[CheckMessage] = []
+    errors: list[CheckMessage] = []
 
     for connection in db.connections.all():
         if connection.vendor == "sqlite":
@@ -503,7 +442,7 @@ def system_package_sqlite(app_configs, **kwargs) -> List[CheckMessage]:
 
 
 @register()
-def sql_settings(app_configs, **kwargs) -> List[CheckMessage]:
+def sql_settings(app_configs, **kwargs) -> list[CheckMessage]:
     """
     Check that SQL settings are correctly configured
 
@@ -515,7 +454,7 @@ def sql_settings(app_configs, **kwargs) -> List[CheckMessage]:
     :rtype:
     """
 
-    errors: List[CheckMessage] = []
+    errors: list[CheckMessage] = []
 
     for connection in db.connections.all():
         if connection.vendor == "mysql":
@@ -565,7 +504,7 @@ def sql_settings(app_configs, **kwargs) -> List[CheckMessage]:
 
 
 @register()
-def celery_settings(app_configs, **kwargs) -> List[CheckMessage]:
+def celery_settings(app_configs, **kwargs) -> list[CheckMessage]:
     """
     Check that Celery settings are correctly configured
 
@@ -577,7 +516,7 @@ def celery_settings(app_configs, **kwargs) -> List[CheckMessage]:
     :rtype:
     """
 
-    errors: List[CheckMessage] = []
+    errors: list[CheckMessage] = []
 
     try:
         if current_app.conf.broker_transport_options != {

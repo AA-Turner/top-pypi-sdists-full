@@ -1,10 +1,8 @@
 import logging
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.decorators import permission_required
-from django.shortcuts import get_object_or_404
-from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required, permission_required
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -29,7 +27,7 @@ def optimer_view(request):
     :rtype:
     """
 
-    logger.debug("optimer_view called by user %s" % request.user)
+    logger.debug(f"optimer_view called by user {request.user}")
     base_query = OpTimer.objects.select_related('eve_character', 'type')
     render_items = {'optimer': base_query.all(),
                     'future_timers': base_query.filter(
@@ -52,11 +50,11 @@ def add_optimer_view(request):
     :rtype:
     """
 
-    logger.debug("add_optimer_view called by user %s" % request.user)
+    logger.debug(f"add_optimer_view called by user {request.user}")
 
     if request.method == 'POST':
         form = OpForm(request.POST, data_list=OpTimerType.objects.all())
-        logger.debug("Request type POST contains form valid: %s" % form.is_valid())
+        logger.debug(f"Request type POST contains form valid: {form.is_valid()}")
         if form.is_valid():
             optimer_type = None
 
@@ -141,7 +139,7 @@ def edit_optimer(request, optimer_id):
 
     if request.method == 'POST':
         form = OpForm(request.POST, data_list=OpTimerType.objects.all())
-        logger.debug("Received POST request containing update optimer form, is valid: %s" % form.is_valid())
+        logger.debug(f"Received POST request containing update optimer form, is valid: {form.is_valid()}")
         if form.is_valid():
             character = request.user.profile.main_character
 

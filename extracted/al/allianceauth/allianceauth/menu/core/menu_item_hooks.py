@@ -1,7 +1,7 @@
 """Logic for handling MenuItemHook objects."""
 
 import hashlib
-from typing import List, NamedTuple, Optional
+from typing import NamedTuple
 
 from allianceauth.menu.hooks import MenuItemHook
 
@@ -14,8 +14,8 @@ class MenuItemHookCustom(MenuItemHook):
         text: str,
         classes: str,
         url_name: str,
-        order: Optional[int] = None,
-        navactive: Optional[List[str]] = None,
+        order: int | None = None,
+        navactive: list[str] | None = None,
     ):
         super().__init__(text, classes, url_name, order, navactive)
         self.url = ""

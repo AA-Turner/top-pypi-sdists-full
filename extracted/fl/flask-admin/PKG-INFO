@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Flask-Admin
-Version: 2.1.0
+Version: 2.2.0
 Summary: Simple and extensible admin interface framework for Flask
 Maintainer-email: Pallets Ecosystem <contact@palletsprojects.com>
 Requires-Python: >=3.10

@@ -1,21 +1,21 @@
 Metadata-Version: 2.4
 Name: mashumaro
-Version: 3.20
+Version: 3.21
 Summary: Fast and well tested serialization library
 Author-email: Alexander Tikhonov <random.gauss@gmail.com>
 License-Expression: Apache-2.0
-Project-URL: Homepage, https://github.com/Fatal1ty/mashumaro
+Project-URL: Homepage, https://mashumaro.io
+Project-URL: Repository, https://github.com/Fatal1ty/mashumaro
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing_extensions>=4.14.0
@@ -37,7 +37,7 @@ Dynamic: license-file
 ###### Fast and well tested serialization library
 
 [![Build Status](https://github.com/Fatal1ty/mashumaro/workflows/tests/badge.svg)](https://github.com/Fatal1ty/mashumaro/actions)
-[![Coverage Status](https://coveralls.io/repos/github/Fatal1ty/mashumaro/badge.svg?branch=master)](https://coveralls.io/github/Fatal1ty/mashumaro?branch=master)
+[![Coverage status](https://codecov.io/github/Fatal1ty/mashumaro/branch/master/graph/badge.svg?token=6hKznmMrWD)](https://codecov.io/github/Fatal1ty/mashumaro)
 [![Latest Version](https://img.shields.io/pypi/v/mashumaro.svg)](https://pypi.python.org/pypi/mashumaro)
 [![Python Version](https://img.shields.io/pypi/pyversions/mashumaro.svg)](https://pypi.python.org/pypi/mashumaro)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -176,7 +176,7 @@ Use pip to install:
 $ pip install mashumaro
 ```
 
-The current version of `mashumaro` supports Python versions 3.9 — 3.14.
+The current version of `mashumaro` supports Python versions 3.10 — 3.14.
 
 
 It's not recommended to use any version of Python that has reached its
@@ -188,6 +188,7 @@ of Python.
 
 | Python Version | Last Version of mashumaro                                          | Python EOL |
 |----------------|--------------------------------------------------------------------|------------|
+| 3.9            | [3.20](https://github.com/Fatal1ty/mashumaro/releases/tag/v3.20)   | 2025-10-31 |
 | 3.8            | [3.14](https://github.com/Fatal1ty/mashumaro/releases/tag/v3.14)   | 2024-10-07 |
 | 3.7            | [3.9.1](https://github.com/Fatal1ty/mashumaro/releases/tag/v3.9.1) | 2023-06-27 |
 | 3.6            | [3.1.1](https://github.com/Fatal1ty/mashumaro/releases/tag/v3.1.1) | 2021-12-23 |
@@ -219,7 +220,7 @@ There is support for generic types from the standard [`typing`](https://docs.pyt
 * [`ChainMap`](https://docs.python.org/3/library/typing.html#typing.ChainMap)
 * [`Sequence`](https://docs.python.org/3/library/typing.html#typing.Sequence)
 
-for standard generic types on [PEP 585](https://www.python.org/dev/peps/pep-0585/) compatible Python (3.9+):
+for standard generic types on [PEP 585](https://www.python.org/dev/peps/pep-0585/):
 * [`list`](https://docs.python.org/3/library/stdtypes.html#list)
 * [`tuple`](https://docs.python.org/3/library/stdtypes.html#tuple)
 * [`namedtuple`](https://docs.python.org/3/library/collections.html#collections.namedtuple)
@@ -1079,6 +1080,46 @@ thanks to the `float` annotation.
 > [!IMPORTANT]\
 > As well as for `SerializableType`, the value of `use_annotatons` will be
 > `True` by default in the future major release.
+
+#### Matching subclasses
+
+By default, a serialization strategy registered for a type only applies to that exact type.
+If you want it to also apply to subclasses, you can use `match_subclasses=True`.
+
+This can be particularly helpful for serializing any/all enums with the same strategy:
+
+```python
+import enum
+from dataclasses import dataclass
+from mashumaro import DataClassDictMixin
+from mashumaro.types import SerializationStrategy
+
+class ParentStrategy(SerializationStrategy, match_subclasses=True):
+    def serialize(self, value: enum.Enum) -> str:
+        return value.name
+
+    def deserialize(self, value: str) -> enum.Enum:
+        raise NotImplementedError
+
+class MyEnum(enum.Enum):
+    a = 1
+    b = 2
+
+@dataclass
+class Example(DataClassDictMixin):
+    e: MyEnum
+
+    class Config:
+        serialization_strategy = {
+            enum.Enum: EnumByNameStrategy(),
+        }
+
+example = Example(e=MyEnum.a)
+print(example.to_dict())
+# {'e': 'a'}
+```
+
+When multiple strategies in the same config match via the MRO, the first type discovered in the MRO with a custom serializer registered will be used.
 
 #### Third-party generic types
 

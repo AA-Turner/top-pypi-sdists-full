@@ -11655,6 +11655,7 @@ class DescribeInstanceTypesRequestPaginateTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     InstanceTypes: NotRequired[Sequence[InstanceTypeType]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
+    IncludeUnsupportedInRegion: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeInstanceTypesRequestTypeDef(TypedDict):
@@ -11663,6 +11664,7 @@ class DescribeInstanceTypesRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    IncludeUnsupportedInRegion: NotRequired[bool]
 
 class DescribeInstancesRequestPaginateTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
@@ -19927,6 +19929,7 @@ class InstanceTypeInfoTypeDef(TypedDict):
     NeuronInfo: NotRequired[NeuronInfoTypeDef]
     PhcSupport: NotRequired[PhcSupportType]
     RebootMigrationSupport: NotRequired[RebootMigrationSupportType]
+    SupportedInRegion: NotRequired[bool]
 
 class CreateNetworkInsightsAccessScopeRequestTypeDef(TypedDict):
     ClientToken: str

@@ -1,5 +1,6 @@
 from unittest import TestCase
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from django.urls import URLPattern
 
 from allianceauth.services.hooks import UrlHook

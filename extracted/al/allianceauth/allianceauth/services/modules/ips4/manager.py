@@ -1,10 +1,12 @@
 import logging
 import random
-import string
 import re
-from django.db import connections
+import string
+
 from passlib.hash import bcrypt
+
 from django.conf import settings
+from django.db import connections
 
 logger = logging.getLogger(__name__)
 
@@ -13,17 +15,17 @@ TABLE_PREFIX = getattr(settings, 'IPS4_TABLE_PREFIX', '')
 
 
 class Ips4Manager:
-    SQL_ADD_USER = r"INSERT INTO %score_members (name, email, members_pass_hash, members_pass_salt, " \
-                    r"member_group_id) VALUES (%%s, %%s, %%s, %%s, %%s)" % TABLE_PREFIX
-    SQL_GET_ID = r"SELECT member_id FROM %score_members WHERE name = %%s" % TABLE_PREFIX
-    SQL_UPDATE_PASSWORD = r"UPDATE %score_members SET members_pass_hash = %%s, members_pass_salt = %%s WHERE name = %%s" % TABLE_PREFIX
-    SQL_DEL_USER = r"DELETE FROM %score_members WHERE member_id = %%s" % TABLE_PREFIX
+    SQL_ADD_USER = rf"INSERT INTO {TABLE_PREFIX}core_members (name, email, members_pass_hash, members_pass_salt, " \
+                    r"member_group_id) VALUES (%s, %s, %s, %s, %s)"
+    SQL_GET_ID = rf"SELECT member_id FROM {TABLE_PREFIX}core_members WHERE name = %s"
+    SQL_UPDATE_PASSWORD = rf"UPDATE {TABLE_PREFIX}core_members SET members_pass_hash = %s, members_pass_salt = %s WHERE name = %s"
+    SQL_DEL_USER = rf"DELETE FROM {TABLE_PREFIX}core_members WHERE member_id = %s"
 
     MEMBER_GROUP_ID = 3
 
     @classmethod
     def add_user(cls, username, email):
-        logger.debug("Adding new IPS4 user %s" % username)
+        logger.debug(f"Adding new IPS4 user {username}")
         plain_password = cls.__generate_random_pass()
         hash = cls._gen_pwhash(plain_password)
         salt = cls._get_salt(hash)
@@ -42,7 +44,7 @@ class Ips4Manager:
             logger.debug(f"Got user id {row[0]} for username {username}")
             return row[0]
         else:
-            logger.error("username %s not found. Unable to determine id." % username)
+            logger.error(f"username {username} not found. Unable to determine id.")
             return None
 
     @staticmethod
@@ -61,19 +63,19 @@ class Ips4Manager:
 
     @staticmethod
     def delete_user(id):
-        logger.debug("Deleting IPS4 user id %s" % id)
+        logger.debug(f"Deleting IPS4 user id {id}")
         try:
             cursor = connections['ips4'].cursor()
             cursor.execute(Ips4Manager.SQL_DEL_USER, [id])
-            logger.info("Deleted IPS4 user %s" % id)
+            logger.info(f"Deleted IPS4 user {id}")
             return True
-        except:
-            logger.exception("Failed to delete IPS4 user id %s" % id)
+        except Exception:
+            logger.exception(f"Failed to delete IPS4 user id {id}")
             return False
 
     @classmethod
     def update_user_password(cls, username):
-        logger.debug("Updating IPS4 user id %s password" % id)
+        logger.debug(f"Updating IPS4 user id {id} password")
         if cls.check_user(username):
             plain_password = Ips4Manager.__generate_random_pass()
             hash = cls._gen_pwhash(plain_password)
@@ -82,24 +84,24 @@ class Ips4Manager:
             cursor.execute(cls.SQL_UPDATE_PASSWORD, [hash, salt, username])
             return plain_password
         else:
-            logger.error("Unable to update ips4 user %s password" % username)
+            logger.error(f"Unable to update ips4 user {username} password")
             return ""
 
     @staticmethod
     def check_user(username):
-        logger.debug("Checking IPS4 username %s" % username)
+        logger.debug(f"Checking IPS4 username {username}")
         cursor = connections['ips4'].cursor()
         cursor.execute(Ips4Manager.SQL_GET_ID, [username])
         row = cursor.fetchone()
         if row:
-            logger.debug("Found user %s on IPS4" % username)
+            logger.debug(f"Found user {username} on IPS4")
             return True
-        logger.debug("User %s not found on IPS4" % username)
+        logger.debug(f"User {username} not found on IPS4")
         return False
 
     @classmethod
     def update_custom_password(cls, username, plain_password):
-        logger.debug("Updating IPS4 user id %s password" % id)
+        logger.debug(f"Updating IPS4 user id {id} password")
         if cls.check_user(username):
             hash = cls._gen_pwhash(plain_password)
             salt = cls._get_salt(hash)
@@ -107,5 +109,5 @@ class Ips4Manager:
             cursor.execute(cls.SQL_UPDATE_PASSWORD, [hash, salt, username])
             return plain_password
         else:
-            logger.error("Unable to update ips4 user %s password" % username)
+            logger.error(f"Unable to update ips4 user {username} password")
             return ""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-classic
-Version: 1.0.6
+Version: 1.0.7
 Summary: Building applications with LLMs through composability
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://reference.langchain.com/python/langchain_classic/

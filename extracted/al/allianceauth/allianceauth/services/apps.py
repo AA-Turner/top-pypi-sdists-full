@@ -8,4 +8,4 @@ class ServicesConfig(AppConfig):
     verbose_name = _('Services')
 
     def ready(self):
-        from . import signals
+        pass

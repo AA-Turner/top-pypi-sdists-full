@@ -1909,6 +1909,14 @@ def asset_with_compute_storage_kinds():
 def asset_with_automation_condition() -> None: ...
 
 
+@asset(description="A" * 100)
+def asset_with_long_description() -> None: ...
+
+
+@asset
+def asset_without_description() -> None: ...
+
+
 class MyAutomationCondition(AutomationCondition):
     @property
     def name(self) -> str:
@@ -2345,6 +2353,16 @@ def table_asset_4():
     pass
 
 
+@asset(
+    metadata={
+        "dagster/table_name": "db.schema.snowflake_table",
+        "dagster/storage_kind": "snowflake",
+    },
+)
+def table_asset_with_kind():
+    pass
+
+
 def define_assets():
     return [
         asset_one,
@@ -2412,6 +2430,8 @@ def define_assets():
         asset_with_compute_storage_kinds,
         asset_with_automation_condition,
         asset_with_custom_automation_condition,
+        asset_with_long_description,
+        asset_without_description,
         concurrency_asset,
         concurrency_graph_asset,
         concurrency_multi_asset,
@@ -2428,6 +2448,7 @@ def define_assets():
         table_asset_2,
         table_asset_3,
         table_asset_4,
+        table_asset_with_kind,
         partitioned_asset_for_checks,
     ]
 

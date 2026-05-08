@@ -60,7 +60,7 @@ class UserChangeForm(BaseUserChangeForm):
                     {
                         "groups": _(
                             "You are not allowed to add or remove these "
-                            "restricted groups: %s" % restricted_names
+                            "restricted groups: {}".format(restricted_names)
                         )
                     }
                 )

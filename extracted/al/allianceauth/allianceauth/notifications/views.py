@@ -1,9 +1,9 @@
 import logging
 
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext_lazy as _
 
 from .models import Notification
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def notification_list(request):
-    logger.debug("notification_list called by user %s" % request.user)
+    logger.debug(f"notification_list called by user {request.user}")
     notifications_qs = Notification.objects.filter(user=request.user).order_by("-timestamp")
     new_notifs = notifications_qs.filter(viewed=False)
     old_notifs = notifications_qs.filter(viewed=True)
@@ -92,11 +92,11 @@ def delete_all_read(request):
     return redirect('notifications:list')
 
 
-def user_notifications_count(request, user_pk: int):
-    """returns to notifications count for the give user as JSON
-
-    This view is public and does not require login
+@login_required()
+def user_notifications_count(request):
     """
-    unread_count = Notification.objects.user_unread_count(user_pk)
+    Returns the notifications count for the current user as JSON
+    """
+    unread_count = Notification.objects.user_unread_count(request.user.pk)
     data = {'unread_count': unread_count}
     return JsonResponse(data, safe=False)

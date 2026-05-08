@@ -4,7 +4,10 @@ from django.test import TestCase
 from django.utils.timezone import now
 
 from allianceauth.authentication.task_statistics.counters import (
-    dashboard_results, failed_tasks, retried_tasks, succeeded_tasks,
+    dashboard_results,
+    failed_tasks,
+    retried_tasks,
+    succeeded_tasks,
 )
 
 

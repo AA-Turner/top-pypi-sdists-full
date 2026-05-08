@@ -1,0 +1,4 @@
+name: broken
+steps:
+  - AddDataset:
+      dataset: "unterminated string

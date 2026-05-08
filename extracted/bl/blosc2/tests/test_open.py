@@ -110,7 +110,30 @@ def test_open(contiguous, urlpath, cparams, dparams, nchunks, chunk_nitems, dtyp
 
 def test_open_fake():
     with pytest.raises(FileNotFoundError):
-        _ = blosc2.open("none.b2nd")
+        _ = blosc2.open("none.b2nd", mode="r")
+
+
+def test_load_ndarray_returns_in_memory_copy(tmp_path):
+    urlpath = tmp_path / "array.b2nd"
+    arr = blosc2.asarray(np.arange(12).reshape(3, 4), urlpath=urlpath, mode="w")
+
+    loaded = blosc2.load(urlpath)
+
+    assert isinstance(loaded, blosc2.NDArray)
+    assert loaded.urlpath is None
+    assert np.array_equal(loaded[:], arr[:])
+
+
+def test_load_schunk_returns_in_memory_copy(tmp_path):
+    urlpath = tmp_path / "schunk.b2frame"
+    data = np.arange(20, dtype=np.int32)
+    blosc2.SChunk(data=data, urlpath=urlpath, mode="w", cparams={"typesize": data.dtype.itemsize})
+
+    loaded = blosc2.load(urlpath)
+
+    assert isinstance(loaded, blosc2.SChunk)
+    assert loaded.urlpath is None
+    assert loaded[:] == data.tobytes()
 
 
 @pytest.mark.parametrize("offset", [0, 42])
@@ -148,3 +171,34 @@ def test_open_offset(offset, urlpath, mode, mmap_mode):
             blosc2.open(urlpath, mode, mmap_mode=mmap_mode)
 
     blosc2.remove_urlpath(urlpath)
+
+
+def test_open_no_mode_warns(tmp_path):
+    """FutureWarning is emitted when mode is omitted."""
+    urlpath = str(tmp_path / "test.b2nd")
+    blosc2.asarray(np.arange(10), urlpath=urlpath, mode="w")
+    with pytest.warns(FutureWarning, match="mode='a'"):
+        _ = blosc2.open(urlpath)
+
+
+def test_open_explicit_mode_no_warn(tmp_path):
+    """No FutureWarning is emitted when mode is explicitly given."""
+    import warnings
+
+    urlpath = str(tmp_path / "test.b2nd")
+    blosc2.asarray(np.arange(10), urlpath=urlpath, mode="w")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        _ = blosc2.open(urlpath, mode="r")
+        _ = blosc2.open(urlpath, mode="a")
+
+
+def test_open_mmap_without_mode_warns(tmp_path):
+    """FutureWarning is emitted when mode is omitted, even with mmap_mode."""
+    if blosc2.IS_WASM:
+        pytest.skip("mmap_mode is not supported reliably on wasm32")
+
+    urlpath = str(tmp_path / "test.b2nd")
+    blosc2.asarray(np.arange(10), urlpath=urlpath, mode="w")
+    with pytest.warns(FutureWarning, match="mode='a'"):
+        _ = blosc2.open(urlpath, mmap_mode="r")

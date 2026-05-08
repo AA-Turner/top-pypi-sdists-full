@@ -166,10 +166,12 @@ def _extract_dataset_rows(dataset: types.EvaluationDataset) -> list[dict[str, An
                 prompt_key = "request" if "request" in row else "prompt"
                 prompt_info = _extract_text_and_raw_json(row.get(prompt_key))
                 response_info = _extract_text_and_raw_json(row.get("response"))
+                ref_info = _extract_text_and_raw_json(row.get("reference"))
                 processed_row = {
                     "prompt_display_text": prompt_info["display_text"],
                     "prompt_raw_json": prompt_info["raw_json"],
-                    "reference": row.get("reference", ""),
+                    "reference": ref_info["display_text"],
+                    "reference_raw_json": ref_info["raw_json"],
                     "response_display_text": response_info["display_text"],
                     "response_raw_json": response_info["raw_json"],
                     "intermediate_events": row.get("intermediate_events", None),
@@ -191,9 +193,11 @@ def _extract_dataset_rows(dataset: types.EvaluationDataset) -> list[dict[str, An
                 response_info = _extract_text_and_raw_json(case.responses[0].response)
 
             reference_text = ""
+            reference_raw_json = ""
             if case.reference and case.reference.response:
                 ref_info = _extract_text_and_raw_json(case.reference.response)
                 reference_text = ref_info["display_text"]
+                reference_raw_json = ref_info["raw_json"]
 
             agent_data_json = None
             if case.agent_data:
@@ -216,6 +220,7 @@ def _extract_dataset_rows(dataset: types.EvaluationDataset) -> list[dict[str, An
                 "prompt_display_text": prompt_info["display_text"],
                 "prompt_raw_json": prompt_info["raw_json"],
                 "reference": reference_text,
+                "reference_raw_json": reference_raw_json,
                 "response_display_text": response_info["display_text"],
                 "response_raw_json": response_info["raw_json"],
                 "intermediate_events": intermediate_events_json,
@@ -250,7 +255,7 @@ def _get_evaluation_html(eval_result_json: str) -> str:
         details {{ border: 1px solid #dadce0; border-radius: 8px; padding: 16px; margin-bottom: 16px; background: #fff; }}
         summary {{ font-weight: 500; font-size: 1.1em; cursor: pointer; }}
         .prompt-container {{ background-color: #e8f0fe; padding: 16px; margin: 12px 0; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; }}
-        .reference-container {{ background-color: #e6f4ea; padding: 16px; margin: 12px 0; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; }}
+        .reference-container {{ background-color: #fff; border: 1px solid #dadce0; padding: 16px; margin: 12px 0; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; }}
         .agent-info-container {{ background-color: #f1f3f4; padding: 16px; margin: 12px 0; border-radius: 8px; word-wrap: break-word; overflow-wrap: break-word; font-size: 14px; }}
         .agent-info-grid {{ display: grid; grid-template-columns: 120px 1fr; gap: 8px; margin-bottom: 12px; }}
         .agent-info-grid dt {{ font-weight: 500; color: #3c4043; }}
@@ -579,6 +584,7 @@ def _get_evaluation_html(eval_result_json: str) -> str:
                 const promptText = isValEmpty(original_case.prompt_display_text) ? '' : original_case.prompt_display_text;
                 const promptJson = original_case.prompt_raw_json;
                 const reference = isValEmpty(original_case.reference) ? '' : original_case.reference;
+                const referenceJson = original_case.reference_raw_json;
                 const responseText = isValEmpty(original_case.response_display_text) ? '' : original_case.response_display_text;
                 const responseJson = original_case.response_raw_json;
 
@@ -587,6 +593,18 @@ def _get_evaluation_html(eval_result_json: str) -> str:
                     try {{ agentData = JSON.parse(agentData); }} catch(e) {{}}
                 }}
                 const isAgentEval = !!agentData;
+
+                let isRefAgentData = false;
+                let refAgentDataObj = null;
+                if (reference) {{
+                    try {{
+                        let parsed = typeof reference === 'string' ? JSON.parse(reference) : reference;
+                        if (parsed && parsed.turns) {{
+                            isRefAgentData = true;
+                            refAgentDataObj = parsed;
+                        }}
+                    }} catch(e) {{}}
+                }}
 
                 let card = `<details open><summary style="font-size: 1.2em;">Case #${{caseResult.eval_case_index != null ? caseResult.eval_case_index : i}}</summary>`;
 
@@ -597,45 +615,54 @@ def _get_evaluation_html(eval_result_json: str) -> str:
                              </details>`;
                 }}
 
-                card += `<div class="case-content-wrapper">`;
+                if (promptText) {{
+                    card += `<div class="prompt-container"><strong>Prompt:</strong><br>${{DOMPurify.sanitize(marked.parse(String(promptText)))}}</div>`;
+                }}
+                if (promptJson && promptJson !== '""' && promptJson !== 'null' && promptJson !== '{{}}') {{
+                    card += `<details class="raw-json-details"><summary>View Raw Prompt JSON</summary><pre class="raw-json-container">${{DOMPurify.sanitize(promptJson)}}</pre></details>`;
+                }}
 
-                const hasMainContent = promptText || responseText || reference;
+                if (responseText) {{
+                    const responseTitle = isAgentEval ? 'Final Response' : 'Candidate Response';
+                    card += `<div class="response-container"><h4>${{responseTitle}}</h4>${{DOMPurify.sanitize(marked.parse(String(responseText)))}}</div>`;
+                }}
+                if (responseJson && responseJson !== '""' && responseJson !== 'null' && responseJson !== '{{}}') {{
+                    card += `<details class="raw-json-details"><summary>View Raw Response JSON</summary><pre class="raw-json-container">${{DOMPurify.sanitize(responseJson)}}</pre></details>`;
+                }}
 
-                if (hasMainContent) {{
-                    card += `<div class="case-content-main">`;
-                    if (promptText) {{
-                        card += `<div class="prompt-container"><strong>Prompt:</strong><br>${{DOMPurify.sanitize(marked.parse(String(promptText)))}}</div>`;
-                    }}
-                    if (promptJson && promptJson !== '""' && promptJson !== 'null' && promptJson !== '{{}}') {{
-                        card += `<details class="raw-json-details"><summary>View Raw Prompt JSON</summary><pre class="raw-json-container">${{DOMPurify.sanitize(promptJson)}}</pre></details>`;
+                let hasTrace = isAgentEval && agentData.turns;
+                let hasRef = !!reference;
+
+                if (hasTrace || hasRef) {{
+                    card += `<div style="display: flex; gap: 1rem; margin-top: 16px;">`;
+
+                    if (hasTrace) {{
+                        let traceContent = formatAgentData(agentData);
+                        card += `<div style="flex: 1; min-width: 0;">
+                                     <details open class="conversation-trace-details" style="margin: 0; height: 100%;">
+                                        <summary>Conversation Trace</summary>
+                                        <div style="font-size:13px; color:#5f6368; margin-bottom:12px;">Sequence of multi-agent events across turns</div>
+                                        <div class="agent-trace-container">${{traceContent}}</div>
+                                     </details>
+                                 </div>`;
                     }}
 
-                    if (reference) {{
-                        card += `<div class="reference-container"><strong>Reference:</strong><br>${{DOMPurify.sanitize(marked.parse(String(reference)))}}</div>`;
-                    }}
-
-                    if (responseText) {{
-                        const responseTitle = isAgentEval ? 'Final Response' : 'Candidate Response';
-                        card += `<div class="response-container"><h4>${{responseTitle}}</h4>${{DOMPurify.sanitize(marked.parse(String(responseText)))}}</div>`;
-                    }}
-                    if (responseJson && responseJson !== '""' && responseJson !== 'null' && responseJson !== '{{}}') {{
-                        card += `<details class="raw-json-details"><summary>View Raw Response JSON</summary><pre class="raw-json-container">${{DOMPurify.sanitize(responseJson)}}</pre></details>`;
+                    if (hasRef) {{
+                        card += `<div style="flex: 1; min-width: 0;">`;
+                        if (isRefAgentData) {{
+                            let refTraceContent = formatAgentData(refAgentDataObj);
+                            card += `<details open class="conversation-trace-details" style="margin: 0; height: 100%;">
+                                        <summary>Reference</summary>
+                                        <div style="font-size:13px; color:#5f6368; margin-bottom:12px;">Sequence of multi-agent events across turns</div>
+                                        <div class="agent-trace-container">${{refTraceContent}}</div>
+                                     </details>`;
+                        }} else {{
+                            card += `<div class="reference-container" style="margin: 0; height: 100%;"><strong>Reference</strong><br>${{DOMPurify.sanitize(marked.parse(String(reference)))}}</div>`;
+                        }}
+                        card += `</div>`;
                     }}
                     card += `</div>`;
                 }}
-
-                if (isAgentEval && agentData.turns) {{
-                    let traceContent = formatAgentData(agentData);
-                    const sidebarStyle = hasMainContent ? '' : 'flex: 1 1 100%;';
-
-                    card += `<details open class="case-content-sidebar conversation-trace-details" style="${{sidebarStyle}}">
-                                <summary>Conversation Trace</summary>
-                                <div style="font-size:13px; color:#5f6368; margin-bottom:12px;">Sequence of multi-agent events across turns</div>
-                                <div class="agent-trace-container">${{traceContent}}</div>
-                             </details>`;
-                }}
-
-                card += `</div>`;
 
                 let metricTable = '<h3 style="margin-top:24px;">Evaluation Metrics</h3><div class="metrics-list">';
                 const candidateMetrics = (caseResult.response_candidate_results && caseResult.response_candidate_results[0] && caseResult.response_candidate_results[0].metric_results) || {{}};
@@ -785,6 +812,7 @@ def _get_comparison_html(eval_result_json: str) -> str:
         details {{ border: 1px solid #dadce0; border-radius: 8px; padding: 24px; margin-bottom: 24px; background: #fff; }}
         summary {{ font-weight: 500; font-size: 1.2em; cursor: pointer; }}
         .prompt-container {{ background-color: #e8f0fe; padding: 16px; margin-bottom: 16px; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; }}
+        .reference-container {{ background-color: #fff; border: 1px solid #dadce0; padding: 16px; margin-bottom: 16px; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; }}
         .responses-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-top: 16px;}}
         .response-column {{ border: 1px solid #e0e0e0; padding: 16px; border-radius: 8px; background: #f9f9f9; }}
         .response-text-container {{ background-color: #fff; padding: 12px; margin-top: 8px; border-radius: 4px; border: 1px solid #eee; white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; overflow-wrap: break-word; }}
@@ -1102,9 +1130,33 @@ def _get_comparison_html(eval_result_json: str) -> str:
 
                 const promptText = isValEmpty(original_case.prompt_display_text) ? '' : original_case.prompt_display_text;
                 const promptJson = original_case.prompt_raw_json;
-                const agentData = original_case.agent_data;
+                const reference = isValEmpty(original_case.reference) ? '' : original_case.reference;
+
+                let agentData = original_case.agent_data;
+                if (typeof agentData === 'string') {{
+                    try {{ agentData = JSON.parse(agentData); }} catch(e) {{}}
+                }}
+
+                let isRefAgentData = false;
+                let refAgentDataObj = null;
+                if (reference) {{
+                    try {{
+                        let parsed = typeof reference === 'string' ? JSON.parse(reference) : reference;
+                        if (parsed && parsed.turns) {{
+                            isRefAgentData = true;
+                            refAgentDataObj = parsed;
+                        }}
+                    }} catch(e) {{}}
+                }}
 
                 let card = `<details open><summary>Case #${{caseResult.eval_case_index}}</summary>`;
+
+                if (agentData && agentData.agents && Object.keys(agentData.agents).length > 0) {{
+                    card += `<details open class="system-topology-details">
+                                <summary>System Topology</summary>
+                                ${{formatSystemTopology(agentData.agents)}}
+                             </details>`;
+                }}
 
                 if (promptText) {{
                     card += `<div class="prompt-container"><strong>Prompt:</strong><br>${{DOMPurify.sanitize(marked.parse(String(promptText)))}}</div>`;
@@ -1114,25 +1166,39 @@ def _get_comparison_html(eval_result_json: str) -> str:
                     card += `<details class="raw-json-details"><summary>View Raw Prompt JSON</summary><pre class="raw-json-container">${{DOMPurify.sanitize(promptJson)}}</pre></details>`;
                 }}
 
-                if (agentData) {{
-                    if (typeof agentData === 'string') {{
-                        try {{ agentData = JSON.parse(agentData); }} catch(e) {{}}
+                let hasTrace = agentData && agentData.turns;
+                let hasRef = !!reference;
+
+                if (hasTrace || hasRef) {{
+                    card += `<div style="display: flex; gap: 1rem; margin-top: 16px; margin-bottom: 16px;">`;
+
+                    if (hasTrace) {{
+                        let traceContent = formatAgentData(agentData);
+                        card += `<div style="flex: 1; min-width: 0;">
+                                     <details open class="conversation-trace-details" style="margin: 0; height: 100%;">
+                                        <summary>Conversation Trace</summary>
+                                        <div style="font-size:13px; color:#5f6368; margin-bottom:12px;">Sequence of multi-agent events across turns</div>
+                                        <div class="agent-trace-container">${{traceContent}}</div>
+                                     </details>
+                                 </div>`;
                     }}
 
-                    if (agentData.agents && Object.keys(agentData.agents).length > 0) {{
-                        card += `<details open class="system-topology-details">
-                                    <summary>System Topology</summary>
-                                    ${{formatSystemTopology(agentData.agents)}}
-                                 </details>`;
+                    if (hasRef) {{
+                        card += `<div style="flex: 1; min-width: 0;">`;
+                        if (isRefAgentData) {{
+                            let refTraceContent = formatAgentData(refAgentDataObj);
+                            card += `<details open class="conversation-trace-details" style="margin: 0; height: 100%;">
+                                        <summary>Reference</summary>
+                                        <div style="font-size:13px; color:#5f6368; margin-bottom:12px;">Sequence of multi-agent events across turns</div>
+                                        <div class="agent-trace-container">${{refTraceContent}}</div>
+                                     </details>`;
+                        }} else {{
+                            card += `<div class="reference-container" style="margin: 0; height: 100%;"><strong>Reference</strong><br>${{DOMPurify.sanitize(marked.parse(String(reference)))}}</div>`;
+                        }}
+                        card += `</div>`;
                     }}
 
-                    if (agentData.turns) {{
-                        card += `<details open class="conversation-trace-details" style="margin-bottom: 16px;">
-                                    <summary>Conversation Trace</summary>
-                                    <div style="font-size:13px; color:#5f6368; margin-bottom:12px;">Sequence of multi-agent events across turns</div>
-                                    <div class="agent-trace-container">${{formatAgentData(agentData)}}</div>
-                                 </details>`;
-                    }}
+                    card += `</div>`;
                 }}
 
                 card += `<div class="responses-grid">`;

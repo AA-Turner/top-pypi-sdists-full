@@ -1,10 +1,9 @@
 import logging
 
 from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib.auth.models import Permission, User
+from django.contrib.auth.models import Permission
 from django.db.models import Count
-from django.shortcuts import render, Http404
-
+from django.shortcuts import Http404, render
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +11,7 @@ logger = logging.getLogger(__name__)
 @login_required
 @permission_required('permissions_tool.audit_permissions')
 def permissions_overview(request):
-    logger.debug("permissions_overview called by user %s" % request.user)
+    logger.debug(f"permissions_overview called by user {request.user}")
     perms = Permission.objects.select_related('content_type').all()\
         .annotate(Count('user', distinct=True))\
         .annotate(Count('group', distinct=True)) \
@@ -49,8 +48,8 @@ def permissions_audit(request, app_label, model, codename):
             .prefetch_related('group_set', 'user_set', 'state_set',
                                 'state_set__userprofile_set', 'group_set__user_set', 'state_set__userprofile_set__user')\
             .get(content_type__app_label=app_label, content_type__model=model, codename=codename)
-    except Permission.DoesNotExist:
-        raise Http404
+    except Permission.DoesNotExist as e:
+        raise Http404 from e
 
     context = {'permission': {
         'permission': perm,

@@ -1,7 +1,7 @@
 """Counters for Task Statistics."""
 
 import datetime as dt
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 from .event_series import EventSeries
 
@@ -16,7 +16,7 @@ class _TaskCounts(NamedTuple):
     retried: int
     failed: int
     total: int
-    earliest_task: Optional[dt.datetime]
+    earliest_task: dt.datetime | None
     hours: int
 
 

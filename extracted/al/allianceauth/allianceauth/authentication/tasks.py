@@ -1,8 +1,9 @@
 import logging
 
-from esi.errors import TokenExpiredError, TokenInvalidError, IncompleteResponseError
-from esi.models import Token
 from celery import shared_task
+
+from esi.errors import IncompleteResponseError, TokenExpiredError, TokenInvalidError
+from esi.models import Token
 
 from allianceauth.authentication.models import CharacterOwnership
 
@@ -22,8 +23,7 @@ def check_character_ownership(owner_hash):
                 continue
             except (KeyError, IncompleteResponseError):
                 # We can't validate the hash hasn't changed but also can't assume it has. Abort for now.
-                logger.warning("Failed to validate owner hash of {} due to problems contacting SSO servers.".format(
-                    tokens[0].character_name))
+                logger.warning(f"Failed to validate owner hash of {tokens[0].character_name} due to problems contacting SSO servers.")
                 break
 
             if not t.character_owner_hash == old_hash:
@@ -33,7 +33,7 @@ def check_character_ownership(owner_hash):
             break
 
     if not Token.objects.filter(character_owner_hash=owner_hash).exists():
-        logger.info('No tokens found with owner hash %s. Revoking ownership.' % owner_hash)
+        logger.info(f'No tokens found with owner hash {owner_hash}. Revoking ownership.')
         CharacterOwnership.objects.filter(owner_hash=owner_hash).delete()
 
 

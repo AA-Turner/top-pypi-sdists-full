@@ -1,16 +1,9 @@
 from django.apps import apps
 from django.contrib import admin
-
 from django.contrib.auth.models import Group as BaseGroup, Permission, User
 from django.db.models import Count, Exists, OuterRef
 from django.db.models.functions import Lower
-from django.db.models.signals import (
-    m2m_changed,
-    post_delete,
-    post_save,
-    pre_delete,
-    pre_save
-)
+from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 
 from .forms import GroupAdminForm, ReservedGroupNameAdminForm
@@ -172,7 +165,7 @@ class GroupAdmin(admin.ModelAdmin):
         return obj.has_leader or obj.has_leader_groups
 
     def _properties(self, obj):
-        properties = list()
+        properties = []
         if _has_auto_groups and (obj.is_autogroup_corp or obj.is_autogroup_alliance):
             properties.append('Auto Group')
         elif obj.authgroup.internal:

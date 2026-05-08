@@ -1,11 +1,6 @@
-from django.db.models.signals import (
-    m2m_changed,
-    post_save,
-    pre_delete,
-    pre_save
-)
-from django.urls import reverse
 from unittest import mock
+
+from django.urls import reverse
 
 MODULE_PATH = 'allianceauth.authentication'
 
@@ -17,9 +12,7 @@ def patch(target, *args, **kwargs):
 def get_admin_change_view_url(obj: object) -> str:
     """returns URL to admin change view for given object"""
     return reverse(
-        'admin:{}_{}_change'.format(
-            obj._meta.app_label, type(obj).__name__.lower()
-        ),
+        f'admin:{obj._meta.app_label}_{type(obj).__name__.lower()}_change',
         args=(obj.pk,)
     )
 

@@ -1,41 +1,30 @@
-from bs4 import BeautifulSoup
+from unittest.mock import MagicMock, patch
 from urllib.parse import quote
-from unittest.mock import patch, MagicMock
 
+from bs4 import BeautifulSoup
 from django_webtest import WebTest
 
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Group
-from django.test import TestCase, RequestFactory, Client
+from django.test import Client, RequestFactory, TestCase
 
 from allianceauth.authentication.models import (
-    CharacterOwnership, State, OwnershipRecord
+    CharacterOwnership, OwnershipRecord, State,
 )
 from allianceauth.eveonline.models import (
-    EveCharacter, EveCorporationInfo, EveAllianceInfo, EveFactionInfo
+    EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
 )
 from allianceauth.services.hooks import ServicesHook
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..admin import (
-    BaseUserAdmin,
-    CharacterOwnershipAdmin,
-    StateAdmin,
-    MainCorporationsFilter,
-    MainAllianceFilter,
-    MainFactionFilter,
-    OwnershipRecordAdmin,
-    User,
-    UserAdmin,
-    user_main_organization,
-    user_profile_pic,
-    user_username,
-    update_main_character_model,
-    make_service_hooks_update_groups_action,
-    make_service_hooks_sync_nickname_action
+    BaseUserAdmin, CharacterOwnershipAdmin, MainAllianceFilter,
+    MainCorporationsFilter, MainFactionFilter, OwnershipRecordAdmin,
+    StateAdmin, User, UserAdmin, make_service_hooks_sync_nickname_action,
+    make_service_hooks_update_groups_action, update_main_character_model,
+    user_main_organization, user_profile_pic, user_username,
 )
 from . import get_admin_change_view_url, get_admin_search_url
-
 
 MODULE_PATH = 'allianceauth.authentication.admin'
 
@@ -327,15 +316,15 @@ class TestUserAdmin(TestCaseWithTestData):
 
     def test_user_username_u1(self):
         expected = (
-            '<strong><a href="/admin/authentication/user/{}/change/">'
-            'Bruce_Wayne</a></strong><br>Bruce Wayne'.format(self.user_1.pk)
+            f'<strong><a href="/admin/authentication/user/{self.user_1.pk}/change/">'
+            'Bruce_Wayne</a></strong><br>Bruce Wayne'
         )
         self.assertEqual(user_username(self.user_1), expected)
 
     def test_user_username_u3(self):
         expected = (
-            '<strong><a href="/admin/authentication/user/{}/change/">'
-            'Lex_Luthor</a></strong>'.format(self.user_3.pk)
+            f'<strong><a href="/admin/authentication/user/{self.user_3.pk}/change/">'
+            'Lex_Luthor</a></strong>'
         )
         self.assertEqual(user_username(self.user_3), expected)
 
@@ -352,7 +341,7 @@ class TestUserAdmin(TestCaseWithTestData):
         self.assertEqual(user_main_organization(self.user_3), expected)
 
     def test_user_main_organization_u4(self):
-        expected = "Xavier's School for Gifted Youngsters<br>The X-Men"
+        expected = "Xavier&#x27;s School for Gifted Youngsters<br>The X-Men"
         self.assertEqual(user_main_organization(self.user_4), expected)
 
     def test_characters_u1(self):
@@ -650,6 +639,7 @@ class TestUserAdminChangeForm(TestCase):
 
 class TestUserAdminChangeFormSuperuserExclusiveEdits(WebTest):
     fixtures = ["disable_analytics"]
+    extra_environ = {"wsgi.url_scheme": "https"}
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -708,7 +698,7 @@ class TestUserAdminChangeFormSuperuserExclusiveEdits(WebTest):
         form = page.forms["user_form"]
         # when
         form["groups"].select_multiple(texts=["restricted group"])
-        response = form.submit("save")
+        response = form.submit()
         # then
         self.assertEqual(response.status_code, 302)
         self.user.refresh_from_db()
@@ -716,7 +706,7 @@ class TestUserAdminChangeFormSuperuserExclusiveEdits(WebTest):
             "restricted group", self.user.groups.values_list("name", flat=True)
         )
 
-    def test_should_not_allow_staff_admin_to_add_restricted_group_to_user(self):
+    def test_should_not_allow_staff_admin_to_add_restricted_group_to_user(self) -> None:
         # given
         self.app.set_user(self.staff_admin)
         group_restricted = Group.objects.create(name="restricted group")
@@ -726,7 +716,7 @@ class TestUserAdminChangeFormSuperuserExclusiveEdits(WebTest):
         form = page.forms["user_form"]
         # when
         form["groups"].select_multiple(texts=["restricted group"])
-        response = form.submit("save")
+        response = form.submit()
         # then
         self.assertEqual(response.status_code, 200)
         self.assertIn(
@@ -745,7 +735,7 @@ class TestUserAdminChangeFormSuperuserExclusiveEdits(WebTest):
         form = page.forms["user_form"]
         # when
         form["groups"].select_multiple(texts=[])
-        response = form.submit("save")
+        response = form.submit()
         # then
         self.assertEqual(response.status_code, 200)
         self.assertIn(
@@ -761,7 +751,7 @@ class TestUserAdminChangeFormSuperuserExclusiveEdits(WebTest):
         form = page.forms["user_form"]
         # when
         form["groups"].select_multiple(texts=["normal group"])
-        response = form.submit("save")
+        response = form.submit()
         # then
         self.assertEqual(response.status_code, 302)
         self.user.refresh_from_db()

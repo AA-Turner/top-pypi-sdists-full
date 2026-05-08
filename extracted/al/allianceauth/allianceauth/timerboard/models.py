@@ -2,8 +2,7 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from allianceauth.eveonline.models import EveCharacter
-from allianceauth.eveonline.models import EveCorporationInfo
+from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
 
 
 class Timer(models.Model):
@@ -72,8 +71,14 @@ class Timer(models.Model):
     corp_timer = models.BooleanField(default=False)
     user = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
 
-    def __str__(self) -> str:
-        return str(self.system) + ' ' + str(self.details)
-
     class Meta:
         ordering = ['eve_time']
+        # Intentionally Commented out
+        # AAv0 has these in the Auth_ Content Type
+        # permissions = (
+        #     ('timer_view', 'Can view Timerboard Timers'),
+        #     ('timer_management', 'Can Manage Timerboard timers'))
+        # default_permissions = ()
+
+    def __str__(self) -> str:
+        return f"{self.system} {self.details}"

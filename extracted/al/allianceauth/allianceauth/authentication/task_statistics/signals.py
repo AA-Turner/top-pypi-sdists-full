@@ -1,7 +1,11 @@
 """Signals for Task Statistics."""
 
 from celery.signals import (
-    task_failure, task_internal_error, task_retry, task_success, worker_ready,
+    task_failure,
+    task_internal_error,
+    task_retry,
+    task_success,
+    worker_ready,
 )
 
 from django.conf import settings

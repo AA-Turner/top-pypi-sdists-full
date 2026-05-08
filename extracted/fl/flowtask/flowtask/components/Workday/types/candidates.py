@@ -104,20 +104,18 @@ class CandidateType(WorkdayTypeBase):
                     }
                 ]
 
-            # Rangos de fechas de aplicación: soportar ambos nombres
+            # Rangos de fechas de aplicación
             if applied_from_date:
                 criteria["Applied_From"] = applied_from_date
-                criteria.setdefault("Applied_From_Date", applied_from_date)
 
             if applied_to_date:
                 criteria["Applied_Through"] = applied_to_date
-                criteria.setdefault("Applied_Through_Date", applied_to_date)
 
             # Rangos de fechas de creación
             if created_from_date:
-                criteria["Created_From_Date"] = created_from_date
+                criteria["Created_From"] = created_from_date
             if created_to_date:
-                criteria["Created_Through_Date"] = created_to_date
+                criteria["Created_Through"] = created_to_date
 
             if criteria:
                 payload["Request_Criteria"] = criteria

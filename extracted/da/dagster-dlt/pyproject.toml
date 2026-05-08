@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-dlt"
-version = "0.29.3"
+version = "0.29.4"
 description = "Package for performing ETL/ELT tasks with dlt in Dagster."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,7 +22,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.13.3",
+    "dagster==1.13.4",
     "dlt>=0.4",
 ]
 
@@ -35,5 +35,5 @@ dagster_dlt = "dagster_dlt"
 [project.optional-dependencies]
 test = [
     "duckdb",
-    "dagster-dg-cli==1.13.3",
+    "dagster-dg-cli==1.13.4",
 ]

@@ -1,10 +1,10 @@
-from django.urls import include, path
+from django.urls import path, re_path
 
 from . import views
 
 app_name = 'mumble'
 
-module_urls = [
+urlpatterns = [
     # Mumble service control
     path('activate/', views.CreateAccountMumbleView.as_view(), name='activate'),
     path('deactivate/', views.DeleteMumbleView.as_view(), name='deactivate'),
@@ -14,8 +14,8 @@ module_urls = [
     path('ajax/connection_history_data', views.connection_history_data, name="connection_history_data"),
     path('ajax/release_counts_data', views.release_counts_data, name="release_counts_data"),
     path('ajax/release_pie_chart_data', views.release_pie_chart_data, name="release_pie_chart_data"),
-]
-
-urlpatterns = [
-    path('mumble/', include((module_urls, app_name), namespace=app_name))
+    # Temp Links
+    path("templinks/", views.templinks, name="templinks"),
+    re_path(r"^join/(?P<link_ref>[\w\-]+)/$", views.link, name="join"),
+    re_path(r"^nuke/(?P<link_ref>[\w\-]+)/$", views.nuke, name="nuke"),
 ]

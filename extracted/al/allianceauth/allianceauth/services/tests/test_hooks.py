@@ -1,7 +1,7 @@
 from unittest import TestCase
 
-from allianceauth.services.hooks import UrlHook
 from allianceauth.groupmanagement import urls
+from allianceauth.services.hooks import UrlHook
 
 
 class TestUrlHook(TestCase):

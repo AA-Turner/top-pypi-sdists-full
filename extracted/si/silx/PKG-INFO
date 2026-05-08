@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: silx
-Version: 3.0.0
+Version: 3.0.1
 Summary: Silx tool-kit: collection of Python packages to support the development of data assessment, reduction and analysis applications at synchrotron radiation facilities
 Author-Email: "Data Analysis unit, ISDD, ESRF" <silx@esrf.fr>, "Data automation unit, ISDD, ESRF" <silx@esrf.fr>, "Algorithms & Data Analysis, ExpD, ESRF" <silx@esrf.fr>
 License: Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/

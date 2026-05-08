@@ -15,7 +15,9 @@ class TestAzureKvBackendJsonBody:
         vault_url (str): Azure Key Vault URL (e.g., https://myvault.vault.azure.net)
         tenant_id (str): Azure AD tenant ID
         client_id (str): Azure AD application (client) ID
-        client_secret (Union[Unset, str]): Azure AD client secret
+        client_secret (Union[Unset, str]): Azure AD client secret. Optional — when omitted, the integration falls back
+            to Azure Workload Identity Federation, exchanging the Kubernetes-projected service-account JWT at
+            AZURE_FEDERATED_TOKEN_FILE for an access token (no long-lived secret stored).
         token (Union[Unset, str]): Static Bearer token for testing/development (optional, if provided this is used
             instead of OAuth2 authentication)
     """

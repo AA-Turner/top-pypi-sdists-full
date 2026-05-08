@@ -7,6 +7,7 @@ import os
 import re
 import time
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import uuid
 from accelerate.utils import broadcast_object_list, gather_object, is_peft_model, set_seed
@@ -32,14 +33,16 @@ from swift.rollout import MultiTurnScheduler, multi_turns
 from swift.sequence_parallel import sequence_parallel
 from swift.template import Template
 from swift.tuners import Swift
-from swift.utils import get_current_device, get_logger, is_deepspeed_enabled, is_vllm_available, remove_response
+from swift.utils import (get_current_device, get_logger, is_deepspeed_enabled, is_vllm_available, remove_response,
+                         to_device)
 from .arguments import RolloutTrainerArgumentsMixin
 from .rlhf_mixin import RLHFTrainerMixin
-from .utils import (FlattenedTensorBucket, TensorLoRARequest, _create_parameter_buckets,
-                    _process_bucket_with_flattened_tensor, aggressive_empty_cache, check_vllm_version_ge,
-                    get_even_process_data, get_gather_if_zero3_context, patch_lora_merge, patch_lora_unmerge,
-                    patch_vllm_load_adapter, patch_vllm_moe_model_weight_loader, profiling_context, profiling_decorator,
-                    set_expandable_segments)
+from .utils import (VLLM_LORA_INT_ID, VLLM_LORA_NAME, VLLM_LORA_PATH, FlattenedTensorBucket, TensorLoRARequest,
+                    _create_parameter_buckets, _process_bucket_with_flattened_tensor,
+                    add_base_layer_suffix_by_param_names, aggressive_empty_cache, check_vllm_version_ge,
+                    expand_vllm_param_name_aliases, get_even_process_data, get_gather_if_zero3_context,
+                    patch_lora_merge, patch_lora_unmerge, patch_vllm_load_adapter, patch_vllm_moe_model_weight_loader,
+                    profiling_context, profiling_decorator, set_expandable_segments, vllm_supports_lora_load_inplace)
 
 DataType = List[Dict[str, Union[torch.Tensor, Any]]]
 logger = get_logger()
@@ -106,6 +109,54 @@ class RolloutTrainerMixin(RLHFTrainerMixin):
         self._prepare_vllm()
         self._prepare_async_generate()
         self.parameter_groups, self.parameter_groups_no_lora = self.split_batches()
+
+    @staticmethod
+    def _split_data_by_steps(inputs: DataType, steps: int) -> List[DataType]:
+        """Split a list of inputs into `steps` chunks with balanced sizes."""
+        if steps <= 1:
+            return [inputs]
+
+        chunk_size = len(inputs) // steps
+        remainder = len(inputs) % steps
+        chunks: List[DataType] = []
+        start_idx = 0
+        for i in range(steps):
+            current_chunk_size = chunk_size + (1 if i < remainder else 0)
+            end_idx = start_idx + current_chunk_size
+            chunks.append(inputs[start_idx:end_idx])
+            start_idx = end_idx
+        return chunks
+
+    def split_by_mini_batches(self, inputs: DataType) -> List[DataType]:
+        """Split inputs into mini-batches based on steps_per_generation.
+
+        For sequence_parallel_size > 1, gathers inputs across SP/RP groups first,
+        then splits with an adjusted spg that accounts for the parallel world size.
+        Used by both GRPO and GKD trainers.
+        """
+        if self.template.sequence_parallel_size == 1:
+            mode: str = 'train' if self.model.training else 'eval'
+            spg: int = self.args.steps_per_generation if mode == 'train' else 1
+            return self._split_data_by_steps(inputs, spg)
+        else:
+            output = [None] * sequence_parallel.sp_world_size
+            dist.all_gather_object(output, inputs, group=sequence_parallel.sp_group)
+            if sequence_parallel.rp_world_size > 1:
+                output_rp = [None] * sequence_parallel.rp_world_size
+                output = [p for sublist in output for p in sublist]
+                dist.all_gather_object(output_rp, output, group=sequence_parallel.rp_group)
+                output = output_rp
+            inputs = [p for sublist in output for p in sublist]
+
+            mode = 'train' if self.model.training else 'eval'
+            if mode == 'eval':
+                inputs = inputs[:self.args.per_device_eval_batch_size]
+                spg = 1
+            else:
+                spg = self.args.steps_per_generation * sequence_parallel.world_size
+
+            spg_chunks = self._split_data_by_steps(inputs, spg)
+            return to_device(spg_chunks, device=self.accelerator.device)
 
     def _prepare_rollout_params(self):
         """Initialize rollout generation parameters"""
@@ -200,6 +251,7 @@ class RolloutTrainerMixin(RLHFTrainerMixin):
         self.dynamic_num_samples = False  # grpo multi-turn
         self.base_sync_done = False
         self._last_loaded_step = -1  # tag to avoid useless loading during grad accumulation
+        self._cached_vllm_param_names = None
 
     def _prepare_vllm_engine(self):
         """Create and configure vLLM engine for colocate mode"""
@@ -409,6 +461,7 @@ class RolloutTrainerMixin(RLHFTrainerMixin):
         """Transfer LoRA adapter weights to vLLM engine"""
         lora_params = OrderedDict()
         gather_if_zero3 = get_gather_if_zero3_context(self)
+        peft_config = self.model.peft_config.get('default', None)
 
         for i, parameter_group in enumerate(self.parameter_groups):
             if not self._is_fsdp2:
@@ -430,7 +483,6 @@ class RolloutTrainerMixin(RLHFTrainerMixin):
                         if k in parameter_group or k.removeprefix('base_model.model.') in parameter_group
                     }
 
-                peft_config = self.model.peft_config.get('default', None)
                 if not self._is_fsdp2:
                     self.model.merge_adapter()
                 cur_lora_params = get_peft_model_state_dict(self.model, state_dict)
@@ -454,19 +506,43 @@ class RolloutTrainerMixin(RLHFTrainerMixin):
             else:
                 self.vllm_client.update_adapter_param(peft_config, lora_params)
         elif self.vllm_mode == 'colocate':
-            lora_int_id = int(time.time_ns() % 0x7FFFFFFF)
-            lora_request = TensorLoRARequest(
-                lora_name=f'{lora_int_id}',
-                lora_int_id=lora_int_id,
-                lora_path='dummy_lora_path',
-                peft_config=asdict(peft_config),
-                lora_tensors=lora_params,
-            )
+            req_kw = {
+                'lora_name': VLLM_LORA_NAME,
+                'lora_int_id': VLLM_LORA_INT_ID,
+                'lora_path': VLLM_LORA_PATH,
+                'peft_config': asdict(peft_config),
+                'lora_tensors': lora_params,
+            }
+            if vllm_supports_lora_load_inplace():
+                req_kw['load_inplace'] = True
+            lora_request = TensorLoRARequest(**req_kw)
             self.engine.engine.add_lora(lora_request)
         del lora_params
 
+    def _get_vllm_param_names_for_mapping(self):
+        """Get vLLM runtime parameter names for base_layer mapping.
+
+        Returns an alias-expanded set so bridge/HF names can match vLLM packed names.
+        """
+        if self.vllm_mode == 'colocate':
+            llm_model = self.engine.inner_model
+            raw_names = set(dict[Any, Any](llm_model.named_parameters()).keys())
+            return expand_vllm_param_name_aliases(raw_names)
+
+        if self.vllm_mode != 'server' or not self.accelerator.is_main_process:
+            return None
+
+        if self._cached_vllm_param_names is None:
+            keys = self.vllm_client.get_model_state_keys()
+            self._cached_vllm_param_names = expand_vllm_param_name_aliases(set(keys))
+        return self._cached_vllm_param_names
+
     def _load_state_dict_to_vllm(self, state_dict):
-        """Load state_dict to vLLM engine (server or colocate mode)"""
+        if self.rollout_enable_lora:
+            vllm_param_names = self._get_vllm_param_names_for_mapping()
+            if vllm_param_names:
+                state_dict = dict(add_base_layer_suffix_by_param_names(state_dict.items(), vllm_param_names))
+
         if self.vllm_mode == 'server' and self.accelerator.is_main_process:
             use_flatten = getattr(self.args, 'enable_flattened_weight_sync', True)
             if use_flatten:
@@ -949,10 +1025,6 @@ class RolloutTrainerMixin(RLHFTrainerMixin):
                         rollout_logprobs[index][-1].extend(current_logprobs)
                     else:
                         rollout_logprobs[index].append(current_logprobs)
-
-                if current_request.messages[-1]['role'] == 'assistant':
-                    # for continuation, we add dummy response, add here
-                    current_request.messages.append({'role': 'assistant', 'content': None})
 
                 requests[index] = current_request
                 next_turn_index_to_infer.append(index)

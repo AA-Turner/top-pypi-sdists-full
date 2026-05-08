@@ -26,15 +26,6 @@ class Group(str, Enum):
         return self.value
 
 
-class SandboxEnvironment(str, Enum):
-    DOCKER = "docker"
-    K8S = "k8s"
-    OTHER = "other"
-
-    def __str__(self) -> str:
-        return self.value
-
-
 class AssetType(str, Enum):
     """External asset type taxonomy per ADR-0004 / ADR-0007.
 
@@ -88,6 +79,8 @@ class FetchMethod(str, Enum):
 class ExternalAsset(BaseModel):
     """An external asset declared in eval.yaml."""
 
+    model_config = ConfigDict(extra="forbid")
+
     type: AssetType
     source: str
     fetch_method: FetchMethod
@@ -139,6 +132,8 @@ class TaskVersion:
 class HumanBaseline(BaseModel):
     """Human baseline result for a specific model on a task"""
 
+    model_config = ConfigDict(extra="forbid")
+
     metric: str  # e.g., "pass@1"
     score: float  # e.g., 90.2
     source: HttpUrl  # URL to source of the baseline result
@@ -146,6 +141,8 @@ class HumanBaseline(BaseModel):
 
 class TaskMetadata(BaseModel):
     """A specific task within an evaluation"""
+
+    model_config = ConfigDict(extra="forbid")
 
     name: str  # e.g., "humaneval"
     dataset_samples: int | None = None
@@ -159,9 +156,13 @@ class TaskMetadata(BaseModel):
 class EvalRuntimeMetadata(BaseModel):
     """Runtime metadata from the eval.yaml ``metadata:`` section."""
 
+    model_config = ConfigDict(extra="forbid")
+
     fast: bool = False
     sandbox: list[str] | None = None
-    sandbox_environment: list[SandboxEnvironment] | None = None
+    requires_internet: bool | None = None
+    environment: str | None = None
+    supports_k8s: bool = False
     extras: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -187,6 +188,8 @@ def _clean_tags(tags: list[str] | None) -> list[str] | None:
 class EvalMetadataBase(BaseModel):
     """Fields shared between internal and external evaluations."""
 
+    model_config = ConfigDict(extra="forbid")
+
     title: str
     description: str
     id: str  # e.g., "humaneval"
@@ -205,6 +208,11 @@ class EvalMetadataBase(BaseModel):
     def is_sandboxed(self) -> bool:
         """True if any task in this eval requires a sandbox."""
         return self.runtime_metadata is not None and bool(self.runtime_metadata.sandbox)
+
+    @property
+    def display_title(self) -> str:
+        """Title for rendering. Subclasses may compose abbreviation + title."""
+        return self.title
 
 
 class InternalEvalMetadata(EvalMetadataBase):
@@ -239,6 +247,8 @@ class InternalEvalMetadata(EvalMetadataBase):
 
 class ExternalEvalSource(BaseModel):
     """Where an external evaluation's code lives."""
+
+    model_config = ConfigDict(extra="forbid")
 
     repository_url: HttpUrl
     repository_commit: str
@@ -325,8 +335,16 @@ class EvaluationReport(BaseModel):
 class ExternalEvalMetadata(EvalMetadataBase):
     """An evaluation hosted in an external repository."""
 
+    abbreviation: str | None = None
     source: ExternalEvalSource
     evaluation_report: EvaluationReport | None = None
+
+    @property
+    def display_title(self) -> str:
+        """Compose ``"{abbreviation}: {title}"`` when set, else ``title``."""
+        if self.abbreviation:
+            return f"{self.abbreviation}: {self.title}"
+        return self.title
 
     @model_validator(mode="after")
     def _require_task_path(self) -> "ExternalEvalMetadata":
@@ -388,6 +406,8 @@ class ExternalEvalMetadata(EvalMetadataBase):
 
 class EvalListing(BaseModel):
     """Complete listing of all evaluations"""
+
+    model_config = ConfigDict(extra="forbid")
 
     evals: list[ExternalEvalMetadata | InternalEvalMetadata] = Field(alias="_root")
 

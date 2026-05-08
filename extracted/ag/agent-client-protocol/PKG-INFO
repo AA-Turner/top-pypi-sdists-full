@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: agent-client-protocol
-Version: 0.9.0
+Version: 0.10.0
 Summary: A Python implement of Agent Client Protocol (ACP, by Zed Industries)
 Keywords: python
 Author-Email: Chojan Shang <psiace@apache.org>, Frost Ming <me@frostming.com>

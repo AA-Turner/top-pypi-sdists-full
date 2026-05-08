@@ -1,5 +1,6 @@
 from allianceauth.eveonline.models import EveCorporationInfo
 from django.test import TestCase
+
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..models import AutogroupsConfig

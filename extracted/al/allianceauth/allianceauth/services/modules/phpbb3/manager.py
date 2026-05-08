@@ -1,16 +1,16 @@
-import random
-import string
 import calendar
+import logging
+import random
 import re
 import datetime as dt
+import string
 
 from passlib.apps import phpbb3_context
-from django.db import connections
-from allianceauth.eveonline.models import EveCharacter
-
-import logging
 
 from django.conf import settings
+from django.db import connections
+
+from allianceauth.eveonline.models import EveCharacter
 
 logger = logging.getLogger(__name__)
 
@@ -19,39 +19,39 @@ TABLE_PREFIX = getattr(settings, 'PHPBB3_TABLE_PREFIX', 'phpbb_')
 
 
 class Phpbb3Manager:
-    SQL_ADD_USER =  r"INSERT INTO %susers (username, username_clean, " \
+    SQL_ADD_USER =  rf"INSERT INTO {TABLE_PREFIX}users (username, username_clean, " \
                     r"user_password, user_email, group_id, user_regdate, user_permissions, " \
-                    r"user_sig, user_lang) VALUES (%%s, %%s, %%s, %%s, %%s, %%s, %%s, %%s, 'en')" % TABLE_PREFIX
+                    r"user_sig, user_lang) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'en')"
 
-    SQL_DEL_USER = r"DELETE FROM %susers where username = %%s" % TABLE_PREFIX
+    SQL_DEL_USER = rf"DELETE FROM {TABLE_PREFIX}users where username = %s"
 
-    SQL_DIS_USER = r"UPDATE %susers SET user_email= %%s, user_password=%%s WHERE username = %%s" % TABLE_PREFIX
+    SQL_DIS_USER = rf"UPDATE {TABLE_PREFIX}users SET user_email= %s, user_password=%s WHERE username = %s"
 
-    SQL_USER_ID_FROM_USERNAME = r"SELECT user_id from %susers WHERE username = %%s" % TABLE_PREFIX
+    SQL_USER_ID_FROM_USERNAME = rf"SELECT user_id from {TABLE_PREFIX}users WHERE username = %s"
 
-    SQL_ADD_USER_GROUP = r"INSERT INTO %suser_group (group_id, user_id, user_pending) VALUES (%%s, %%s, %%s)" % TABLE_PREFIX
+    SQL_ADD_USER_GROUP = rf"INSERT INTO {TABLE_PREFIX}user_group (group_id, user_id, user_pending) VALUES (%s, %s, %s)"
 
-    SQL_GET_GROUP_ID = r"SELECT group_id from %sgroups WHERE group_name = %%s" % TABLE_PREFIX
+    SQL_GET_GROUP_ID = rf"SELECT group_id from {TABLE_PREFIX}groups WHERE group_name = %s"
 
-    SQL_ADD_GROUP = r"INSERT INTO %sgroups (group_name,group_desc,group_legend) VALUES (%%s,%%s,0)" % TABLE_PREFIX
+    SQL_ADD_GROUP = rf"INSERT INTO {TABLE_PREFIX}groups (group_name,group_desc,group_legend) VALUES (%s,%s,0)"
 
-    SQL_UPDATE_USER_PASSWORD = r"UPDATE %susers SET user_password = %%s WHERE username = %%s" % TABLE_PREFIX
+    SQL_UPDATE_USER_PASSWORD = rf"UPDATE {TABLE_PREFIX}users SET user_password = %s WHERE username = %s"
 
-    SQL_REMOVE_USER_GROUP = r"DELETE FROM %suser_group WHERE user_id=%%s AND group_id=%%s " % TABLE_PREFIX
+    SQL_REMOVE_USER_GROUP = rf"DELETE FROM {TABLE_PREFIX}user_group WHERE user_id=%s AND group_id=%s "
 
-    SQL_GET_ALL_GROUPS = r"SELECT group_id, group_name FROM %sgroups" % TABLE_PREFIX
+    SQL_GET_ALL_GROUPS = rf"SELECT group_id, group_name FROM {TABLE_PREFIX}groups"
 
-    SQL_GET_USER_GROUPS = r"SELECT %(prefix)sgroups.group_name FROM %(prefix)sgroups , %(prefix)suser_group WHERE " \
-                        r"%(prefix)suser_group.group_id = %(prefix)sgroups.group_id AND user_id=%%s" % {'prefix': TABLE_PREFIX}
+    SQL_GET_USER_GROUPS = rf"SELECT {TABLE_PREFIX}groups.group_name FROM {TABLE_PREFIX}groups , {TABLE_PREFIX}user_group WHERE " \
+                        rf"{TABLE_PREFIX}user_group.group_id = {TABLE_PREFIX}groups.group_id AND user_id=%s"
 
-    SQL_ADD_USER_AVATAR = r"UPDATE %susers SET user_avatar_type=2, user_avatar_width=64, user_avatar_height=64, " \
-                        "user_avatar=%%s WHERE user_id = %%s" % TABLE_PREFIX
+    SQL_ADD_USER_AVATAR = rf"UPDATE {TABLE_PREFIX}users SET user_avatar_type=2, user_avatar_width=64, user_avatar_height=64, " \
+                        "user_avatar=%s WHERE user_id = %s"
 
-    SQL_CLEAR_USER_PERMISSIONS = r"UPDATE %susers SET user_permissions = '' WHERE user_id = %%s" % TABLE_PREFIX
+    SQL_CLEAR_USER_PERMISSIONS = rf"UPDATE {TABLE_PREFIX}users SET user_permissions = '' WHERE user_id = %s"
 
-    SQL_DEL_SESSION = r"DELETE FROM %ssessions where session_user_id = %%s" % TABLE_PREFIX
+    SQL_DEL_SESSION = rf"DELETE FROM {TABLE_PREFIX}sessions where session_user_id = %s"
 
-    SQL_DEL_AUTOLOGIN = r"DELETE FROM %ssessions_keys where user_id = %%s" % TABLE_PREFIX
+    SQL_DEL_AUTOLOGIN = rf"DELETE FROM {TABLE_PREFIX}sessions_keys where user_id = %s"
 
     def __init__(self):
         pass
@@ -85,7 +85,7 @@ class Phpbb3Manager:
 
     @staticmethod
     def __get_group_id(groupname):
-        logger.debug("Getting phpbb3 group id for groupname %s" % groupname)
+        logger.debug(f"Getting phpbb3 group id for groupname {groupname}")
         cursor = connections['phpbb3'].cursor()
         cursor.execute(Phpbb3Manager.SQL_GET_GROUP_ID, [groupname])
         row = cursor.fetchone()
@@ -94,7 +94,7 @@ class Phpbb3Manager:
 
     @staticmethod
     def __get_user_id(username):
-        logger.debug("Getting phpbb3 user id for username %s" % username)
+        logger.debug(f"Getting phpbb3 user id for username {username}")
         cursor = connections['phpbb3'].cursor()
         cursor.execute(Phpbb3Manager.SQL_USER_ID_FROM_USERNAME, [username])
         row = cursor.fetchone()
@@ -102,7 +102,7 @@ class Phpbb3Manager:
             logger.debug(f"Got phpbb user id {row[0]} for username {username}")
             return row[0]
         else:
-            logger.error("Username %s not found on phpbb. Unable to determine user id." % username)
+            logger.error(f"Username {username} not found on phpbb. Unable to determine user id.")
             return None
 
     @staticmethod
@@ -114,12 +114,12 @@ class Phpbb3Manager:
         out = {}
         for row in rows:
             out[row[1]] = row[0]
-        logger.debug("Got phpbb groups %s" % out)
+        logger.debug(f"Got phpbb groups {out}")
         return out
 
     @staticmethod
     def __get_user_groups(userid):
-        logger.debug("Getting phpbb3 user id %s groups" % userid)
+        logger.debug(f"Getting phpbb3 user id {userid} groups")
         cursor = connections['phpbb3'].cursor()
         cursor.execute(Phpbb3Manager.SQL_GET_USER_GROUPS, [userid])
         out = [row[0] for row in cursor.fetchall()]
@@ -134,10 +134,10 @@ class Phpbb3Manager:
 
     @staticmethod
     def __create_group(groupname):
-        logger.debug("Creating phpbb3 group %s" % groupname)
+        logger.debug(f"Creating phpbb3 group {groupname}")
         cursor = connections['phpbb3'].cursor()
         cursor.execute(Phpbb3Manager.SQL_ADD_GROUP, [groupname, groupname])
-        logger.info("Created phpbb group %s" % groupname)
+        logger.info(f"Created phpbb group {groupname}")
         return Phpbb3Manager.__get_group_id(groupname)
 
     @staticmethod
@@ -148,7 +148,7 @@ class Phpbb3Manager:
             cursor.execute(Phpbb3Manager.SQL_ADD_USER_GROUP, [groupid, userid, 0])
             cursor.execute(Phpbb3Manager.SQL_CLEAR_USER_PERMISSIONS, [userid])
             logger.info(f"Added phpbb user id {userid} to group id {groupid}")
-        except:
+        except Exception:
             logger.exception(f"Unable to add phpbb user id {userid} to group id {groupid}")
             pass
 
@@ -160,14 +160,13 @@ class Phpbb3Manager:
             cursor.execute(Phpbb3Manager.SQL_REMOVE_USER_GROUP, [userid, groupid])
             cursor.execute(Phpbb3Manager.SQL_CLEAR_USER_PERMISSIONS, [userid])
             logger.info(f"Removed phpbb user id {userid} from group id {groupid}")
-        except:
+        except Exception:
             logger.exception(f"Unable to remove phpbb user id {userid} from group id {groupid}")
             pass
 
     @staticmethod
     def add_user(username, email, groups, characterid):
-        logger.debug("Adding phpbb user with username {}, email {}, groups {}, characterid {}".format(
-            username, email, groups, characterid))
+        logger.debug(f"Adding phpbb user with username {username}, email {email}, groups {groups}, characterid {characterid}")
         cursor = connections['phpbb3'].cursor()
 
         username_clean = Phpbb3Manager.__santatize_username(username)
@@ -176,7 +175,7 @@ class Phpbb3Manager:
         logger.debug(f"Proceeding to add phpbb user {username_clean} and pwhash starting with {pwhash[0:5]}")
         # check if the username was simply revoked
         if Phpbb3Manager.check_user(username_clean):
-            logger.warning("Unable to add phpbb user with username %s - already exists. Updating user instead." % username)
+            logger.warning(f"Unable to add phpbb user with username {username} - already exists. Updating user instead.")
             Phpbb3Manager.__update_user_info(username_clean, email, pwhash)
         else:
             try:
@@ -186,16 +185,16 @@ class Phpbb3Manager:
                                                             "", ""])
                 Phpbb3Manager.update_groups(username_clean, groups)
                 Phpbb3Manager.__add_avatar(username_clean, characterid)
-                logger.info("Added phpbb user %s" % username_clean)
-            except:
-                logger.exception("Unable to add phpbb user %s" % username_clean)
+                logger.info(f"Added phpbb user {username_clean}")
+            except Exception:
+                logger.exception(f"Unable to add phpbb user {username_clean}")
                 pass
 
         return username_clean, password
 
     @staticmethod
     def disable_user(username):
-        logger.debug("Disabling phpbb user %s" % username)
+        logger.debug(f"Disabling phpbb user {username}")
         cursor = connections['phpbb3'].cursor()
 
         password = Phpbb3Manager.__gen_hash(Phpbb3Manager.__generate_random_pass())
@@ -207,22 +206,22 @@ class Phpbb3Manager:
             cursor.execute(Phpbb3Manager.SQL_DEL_AUTOLOGIN, [userid])
             cursor.execute(Phpbb3Manager.SQL_DEL_SESSION, [userid])
             Phpbb3Manager.update_groups(username, [])
-            logger.info("Disabled phpbb user %s" % username)
+            logger.info(f"Disabled phpbb user {username}")
             return True
         except TypeError:
-            logger.exception("TypeError occured while disabling user %s - failed to disable." % username)
+            logger.exception(f"TypeError occured while disabling user {username} - failed to disable.")
             return False
 
     @staticmethod
     def delete_user(username):
-        logger.debug("Deleting phpbb user %s" % username)
+        logger.debug(f"Deleting phpbb user {username}")
         cursor = connections['phpbb3'].cursor()
 
         if Phpbb3Manager.check_user(username):
             cursor.execute(Phpbb3Manager.SQL_DEL_USER, [username])
-            logger.info("Deleted phpbb user %s" % username)
+            logger.info(f"Deleted phpbb user {username}")
             return True
-        logger.error("Unable to delete phpbb user %s - user not found on phpbb." % username)
+        logger.error(f"Unable to delete phpbb user {username} - user not found on phpbb.")
         return False
 
     @staticmethod
@@ -237,7 +236,7 @@ class Phpbb3Manager:
             remgroups = user_groups - act_groups
             logger.info(f"Updating phpbb user {username} groups - adding {addgroups}, removing {remgroups}")
             for g in addgroups:
-                if not g in forum_groups:
+                if g not in forum_groups:
                     forum_groups[g] = Phpbb3Manager.__create_group(g)
                 Phpbb3Manager.__add_user_to_group(userid, forum_groups[g])
 
@@ -257,27 +256,26 @@ class Phpbb3Manager:
                     try:
                         cursor.execute(Phpbb3Manager.SQL_REMOVE_USER_GROUP, [userid, groupid])
                         logger.info(f"Removed phpbb user {username} from group {group}")
-                    except:
+                    except Exception:
                         logger.exception(
-                            "Exception prevented removal of phpbb user {} with id {} from group {} with id {}".format(
-                                username, userid, group, groupid))
+                            f"Exception prevented removal of phpbb user {username} with id {userid} from group {group} with id {groupid}")
                         pass
 
     @staticmethod
     def check_user(username):
-        logger.debug("Checking phpbb username %s" % username)
+        logger.debug(f"Checking phpbb username {username}")
         cursor = connections['phpbb3'].cursor()
         cursor.execute(Phpbb3Manager.SQL_USER_ID_FROM_USERNAME, [Phpbb3Manager.__santatize_username(username)])
         row = cursor.fetchone()
         if row:
-            logger.debug("Found user %s on phpbb" % username)
+            logger.debug(f"Found user {username} on phpbb")
             return True
-        logger.debug("User %s not found on phpbb" % username)
+        logger.debug(f"User {username} not found on phpbb")
         return False
 
     @staticmethod
     def update_user_password(username, characterid, password=None):
-        logger.debug("Updating phpbb user %s password" % username)
+        logger.debug(f"Updating phpbb user {username} password")
         cursor = connections['phpbb3'].cursor()
         if not password:
             password = Phpbb3Manager.__generate_random_pass()
@@ -287,9 +285,9 @@ class Phpbb3Manager:
                 f"Proceeding to update phpbb user {username} password with pwhash starting with {pwhash[0:5]}")
             cursor.execute(Phpbb3Manager.SQL_UPDATE_USER_PASSWORD, [pwhash, username])
             Phpbb3Manager.__add_avatar(username, characterid)
-            logger.info("Updated phpbb user %s password." % username)
+            logger.info(f"Updated phpbb user {username} password.")
             return password
-        logger.error("Unable to update phpbb user %s password - user not found on phpbb." % username)
+        logger.error(f"Unable to update phpbb user {username} password - user not found on phpbb.")
         return ""
 
     @staticmethod
@@ -299,7 +297,7 @@ class Phpbb3Manager:
         cursor = connections['phpbb3'].cursor()
         try:
             cursor.execute(Phpbb3Manager.SQL_DIS_USER, [email, password, username])
-            logger.info("Updated phpbb user %s info" % username)
-        except:
-            logger.exception("Unable to update phpbb user %s info." % username)
+            logger.info(f"Updated phpbb user {username} info")
+        except Exception:
+            logger.exception(f"Unable to update phpbb user {username} info.")
             pass

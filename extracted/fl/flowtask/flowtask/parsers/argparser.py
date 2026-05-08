@@ -212,6 +212,40 @@ class ConfigParser(object):
             help="Command-line arguments for a Task (directly passed as kwargs)",
             default=[],
         )
+        # ── Syntax check flags ───────────────────────────────────────────────
+        # Added by FEAT-016.  These flags enable ``task --syntax`` mode which
+        # short-circuits before TaskRunner and performs a static check.
+        self.parser.add_argument(
+            "-S", "--syntax",
+            dest="syntax",
+            action="store_true",
+            default=False,
+            help="Static syntax check (no execution). Reads file or stdin.",
+        )
+        self.parser.add_argument(
+            "--strict",
+            dest="syntax_strict",
+            action="store_true",
+            default=False,
+            help="--syntax: treat undocumented components as errors.",
+        )
+        self.parser.add_argument(
+            "--syntax-format",
+            dest="syntax_format",
+            choices=["text", "json"],
+            default="text",
+            help="--syntax: output format (default: text).",
+        )
+        # Path for ``task --syntax /path/to/file.yaml``.
+        # Implemented as an optional flag (not a positional) to avoid
+        # conflicts with the workers subparser positional argument.
+        # Per spec §3 Module 7: "fall back to a --path/-P optional flag".
+        self.parser.add_argument(
+            "-P", "--syntax-path",
+            dest="syntax_path",
+            default=None,
+            help="--syntax: path to task file, or '-' for stdin.",
+        )
         # ── Worker Management subcommands ─────────────────────────────────────
         # Adds support for: flowtask workers queues
         # The subparser is declared on the top-level parser so that argparse

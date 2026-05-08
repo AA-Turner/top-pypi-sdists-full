@@ -7,6 +7,12 @@ import re
 from enum import Enum
 from pathlib import Path
 
+from graphify.google_workspace import (
+    GOOGLE_WORKSPACE_EXTENSIONS,
+    convert_google_workspace_file,
+    google_workspace_enabled,
+)
+
 
 class FileType(str, Enum):
     CODE = "code"
@@ -19,7 +25,7 @@ class FileType(str, Enum):
 _MANIFEST_PATH = "graphify-out/manifest.json"
 
 CODE_EXTENSIONS = {'.py', '.ts', '.js', '.jsx', '.tsx', '.mjs', '.ejs', '.go', '.rs', '.java', '.groovy', '.gradle', '.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.rb', '.swift', '.kt', '.kts', '.cs', '.scala', '.php', '.lua', '.luau', '.toc', '.zig', '.ps1', '.ex', '.exs', '.m', '.mm', '.jl', '.vue', '.svelte', '.dart', '.v', '.sv', '.sql', '.r', '.f', '.F', '.f90', '.F90', '.f95', '.F95', '.f03', '.F03', '.f08', '.F08'}
-DOC_EXTENSIONS = {'.md', '.mdx', '.txt', '.rst', '.html', '.yaml', '.yml'}
+DOC_EXTENSIONS = {'.md', '.mdx', '.qmd', '.txt', '.rst', '.html', '.yaml', '.yml'}
 PAPER_EXTENSIONS = {'.pdf'}
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'}
 OFFICE_EXTENSIONS = {'.docx', '.xlsx'}
@@ -130,6 +136,8 @@ def classify_file(path: Path) -> FileType | None:
         return FileType.DOCUMENT
     if ext in OFFICE_EXTENSIONS:
         return FileType.DOCUMENT
+    if ext in GOOGLE_WORKSPACE_EXTENSIONS:
+        return FileType.DOCUMENT
     if ext in VIDEO_EXTENSIONS:
         return FileType.VIDEO
     return None
@@ -239,7 +247,12 @@ def xlsx_extract_structure(path: Path) -> dict:
     except Exception:
         return {"nodes": [], "edges": []}
 
-    stem = _re.sub(r"[^a-z0-9]", "_", path.stem.lower())
+    # F-035: typo fix — was `_re.sub` (NameError, but unreachable because the
+    # whole xlsx codepath is currently behind a feature flag / not yet wired
+    # into the dispatcher). Before re-enabling this path, re-audit it for
+    # zip/XML bombs (openpyxl is built on top of zipfile and lxml-style XML
+    # parsing — a malicious .xlsx can blow up memory at load_workbook time).
+    stem = re.sub(r"[^a-z0-9]", "_", path.stem.lower())
     str_path = str(path)
     file_nid = _nid(str_path)
     nodes: list[dict] = [{"id": file_nid, "label": path.name, "file_type": "document",
@@ -618,8 +631,9 @@ def _could_contain_included_path(path: Path, root: Path, patterns: list[tuple[Pa
     return False
 
 
-def detect(root: Path, *, follow_symlinks: bool = False) -> dict:
+def detect(root: Path, *, follow_symlinks: bool = False, google_workspace: bool | None = None) -> dict:
     root = root.resolve()
+    google_workspace = google_workspace_enabled() if google_workspace is None else google_workspace
     files: dict[FileType, list[str]] = {
         FileType.CODE: [],
         FileType.DOCUMENT: [],
@@ -694,6 +708,25 @@ def detect(root: Path, *, follow_symlinks: bool = False) -> dict:
             continue
         ftype = classify_file(p)
         if ftype:
+            if p.suffix.lower() in GOOGLE_WORKSPACE_EXTENSIONS:
+                if not google_workspace:
+                    skipped_sensitive.append(
+                        str(p)
+                        + " [Google Workspace shortcut skipped - pass --google-workspace "
+                        "or set GRAPHIFY_GOOGLE_WORKSPACE=1]"
+                    )
+                    continue
+                try:
+                    md_path = convert_google_workspace_file(p, converted_dir, xlsx_to_markdown=xlsx_to_markdown)
+                except Exception as exc:
+                    skipped_sensitive.append(str(p) + f" [Google Workspace export failed: {exc}]")
+                    continue
+                if md_path:
+                    files[ftype].append(str(md_path))
+                    total_words += count_words(md_path)
+                else:
+                    skipped_sensitive.append(str(p) + " [Google Workspace export produced no readable text]")
+                continue
             # Office files: convert to markdown sidecar so subagents can read them
             if p.suffix.lower() in OFFICE_EXTENSIONS:
                 md_path = convert_office_file(p, converted_dir)
@@ -776,6 +809,7 @@ def detect_incremental(
     manifest_path: str = _MANIFEST_PATH,
     *,
     follow_symlinks: bool = False,
+    google_workspace: bool | None = None,
 ) -> dict:
     """Like detect(), but returns only new or modified files since the last run.
 
@@ -790,7 +824,7 @@ def detect_incremental(
     directory outside the scan root) are scanned consistently between full and
     incremental runs.
     """
-    full = detect(root, follow_symlinks=follow_symlinks)
+    full = detect(root, follow_symlinks=follow_symlinks, google_workspace=google_workspace)
     manifest = load_manifest(manifest_path)
 
     if not manifest:

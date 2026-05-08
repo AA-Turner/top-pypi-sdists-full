@@ -8,4 +8,4 @@ class EveAutogroupsConfig(AppConfig):
     verbose_name = _('EVE Online Autogroups')
 
     def ready(self):
-        import allianceauth.eveonline.autogroups.signals
+        pass

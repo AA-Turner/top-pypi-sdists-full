@@ -2,7 +2,7 @@
 of the current Alliance Auth instance.
 
 Example
-=======
+-------
 
 Here is an example for using the api to fetch the current roles from the configured Discord server.
 
@@ -18,17 +18,16 @@ Here is an example for using the api to fetch the current roles from the configu
     The docs for the client class can be found here: :py:class:`~allianceauth.services.modules.discord.discord_client.client.DiscordClient`
 """
 
-from typing import Optional
 
 from .app_settings import DISCORD_GUILD_ID
-from .core import create_bot_client, group_to_role, server_name  # noqa
-from .discord_client.models import Role  # noqa
-from .models import DiscordUser  # noqa
+from .core import create_bot_client, group_to_role, server_name
+from .discord_client.models import Role
+from .models import DiscordUser
 
 __all__ = ["create_bot_client", "group_to_role", "server_name", "DiscordUser", "Role"]
 
 
-def discord_guild_id() -> Optional[int]:
+def discord_guild_id() -> int | None:
     """Guild ID of configured Discord server.
 
     Returns:

@@ -18,7 +18,9 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
+
+from ruamel.yaml import YAML
 
 from unidep._conda_env import (
     create_conda_env_specification,
@@ -27,6 +29,7 @@ from unidep._conda_env import (
 from unidep._conda_lock import conda_lock_command
 from unidep._dependencies_parsing import (
     DependencyEntry,
+    _load,
     find_requirements_files,
     parse_local_dependencies,
     parse_requirements,
@@ -58,6 +61,8 @@ else:  # pragma: no cover
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from unidep.utils import PathWithExtras
+
 try:  # pragma: no cover
     from rich_argparse import RichHelpFormatter
 
@@ -82,6 +87,56 @@ def _flatten_selected_dependency_entries(
     for group_entries in optional_dependency_entries.values():
         entries.extend(group_entries)
     return entries
+
+
+def _collect_available_optional_dependency_groups(
+    found_files: list[Path],
+) -> list[str]:
+    # Inspect only the top-level files so local-only groups remain visible
+    # without traversing local dependencies.
+    yaml = YAML(typ="rt")
+    groups: set[str] = set()
+    for found_file in found_files:
+        groups.update(_load(found_file, yaml).get("optional_dependencies", {}))
+    return sorted(groups)
+
+
+def _merge_optional_dependency_extras(
+    *,
+    found_files: list[Path],
+    optional_dependencies: list[str],
+    all_optional_dependencies: bool,
+) -> list[list[str]] | Literal["*"] | None:
+    if all_optional_dependencies:
+        return "*"
+    if not optional_dependencies:
+        return None
+
+    available_groups = _collect_available_optional_dependency_groups(
+        found_files,
+    )
+    missing_groups = [
+        group_name
+        for group_name in dict.fromkeys(optional_dependencies)
+        if group_name not in available_groups
+    ]
+    if missing_groups:
+        missing = ", ".join(f"`{group_name}`" for group_name in missing_groups)
+        if available_groups:
+            available = ", ".join(f"`{group_name}`" for group_name in available_groups)
+            print(
+                "❌ Unknown optional dependency group(s): "
+                f"{missing}. Valid groups: {available}.",
+            )
+        else:
+            print(
+                "❌ Unknown optional dependency group(s): "
+                f"{missing}. No optional dependency groups were found.",
+            )
+        sys.exit(1)
+
+    selected_groups = list(dict.fromkeys(optional_dependencies))
+    return [selected_groups.copy() for _ in found_files]
 
 
 def _collect_selected_conda_like_platforms(
@@ -359,6 +414,21 @@ def _parse_args() -> argparse.Namespace:  # noqa: PLR0915
         help="The selector to use for the environment markers, if `sel` then"
         " `- numpy # [linux]` becomes `sel(linux): numpy`, if `comment` then"
         " it remains `- numpy # [linux]`, by default `sel`",
+    )
+    merge_optional_group = parser_merge.add_mutually_exclusive_group()
+    merge_optional_group.add_argument(
+        "--optional-dependencies",
+        nargs="+",
+        metavar="GROUP",
+        default=[],
+        help="Include the named optional dependency group(s) from the discovered"
+        " requirements files.",
+    )
+    merge_optional_group.add_argument(
+        "--all-optional-dependencies",
+        action="store_true",
+        help="Include all optional dependency groups from the discovered"
+        " requirements files.",
     )
     _add_common_args(
         parser_merge,
@@ -1051,7 +1121,59 @@ def _pip_install_local(
         subprocess.run(pip_command, check=True)
 
 
-def _install_command(  # noqa: C901, PLR0912, PLR0915
+def _collect_installable_local_paths(
+    paths_with_extras: Sequence[PathWithExtras],
+    *,
+    verbose: bool,
+) -> list[Path]:
+    installable: list[Path] = []
+    for file in paths_with_extras:
+        if is_pip_installable(file.path.parent):
+            installable.append(file.path.parent)
+        else:  # pragma: no cover
+            print(
+                f"⚠️  Project {file.path.parent} is not pip installable. "
+                "Could not find setup.py or [build-system] in pyproject.toml.",
+            )
+
+    local_dependencies = parse_local_dependencies(
+        *[p.path_with_extras for p in paths_with_extras],
+        check_pip_installable=True,
+        verbose=verbose,
+    )
+    names = {k.name: [dep.name for dep in v] for k, v in local_dependencies.items()}
+    print(f"📝 Found local dependencies: {names}\n")
+
+    installable_set = {p.resolve() for p in installable}
+    for deps in local_dependencies.values():
+        for dep in deps:
+            resolved_dep = dep.resolve()
+            if resolved_dep in installable_set:
+                continue
+            installable_set.add(resolved_dep)
+            installable.append(dep)
+
+    return installable
+
+
+def _conda_dependencies_with_required_pip(
+    conda_dependencies: Sequence[str | dict[str, str]],
+    *,
+    has_pip_dependencies: bool,
+    has_local_install_targets: bool,
+    skip_conda: bool,
+    conda_executable: CondaExecutable | None,
+) -> list[str]:
+    dependencies = cast("list[str]", list(conda_dependencies))
+    needs_pip = has_pip_dependencies or has_local_install_targets
+    if needs_pip and not skip_conda and conda_executable:
+        has_pip = any(parse_package_str(pkg).name == "pip" for pkg in dependencies)
+        if not has_pip:
+            dependencies.append("pip")
+    return dependencies
+
+
+def _install_command(  # noqa: PLR0912
     *files: Path,
     conda_executable: CondaExecutable | None,
     conda_env_name: str | None,
@@ -1109,7 +1231,20 @@ def _install_command(  # noqa: C901, PLR0912, PLR0915
         skip_pip = True
         skip_conda = True
 
-    if env_spec.conda and not skip_conda:
+    installable = (
+        _collect_installable_local_paths(paths_with_extras, verbose=verbose)
+        if not skip_local
+        else []
+    )
+    conda_dependencies = _conda_dependencies_with_required_pip(
+        env_spec.conda,
+        has_pip_dependencies=bool(env_spec.pip) and not skip_pip,
+        has_local_install_targets=bool(installable),
+        skip_conda=skip_conda,
+        conda_executable=conda_executable,
+    )
+
+    if conda_dependencies and not skip_conda:
         assert conda_executable is not None
         channel_args = ["--override-channels"] if env_spec.channels else []
         for channel in env_spec.channels:
@@ -1128,11 +1263,11 @@ def _install_command(  # noqa: C901, PLR0912, PLR0915
         ]
         # When running the command in terminal, we need to wrap the pin in quotes
         # so what we print is what the user would type (copy-paste).
-        to_print = [_format_inline_conda_package(pkg) for pkg in env_spec.conda]  # type: ignore[arg-type]
+        to_print = [_format_inline_conda_package(pkg) for pkg in conda_dependencies]
         conda_command_str = " ".join((*conda_command, *to_print))
-        print(f"📦 Installing conda dependencies with `{conda_command_str}`\n")  # type: ignore[arg-type]
+        print(f"📦 Installing conda dependencies with `{conda_command_str}`\n")
         if not dry_run:  # pragma: no cover
-            subprocess.run((*conda_command, *env_spec.conda), check=True)  # type: ignore[arg-type]
+            subprocess.run((*conda_command, *conda_dependencies), check=True)
     python_executable = _python_executable(
         conda_executable,
         conda_env_name,
@@ -1166,52 +1301,25 @@ def _install_command(  # noqa: C901, PLR0912, PLR0915
         if not dry_run:  # pragma: no cover
             subprocess.run(pip_command, check=True)
 
-    installable = []
-    if not skip_local:
-        for file in paths_with_extras:
-            if is_pip_installable(file.path.parent):
-                installable.append(file.path.parent)
-            else:  # pragma: no cover
-                print(
-                    f"⚠️  Project {file.path.parent} is not pip installable. "
-                    "Could not find setup.py or [build-system] in pyproject.toml.",
-                )
-
-        # Install local dependencies (if any) included via `local_dependencies:`
-        local_dependencies = parse_local_dependencies(
-            *[p.path_with_extras for p in paths_with_extras],
-            check_pip_installable=True,
-            verbose=verbose,
+    if installable:
+        pip_flags = ["--no-deps"]  # we just ran pip/conda install, so skip
+        if verbose:
+            pip_flags.append("--verbose")
+        conda_run = _maybe_conda_run(
+            conda_executable,
+            conda_env_name,
+            conda_env_prefix,
         )
-        names = {k.name: [dep.name for dep in v] for k, v in local_dependencies.items()}
-        print(f"📝 Found local dependencies: {names}\n")
-        installable_set = {p.resolve() for p in installable}
-        for deps in local_dependencies.values():
-            for dep in deps:
-                resolved_dep = dep.resolve()
-                if resolved_dep in installable_set:
-                    continue
-                installable_set.add(resolved_dep)
-                installable.append(dep)
-        if installable:
-            pip_flags = ["--no-deps"]  # we just ran pip/conda install, so skip
-            if verbose:
-                pip_flags.append("--verbose")
-            conda_run = _maybe_conda_run(
-                conda_executable,
-                conda_env_name,
-                conda_env_prefix,
-            )
-            _pip_install_local(
-                *sorted(installable),
-                editable=editable,
-                dry_run=dry_run,
-                python_executable=python_executable,
-                flags=pip_flags,
-                no_uv=no_uv,
-                pip_indices=env_spec.pip_indices,
-                conda_run=conda_run,
-            )
+        _pip_install_local(
+            *sorted(installable),
+            editable=editable,
+            dry_run=dry_run,
+            python_executable=python_executable,
+            flags=pip_flags,
+            no_uv=no_uv,
+            pip_indices=env_spec.pip_indices,
+            conda_run=conda_run,
+        )
 
     if not dry_run:  # pragma: no cover
         total_time = time.time() - start_time
@@ -1399,6 +1507,8 @@ def _merge_command(
     skip_dependencies: list[str],
     overwrite_pins: list[str],
     verbose: bool,
+    optional_dependencies: list[str] | None = None,
+    all_optional_dependencies: bool = False,
 ) -> None:  # pragma: no cover
     # When using stdout, suppress verbose output
     verbose = verbose and not stdout
@@ -1417,12 +1527,18 @@ def _merge_command(
             print(f"❌ No {_DEP_FILES} files found in {directory}")
             sys.exit(1)
 
+    extras = _merge_optional_dependency_extras(
+        found_files=found_files,
+        optional_dependencies=optional_dependencies or [],
+        all_optional_dependencies=all_optional_dependencies,
+    )
     requirements = parse_requirements(
         *found_files,
         ignore_pins=ignore_pins,
         overwrite_pins=overwrite_pins,
         skip_dependencies=skip_dependencies,
         verbose=verbose,
+        extras=extras,
     )
     env_entries = _flatten_selected_dependency_entries(
         requirements.dependency_entries,
@@ -1673,6 +1789,8 @@ def main() -> None:  # noqa: PLR0912
             stdout=args.stdout,
             selector=args.selector,
             platforms=args.platform,
+            optional_dependencies=args.optional_dependencies,
+            all_optional_dependencies=args.all_optional_dependencies,
             ignore_pins=args.ignore_pin,
             skip_dependencies=args.skip_dependency,
             overwrite_pins=args.overwrite_pin,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycrdt-websocket
-Version: 0.16.0
+Version: 0.16.1
 Summary: WebSocket connector for pycrdt
 Project-URL: Homepage, https://github.com/y-crdt/pycrdt-websocket
 Project-URL: Source, https://github.com/y-crdt/pycrdt-websocket
@@ -34,15 +34,15 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Requires-Dist: anyio<5,>=3.6.2
-Requires-Dist: pycrdt-store<0.2.0,>=0.1.0
-Requires-Dist: pycrdt<0.13.0,>=0.12.16
+Requires-Dist: pycrdt-store<0.2.0,>=0.1.4
+Requires-Dist: pycrdt<0.14.0,>=0.13.0
 Provides-Extra: django
 Requires-Dist: channels; extra == 'django'
 Description-Content-Type: text/markdown

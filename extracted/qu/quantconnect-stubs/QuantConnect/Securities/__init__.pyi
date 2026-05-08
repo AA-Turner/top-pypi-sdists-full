@@ -4968,7 +4968,7 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symb
     def set_account_currency(self, account_currency: str, starting_cash: typing.Optional[float] = None) -> None:
         """
         Sets the account currency cash symbol this algorithm is to manage, as well
-        as the starting cash in this currency if given
+        as the starting cash in this currency if given.
         
         :param account_currency: The account currency cash symbol to set
         :param starting_cash: The account currency starting cash to set

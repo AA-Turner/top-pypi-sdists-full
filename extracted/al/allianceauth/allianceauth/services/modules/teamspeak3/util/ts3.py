@@ -1,5 +1,6 @@
-import telnetlib
 import logging
+
+from telnetlib3 import telnetlib
 
 
 class ConnectionError:
@@ -7,7 +8,7 @@ class ConnectionError:
         self.ip = ip
         self.port = port
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Error connecting to host {self.ip} port {self.port}'
 
 
@@ -40,7 +41,7 @@ class TS3Proto:
         try:
             self._conn = telnetlib.Telnet(host=ip, port=port, timeout=5)
             self._connected = True
-        except:
+        except Exception:
             # raise ConnectionError(ip, port)
             raise
 
@@ -55,7 +56,7 @@ class TS3Proto:
             try:
                 self.send("quit")
                 self._conn.close()
-            except:
+            except Exception:
                 self._log.exception('Error while disconnecting')
             self._connected = False
             self._log.info('Disconnected')
@@ -69,7 +70,7 @@ class TS3Proto:
         self._conn.read_very_eager()
 
         # Send command
-        self.send('%s\n' % cmd)
+        self.send(f'{cmd}\n')
 
         data = []
 
@@ -130,7 +131,7 @@ class TS3Proto:
         # Add in options
         if opts:
             for opt in opts:
-                cstr.append("-%s" % opt)
+                cstr.append(f"-{opt}")
 
         return " ".join(cstr)
 
@@ -182,7 +183,7 @@ class TS3Proto:
         """
 
         if isinstance(value, int):
-            return "%d" % value
+            return f"{value}"
         value = value.replace("\\", r'\\')
         for i, j in ts3_escape.items():
             value = value.replace(i, j)
@@ -197,7 +198,7 @@ class TS3Proto:
         """
 
         if isinstance(value, int):
-            return "%d" % value
+            return f"{value}"
         value = value.replace(r"\\", "\\")
         for i, j in ts3_escape.items():
             value = value.replace(j, i)
@@ -205,7 +206,7 @@ class TS3Proto:
 
     def send(self, payload):
         if self._connected:
-            self._log.debug('Sent: %s' % payload)
+            self._log.debug(f'Sent: {payload}')
             self._conn.write(payload.encode('utf-8'))
 
 
@@ -269,7 +270,7 @@ class TeamspeakError(Exception):
             msg = ts3_errors[self.code]
         self.msg = msg
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.code + ' ' + self.msg
 
 ts3_errors = {

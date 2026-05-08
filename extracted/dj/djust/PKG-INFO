@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djust
-Version: 0.9.4
+Version: 0.9.5
 Classifier: Development Status :: 3 - Alpha
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2

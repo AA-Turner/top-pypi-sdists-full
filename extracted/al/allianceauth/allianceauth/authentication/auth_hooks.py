@@ -1,6 +1,7 @@
-from allianceauth.hooks import DashboardItemHook
 from allianceauth import hooks
-from .views import dashboard_characters, dashboard_esi_check, dashboard_groups, dashboard_admin
+from allianceauth.hooks import DashboardItemHook
+
+from .views import dashboard_admin, dashboard_characters, dashboard_esi_check, dashboard_groups
 
 
 class UserCharactersHook(DashboardItemHook):

@@ -1,11 +1,11 @@
 import logging
 from random import randint
 
+from aiopenapi3.errors import HTTPError
 from celery import shared_task
 
-from .models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 from . import providers
-
+from .models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 
 logger = logging.getLogger(__name__)
 
@@ -68,12 +68,15 @@ def run_model_update() -> None:
 @shared_task
 def update_character_chunk(character_ids_chunk: list):
     """Update a list of character from ESI"""
+    client = providers.open_api_provider.client
     try:
-        affiliations_raw = providers.provider.client.Character\
-            .post_characters_affiliation(characters=character_ids_chunk).result()
-        character_names = providers.provider.client.Universe\
-            .post_universe_names(ids=character_ids_chunk).result()
-    except OSError:
+        affiliations_raw = client.Character.PostCharactersAffiliation(
+            body=character_ids_chunk
+        ).result()
+        character_names = client.Universe.PostUniverseNames(
+            body=character_ids_chunk
+        ).result()
+    except HTTPError:
         logger.info("Failed to bulk update characters. Attempting single updates")
         for character_id in character_ids_chunk:
             update_character.apply_async(
@@ -83,18 +86,19 @@ def update_character_chunk(character_ids_chunk: list):
         return
 
     affiliations = {
-        affiliation.get('character_id'): affiliation
+        affiliation.character_id: affiliation
         for affiliation in affiliations_raw
     }
     # add character names to affiliations
     for character in character_names:
-        character_id = character.get('id')
+        character_id = character.id
         if character_id in affiliations:
-            affiliations[character_id]['name'] = character.get('name')
+            affiliations[character_id].name = character.name
 
     # fetch current characters
-    characters = EveCharacter.objects.filter(character_id__in=character_ids_chunk)\
-        .values('character_id', 'corporation_id', 'alliance_id', 'character_name')
+    characters = EveCharacter.objects.filter(
+        character_id__in=character_ids_chunk
+    ).values('character_id', 'corporation_id', 'alliance_id', 'character_name')
 
     for character in characters:
         character_id = character.get('character_id')
@@ -102,16 +106,16 @@ def update_character_chunk(character_ids_chunk: list):
             affiliation = affiliations[character_id]
 
             corp_changed = (
-                character.get('corporation_id') != affiliation.get('corporation_id')
+                character.get('corporation_id') != affiliation.corporation_id
             )
 
             alliance_id = character.get('alliance_id')
             if not alliance_id:
                 alliance_id = None
-            alliance_changed = alliance_id != affiliation.get('alliance_id')
+            alliance_changed = alliance_id != affiliation.alliance_id
 
             name_changed = False
-            fetched_name = affiliation.get('name', False)
+            fetched_name = affiliation.name
             if fetched_name:
                 name_changed = character.get('character_name') != fetched_name
 

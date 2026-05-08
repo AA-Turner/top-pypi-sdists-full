@@ -68,35 +68,3 @@ class TestDefaultDashboardWithSideMenu(TestCase):
         self.assertEqual(links["/dashboard/"], "Dashboard")
         self.assertEqual(links["/groups/"], "Groups")
         self.assertNotIn("http://www.example.com/alpha", links)
-
-
-class TestBS3DashboardWithSideMenu(TestCase):
-    def test_should_not_show_group_management_when_user_has_no_permission(self):
-        # given
-        user = create_user()
-        self.client.force_login(user)
-
-        # when
-        response = self.client.get("/dashboard_bs3/")
-
-        # then
-        self.assertEqual(response.status_code, HTTPStatus.OK)
-        links = extract_links(response)
-        self.assertEqual(links["/dashboard/"], "Dashboard")
-        self.assertEqual(links["/groups/"], "Groups")
-        self.assertNotIn("/groupmanagement/requests/", links)
-
-    def test_should_show_group_management_when_user_has_permission(self):
-        # given
-        user = create_user(permissions=["auth.group_management"])
-        self.client.force_login(user)
-
-        # when
-        response = self.client.get("/dashboard_bs3/")
-
-        # then
-        self.assertEqual(response.status_code, HTTPStatus.OK)
-        links = extract_links(response)
-        self.assertEqual(links["/dashboard/"], "Dashboard")
-        self.assertEqual(links["/groups/"], "Groups")
-        self.assertEqual(links["/groupmanagement/requests/"], "Group Management")

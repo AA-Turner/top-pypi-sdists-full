@@ -446,6 +446,21 @@ class GenerateMemoriesResponseGeneratedMemoryAction(_common.CaseInSensitiveEnum)
     """The memory was deleted."""
 
 
+class SkillState(_common.CaseInSensitiveEnum):
+    """State of the Skill."""
+
+    STATE_UNSPECIFIED = "STATE_UNSPECIFIED"
+    """The state of the Skill is unspecified."""
+    ACTIVE = "ACTIVE"
+    """The Skill is active."""
+    CREATING = "CREATING"
+    """The Skill is being created."""
+    FAILED = "FAILED"
+    """The Skill was created, but failed to process."""
+    DELETING = "DELETING"
+    """The Skill is being deleted."""
+
+
 class PromptOptimizerMethod(_common.CaseInSensitiveEnum):
     """The method for data driven prompt optimization."""
 
@@ -17792,6 +17807,399 @@ class _UpdateDatasetParametersDict(TypedDict, total=False):
 
 _UpdateDatasetParametersOrDict = Union[
     _UpdateDatasetParameters, _UpdateDatasetParametersDict
+]
+
+
+class GetSkillConfig(_common.BaseModel):
+    """Config for getting a skill."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetSkillConfigDict(TypedDict, total=False):
+    """Config for getting a skill."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+GetSkillConfigOrDict = Union[GetSkillConfig, GetSkillConfigDict]
+
+
+class _GetSkillRequestParameters(_common.BaseModel):
+    """Parameters for GetSkillRequest."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The resource name of the Skill to retrieve. Format: projects/{project}/locations/{location}/skills/{skill}""",
+    )
+    config: Optional[GetSkillConfig] = Field(default=None, description="""""")
+
+
+class _GetSkillRequestParametersDict(TypedDict, total=False):
+    """Parameters for GetSkillRequest."""
+
+    name: Optional[str]
+    """The resource name of the Skill to retrieve. Format: projects/{project}/locations/{location}/skills/{skill}"""
+
+    config: Optional[GetSkillConfigDict]
+    """"""
+
+
+_GetSkillRequestParametersOrDict = Union[
+    _GetSkillRequestParameters, _GetSkillRequestParametersDict
+]
+
+
+class Skill(_common.BaseModel):
+    """Represents a Skill resource.
+
+    Patches the type from the discovery document.
+    """
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Identifier. The resource name of the Skill. Format: `projects/{project}/locations/{location}/skills/{skill}`""",
+    )
+    create_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. Timestamp when this Skill was created.""",
+    )
+    update_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Output only. Timestamp when this Skill was most recently updated.""",
+    )
+    display_name: Optional[str] = Field(
+        default=None,
+        description="""Required. Provides the display name of the Skill. This should align with `name` in the `SKILL.md` file.""",
+    )
+    description: Optional[str] = Field(
+        default=None,
+        description="""Required. Describes the Skill. Should describe both what the skill does and when to use it. Should include specific keywords that help agents identify relevant tasks. This should align with `description` in the `SKILL.md` file.""",
+    )
+    license: Optional[str] = Field(
+        default=None,
+        description="""Optional. Specifies the license of the Skill. This should be an SPDX license identifier (e.g., "MIT", "Apache-2.0"). See https://spdx.org/licenses/. This should align with `license` in the `SKILL.md` file.""",
+    )
+    compatibility: Optional[str] = Field(
+        default=None,
+        description="""Optional. Specifies the compatibility of the Skill. Indicates environment requirements (intended product, system packages, network access, etc.). This should align with `compatibility` in the `SKILL.md` file.""",
+    )
+    zipped_filesystem: Optional[str] = Field(
+        default=None,
+        description="""Required. Provides the zipped filesystem of the Skill. This should contain the `SKILL.md` file at the root of the zip and optional directories for scripts, references, and assets. Directory should align with the directory structure specified at https://agentskills.io/specification#directory-structure.""",
+    )
+    state: Optional[SkillState] = Field(
+        default=None, description="""Output only. The state of the Skill."""
+    )
+
+
+class SkillDict(TypedDict, total=False):
+    """Represents a Skill resource.
+
+    Patches the type from the discovery document.
+    """
+
+    name: Optional[str]
+    """Identifier. The resource name of the Skill. Format: `projects/{project}/locations/{location}/skills/{skill}`"""
+
+    create_time: Optional[datetime.datetime]
+    """Output only. Timestamp when this Skill was created."""
+
+    update_time: Optional[datetime.datetime]
+    """Output only. Timestamp when this Skill was most recently updated."""
+
+    display_name: Optional[str]
+    """Required. Provides the display name of the Skill. This should align with `name` in the `SKILL.md` file."""
+
+    description: Optional[str]
+    """Required. Describes the Skill. Should describe both what the skill does and when to use it. Should include specific keywords that help agents identify relevant tasks. This should align with `description` in the `SKILL.md` file."""
+
+    license: Optional[str]
+    """Optional. Specifies the license of the Skill. This should be an SPDX license identifier (e.g., "MIT", "Apache-2.0"). See https://spdx.org/licenses/. This should align with `license` in the `SKILL.md` file."""
+
+    compatibility: Optional[str]
+    """Optional. Specifies the compatibility of the Skill. Indicates environment requirements (intended product, system packages, network access, etc.). This should align with `compatibility` in the `SKILL.md` file."""
+
+    zipped_filesystem: Optional[str]
+    """Required. Provides the zipped filesystem of the Skill. This should contain the `SKILL.md` file at the root of the zip and optional directories for scripts, references, and assets. Directory should align with the directory structure specified at https://agentskills.io/specification#directory-structure."""
+
+    state: Optional[SkillState]
+    """Output only. The state of the Skill."""
+
+
+SkillOrDict = Union[Skill, SkillDict]
+
+
+class RetrieveSkillsConfig(_common.BaseModel):
+    """Config for retrieving skills."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    top_k: Optional[int] = Field(
+        default=None,
+        description="""Optional. The maximum number of skills to return. The service may
+      return fewer than this value. If unspecified, at most 10 skills will be
+      returned. The maximum value is 100.
+      """,
+    )
+
+
+class RetrieveSkillsConfigDict(TypedDict, total=False):
+    """Config for retrieving skills."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    top_k: Optional[int]
+    """Optional. The maximum number of skills to return. The service may
+      return fewer than this value. If unspecified, at most 10 skills will be
+      returned. The maximum value is 100.
+      """
+
+
+RetrieveSkillsConfigOrDict = Union[RetrieveSkillsConfig, RetrieveSkillsConfigDict]
+
+
+class _RetrieveSkillsRequestParameters(_common.BaseModel):
+    """Parameters for retrieving skills."""
+
+    query: Optional[str] = Field(
+        default=None, description="""Required. The query to find matching skills."""
+    )
+    config: Optional[RetrieveSkillsConfig] = Field(default=None, description="""""")
+
+
+class _RetrieveSkillsRequestParametersDict(TypedDict, total=False):
+    """Parameters for retrieving skills."""
+
+    query: Optional[str]
+    """Required. The query to find matching skills."""
+
+    config: Optional[RetrieveSkillsConfigDict]
+    """"""
+
+
+_RetrieveSkillsRequestParametersOrDict = Union[
+    _RetrieveSkillsRequestParameters, _RetrieveSkillsRequestParametersDict
+]
+
+
+class RetrievedSkill(_common.BaseModel):
+    """A retrieved skill from semantic search."""
+
+    skill_name: Optional[str] = Field(
+        default=None, description="""The resource name of the skill."""
+    )
+    description: Optional[str] = Field(
+        default=None, description="""The description of the skill."""
+    )
+
+
+class RetrievedSkillDict(TypedDict, total=False):
+    """A retrieved skill from semantic search."""
+
+    skill_name: Optional[str]
+    """The resource name of the skill."""
+
+    description: Optional[str]
+    """The description of the skill."""
+
+
+RetrievedSkillOrDict = Union[RetrievedSkill, RetrievedSkillDict]
+
+
+class RetrieveSkillsResponse(_common.BaseModel):
+    """Response for retrieving skills."""
+
+    retrieved_skills: Optional[list[RetrievedSkill]] = Field(
+        default=None, description="""List of retrieved skills ranked by similarity."""
+    )
+
+
+class RetrieveSkillsResponseDict(TypedDict, total=False):
+    """Response for retrieving skills."""
+
+    retrieved_skills: Optional[list[RetrievedSkillDict]]
+    """List of retrieved skills ranked by similarity."""
+
+
+RetrieveSkillsResponseOrDict = Union[RetrieveSkillsResponse, RetrieveSkillsResponseDict]
+
+
+class CreateSkillConfig(_common.BaseModel):
+    """Config for creating a skill."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Whether to wait for the long running operation to complete.""",
+    )
+    local_path: Optional[str] = Field(
+        default=None,
+        description="""Optional. The local path to the directory containing the Skill to
+      be zipped and uploaded.
+      """,
+    )
+    zipped_filesystem: Optional[Any] = Field(
+        default=None, description="""Optional. The zipped filesystem of the Skill."""
+    )
+    skill_id: Optional[str] = Field(
+        default=None,
+        description="""Optional. The ID to use for the Skill, which will become the final
+      component of the Skill's resource name.
+      """,
+    )
+
+
+class CreateSkillConfigDict(TypedDict, total=False):
+    """Config for creating a skill."""
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    wait_for_completion: Optional[bool]
+    """Whether to wait for the long running operation to complete."""
+
+    local_path: Optional[str]
+    """Optional. The local path to the directory containing the Skill to
+      be zipped and uploaded.
+      """
+
+    zipped_filesystem: Optional[Any]
+    """Optional. The zipped filesystem of the Skill."""
+
+    skill_id: Optional[str]
+    """Optional. The ID to use for the Skill, which will become the final
+      component of the Skill's resource name.
+      """
+
+
+CreateSkillConfigOrDict = Union[CreateSkillConfig, CreateSkillConfigDict]
+
+
+class _CreateSkillRequestParameters(_common.BaseModel):
+    """Parameters for creating a skill."""
+
+    display_name: Optional[str] = Field(
+        default=None, description="""Required. The display name of the Skill."""
+    )
+    description: Optional[str] = Field(
+        default=None, description="""Required. The description of the Skill."""
+    )
+    config: Optional[CreateSkillConfig] = Field(default=None, description="""""")
+
+
+class _CreateSkillRequestParametersDict(TypedDict, total=False):
+    """Parameters for creating a skill."""
+
+    display_name: Optional[str]
+    """Required. The display name of the Skill."""
+
+    description: Optional[str]
+    """Required. The description of the Skill."""
+
+    config: Optional[CreateSkillConfigDict]
+    """"""
+
+
+_CreateSkillRequestParametersOrDict = Union[
+    _CreateSkillRequestParameters, _CreateSkillRequestParametersDict
+]
+
+
+class SkillOperation(_common.BaseModel):
+    """Operation that has a skill as a response."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`.""",
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any.""",
+    )
+    done: Optional[bool] = Field(
+        default=None,
+        description="""If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available.""",
+    )
+    error: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="""The error result of the operation in case of failure or cancellation.""",
+    )
+    response: Optional[Skill] = Field(
+        default=None, description="""The created Skill."""
+    )
+
+
+class SkillOperationDict(TypedDict, total=False):
+    """Operation that has a skill as a response."""
+
+    name: Optional[str]
+    """The server-assigned name, which is only unique within the same service that originally returns it. If you use the default HTTP mapping, the `name` should be a resource name ending with `operations/{unique_id}`."""
+
+    metadata: Optional[dict[str, Any]]
+    """Service-specific metadata associated with the operation. It typically contains progress information and common metadata such as create time. Some services might not provide such metadata.  Any method that returns a long-running operation should document the metadata type, if any."""
+
+    done: Optional[bool]
+    """If the value is `false`, it means the operation is still in progress. If `true`, the operation is completed, and either `error` or `response` is available."""
+
+    error: Optional[dict[str, Any]]
+    """The error result of the operation in case of failure or cancellation."""
+
+    response: Optional[SkillDict]
+    """The created Skill."""
+
+
+SkillOperationOrDict = Union[SkillOperation, SkillOperationDict]
+
+
+class GetSkillOperationConfig(_common.BaseModel):
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetSkillOperationConfigDict(TypedDict, total=False):
+
+    http_options: Optional[genai_types.HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+GetSkillOperationConfigOrDict = Union[
+    GetSkillOperationConfig, GetSkillOperationConfigDict
+]
+
+
+class _GetSkillOperationParameters(_common.BaseModel):
+    """Parameters for getting an operation."""
+
+    operation_name: Optional[str] = Field(
+        default=None, description="""The server-assigned name for the operation."""
+    )
+    config: Optional[GetSkillOperationConfig] = Field(
+        default=None, description="""Used to override the default configuration."""
+    )
+
+
+class _GetSkillOperationParametersDict(TypedDict, total=False):
+    """Parameters for getting an operation."""
+
+    operation_name: Optional[str]
+    """The server-assigned name for the operation."""
+
+    config: Optional[GetSkillOperationConfigDict]
+    """Used to override the default configuration."""
+
+
+_GetSkillOperationParametersOrDict = Union[
+    _GetSkillOperationParameters, _GetSkillOperationParametersDict
 ]
 
 

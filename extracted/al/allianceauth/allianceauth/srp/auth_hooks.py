@@ -9,7 +9,7 @@ from .managers import SRPManager
 
 
 class SrpMenu(MenuItemHook):
-    def __init__(self):
+    def __init__(self) -> None:
         MenuItemHook.__init__(
             self, _('Ship Replacement'),
             'fa-regular fa-money-bill-1',
@@ -17,7 +17,7 @@ class SrpMenu(MenuItemHook):
             navactive=['srp:']
         )
 
-    def render(self, request):
+    def render(self, request) -> str:
         if request.user.has_perm('srp.access_srp'):
             app_count = SRPManager.pending_requests_count_for_user(request.user)
             self.count = app_count if app_count and app_count > 0 else None
@@ -26,10 +26,10 @@ class SrpMenu(MenuItemHook):
 
 
 @hooks.register('menu_item_hook')
-def register_menu():
+def register_menu() -> SrpMenu:
     return SrpMenu()
 
 
 @hooks.register('url_hook')
-def register_url():
+def register_url() -> UrlHook:
     return UrlHook(urls, 'srp', r'^srp/')

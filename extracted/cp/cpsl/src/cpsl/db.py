@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import json
+import re
 from typing import TYPE_CHECKING
 
 from .constants import (
@@ -86,8 +87,85 @@ def _normalize_update(update: dict) -> dict:
 def _with_id_alias(doc: dict) -> dict:
     """Expose ``id`` as a convenience alias for ``_id`` on result docs."""
     if "_id" in doc and "id" not in doc:
-        doc["id"] = doc["_id"]
+        doc["id"] = _normalize_id(doc["_id"])
     return doc
+
+
+LOOKUP_OPS = {
+    "ne": "$ne",
+    "gt": "$gt",
+    "gte": "$gte",
+    "lt": "$lt",
+    "lte": "$lte",
+    "in": "$in",
+    "nin": "$nin",
+}
+
+
+def _mongo_field(field: str) -> str:
+    return "_id" if field == "id" else field
+
+
+def _normalize_id(value):
+    if isinstance(value, dict) and "$oid" in value:
+        return value["$oid"]
+    return value
+
+
+def _normalize_lookup_value(field: str, value):
+    if field != "_id":
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_normalize_id(v) for v in value]
+    return _normalize_id(value)
+
+
+def _regex_lookup(value: object, *, prefix: str = "", suffix: str = "") -> dict:
+    return {"$regex": prefix + re.escape(str(value)) + suffix, "$options": "i"}
+
+
+def compile_lookups(lookups: dict) -> dict:
+    """Compile Django-style keyword lookups to a Mongo filter document."""
+    compiled: dict = {}
+    for raw_key, value in lookups.items():
+        if raw_key.startswith("_"):
+            continue
+        parts = raw_key.split("__")
+        field = _mongo_field(parts[0])
+        op = parts[1] if len(parts) > 1 else "exact"
+        if len(parts) > 2:
+            raise ValueError(f"invalid lookup {raw_key!r}")
+
+        value = _normalize_lookup_value(field, value)
+        if op == "exact":
+            compiled[field] = value
+        elif op in LOOKUP_OPS:
+            compiled.setdefault(field, {})[LOOKUP_OPS[op]] = value
+        elif op == "contains":
+            compiled.setdefault(field, {}).update(_regex_lookup(value))
+        elif op == "startswith":
+            compiled.setdefault(field, {}).update(_regex_lookup(value, prefix="^"))
+        elif op == "endswith":
+            compiled.setdefault(field, {}).update(_regex_lookup(value, suffix="$"))
+        else:
+            raise ValueError(f"unsupported lookup operator {op!r}")
+    return compiled
+
+
+def _row_id(row_or_id) -> object:
+    if isinstance(row_or_id, dict):
+        return _normalize_id(row_or_id.get("_id") or row_or_id.get("id"))
+    return _normalize_id(row_or_id)
+
+
+def _ids_filter(rows_or_ids) -> dict:
+    if isinstance(rows_or_ids, (str, bytes)) or not hasattr(rows_or_ids, "__iter__"):
+        rows_or_ids = [rows_or_ids]
+    ids = [_row_id(v) for v in rows_or_ids]
+    ids = [v for v in ids if v]
+    if not ids:
+        raise ValueError("delete_rows requires at least one row id")
+    return {"_id": {"$in": ids}}
 
 
 def _scope_filter(scope: str, *, user_id: str = "", owner_id: str = "", session_id: str = "") -> dict[str, str]:
@@ -138,6 +216,117 @@ def _normalize_dynamic_columns(columns: list[str | Column | dict] | tuple[str | 
     return normalized
 
 
+class CollectionRow(dict):
+    """Dict-compatible row with Django-style persistence helpers."""
+
+    def __init__(self, data: dict, collection) -> None:
+        super().__init__(_with_id_alias(data))
+        self._collection = collection
+
+    @property
+    def id(self):
+        return self.get("id") or self.get("_id")
+
+    async def delete(self) -> dict:
+        if not self.id:
+            raise ValueError("row has no id")
+        return await self._collection.delete_rows([self.id])
+
+    async def update(self, patch: dict) -> dict:
+        if not self.id:
+            raise ValueError("row has no id")
+        result = await self._collection.update_one({"_id": self.id}, patch)
+        dict.update(self, patch)
+        return result
+
+
+class CollectionQuery:
+    """Lazy Django-style query object for a collection."""
+
+    def __init__(
+        self,
+        collection,
+        filter_doc: dict | None = None,
+        *,
+        limit_value: int = 0,
+        skip_value: int = 0,
+        sort_doc: dict | None = None,
+    ) -> None:
+        self._collection = collection
+        self._filter = filter_doc or {}
+        self._limit = limit_value
+        self._skip = skip_value
+        self._sort = sort_doc
+
+    def __await__(self):
+        return self.all().__await__()
+
+    def filter(self, **lookups) -> "CollectionQuery":
+        merged = dict(self._filter)
+        merged.update(compile_lookups(lookups))
+        return CollectionQuery(
+            self._collection,
+            merged,
+            limit_value=self._limit,
+            skip_value=self._skip,
+            sort_doc=self._sort,
+        )
+
+    def limit(self, n: int) -> "CollectionQuery":
+        return CollectionQuery(
+            self._collection,
+            self._filter,
+            limit_value=int(n),
+            skip_value=self._skip,
+            sort_doc=self._sort,
+        )
+
+    def offset(self, n: int) -> "CollectionQuery":
+        return CollectionQuery(
+            self._collection,
+            self._filter,
+            limit_value=self._limit,
+            skip_value=int(n),
+            sort_doc=self._sort,
+        )
+
+    def order_by(self, *fields: str) -> "CollectionQuery":
+        sort = {}
+        for field in fields:
+            if field.startswith("-"):
+                sort[_mongo_field(field[1:])] = -1
+            else:
+                sort[_mongo_field(field)] = 1
+        return CollectionQuery(
+            self._collection,
+            self._filter,
+            limit_value=self._limit,
+            skip_value=self._skip,
+            sort_doc=sort or None,
+        )
+
+    async def all(self) -> list[CollectionRow]:
+        return await self._collection.raw_filter(
+            self._filter,
+            limit=self._limit,
+            skip=self._skip,
+            sort=self._sort,
+        )
+
+    async def first(self) -> CollectionRow | None:
+        rows = await self.limit(1).all()
+        return rows[0] if rows else None
+
+    async def one(self) -> CollectionRow:
+        rows = await self.limit(2).all()
+        if len(rows) != 1:
+            raise ValueError(f"expected exactly one row, got {len(rows)}")
+        return rows[0]
+
+    async def delete(self) -> dict:
+        return await self._collection.delete_many(self._filter)
+
+
 class Collection:
     """Proxy for a single document collection."""
 
@@ -157,7 +346,7 @@ class Collection:
         )
         result = dict(document)
         result["_id"] = resp.id
-        return _with_id_alias(result)
+        return CollectionRow(result, self)
 
     async def insert_many(self, documents: list[dict]) -> list[dict]:
         from .clients.capsule import InsertManyRequest
@@ -170,10 +359,10 @@ class Collection:
         for doc, id_ in zip(documents, resp.ids):
             r = dict(doc)
             r["_id"] = id_
-            results.append(_with_id_alias(r))
+            results.append(CollectionRow(r, self))
         return results
 
-    async def find_one(self, filter: dict | None = None) -> dict | None:
+    async def raw_get(self, filter: dict | None = None) -> CollectionRow | None:
         from .clients.capsule import FindOneRequest
         filter_json = json.dumps(filter or {}).encode()
         resp = await asyncio.get_running_loop().run_in_executor(
@@ -182,10 +371,10 @@ class Collection:
         )
         if not resp.document_json:
             return None
-        return _with_id_alias(json.loads(resp.document_json))
+        return CollectionRow(json.loads(resp.document_json), self)
 
-    async def find(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
-                   sort: dict | None = None) -> list[dict]:
+    async def raw_filter(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
+                         sort: dict | None = None) -> list[CollectionRow]:
         from .clients.capsule import FindRequest
         filter_json = json.dumps(filter or {}).encode()
         sort_json = json.dumps(sort or {}).encode() if sort else b''
@@ -200,7 +389,23 @@ class Collection:
                 sort_json=sort_json,
             ),
         )
-        return [_with_id_alias(json.loads(d)) for d in resp.documents_json]
+        return [CollectionRow(json.loads(d), self) for d in resp.documents_json]
+
+    async def find_one(self, filter: dict | None = None) -> CollectionRow | None:
+        return await self.raw_get(filter)
+
+    async def find(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
+                   sort: dict | None = None) -> list[CollectionRow]:
+        return await self.raw_filter(filter=filter, limit=limit, skip=skip, sort=sort)
+
+    def all(self) -> CollectionQuery:
+        return CollectionQuery(self)
+
+    def filter(self, **lookups) -> CollectionQuery:
+        return CollectionQuery(self, compile_lookups(lookups))
+
+    async def get(self, **lookups) -> CollectionRow | None:
+        return await self.filter(**lookups).first()
 
     async def update_one(self, filter: dict, update: dict, *, upsert: bool = False) -> dict:
         """Patch fields on a single document.
@@ -237,6 +442,18 @@ class Collection:
             DeleteOneRequest(app_id=self._app_id, collection=self._name, filter_json=filter_json),
         )
         return {"deleted": resp.deleted}
+
+    async def delete_many(self, filter: dict) -> dict:
+        from .clients.capsule import DeleteManyRequest
+        filter_json = json.dumps(filter).encode()
+        resp = await asyncio.get_running_loop().run_in_executor(
+            None, self._stub.delete_many,
+            DeleteManyRequest(app_id=self._app_id, collection=self._name, filter_json=filter_json),
+        )
+        return {"deleted": resp.deleted}
+
+    async def delete_rows(self, rows_or_ids) -> dict:
+        return await self.delete_many(_ids_filter(rows_or_ids))
 
     async def count(self, filter: dict | None = None) -> int:
         from .clients.capsule import CountRequest
@@ -401,11 +618,33 @@ class DynamicCollection:
                    sort: dict | None = None) -> list[dict]:
         return await self._collection.find(filter=filter, limit=limit, skip=skip, sort=sort)
 
+    async def raw_get(self, filter: dict | None = None) -> CollectionRow | None:
+        return await self._collection.find_one(filter)
+
+    async def raw_filter(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
+                         sort: dict | None = None) -> list[CollectionRow]:
+        return await self._collection.find(filter=filter, limit=limit, skip=skip, sort=sort)
+
+    def all(self) -> CollectionQuery:
+        return CollectionQuery(self)
+
+    def filter(self, **lookups) -> CollectionQuery:
+        return CollectionQuery(self, compile_lookups(lookups))
+
+    async def get(self, **lookups) -> CollectionRow | None:
+        return await self.filter(**lookups).first()
+
     async def update_one(self, filter: dict, update: dict, *, upsert: bool = False) -> dict:
         return await self._collection.update_one(filter, update, upsert=upsert)
 
     async def delete_one(self, filter: dict) -> dict:
         return await self._collection.delete_one(filter)
+
+    async def delete_many(self, filter: dict) -> dict:
+        return await self._collection.delete_many(filter)
+
+    async def delete_rows(self, rows_or_ids) -> dict:
+        return await self.delete_many(_ids_filter(rows_or_ids))
 
     async def count(self, filter: dict | None = None) -> int:
         return await self._collection.count(filter)
@@ -611,18 +850,40 @@ class CollectionRef:
     async def insert_many(self, documents: list[dict]) -> list[dict]:
         return await self._resolve().insert_many(documents)
 
-    async def find_one(self, filter: dict | None = None) -> dict | None:
+    async def raw_get(self, filter: dict | None = None) -> CollectionRow | None:
         return await self._resolve().find_one(filter)
 
-    async def find(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
-                   sort: dict | None = None) -> list[dict]:
+    async def find_one(self, filter: dict | None = None) -> CollectionRow | None:
+        return await self.raw_get(filter)
+
+    async def raw_filter(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
+                         sort: dict | None = None) -> list[CollectionRow]:
         return await self._resolve().find(filter=filter, limit=limit, skip=skip, sort=sort)
+
+    async def find(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
+                   sort: dict | None = None) -> list[CollectionRow]:
+        return await self.raw_filter(filter=filter, limit=limit, skip=skip, sort=sort)
+
+    def all(self) -> CollectionQuery:
+        return CollectionQuery(self)
+
+    def filter(self, **lookups) -> CollectionQuery:
+        return CollectionQuery(self, compile_lookups(lookups))
+
+    async def get(self, **lookups) -> CollectionRow | None:
+        return await self.filter(**lookups).first()
 
     async def update_one(self, filter: dict, update: dict) -> dict:
         return await self._resolve().update_one(filter, update)
 
     async def delete_one(self, filter: dict) -> dict:
         return await self._resolve().delete_one(filter)
+
+    async def delete_many(self, filter: dict) -> dict:
+        return await self._resolve().delete_many(filter)
+
+    async def delete_rows(self, rows_or_ids) -> dict:
+        return await self.delete_many(_ids_filter(rows_or_ids))
 
     async def count(self, filter: dict | None = None) -> int:
         return await self._resolve().count(filter)
@@ -665,24 +926,50 @@ class ScopedCollection:
 
     async def insert_one(self, document: dict) -> dict:
         doc = {**self._scope_filter, **document}
-        return await self._inner.insert_one(doc)
+        row = await self._inner.insert_one(doc)
+        return CollectionRow(dict(row), self)
 
     async def insert_many(self, documents: list[dict]) -> list[dict]:
         docs = [{**self._scope_filter, **d} for d in documents]
-        return await self._inner.insert_many(docs)
+        rows = await self._inner.insert_many(docs)
+        return [CollectionRow(dict(row), self) for row in rows]
 
-    async def find_one(self, filter: dict | None = None) -> dict | None:
-        return await self._inner.find_one(self._merge(filter))
+    async def raw_get(self, filter: dict | None = None) -> CollectionRow | None:
+        row = await self._inner.find_one(self._merge(filter))
+        return CollectionRow(dict(row), self) if row else None
+
+    async def find_one(self, filter: dict | None = None) -> CollectionRow | None:
+        return await self.raw_get(filter)
+
+    async def raw_filter(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
+                         sort: dict | None = None) -> list[CollectionRow]:
+        rows = await self._inner.find(filter=self._merge(filter), limit=limit, skip=skip, sort=sort)
+        return [CollectionRow(dict(row), self) for row in rows]
 
     async def find(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
-                   sort: dict | None = None) -> list[dict]:
-        return await self._inner.find(filter=self._merge(filter), limit=limit, skip=skip, sort=sort)
+                   sort: dict | None = None) -> list[CollectionRow]:
+        return await self.raw_filter(filter=filter, limit=limit, skip=skip, sort=sort)
+
+    def all(self) -> CollectionQuery:
+        return CollectionQuery(self)
+
+    def filter(self, **lookups) -> CollectionQuery:
+        return CollectionQuery(self, compile_lookups(lookups))
+
+    async def get(self, **lookups) -> CollectionRow | None:
+        return await self.filter(**lookups).first()
 
     async def update_one(self, filter: dict, update: dict, *, upsert: bool = False) -> dict:
         return await self._inner.update_one(self._merge(filter), update, upsert=upsert)
 
     async def delete_one(self, filter: dict) -> dict:
         return await self._inner.delete_one(self._merge(filter))
+
+    async def delete_many(self, filter: dict) -> dict:
+        return await self._inner.delete_many(self._merge(filter))
+
+    async def delete_rows(self, rows_or_ids) -> dict:
+        return await self.delete_many(_ids_filter(rows_or_ids))
 
     async def count(self, filter: dict | None = None) -> int:
         return await self._inner.count(self._merge(filter))

@@ -24,7 +24,6 @@ which is used to render the complete menu.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 from django import template
 from django.db.models import QuerySet
@@ -56,8 +55,8 @@ class RenderedMenuItem:
 
     menu_item: MenuItem
 
-    children: List["RenderedMenuItem"] = field(default_factory=list)
-    count: Optional[int] = None
+    children: list["RenderedMenuItem"] = field(default_factory=list)
+    count: int | None = None
     html: str = ""
     html_id: str = ""
 
@@ -78,7 +77,7 @@ class RenderedMenuItem:
         self.html_id = hook_obj.html_id
 
 
-def render_menu(request: HttpRequest) -> List[RenderedMenuItem]:
+def render_menu(request: HttpRequest) -> list[RenderedMenuItem]:
     """Return the rendered side menu for including in a template.
 
     This function is creating BS5 style menus.
@@ -88,7 +87,7 @@ def render_menu(request: HttpRequest) -> List[RenderedMenuItem]:
     # Menu items needs to be rendered with the new BS5 template
     bs5_template = "menu/menu-item-bs5.html"
 
-    rendered_items: Dict[int, RenderedMenuItem] = {}
+    rendered_items: dict[int, RenderedMenuItem] = {}
     menu_items: QuerySet[MenuItem] = MenuItem.objects.order_by(
         "parent", "order", "text"
     )
@@ -131,7 +130,7 @@ def render_menu(request: HttpRequest) -> List[RenderedMenuItem]:
     return list(rendered_items.values())
 
 
-def _gather_menu_items_from_hooks() -> Dict[str, MenuItemHook]:
+def _gather_menu_items_from_hooks() -> dict[str, MenuItemHook]:
     hook_items = {}
     for hook in get_hooks("menu_item_hook"):
         f = hook()
@@ -161,14 +160,14 @@ def _render_link_item(
 
 
 def _render_folder_items(
-    request: HttpRequest, rendered_items: Dict[int, RenderedMenuItem], new_template: str
+    request: HttpRequest, rendered_items: dict[int, RenderedMenuItem], new_template: str
 ):
     for item in rendered_items.values():
         if item.menu_item.is_folder:
             item.update_html(request=request, template=new_template)
 
 
-def _remove_empty_folders(rendered_items: Dict[int, RenderedMenuItem]):
+def _remove_empty_folders(rendered_items: dict[int, RenderedMenuItem]):
     ids_to_remove = []
     for item_id, item in rendered_items.items():
         if item.is_folder and not item.children:

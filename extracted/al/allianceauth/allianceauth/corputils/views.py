@@ -1,23 +1,20 @@
-import os
-
-from bravado.exception import HTTPError
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
-from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
+from django.contrib.auth.decorators import (
+    login_required, permission_required, user_passes_test,
+)
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.db import IntegrityError
-from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext_lazy as _
+
 from esi.decorators import token_required
+from esi.exceptions import HTTPClientError, HTTPServerError
+
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
 
-from .models import CorpStats, CorpMember
-
-SWAGGER_SPEC_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'swagger.json')
-"""
-Swagger spec operations:
-
-get_characters_character_id
-"""
+from .models import CorpMember, CorpStats
+from .providers import get_characters_character_id
 
 
 def access_corpstats_test(user):
@@ -30,22 +27,20 @@ def access_corpstats_test(user):
 @user_passes_test(access_corpstats_test)
 @permission_required('corputils.add_corpstats')
 @token_required(scopes='esi-corporations.read_corporation_membership.v1')
-def corpstats_add(request, token):
+def corpstats_add(request, token) -> HttpResponseRedirect:
     try:
         if EveCharacter.objects.filter(character_id=token.character_id).exists():
             corp_id = EveCharacter.objects.get(character_id=token.character_id).corporation_id
         else:
-            corp_id = \
-                token.get_esi_client(spec_file=SWAGGER_SPEC_PATH).Character.get_characters_character_id(
-                    character_id=token.character_id).result()['corporation_id']
+            corp_id = get_characters_character_id(token.character_id).corporation_id
         try:
             corp = EveCorporationInfo.objects.get(corporation_id=corp_id)
         except EveCorporationInfo.DoesNotExist:
-            corp = EveCorporationInfo.objects.create_corporation(corp_id)
+            corp = EveCorporationInfo.objects.create_corporation(corp_id=corp_id, use_etag=False)
         cs = CorpStats.objects.create(token=token, corp=corp)
         try:
             cs.update()
-        except HTTPError as e:
+        except (HTTPClientError, HTTPServerError) as e:
             messages.error(request, str(e))
         assert cs.pk  # ensure update was successful
         if CorpStats.objects.filter(pk=cs.pk).visible_to(request.user).exists():
@@ -146,7 +141,7 @@ def corpstats_update(request, corp_id):
     corpstats = get_object_or_404(CorpStats, corp=corp)
     try:
         corpstats.update()
-    except HTTPError as e:
+    except HTTPClientError as e:
         messages.error(request, str(e))
     if corpstats.pk:
         return redirect('corputils:view_corp', corp_id=corp.corporation_id)

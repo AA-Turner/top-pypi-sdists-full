@@ -39,12 +39,25 @@ def upload_extracted_activations(activations_file: str, model: str, task: str) -
         return
     hf_strategy = (f"{strategy}/{component}"
                     if component != "residual_stream" else strategy)
-    staging = tempfile.mkdtemp(prefix="wisent_act_staging_")
+    # Cross-job batched upload: if WISENT_FLEET_STAGING_DIR is set (the agent's
+    # persistent shared staging dir), write shards there and DO NOT call
+    # flush_staging_dir — the agent flushes the entire dir periodically across
+    # ALL completed jobs as one HF commit. Reduces commit rate from 7-per-job
+    # to 1-per-fleet-flush-interval, fitting comfortably under HF's
+    # 1000-req/5min ceiling regardless of job throughput.
+    fleet_staging = os.environ.get("WISENT_FLEET_STAGING_DIR", "").strip()
+    if fleet_staging:
+        os.makedirs(fleet_staging, exist_ok=True)
+        staging = fleet_staging
+        owns_staging = False
+    else:
+        staging = tempfile.mkdtemp(prefix="wisent_act_staging_")
+        owns_staging = True
     try:
         any_layer_staged = False
         for layer in layers:
             layer_str = str(layer)
-            pos_list, neg_list, pair_ids = [], [], []
+            pos_list, neg_list, pair_ids, stable_ids = [], [], [], []
             for idx, pair in enumerate(pairs):
                 pos_act = (pair.get("positive_response", {})
                            .get("layers_activations", {}).get(layer_str))
@@ -54,6 +67,24 @@ def upload_extracted_activations(activations_file: str, model: str, task: str) -
                     pos_list.append(torch.tensor(pos_act))
                     neg_list.append(torch.tensor(neg_act))
                     pair_ids.append(idx)
+                    # stable_id propagated from pair_texts (wisent 0.11.30+).
+                    # Falls back to a hash recomputation here so older caches
+                    # that lack the field still work, deterministic across
+                    # re-runs of the same content.
+                    sid = pair.get("stable_id", "")
+                    if not sid:
+                        import hashlib
+                        prompt = pair.get("prompt","") or ""
+                        pos_text = (pair.get("positive_response",{})
+                                    .get("text") or pair.get("positive_response",{})
+                                    .get("model_response") or "")
+                        neg_text = (pair.get("negative_response",{})
+                                    .get("text") or pair.get("negative_response",{})
+                                    .get("model_response") or "")
+                        sid = hashlib.sha256(
+                            (prompt + "\x1f" + pos_text + "\x1f" + neg_text).encode("utf-8")
+                        ).hexdigest()[:16]
+                    stable_ids.append(sid)
             if not pos_list:
                 continue
             upload_activation_shard(
@@ -62,13 +93,15 @@ def upload_extracted_activations(activations_file: str, model: str, task: str) -
                 pos_activations=torch.stack(pos_list),
                 neg_activations=torch.stack(neg_list),
                 pair_ids=pair_ids,
+                stable_ids=stable_ids,
                 staging_dir=staging,
             )
             any_layer_staged = True
-        if any_layer_staged:
+        if any_layer_staged and owns_staging:
             flush_staging_dir(staging)
     finally:
-        shutil.rmtree(staging, ignore_errors=True)
+        if owns_staging:
+            shutil.rmtree(staging, ignore_errors=True)
 
 
 def upload_trial(

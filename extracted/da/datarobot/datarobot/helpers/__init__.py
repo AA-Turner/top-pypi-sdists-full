@@ -223,6 +223,8 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         The maximum is 10.
     feature_engineering_prediction_point: Optional[str] = None
         (New in version v3.7) The date column to be used as the prediction point for time-based feature engineering.
+    custom_metrics_losses_info: Optional[dict] = None
+        (New in version 3.14) Information about custom metrics and losses - such as metadata Mongo ID.
 
     Examples
     --------
@@ -293,6 +295,7 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         chunk_definition_id: Optional[str] = None,
         incremental_learning_early_stopping_rounds: Optional[int] = None,
         feature_engineering_prediction_point: Optional[str] = None,
+        custom_metrics_losses_info: Optional[Dict[str, str]] = None,
     ) -> None:
         if scaleout_modeling_mode:
             deprecation_warning(
@@ -383,6 +386,7 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         )
         self.chunk_definition_id = chunk_definition_id
         self.incremental_learning_early_stopping_rounds = incremental_learning_early_stopping_rounds
+        self.custom_metrics_losses_info = custom_metrics_losses_info
         attributes = {
             k: v for k, v in self.__dict__.items() if not k.startswith("__") and not callable(getattr(self, k))
         }
@@ -453,8 +457,9 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
 See `datarobot.helpers.AdvancedOptions` for all available advanced options."
                 )
 
-    def collect_payload(self) -> Dict[str, Any]:  # pylint: disable=missing-function-docstring
-        payload = dict(
+    def collect_payload(self) -> Dict[str, Union[Any, Dict[str, str]]]:
+        """a helper to collect data for payload"""
+        payload: Dict[str, Union[Any, Dict[str, str]]] = dict(
             weights=self.weights,
             response_cap=self.response_cap,
             blueprint_threshold=self.blueprint_threshold,
@@ -474,7 +479,7 @@ See `datarobot.helpers.AdvancedOptions` for all available advanced options."
         # Some of the optional parameters are incompatible with the others.
         # Api will return 422 if both parameters are present.
         sfd = self.feature_discovery_supervised_feature_reduction
-        optional = dict(
+        optional: Dict[str, Union[Any, Dict[str, str]]] = dict(
             smart_downsampled=self.smart_downsampled,
             blend_best_models=self.blend_best_models,
             scoring_code_only=self.scoring_code_only,
@@ -511,6 +516,7 @@ See `datarobot.helpers.AdvancedOptions` for all available advanced options."
             chunk_definition_id=self.chunk_definition_id,
             incremental_learning_early_stopping_rounds=self.incremental_learning_early_stopping_rounds,
             feature_engineering_prediction_point=self.feature_engineering_prediction_point,
+            custom_metrics_losses_info=self.custom_metrics_losses_info,
         )
 
         payload.update({k: v for k, v in optional.items() if v is not None})

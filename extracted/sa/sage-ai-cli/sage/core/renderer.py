@@ -2609,7 +2609,10 @@ def print_agent_welcome(model_id: str, cwd: str, *, is_local: bool = False) -> N
                 f"[#8bb8ff]Commands[/#8bb8ff]  /help  /models  /model  /autoorg  /think  /test  /read  /files  /compact  /undo  /status  /clear  /exit\n"
                 f'[#8bb8ff]Shell[/#8bb8ff]     !<command>    [#8bb8ff]Multi-line[/#8bb8ff] """..."""\n'
                 f"[#8bb8ff]Models[/#8bb8ff]    sage pull --list    sage pull <name>\n"
-                f"[#8bb8ff]Update[/#8bb8ff]    sage update"
+                f"[#8bb8ff]Update[/#8bb8ff]    sage update\n"
+                f"\n"
+                f"[dim italic]⚠ SAGE can make mistakes. "
+                f"Double-check important responses, commands, and file edits.[/dim italic]"
             ),
             border_style="#6ea4ff",
             padding=(0, 2),
@@ -2654,6 +2657,8 @@ def print_agent_help() -> None:
         "  [dim]-v / --verbose                 Same as --output verbose[/dim]\n"
         "  [dim]--no-color                     Disable ANSI colors[/dim]\n"
         "  [dim]--auto-run                     Skip bash execution prompts[/dim]\n"
+        "\n[dim italic]⚠ SAGE can make mistakes. "
+        "Double-check important responses, commands, and file edits.[/dim italic]\n"
     )
     console.print(Panel(help_text, title="SAGE Code Help", border_style="#6ea4ff"))
 

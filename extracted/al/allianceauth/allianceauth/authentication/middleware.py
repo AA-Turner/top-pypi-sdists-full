@@ -1,7 +1,7 @@
+import logging
+
 from django.conf import settings
 from django.utils.deprecation import MiddlewareMixin
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class UserSettingsMiddleware(MiddlewareMixin):
 
             # AA v4 Themes
             # Null = has not been set by the user ever, dont act
-            # DEFAULT_THEME or DEFAULT_THEME_DARK will be used in get_theme()
+            # DEFAULT_THEME will be used in get_theme()
             try:
                 if request.user.profile.theme is not None:
                     request.session["THEME"] = request.user.profile.theme

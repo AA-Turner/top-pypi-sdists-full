@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pathlib
 from abc import ABC
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
 import autograd.numpy as anp
 import h5py
@@ -37,7 +37,6 @@ from tidy3d.exceptions import DataError, FileError, format_chained_exception_mes
 if TYPE_CHECKING:
     from collections.abc import Hashable, Mapping
     from os import PathLike
-    from typing import Optional
 
     from numpy.typing import NDArray
     from pydantic.annotated_handlers import GetCoreSchemaHandler
@@ -46,7 +45,7 @@ if TYPE_CHECKING:
 
     from tidy3d.components.autograd import InterpolationType
     from tidy3d.components.grid.grid import Coords
-    from tidy3d.components.types import Axis, Bound
+    from tidy3d.components.types import Axis, Bound, BoundOptional
     from tidy3d.components.types.base import Coordinate
 
 # maps the dimension names to their attributes
@@ -244,7 +243,7 @@ class DataArray(xr.DataArray):
             coord_attrs.update(missing)
         return val
 
-    def _interp_validator(self, field_name: Optional[str] = None) -> None:
+    def _interp_validator(self, field_name: str | None = None) -> None:
         """Ensure the data can be interpolated or selected by checking for duplicate coordinates.
 
         NOTE
@@ -318,7 +317,7 @@ class DataArray(xr.DataArray):
         raw_data = self.data.ravel()
         return np.allclose(raw_data, raw_data[0])
 
-    def to_hdf5(self, fname: Union[PathLike, h5py.File], group_path: str) -> None:
+    def to_hdf5(self, fname: PathLike | h5py.File, group_path: str) -> None:
         """Save an ``xr.DataArray`` to the hdf5 file or file handle with a given path to the group."""
         if isinstance(fname, (str, pathlib.Path)):
             path = pathlib.Path(fname)
@@ -351,7 +350,7 @@ class DataArray(xr.DataArray):
         return cls(values, coords=coords, dims=cls._dims)
 
     @classmethod
-    def from_hdf5(cls, fname: Union[PathLike, h5py.File], group_path: str) -> Self:
+    def from_hdf5(cls, fname: PathLike | h5py.File, group_path: str) -> Self:
         """Load a DataArray from an hdf5 file or open file handle with a given group path."""
         if isinstance(fname, h5py.File):
             return cls._from_hdf5_handle(f_handle=fname, group_path=group_path)
@@ -435,10 +434,10 @@ class DataArray(xr.DataArray):
 
     def _ag_interp(
         self,
-        coords: Union[Mapping[Any, Any], None] = None,
+        coords: Mapping[Any, Any] | None = None,
         method: InterpOptions = "linear",
         assume_sorted: bool = False,
-        kwargs: Union[Mapping[str, Any], None] = None,
+        kwargs: Mapping[str, Any] | None = None,
         **coords_kwargs: Any,
     ) -> Self:
         """Autograd interp override when tracing over self.data.
@@ -876,9 +875,9 @@ class AbstractSpatialDataArray(DataArray, ABC):
         self,
         grid: Coords,
         *,
-        offset: Optional[Coordinate] = None,
+        offset: Coordinate | None = None,
         method: InterpOptions = "linear",
-        target_dims: Optional[tuple[str, ...]] = None,
+        target_dims: tuple[str, ...] | None = None,
     ) -> Self:
         """Interpolate onto a target grid, with optional spatial offset and output ordering."""
         if offset is None:
@@ -888,6 +887,98 @@ class AbstractSpatialDataArray(DataArray, ABC):
         if target_dims is not None and tuple(interpolated.dims) != tuple(target_dims):
             interpolated = interpolated.transpose(*target_dims)
         return interpolated
+
+    def interp_within_domain(
+        self,
+        interp_coords: dict,
+        clip_bounds: BoundOptional,
+        assume_sorted: bool = False,
+    ) -> Self:
+        """Interpolate to ``interp_coords``, clipping source data to ``clip_bounds``.
+
+        This is a bounds-aware variant of :meth:`interp` that:
+
+        1. **Clips** the source data to ``clip_bounds``, keeping only data
+           points whose coordinates lie on or within the bounds.
+        2. **Clamps** all target coordinates to the clipped data range,
+           so any target outside that range receives the nearest edge value.
+        3. **Interpolates** on the clipped data using the clamped
+           coordinates.
+        4. **Zeros** the result at target coordinates that are strictly
+           outside ``clip_bounds``.
+
+        These steps allow for regular interpolation for strictly interior points,
+        while points on the ``clip_bounds`` effectively choose the nearest value from the
+        source data, and points strictly outside the bounds are set to 0.
+
+        Each of the six bounds (min/max for x/y/z) is independently
+        optional.  A ``None`` value leaves that side unclipped.
+
+        Parameters
+        ----------
+        interp_coords : dict
+            Target interpolation coordinates, keyed by dimension name
+            (``"x"``, ``"y"``, ``"z"``).
+        clip_bounds : BoundOptional
+            ``(min_tuple, max_tuple)`` where each element is a 3-tuple of
+            ``Optional[float]``.  Axes set to ``None`` are not clipped.
+        assume_sorted : bool = False
+            If True, skip sorting of coordinates.
+
+        Returns
+        -------
+        Self
+            Interpolated data with coordinates matching ``interp_coords``.
+            Values outside ``clip_bounds`` are zero.
+        """
+        bound_min, bound_max = clip_bounds
+
+        # Build clip selector from bounds
+        clip_sel = {}
+        for dim in interp_coords:
+            ax = "xyz".index(dim)
+            lo = bound_min[ax]
+            hi = bound_max[ax]
+            if lo is not None or hi is not None:
+                clip_sel[dim] = slice(lo, hi)
+
+        clipped = self.sel(clip_sel) if clip_sel else self
+
+        # Clamp target coordinates to clipped data range
+        # Emulates picking nearest source data for edge values
+        clamped = {
+            dim: np.clip(
+                vals,
+                float(clipped.coords[dim][0]),
+                float(clipped.coords[dim][-1]),
+            )
+            for dim, vals in interp_coords.items()
+        }
+
+        result = clipped.interp(**clamped, assume_sorted=assume_sorted)
+        # Assign the result coordinates back to the original interpolation points.
+        result = result.assign_coords(interp_coords)
+
+        # Zero out values at coordinates strictly outside the clip bounds.
+        # Clamping mapped these to edge values, but they should be zero.
+        for dim, vals in interp_coords.items():
+            ax = "xyz".index(dim)
+            lo = bound_min[ax]
+            hi = bound_max[ax]
+            if lo is None and hi is None:
+                continue
+            mask = np.zeros(len(vals), dtype=bool)
+            if lo is not None:
+                mask |= np.asarray(vals) < lo
+            if hi is not None:
+                mask |= np.asarray(vals) > hi
+            if np.any(mask):
+                axis_num = result.get_axis_num(dim)
+                shape = [1] * result.ndim
+                shape[axis_num] = -1
+                result.values = np.where(mask.reshape(shape), 0, result.values)
+
+        return result
 
     def sel_inside(self, bounds: Bound, *, include_interp_padding: bool = True) -> Self:
         """Return a new SpatialDataArray that contains the minimal amount data necessary to cover
@@ -2263,48 +2354,48 @@ DATA_ARRAY_TYPES = [
 
 DATA_ARRAY_MAP = {data_array.__name__: data_array for data_array in DATA_ARRAY_TYPES}
 
-IndexedDataArrayTypes = Union[
-    IndexedDataArray,
-    IndexedVoltageDataArray,
-    IndexedSurfaceFieldDataArray,
-    IndexedSurfaceFieldTimeDataArray,
-    IndexedFieldDataArray,
-    IndexedFieldTimeDataArray,
-    IndexedFreqDataArray,
-    IndexedTimeDataArray,
-    IndexedFieldVoltageDataArray,
-    IndexedSurfaceFreqDataArray,
-    IndexedSurfaceTimeDataArray,
-    PointDataArray,
-]
+IndexedDataArrayTypes = (
+    IndexedDataArray
+    | IndexedVoltageDataArray
+    | IndexedSurfaceFieldDataArray
+    | IndexedSurfaceFieldTimeDataArray
+    | IndexedFieldDataArray
+    | IndexedFieldTimeDataArray
+    | IndexedFreqDataArray
+    | IndexedTimeDataArray
+    | IndexedFieldVoltageDataArray
+    | IndexedSurfaceFreqDataArray
+    | IndexedSurfaceTimeDataArray
+    | PointDataArray
+)
 
-IntegralResultType = Union[
-    FreqDataArray,
-    FreqModeDataArray,
-    FreqTerminalDataArray,
-    FreqTerminalModeDataArray,
-    TimeDataArray,
-]
-VoltageIntegralResultType = Union[
-    VoltageFreqDataArray,
-    VoltageFreqModeDataArray,
-    VoltageFreqTerminalDataArray,
-    VoltageTimeDataArray,
-    VoltageFreqTerminalModeDataArray,
-]
-CurrentIntegralResultType = Union[
-    CurrentFreqDataArray,
-    CurrentFreqModeDataArray,
-    CurrentFreqTerminalDataArray,
-    CurrentTimeDataArray,
-    CurrentFreqTerminalModeDataArray,
-]
-ImpedanceResultType = Union[
-    ImpedanceFreqDataArray,
-    ImpedanceFreqModeDataArray,
-    ImpedanceTimeDataArray,
-    ImpedanceFreqTerminalTerminalDataArray,
-]
+IntegralResultType = (
+    FreqDataArray
+    | FreqModeDataArray
+    | FreqTerminalDataArray
+    | FreqTerminalModeDataArray
+    | TimeDataArray
+)
+VoltageIntegralResultType = (
+    VoltageFreqDataArray
+    | VoltageFreqModeDataArray
+    | VoltageFreqTerminalDataArray
+    | VoltageTimeDataArray
+    | VoltageFreqTerminalModeDataArray
+)
+CurrentIntegralResultType = (
+    CurrentFreqDataArray
+    | CurrentFreqModeDataArray
+    | CurrentFreqTerminalDataArray
+    | CurrentTimeDataArray
+    | CurrentFreqTerminalModeDataArray
+)
+ImpedanceResultType = (
+    ImpedanceFreqDataArray
+    | ImpedanceFreqModeDataArray
+    | ImpedanceTimeDataArray
+    | ImpedanceFreqTerminalTerminalDataArray
+)
 
 
 class _TracedDataset(xr.Dataset):

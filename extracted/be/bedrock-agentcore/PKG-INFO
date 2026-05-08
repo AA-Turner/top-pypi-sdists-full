@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bedrock-agentcore
-Version: 1.8.0
+Version: 1.9.0
 Summary: An SDK for using Bedrock AgentCore
 Project-URL: Homepage, https://github.com/aws/bedrock-agentcore-sdk-python
 Project-URL: Bug Tracker, https://github.com/aws/bedrock-agentcore-sdk-python/issues
@@ -37,7 +37,7 @@ Provides-Extra: simulation
 Requires-Dist: jinja2>=3.1.0; extra == 'simulation'
 Requires-Dist: strands-agents-evals>=0.1.0; extra == 'simulation'
 Provides-Extra: strands-agents
-Requires-Dist: strands-agents>=1.1.0; extra == 'strands-agents'
+Requires-Dist: strands-agents>=1.20.0; extra == 'strands-agents'
 Provides-Extra: strands-agents-evals
 Requires-Dist: strands-agents-evals>=0.1.0; extra == 'strands-agents-evals'
 Description-Content-Type: text/markdown

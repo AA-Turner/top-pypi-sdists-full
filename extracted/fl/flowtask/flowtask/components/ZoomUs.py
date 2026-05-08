@@ -323,9 +323,12 @@ class ZoomUs(ZoomInterface, CacheSupport, Boto3Client, QSSupport, FlowComponent)
                 f"Supported: 'call_logs', 'sms'"
             )
 
-        self._result = await fn()
-        self.add_metric("DURATION_SEC", round(time.time() - t0, 3))
-        return self._result
+        try:
+            self._result = await fn()
+            self.add_metric("DURATION_SEC", round(time.time() - t0, 3))
+            return self._result
+        finally:
+            await self.close()
 
     # =================================================================
     # call_logs flow

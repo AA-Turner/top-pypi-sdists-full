@@ -1,13 +1,13 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from ._tile_map import TileMap, FLIP_H, FLIP_V, FLIP_D
-from ._tile import TileMeta
-
 from .._internal import expect, positive
 from ..world import World, Entity, Transform, Collider, RigidBody
 from ..shape import Rect, Polygon
 from ..abc import Shape
+
+from ._tile import TileMeta
+from ._tile_map import TileMap, FLIP_H, FLIP_V, FLIP_D
 
 from numbers import Real
 

@@ -241,7 +241,7 @@ class OllamaLLM(LLMBase):
         message_history: Optional[Union[List[LLMMessage], MessageHistory]] = None,
         system_instruction: Optional[str] = None,
     ) -> LLMResponse:
-        """Asynchronously sends a text input to the OpenAI chat
+        """Asynchronously sends a text input to the Ollama chat
         completion model and returns the response's content.
 
         Args:
@@ -251,7 +251,7 @@ class OllamaLLM(LLMBase):
             system_instruction (Optional[str]): An option to override the llm system message for this invocation.
 
         Returns:
-            LLMResponse: The response from OpenAI.
+            LLMResponse: The response from Ollama.
 
         Raises:
             LLMGenerationError: If anything goes wrong.
@@ -372,16 +372,20 @@ class OllamaLLM(LLMBase):
     ) -> ToolCallResponse:
         """Sends a text input to the LLM with tool definitions
         and retrieves a tool call response.
+
         Args:
             input (str): Text sent to the LLM.
             tools (List[Tool]): List of Tools for the LLM to choose from.
             message_history (Optional[Union[List[LLMMessage], MessageHistory]]): A collection previous messages,
                 with each message having a specific role assigned.
             system_instruction (Optional[str]): An option to override the llm system message for this invocation.
+
         Returns:
             ToolCallResponse: The response from the LLM containing a tool call.
+
         Raises:
             LLMGenerationError: If anything goes wrong.
+
         """
         try:
             if isinstance(message_history, MessageHistory):
@@ -429,14 +433,17 @@ class OllamaLLM(LLMBase):
     ) -> ToolCallResponse:
         """Sends a text input to the LLM with tool definitions
         and retrieves a tool call response.
+
         Args:
             input (str): Text sent to the LLM.
             tools (List[Tool]): List of Tools for the LLM to choose from.
             message_history (Optional[Union[List[LLMMessage], MessageHistory]]): A collection previous messages,
                 with each message having a specific role assigned.
             system_instruction (Optional[str]): An option to override the llm system message for this invocation.
+
         Returns:
             ToolCallResponse: The response from the LLM containing a tool call.
+
         Raises:
             LLMGenerationError: If anything goes wrong.
         """

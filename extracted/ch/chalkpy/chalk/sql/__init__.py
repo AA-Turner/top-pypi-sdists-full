@@ -90,6 +90,9 @@ def SnowflakeSource(
     schema: str | None = ...,
     role: str | None = ...,
     private_key_b64: str | None = ...,
+    unload_stage: str | None = ...,
+    unload_storage_integration: str | None = ...,
+    unload_external_location: str | None = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
@@ -114,6 +117,14 @@ def SnowflakeSource(
         Snowflake schema in the database to use.
     role
         Snowflake role name to use.
+    unload_stage
+        Snowflake stage or cloud storage prefix to use for unload-based execution.
+    unload_storage_integration
+        Snowflake storage integration to use when unloading to external cloud storage.
+    unload_external_location
+        External cloud resource (i.e. "s3://...", "gs://...") that the unloaded Snowflake query will be located. Should
+        be equal to unload_stage if unload_stage is itself a cloud resource, or should be the location equal to
+        DESCRIBE <unload_stage> if unload_stage is a Snowflake stage.
     engine_args
         Additional arguments to use when constructing the SQLAlchemy engine.
 
@@ -149,6 +160,9 @@ def SnowflakeSource(
     schema: Optional[str] = None,
     role: Optional[str] = None,
     private_key_b64: Optional[str] = None,
+    unload_stage: Optional[str] = None,
+    unload_storage_integration: Optional[str] = None,
+    unload_external_location: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
 ) -> BaseSQLSourceProtocol:
     """Create a Snowflake data source. SQL-based data sources
@@ -170,6 +184,9 @@ def SnowflakeSource(
         schema=schema,
         role=role,
         private_key_b64=private_key_b64,
+        unload_stage=unload_stage,
+        unload_storage_integration=unload_storage_integration,
+        unload_external_location=unload_external_location,
         engine_args=engine_args,
     )
 

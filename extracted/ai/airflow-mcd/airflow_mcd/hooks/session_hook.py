@@ -42,7 +42,7 @@ query getUser {
    }
  }
 """
-_REQUIRED_PERMISSIONS = ["CatalogEdit", "MonitorsAccess"]
+_REQUIRED_PERMISSIONS = ["AssetsEdit", "MonitorsAccess"]
 
 
 class SessionHook(BaseHook):
@@ -150,8 +150,9 @@ class SessionHook(BaseHook):
             if "error" in result:
                 return False, f"Failed to test MC connection: getUser query failed: {result.error.errors[0].message}"
 
-            if not all(any(p.permission == required_permission and p.effect.lower() == "allow" for p in result.get_user.auth.permissions) for required_permission in _REQUIRED_PERMISSIONS):
-                return False, f'Failed to test MC connection: Missing one of the required permissions: {_REQUIRED_PERMISSIONS}'
+            missing = [r for r in _REQUIRED_PERMISSIONS if not any(p.permission == r and p.effect.lower() == "allow" for p in result.get_user.auth.permissions)]
+            if missing:
+                return False, f'Failed to test MC connection: Missing one of the required permissions: {missing}'
 
             return True, 'Connection successfully tested'
         except Exception as exc:

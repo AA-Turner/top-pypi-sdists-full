@@ -1,16 +1,18 @@
-import requests
 import logging
-from django.conf import settings
-from django.apps import apps
+
+import requests
 from celery import shared_task
-from .models import AnalyticsTokens, AnalyticsIdentifier
-from .utils import (
-    existence_baremetal_or_docker,
-    install_stat_addons,
-    install_stat_tokens,
-    install_stat_users)
+
+from django.apps import apps
+from django.conf import settings
 
 from allianceauth import __version__
+
+from .models import AnalyticsIdentifier, AnalyticsTokens
+from .utils import (
+    existence_baremetal_or_docker, install_stat_addons, install_stat_tokens,
+    install_stat_users,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +111,6 @@ def analytics_daily_stats() -> None:
     for appconfig in apps.get_app_configs():
         if appconfig.label in [
             "django_celery_beat",
-            "bootstrapform",
             "messages",
             "sessions",
             "auth",

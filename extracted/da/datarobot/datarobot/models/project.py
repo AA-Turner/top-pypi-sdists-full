@@ -291,6 +291,7 @@ class Project(APIObject, BrowserMixin):
         ): t.Int(gte=1, lte=10),
         t.Key("chunk_definition_id", optional=True): t.String(),
         t.Key("incremental_learning_early_stopping_rounds", optional=True): Int(),
+        t.Key("custom_metrics_losses_info", optional=True): t.Dict({t.Key("id"): String()}).ignore_extra("*"),
     }).ignore_extra("*")
 
     _feature_engineering_graph_converter = t.Dict({
@@ -4286,6 +4287,8 @@ OR individual keyword arguments. You cannot pass both."
             (New in version v3.6) Number of iterations top 5 models complete prior to best model selection.
             The minimum is 1, which means no additional iterations after the first iteration (initial model)
             will be run. The maximum is 10.
+        custom_metrics_losses_info: Optional[dict]
+            Information about custom metrics and losses like metadata Mongo ID.
         """
         if advanced_options is not None:
             self.advanced_options = advanced_options

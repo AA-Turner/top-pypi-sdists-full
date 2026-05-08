@@ -1,7 +1,10 @@
 from unittest import mock
-from django.db.models.signals import pre_save, post_save, pre_delete, m2m_changed
+
+from django.db.models.signals import m2m_changed, post_save, pre_delete, pre_save
+
 from allianceauth.authentication.models import UserProfile
 from allianceauth.authentication.signals import reassess_on_profile_save
+
 from .. import signals
 from ..models import AutogroupsConfig
 

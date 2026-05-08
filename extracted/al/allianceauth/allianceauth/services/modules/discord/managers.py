@@ -16,10 +16,13 @@ from .app_settings import (
     DISCORD_GUILD_ID,
     DISCORD_SYNC_NAMES,
 )
-from .core import calculate_roles_for_user, create_bot_client
-from .core import group_to_role as core_group_to_role
-from .core import server_name as core_server_name
-from .core import user_formatted_nick
+from .core import (
+    calculate_roles_for_user,
+    create_bot_client,
+    group_to_role as core_group_to_role,
+    server_name as core_server_name,
+    user_formatted_nick,
+)
 from .discord_client import (
     DISCORD_OAUTH_BASE_URL,
     DISCORD_OAUTH_TOKEN_URL,
@@ -175,7 +178,7 @@ class DiscordUserManager(models.Manager):
             - empty dict if no matching role found
         """
         role = core_group_to_role(group)
-        return role.asdict() if role else dict()
+        return role.asdict() if role else {}
 
     @staticmethod
     def server_name(use_cache: bool = True) -> str:

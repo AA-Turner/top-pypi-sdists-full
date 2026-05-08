@@ -1,9 +1,9 @@
 from unittest import mock
 
-from django.test import TestCase, RequestFactory
-from django.contrib.auth.models import User, Group, Permission
-from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
+from django.contrib.auth.models import Group, Permission, User
+from django.core.exceptions import ObjectDoesNotExist
+from django.test import RequestFactory, TestCase
 
 from allianceauth.tests.auth_utils import AuthUtils
 
@@ -27,7 +27,7 @@ class DiscourseHooksTestCase(TestCase):
         member = AuthUtils.create_member(self.member)
         DiscourseUser.objects.create(user=member, enabled=True)
         self.none_user = 'none_user'
-        none_user = AuthUtils.create_user(self.none_user)
+        AuthUtils.create_user(self.none_user)
         self.service = DiscourseService
         add_permissions()
 
@@ -85,7 +85,7 @@ class DiscourseHooksTestCase(TestCase):
         service.validate_user(none_user)
         self.assertTrue(manager.disable_user.called)
         with self.assertRaises(ObjectDoesNotExist):
-            none_discourse = User.objects.get(username=self.none_user).discourse
+            _ = User.objects.get(username=self.none_user).discourse
 
     @mock.patch(MODULE_PATH + '.tasks.DiscourseManager')
     def test_delete_user(self, manager):
@@ -97,7 +97,7 @@ class DiscourseHooksTestCase(TestCase):
         self.assertTrue(result)
         self.assertTrue(manager.disable_user.called)
         with self.assertRaises(ObjectDoesNotExist):
-            discourse_user = User.objects.get(username=self.member).discourse
+            _ = User.objects.get(username=self.member).discourse
 
     def test_render_services_ctrl(self):
         service = self.service()
@@ -107,7 +107,7 @@ class DiscourseHooksTestCase(TestCase):
 
         response = service.render_services_ctrl(request)
         self.assertTemplateUsed(service.service_ctrl_template)
-        self.assertIn('href="%s"' % settings.DISCOURSE_URL, response)
+        self.assertIn(f'href="{settings.DISCOURSE_URL}"', response)
 
 
 class DiscourseViewsTestCase(TestCase):

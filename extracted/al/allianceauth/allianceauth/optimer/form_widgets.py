@@ -3,6 +3,7 @@ Form Widgets
 """
 
 from django import forms
+from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
 
@@ -18,7 +19,7 @@ class DataListWidget(forms.TextInput):
 
         self._name = name
         self._list = data_list
-        self.attrs.update({"list": "list__%s" % self._name})
+        self.attrs.update({"list": f"list__{self._name}"})
 
     def render(self, name, value, attrs=None, renderer=None):
         """
@@ -36,11 +37,13 @@ class DataListWidget(forms.TextInput):
         """
 
         text_html = super().render(name, value, attrs=attrs)
-        data_list = '<datalist id="list__%s">' % self._name
+        options = format_html_join(
+            '', '<option value="{}">',
+            ((item,) for item in self._list)
+        )
+        data_list = format_html(
+            '<datalist id="list__{}">{}</datalist>',
+            self._name, options
+        )
 
-        for item in self._list:
-            data_list += '<option value="%s">' % item
-
-        data_list += "</datalist>"
-
-        return mark_safe(text_html + data_list)
+        return text_html + data_list

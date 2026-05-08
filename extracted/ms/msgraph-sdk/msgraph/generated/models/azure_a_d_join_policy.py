@@ -7,6 +7,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .device_registration_membership import DeviceRegistrationMembership
+    from .local_admin_settings import LocalAdminSettings
 
 @dataclass
 class AzureADJoinPolicy(AdditionalDataHolder, BackedModel, Parsable):
@@ -15,10 +16,12 @@ class AzureADJoinPolicy(AdditionalDataHolder, BackedModel, Parsable):
 
     # Stores additional data not described in the OpenAPI description found when deserializing. Can be used for serialization as well.
     additional_data: dict[str, Any] = field(default_factory=dict)
-    # The allowedToJoin property
+    # Determines if Microsoft Entra join is allowed.
     allowed_to_join: Optional[DeviceRegistrationMembership] = None
-    # The isAdminConfigurable property
+    # Determines if administrators can modify this policy.
     is_admin_configurable: Optional[bool] = None
+    # Determines who becomes a local administrator on joined devices.
+    local_admins: Optional[LocalAdminSettings] = None
     # The OdataType property
     odata_type: Optional[str] = None
     
@@ -39,12 +42,15 @@ class AzureADJoinPolicy(AdditionalDataHolder, BackedModel, Parsable):
         Returns: dict[str, Callable[[ParseNode], None]]
         """
         from .device_registration_membership import DeviceRegistrationMembership
+        from .local_admin_settings import LocalAdminSettings
 
         from .device_registration_membership import DeviceRegistrationMembership
+        from .local_admin_settings import LocalAdminSettings
 
         fields: dict[str, Callable[[Any], None]] = {
             "allowedToJoin": lambda n : setattr(self, 'allowed_to_join', n.get_object_value(DeviceRegistrationMembership)),
             "isAdminConfigurable": lambda n : setattr(self, 'is_admin_configurable', n.get_bool_value()),
+            "localAdmins": lambda n : setattr(self, 'local_admins', n.get_object_value(LocalAdminSettings)),
             "@odata.type": lambda n : setattr(self, 'odata_type', n.get_str_value()),
         }
         return fields
@@ -59,6 +65,7 @@ class AzureADJoinPolicy(AdditionalDataHolder, BackedModel, Parsable):
             raise TypeError("writer cannot be null.")
         writer.write_object_value("allowedToJoin", self.allowed_to_join)
         writer.write_bool_value("isAdminConfigurable", self.is_admin_configurable)
+        writer.write_object_value("localAdmins", self.local_admins)
         writer.write_str_value("@odata.type", self.odata_type)
         writer.write_additional_data_value(self.additional_data)
     

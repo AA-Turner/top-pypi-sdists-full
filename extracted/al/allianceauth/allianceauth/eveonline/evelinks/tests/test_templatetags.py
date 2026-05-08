@@ -1,8 +1,8 @@
 from django.test import TestCase
 
-from ...models import EveCharacter, EveCorporationInfo, EveAllianceInfo
-from .. import eveimageserver, evewho, dotlan, zkillboard
+from ...models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 from ...templatetags import evelinks
+from .. import dotlan, eveimageserver, evewho, zkillboard
 
 
 class TestTemplateTags(TestCase):

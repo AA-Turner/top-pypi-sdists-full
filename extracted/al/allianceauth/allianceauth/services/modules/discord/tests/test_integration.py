@@ -11,12 +11,12 @@ from unittest.mock import Mock, patch
 from uuid import uuid1
 
 import requests_mock
+from django_webtest import WebTest
 from requests.exceptions import HTTPError
 
 from django.contrib.auth.models import Group, User
 from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
-from django_webtest import WebTest
 
 from allianceauth.authentication.models import State
 from allianceauth.eveonline.models import EveCharacter
@@ -224,7 +224,7 @@ class TestServiceFeatures(TransactionTestCase):
         requests_made = [
             DiscordRequest(r.method, r.url) for r in requests_mocker.request_history
         ]
-        self.assertListEqual(requests_made, list())
+        self.assertListEqual(requests_made, [])
 
     def test_when_member_is_demoted_to_guest_then_his_account_is_deleted(
         self, requests_mocker
@@ -428,12 +428,12 @@ class StateTestCase(NoSocketsTestCase):
         self._refresh_user()
         self.assertEqual(higher_state, self.user.profile.state)
         with self.assertRaises(DiscordUser.DoesNotExist):
-            self.user.discord
+            _ = self.user.discord
         higher_state.member_characters.clear()
         self._refresh_user()
         self.assertEqual(self.member_state, self.user.profile.state)
         with self.assertRaises(DiscordUser.DoesNotExist):
-            self.user.discord
+            _ = self.user.discord
 
     def test_perm_changes_to_lower_priority_state_creation(self, requests_mocker):
         mock_url = DiscordRequest(
@@ -455,12 +455,12 @@ class StateTestCase(NoSocketsTestCase):
         self._refresh_user()
         self.assertEqual(lower_state, self.user.profile.state)
         with self.assertRaises(DiscordUser.DoesNotExist):
-            self.user.discord
+            _ = self.user.discord
         self.member_state.member_characters.add(self.test_character)
         self._refresh_user()
         self.assertEqual(self.member_state, self.user.profile.state)
         with self.assertRaises(DiscordUser.DoesNotExist):
-            self.user.discord
+            _ = self.user.discord
 
 
 @patch(MODULE_PATH + '.core.DISCORD_GUILD_ID', TEST_GUILD_ID)
@@ -534,7 +534,7 @@ class TestUserFeatures(WebTest):
         self.assertTrue(mock_messages.success.called)
         self.assertFalse(mock_messages.error.called)
 
-        requests_made = list()
+        requests_made = []
         for r in requests_mocker.request_history:
             obj = DiscordRequest(r.method, r.url)
             requests_made.append(obj)
@@ -662,7 +662,7 @@ class TestUserFeatures(WebTest):
         self.assertFalse(mock_messages.success.called)
         self.assertTrue(mock_messages.error.called)
 
-        requests_made = list()
+        requests_made = []
         for r in requests_mocker.request_history:
             obj = DiscordRequest(r.method, r.url)
             requests_made.append(obj)
@@ -694,7 +694,7 @@ class TestUserFeatures(WebTest):
         self.assertTrue(mock_messages.success.called)
         self.assertFalse(mock_messages.error.called)
 
-        requests_made = list()
+        requests_made = []
         for r in requests_mocker.request_history:
             obj = DiscordRequest(r.method, r.url)
             requests_made.append(obj)
@@ -730,7 +730,7 @@ class TestUserFeatures(WebTest):
         self.assertFalse(mock_messages.success.called)
         self.assertTrue(mock_messages.error.called)
 
-        requests_made = list()
+        requests_made = []
         for r in requests_mocker.request_history:
             obj = DiscordRequest(r.method, r.url)
             requests_made.append(obj)

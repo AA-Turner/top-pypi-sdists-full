@@ -1,14 +1,8 @@
 # this module generates profile URLs for dotlan
 
-from urllib.parse import urljoin, quote
+from urllib.parse import quote, urljoin
 
-from . import (
-    _ESI_CATEGORY_ALLIANCE,
-    _ESI_CATEGORY_CORPORATION,
-    _ESI_CATEGORY_REGION,
-    _ESI_CATEGORY_SOLARSYSTEM
-)
-
+from . import _ESI_CATEGORY_ALLIANCE, _ESI_CATEGORY_CORPORATION, _ESI_CATEGORY_REGION, _ESI_CATEGORY_SOLARSYSTEM
 
 _BASE_URL = 'https://evemaps.dotlan.net'
 

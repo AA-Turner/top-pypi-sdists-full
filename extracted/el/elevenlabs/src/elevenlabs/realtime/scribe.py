@@ -15,6 +15,7 @@ except ImportError:
         "Install it with: pip install websockets"
     )
 
+from ..url_utils import build_ws_url
 from .connection import RealtimeConnection
 
 
@@ -66,6 +67,8 @@ class RealtimeAudioOptions(typing.TypedDict, total=False):
     min_silence_duration_ms: int
     language_code: str
     include_timestamps: bool
+    keyterms: typing.List[str]
+    no_verbatim: bool
 
 
 class RealtimeUrlOptions(typing.TypedDict, total=False):
@@ -92,6 +95,8 @@ class RealtimeUrlOptions(typing.TypedDict, total=False):
     min_silence_duration_ms: int
     language_code: str
     include_timestamps: bool
+    keyterms: typing.List[str]
+    no_verbatim: bool
 
 
 class ScribeRealtime:
@@ -196,6 +201,8 @@ class ScribeRealtime:
         min_silence_duration_ms = options.get("min_silence_duration_ms")
         language_code = options.get("language_code")
         include_timestamps = options.get("include_timestamps", False)
+        keyterms = options.get("keyterms")
+        no_verbatim = options.get("no_verbatim")
 
         if not audio_format or not sample_rate:
             raise ValueError("audio_format and sample_rate are required for manual audio mode")
@@ -211,6 +218,8 @@ class ScribeRealtime:
             min_silence_duration_ms=min_silence_duration_ms,
             language_code=language_code,
             include_timestamps=include_timestamps,
+            keyterms=keyterms,
+            no_verbatim=no_verbatim,
         )
 
         # Connect to WebSocket
@@ -243,6 +252,8 @@ class ScribeRealtime:
         min_silence_duration_ms = options.get("min_silence_duration_ms")
         language_code = options.get("language_code")
         include_timestamps = options.get("include_timestamps", False)
+        keyterms = options.get("keyterms")
+        no_verbatim = options.get("no_verbatim")
 
         if not url:
             raise ValueError("url is required for URL mode")
@@ -262,6 +273,8 @@ class ScribeRealtime:
             min_silence_duration_ms=min_silence_duration_ms,
             language_code=language_code,
             include_timestamps=include_timestamps,
+            keyterms=keyterms,
+            no_verbatim=no_verbatim,
         )
 
         # Connect to WebSocket
@@ -364,33 +377,32 @@ class ScribeRealtime:
         min_speech_duration_ms: typing.Optional[int] = None,
         min_silence_duration_ms: typing.Optional[int] = None,
         language_code: typing.Optional[str] = None,
-        include_timestamps: typing.Optional[bool] = None
+        include_timestamps: typing.Optional[bool] = None,
+        keyterms: typing.Optional[typing.List[str]] = None,
+        no_verbatim: typing.Optional[bool] = None,
     ) -> str:
         """Build the WebSocket URL with query parameters"""
-        # Extract base domain
-        base = self.base_url.replace("https://", "wss://").replace("http://", "ws://")
-
-        # Build query parameters
         params = [
-            f"model_id={model_id}",
-            f"audio_format={audio_format}",
-            f"commit_strategy={commit_strategy}"
+            ("model_id", model_id),
+            ("audio_format", audio_format),
+            ("commit_strategy", commit_strategy),
         ]
-
-        # Add optional VAD parameters
-        if vad_silence_threshold_secs is not None:
-            params.append(f"vad_silence_threshold_secs={vad_silence_threshold_secs}")
-        if vad_threshold is not None:
-            params.append(f"vad_threshold={vad_threshold}")
-        if min_speech_duration_ms is not None:
-            params.append(f"min_speech_duration_ms={min_speech_duration_ms}")
-        if min_silence_duration_ms is not None:
-            params.append(f"min_silence_duration_ms={min_silence_duration_ms}")
-        if language_code is not None:
-            params.append(f"language_code={language_code}")
+        for key, value in [
+            ("vad_silence_threshold_secs", vad_silence_threshold_secs),
+            ("vad_threshold", vad_threshold),
+            ("min_speech_duration_ms", min_speech_duration_ms),
+            ("min_silence_duration_ms", min_silence_duration_ms),
+            ("language_code", language_code),
+        ]:
+            if value is not None:
+                params.append((key, str(value)))
         if include_timestamps is not None:
-            params.append(f"include_timestamps={str(include_timestamps).lower()}")
+            params.append(("include_timestamps", str(include_timestamps).lower()))
+        if keyterms is not None:
+            for term in keyterms:
+                params.append(("keyterms", term))
+        if no_verbatim is not None:
+            params.append(("no_verbatim", str(no_verbatim).lower()))
 
-        query_string = "&".join(params)
-        return f"{base}/v1/speech-to-text/realtime?{query_string}"
+        return build_ws_url(self.base_url, ["v1", "speech-to-text", "realtime"], params)
 

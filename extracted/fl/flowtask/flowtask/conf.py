@@ -495,6 +495,7 @@ WORKDAY_WSDL_RECRUITING = config.get("WORKDAY_WSDL_RECRUITING", fallback=BASE_DI
 WORKDAY_WSDL_ABSENCE_MANAGEMENT = config.get("WORKDAY_WSDL_ABSENCE_MANAGEMENT", fallback=BASE_DIR.joinpath("env", "workday", "absense_management_45_custom.wsdl"))
 WORKDAY_WSDL_TIME_BLOCK_REPORT = config.get("WORKDAY_WSDL_TIME_BLOCK_REPORT", fallback=BASE_DIR.joinpath("env", "workday", "extract_time_blocks_navigator.wsdl"))
 WORKDAY_WSDL_CUSTOM_PUNCH_FIELD_REPORT = config.get("WORKDAY_WSDL_CUSTOM_PUNCH_FIELD_REPORT", fallback=BASE_DIR.joinpath("env", "workday", "custom_punch_field_report_nav.wsdl"))
+WORKDAY_WSDL_INTEGRATIONS = config.get("WORKDAY_WSDL_INTEGRATIONS", fallback=BASE_DIR.joinpath("env", "workday", "integrations_45.wsdl"))
 WORKDAY_REFRESH_TOKEN = config.get("WORKDAY_REFRESH_TOKEN", fallback=None)
 # Custom Report Credentials (for basic auth)
 WORKDAY_REPORT_USERNAME = config.get("WORKDAY_REPORT_USERNAME", fallback=None)
@@ -514,6 +515,11 @@ ZOOM_SMS_ACCOUNT_ID = config.get('ZOOM_SMS_ACCOUNT_ID')
 ZOOM_SMS_CLIENT_ID = config.get('ZOOM_SMS_CLIENT_ID')
 ZOOM_SMS_CLIENT_SECRET = config.get('ZOOM_SMS_CLIENT_SECRET')
 ZOOM_SMS_DEFAULT_FROM = config.get('ZOOM_SMS_DEFAULT_FROM')
+ZOOM_WEBHOOK_SECRET_TOKEN = config.get('ZOOM_WEBHOOK_SECRET_TOKEN')
+ZOOM_WEBHOOK_REPLAY_WINDOW_SECONDS = config.getint(
+    'ZOOM_WEBHOOK_REPLAY_WINDOW_SECONDS', fallback=300
+)
+ZOOM_ALLOWED_CIDRS = config.get('ZOOM_ALLOWED_CIDRS', fallback='')
 
 try:
     from navconfig.conf import *  # pylint: disable=W0401,W0614 # noqa

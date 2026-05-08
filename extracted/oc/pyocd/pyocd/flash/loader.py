@@ -67,7 +67,8 @@ class RamBuilder(MemoryBuilder):
 
     def erase(self, progress_cb: Optional[ProgressCallback] = None, **kwargs: Any) -> None:
         # Nothing to erase in RAM.
-        pass
+        if progress_cb is not None:
+            progress_cb(1.0)
 
     def program(self, progress_cb: Optional[ProgressCallback] = None, **kwargs: Any) -> ProgrammingInfo:
         target = self._session.target
@@ -97,9 +98,6 @@ class RamBuilder(MemoryBuilder):
         # Make sure progress has reached 100%.
         if progress_cb is not None:
             progress_cb(1.0)
-
-        if kwargs.get("no_reset", False) is False:
-            target.reset_and_halt()
 
         # Return some performance numbers.
         return ProgrammingInfo(
@@ -146,7 +144,6 @@ class MemoryLoader:
     _smart_flash: Optional[bool]
     _trust_crc: Optional[bool]
     _keep_unwritten: Optional[bool]
-    _no_reset: Optional[bool]
 
     def __init__(self,
             session: "Session",
@@ -176,8 +173,7 @@ class MemoryLoader:
             written, there may be ranges of flash that would be erased but not written with new
             data. This parameter sets whether the existing contents of those unwritten ranges will
             be read from memory and restored while programming.
-        @param no_reset Boolean indicating whether if the device should not be reset after the
-            programming process has finished.
+        @param no_reset Deprecated and ignored. Will be removed in a future release.
         """
         self._session = session
         assert session.board
@@ -203,8 +199,8 @@ class MemoryLoader:
                             else self._session.options.get('fast_program')
         self._keep_unwritten = keep_unwritten if (keep_unwritten is not None) \
                             else self._session.options.get('keep_unwritten')
-        self._no_reset = no_reset if (no_reset is not None) \
-                            else self._session.options.get('no_reset')
+        if no_reset is not None:
+            LOG.warning("MemoryLoader no_reset parameter is deprecated and ignored; this option will be removed in a future release")
 
         self._reset_state()
 

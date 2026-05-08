@@ -1,6 +1,6 @@
-from django.urls import include
+from django.urls import include, path
+
 from allianceauth.hooks import get_hooks
-from django.urls import path
 
 from . import views
 

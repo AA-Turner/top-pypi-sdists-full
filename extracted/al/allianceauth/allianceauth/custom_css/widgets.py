@@ -6,7 +6,6 @@ Form widgets for custom_css app
 from django import forms
 
 # Alliance Auth
-from allianceauth.custom_css.models import CustomCSS
 
 
 class CssEditorWidget(forms.Textarea):

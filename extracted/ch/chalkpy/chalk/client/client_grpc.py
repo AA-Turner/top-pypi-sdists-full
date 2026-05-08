@@ -2309,13 +2309,15 @@ class ChalkGRPCClient:
                 elif status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_COMPLETED:
                     print("[DataFrame Run] Completed")
                 elif status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_FAILED:
-                    err = attempt.error_message if attempt and attempt.error_message else None
+                    err = attempt.error_message if attempt and attempt.error_message else (run.error_message or None)
                     err_str = f": {err}" if err else ""
                     print(f"[DataFrame Run] Failed{err_str}")
                 elif status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_CANCELED:
                     print("[DataFrame Run] Canceled")
                 last_status = status
             if status in _TERMINAL_CODES:
+                if run.dashboard_url:
+                    print(f"[DataFrame Run] View: {run.dashboard_url}")
                 break
             time.sleep(poll_interval)
 
@@ -2416,13 +2418,19 @@ class ChalkGRPCClient:
             attempt = latest_attempt(run)
             table.add_row("Status", _status_renderable(status))
             table.add_row("Operation", Text(operation_id, style=Style(color=SHADOWY_LAVENDER, dim=True)))
+            if run.dashboard_url:
+                table.add_row("View", Text(run.dashboard_url, style=Style(color=UNDERLYING_CYAN, underline=True)))
 
             if attempt and attempt.worker_pod_name:
                 table.add_row("Worker", Text(attempt.worker_pod_name, style=Style(color=SHADOWY_LAVENDER)))
 
-            if status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_FAILED and attempt and attempt.error_message:
-                msg = attempt.error_message if len(attempt.error_message) <= 200 else attempt.error_message[:197] + "…"
-                table.add_row("Error", Text(msg, style=Style(color=SHY_RED)))
+            if status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_FAILED:
+                # Per-attempt first, then run-level (deprecated but still populated
+                # by go-api-server from dataframe_runs.meta_data as a final fallback).
+                err_text = attempt.error_message if attempt and attempt.error_message else (run.error_message or "")
+                if err_text:
+                    msg = err_text if len(err_text) <= 200 else err_text[:197] + "…"
+                    table.add_row("Error", Text(msg, style=Style(color=SHY_RED)))
 
             # Surface retry history. Only show when there is more than one attempt
             # so the common single-attempt path stays uncluttered.
@@ -2469,13 +2477,10 @@ class ChalkGRPCClient:
 
         # Print final summary outside the Live context
         final_status = derive_dataframe_run_status(last_resp.run)
-        final_attempt = latest_attempt(last_resp.run)
         if final_status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_COMPLETED:
             console.print(Text("✓ DataFrame run completed successfully", style=Style(color=GRASSY_GREEN, bold=True)))
         elif final_status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_FAILED:
             console.print(Text("✗ DataFrame run failed", style=Style(color=SHY_RED, bold=True)))
-            if final_attempt and final_attempt.error_message:
-                console.print(Text(f"  Error: {final_attempt.error_message}", style=Style(color=SHY_RED)))
         else:
             status_name = _STATUS_NAMES.get(final_status, str(final_status))
             console.print(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvespa
-Version: 1.1.2
+Version: 1.2.0
 Summary: Python API for vespa.ai
 Author: Thiago G. Martins, Thomas Thoresen
 Maintainer-email: Thomas Thoresen <thomas@vespa.ai>
@@ -216,7 +216,7 @@ License-File: LICENSE
 Requires-Dist: httpr>=0.4.0
 Requires-Dist: docker
 Requires-Dist: jinja2
-Requires-Dist: cryptography>=46.0.5
+Requires-Dist: cryptography>=46.0.7
 Requires-Dist: aiohttp
 Requires-Dist: tenacity>=8.4.1
 Requires-Dist: typing_extensions
@@ -250,6 +250,7 @@ Requires-Dist: mkdocs-jupyter; extra == "docs"
 Requires-Dist: mkdocstrings[python]; extra == "docs"
 Requires-Dist: mkdocs-autoapi; extra == "docs"
 Requires-Dist: mkdocs-linkcheck; extra == "docs"
+Requires-Dist: mkdocs-llmstxt; extra == "docs"
 Requires-Dist: mktestdocs; extra == "docs"
 Requires-Dist: pytest; extra == "docs"
 Provides-Extra: feed

@@ -1,14 +1,12 @@
 import json
+from unittest.mock import patch
 
-from unittest.mock import patch, Mock
-
-from django.test import TestCase, RequestFactory
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..views import user_notifications_count
-
 
 MODULE_PATH = 'allianceauth.notifications.views'
 
@@ -37,11 +35,11 @@ class TestViews(TestCase):
         mock_user_unread_count.return_value = unread_count
 
         request = self.factory.get(
-            reverse('notifications:user_notifications_count', args=[user_pk])
+            reverse('notifications:user_notifications_count')
         )
         request.user = self.user
 
-        response = user_notifications_count(request, user_pk)
+        response = user_notifications_count(request)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(mock_user_unread_count.called)
         expected = {'unread_count': unread_count}

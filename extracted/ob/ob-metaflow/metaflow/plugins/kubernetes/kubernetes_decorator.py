@@ -125,6 +125,9 @@ class KubernetesDecorator(StepDecorator):
     compute_pool : str, optional, default None
         Compute pool to be used for for this step.
         If not specified, any accessible compute pool within the perimeter is used.
+    queue : str, optional, default None
+        Queue to be used for for this step.
+        If not specified, any accessible compute pool within the perimeter is used.
     hostname_resolution_timeout: int, default 10 * 60
         Timeout in seconds for the workers tasks in the gang scheduled cluster to resolve the hostname of control task.
         Only applicable when @parallel is used.
@@ -166,6 +169,7 @@ class KubernetesDecorator(StepDecorator):
         "shared_memory": None,
         "port": None,
         "compute_pool": None,
+        "queue": None,
         "executable": None,
         "hostname_resolution_timeout": 10 * 60,
         "qos": KUBERNETES_QOS,
@@ -214,6 +218,14 @@ class KubernetesDecorator(StepDecorator):
                 self.attributes["node_selector"] = {}
             self.attributes["node_selector"].update(
                 {"outerbounds.co/compute-pool": self.attributes["compute_pool"]}
+            )
+        if self.attributes["compute_pool"] and self.attributes["queue"]:
+            raise KubernetesException("Only one of queue/compute_pool can be specified")
+        if self.attributes["queue"] and not self.attributes["compute_pool"]:
+            if self.attributes["labels"] is None:
+                self.attributes["labels"] = {}
+            self.attributes["labels"].update(
+                {"outerbounds.co/queue": self.attributes["queue"]}
             )
 
         if self.attributes["tolerations"]:
@@ -495,7 +507,7 @@ class KubernetesDecorator(StepDecorator):
             cli_args.command_args.append(self.package_url)
 
             # skip certain keys as CLI arguments
-            _skip_keys = ["compute_pool", "hostname_resolution_timeout"]
+            _skip_keys = ["compute_pool", "queue", "hostname_resolution_timeout"]
             # --namespace is used to specify Metaflow namespace (a different
             # concept from k8s namespace).
             for k, v in self.attributes.items():

@@ -22,6 +22,7 @@ class CreateVariableJsonBody:
         is_oauth (Union[Unset, bool]): Whether the variable is an OAuth variable
         expires_at (Union[Unset, datetime.datetime]): The expiration date of the variable
         labels (Union[Unset, List[str]]):
+        ws_specific (Union[Unset, bool]):
     """
 
     path: str
@@ -32,6 +33,7 @@ class CreateVariableJsonBody:
     is_oauth: Union[Unset, bool] = UNSET
     expires_at: Union[Unset, datetime.datetime] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    ws_specific: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -48,6 +50,8 @@ class CreateVariableJsonBody:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        ws_specific = self.ws_specific
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -67,6 +71,8 @@ class CreateVariableJsonBody:
             field_dict["expires_at"] = expires_at
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if ws_specific is not UNSET:
+            field_dict["ws_specific"] = ws_specific
 
         return field_dict
 
@@ -94,6 +100,8 @@ class CreateVariableJsonBody:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        ws_specific = d.pop("ws_specific", UNSET)
+
         create_variable_json_body = cls(
             path=path,
             value=value,
@@ -103,6 +111,7 @@ class CreateVariableJsonBody:
             is_oauth=is_oauth,
             expires_at=expires_at,
             labels=labels,
+            ws_specific=ws_specific,
         )
 
         create_variable_json_body.additional_properties = d

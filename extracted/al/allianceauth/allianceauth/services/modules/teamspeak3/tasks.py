@@ -1,13 +1,16 @@
 import logging
 
+from celery import shared_task
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
-from celery import shared_task
-from allianceauth.services.tasks import QueueOnce
+
 from allianceauth.notifications import notify
 from allianceauth.services.hooks import NameFormatter
+from allianceauth.services.tasks import QueueOnce
+
 from .manager import Teamspeak3Manager
-from .models import AuthTS, TSgroup, UserTSgroup, Teamspeak3User
+from .models import AuthTS, Teamspeak3User, TSgroup, UserTSgroup
 from .util.ts3 import TeamspeakError
 
 logger = logging.getLogger(__name__)
@@ -59,7 +62,7 @@ class Teamspeak3Tasks:
     @shared_task(bind=True, name="teamspeak3.update_groups", base=QueueOnce)
     def update_groups(self, pk):
         user = User.objects.get(pk=pk)
-        logger.debug("Updating user %s teamspeak3 groups" % user)
+        logger.debug(f"Updating user {user} teamspeak3 groups")
         if Teamspeak3Tasks.has_account(user):
             usergroups = user.groups.all()
             groups = {}
@@ -75,10 +78,10 @@ class Teamspeak3Tasks:
             try:
                 with Teamspeak3Manager() as ts3man:
                     ts3man.update_groups(user.teamspeak3.uid, groups)
-                logger.debug("Updated user %s teamspeak3 groups." % user)
+                logger.debug(f"Updated user {user} teamspeak3 groups.")
             except TeamspeakError as e:
                 logger.error(f"Error occured while syncing TS groups for {user}: {str(e)}")
-                raise self.retry(countdown=60*10)
+                raise self.retry(exc=e, countdown=60 * 10) from e
         else:
             logger.debug("User does not have a teamspeak3 account")
 

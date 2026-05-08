@@ -21,7 +21,7 @@ def remove_aa_team_token(apps, schema_editor):
     # Have to define some code to remove this identifier
     # In case of migration rollback?
     Tokens = apps.get_model('analytics', 'AnalyticsTokens')
-    token = Tokens.objects.filter(token="UA-186249766-2").delete()
+    Tokens.objects.filter(token="UA-186249766-2").delete()
 
 
 class Migration(migrations.Migration):

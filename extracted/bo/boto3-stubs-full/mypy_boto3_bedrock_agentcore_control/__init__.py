@@ -29,6 +29,9 @@ Usage::
         ListMemoriesPaginator,
         ListOauth2CredentialProvidersPaginator,
         ListOnlineEvaluationConfigsPaginator,
+        ListPaymentConnectorsPaginator,
+        ListPaymentCredentialProvidersPaginator,
+        ListPaymentManagersPaginator,
         ListPoliciesPaginator,
         ListPolicyEnginesPaginator,
         ListPolicyGenerationAssetsPaginator,
@@ -71,6 +74,9 @@ Usage::
     list_memories_paginator: ListMemoriesPaginator = client.get_paginator("list_memories")
     list_oauth2_credential_providers_paginator: ListOauth2CredentialProvidersPaginator = client.get_paginator("list_oauth2_credential_providers")
     list_online_evaluation_configs_paginator: ListOnlineEvaluationConfigsPaginator = client.get_paginator("list_online_evaluation_configs")
+    list_payment_connectors_paginator: ListPaymentConnectorsPaginator = client.get_paginator("list_payment_connectors")
+    list_payment_credential_providers_paginator: ListPaymentCredentialProvidersPaginator = client.get_paginator("list_payment_credential_providers")
+    list_payment_managers_paginator: ListPaymentManagersPaginator = client.get_paginator("list_payment_managers")
     list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
     list_policy_engines_paginator: ListPolicyEnginesPaginator = client.get_paginator("list_policy_engines")
     list_policy_generation_assets_paginator: ListPolicyGenerationAssetsPaginator = client.get_paginator("list_policy_generation_assets")
@@ -100,6 +106,9 @@ from .paginator import (
     ListMemoriesPaginator,
     ListOauth2CredentialProvidersPaginator,
     ListOnlineEvaluationConfigsPaginator,
+    ListPaymentConnectorsPaginator,
+    ListPaymentCredentialProvidersPaginator,
+    ListPaymentManagersPaginator,
     ListPoliciesPaginator,
     ListPolicyEnginesPaginator,
     ListPolicyGenerationAssetsPaginator,
@@ -140,6 +149,9 @@ __all__ = (
     "ListMemoriesPaginator",
     "ListOauth2CredentialProvidersPaginator",
     "ListOnlineEvaluationConfigsPaginator",
+    "ListPaymentConnectorsPaginator",
+    "ListPaymentCredentialProvidersPaginator",
+    "ListPaymentManagersPaginator",
     "ListPoliciesPaginator",
     "ListPolicyEnginesPaginator",
     "ListPolicyGenerationAssetsPaginator",

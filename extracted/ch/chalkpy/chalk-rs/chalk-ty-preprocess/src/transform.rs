@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::{Decorator, Expr, Stmt, StmtClassDef, StmtFunctionDef};
 use ruff_python_parser::parse_module;
@@ -47,6 +47,22 @@ pub fn transform_source(source: &str, type_map: &TypeMap) -> Option<String> {
         return None;
     }
 
+    // When there are no TypedDicts, integrate header imports with any leading
+    // stdlib import block so the result has a single sorted/merged block.
+    let leading_stdlib = if return_typedicts.is_empty() {
+        find_leading_stdlib_block(&stmts)
+    } else {
+        None
+    };
+
+    if let Some(ref info) = leading_stdlib {
+        edits.push(Edit {
+            start: info.range.0,
+            end: info.range.1,
+            replacement: String::new(),
+        });
+    }
+
     // Apply edits back-to-front so byte offsets remain valid.
     edits.sort_by(|a, b| b.start.cmp(&a.start));
     let mut result = source.to_string();
@@ -54,23 +70,41 @@ pub fn transform_source(source: &str, type_map: &TypeMap) -> Option<String> {
         result.replace_range(edit.start..edit.end, &edit.replacement);
     }
 
+    // If we removed a leading stdlib block, the result may now start with
+    // blank lines — strip them so the header lands cleanly at the top.
+    if leading_stdlib.is_some() {
+        let trimmed_len = result
+            .bytes()
+            .take_while(|&b| b == b'\n' || b == b' ' || b == b'\t' || b == b'\r')
+            .count();
+        if trimmed_len > 0 {
+            result.replace_range(0..trimmed_len, "");
+        }
+    }
+
     // Prepend generated TypedDicts and necessary imports at the top of the file.
     if !return_typedicts.is_empty() || !edits.is_empty() {
         let mut header = String::new();
-        // Add imports needed by the transformed code, skipping any
-        // that the file already has to avoid shadowing (e.g., `import datetime`
-        // would shadow `from datetime import datetime`).
         if !imports.has_future_annotations {
             header.push_str("from __future__ import annotations\n");
         }
         header.push('\n');
-        if imports.datetime_imported_names.is_empty() && !imports.has_datetime_module_import {
-            header.push_str("import datetime\n");
+
+        if let Some(ref info) = leading_stdlib {
+            // Merge the new imports with the original stdlib block.
+            header.push_str(&build_merged_stdlib_block(&imports, info));
+        } else {
+            // Add imports needed by the transformed code, skipping any
+            // that the file already has to avoid shadowing (e.g., `import datetime`
+            // would shadow `from datetime import datetime`).
+            if imports.datetime_imported_names.is_empty() && !imports.has_datetime_module_import {
+                header.push_str("import datetime\n");
+            }
+            if imports.decimal_imported_names.is_empty() && !imports.has_decimal_module_import {
+                header.push_str("import decimal\n");
+            }
+            header.push_str("from typing import Any, TypedDict\n");
         }
-        if imports.decimal_imported_names.is_empty() && !imports.has_decimal_module_import {
-            header.push_str("import decimal\n");
-        }
-        header.push_str("from typing import Any, TypedDict\n");
 
         if !return_typedicts.is_empty() {
             for td in &return_typedicts {
@@ -87,6 +121,169 @@ pub fn transform_source(source: &str, type_map: &TypeMap) -> Option<String> {
     }
 
     Some(result)
+}
+
+type ImportName = (String, Option<String>);
+
+/// A leading run of stdlib imports (`datetime`, `decimal`, `typing`) at the
+/// top of the file, plus the byte range that covers them.
+struct LeadingStdlib {
+    range: (usize, usize),
+    /// Plain `import X [as Y]` entries, in the order they appear.
+    plain: Vec<ImportName>,
+    /// `from X import names` entries, in the order modules first appear.
+    /// Each module appears once with all its imported names accumulated.
+    from_imports: Vec<(String, Vec<ImportName>)>,
+}
+
+/// Scan from the top of the file collecting consecutive stdlib imports.
+/// `__future__` imports are skipped (they're handled separately). Stops at
+/// the first non-stdlib import or non-import statement.
+fn find_leading_stdlib_block(stmts: &[Stmt]) -> Option<LeadingStdlib> {
+    const STDLIB_MODULES: &[&str] = &["datetime", "decimal", "typing"];
+
+    let mut start: Option<usize> = None;
+    let mut end: Option<usize> = None;
+    let mut plain: Vec<ImportName> = Vec::new();
+    let mut from_imports: Vec<(String, Vec<ImportName>)> = Vec::new();
+    let mut from_index: HashMap<String, usize> = HashMap::new();
+
+    for stmt in stmts {
+        match stmt {
+            Stmt::ImportFrom(import_from)
+                if import_from
+                    .module
+                    .as_ref()
+                    .map(|m| m.as_str() == "__future__")
+                    .unwrap_or(false) =>
+            {
+                continue;
+            }
+            Stmt::Import(import_stmt) => {
+                let is_relevant = import_stmt
+                    .names
+                    .iter()
+                    .any(|alias| STDLIB_MODULES.contains(&alias.name.as_str()));
+                if !is_relevant {
+                    break;
+                }
+                let r = stmt.range();
+                if start.is_none() {
+                    start = Some(r.start().to_usize());
+                }
+                end = Some(r.end().to_usize());
+                for alias in &import_stmt.names {
+                    if STDLIB_MODULES.contains(&alias.name.as_str()) {
+                        let asname = alias.asname.as_ref().map(|n| n.to_string());
+                        plain.push((alias.name.to_string(), asname));
+                    }
+                }
+            }
+            Stmt::ImportFrom(import_from) => {
+                let module_str = match &import_from.module {
+                    Some(m) => m.to_string(),
+                    None => break,
+                };
+                if !STDLIB_MODULES.contains(&module_str.as_str()) {
+                    break;
+                }
+                let r = stmt.range();
+                if start.is_none() {
+                    start = Some(r.start().to_usize());
+                }
+                end = Some(r.end().to_usize());
+                let names: Vec<ImportName> = import_from
+                    .names
+                    .iter()
+                    .map(|alias| {
+                        let asname = alias.asname.as_ref().map(|n| n.to_string());
+                        (alias.name.to_string(), asname)
+                    })
+                    .collect();
+                if let Some(&idx) = from_index.get(&module_str) {
+                    from_imports[idx].1.extend(names);
+                } else {
+                    from_index.insert(module_str.clone(), from_imports.len());
+                    from_imports.push((module_str, names));
+                }
+            }
+            _ => break,
+        }
+    }
+
+    let range = start.zip(end)?;
+    Some(LeadingStdlib {
+        range,
+        plain,
+        from_imports,
+    })
+}
+
+/// Build the merged stdlib import block: existing imports plus what the
+/// transformation needs (`import datetime`/`import decimal` if missing,
+/// `Any` and `TypedDict` merged into `from typing`). Plain imports are
+/// listed first, then `from` imports, each group sorted alphabetically.
+fn build_merged_stdlib_block(imports: &ChalkImports, info: &LeadingStdlib) -> String {
+    let mut plain_set: Vec<String> = info
+        .plain
+        .iter()
+        .map(|(name, asname)| match asname {
+            Some(a) => format!("import {name} as {a}"),
+            None => format!("import {name}"),
+        })
+        .collect();
+
+    if imports.datetime_imported_names.is_empty() && !imports.has_datetime_module_import {
+        let stmt = "import datetime".to_string();
+        if !plain_set.contains(&stmt) {
+            plain_set.push(stmt);
+        }
+    }
+    if imports.decimal_imported_names.is_empty() && !imports.has_decimal_module_import {
+        let stmt = "import decimal".to_string();
+        if !plain_set.contains(&stmt) {
+            plain_set.push(stmt);
+        }
+    }
+
+    plain_set.sort();
+    plain_set.dedup();
+
+    let mut from_map: HashMap<String, HashSet<String>> = HashMap::new();
+    for (module, names) in &info.from_imports {
+        let entry = from_map.entry(module.clone()).or_default();
+        for (n, asname) in names {
+            let s = match asname {
+                Some(a) => format!("{n} as {a}"),
+                None => n.clone(),
+            };
+            entry.insert(s);
+        }
+    }
+
+    let typing_entry = from_map.entry("typing".to_string()).or_default();
+    typing_entry.insert("Any".to_string());
+    typing_entry.insert("TypedDict".to_string());
+
+    let mut from_sorted: Vec<(String, Vec<String>)> = from_map
+        .into_iter()
+        .map(|(module, names)| {
+            let mut v: Vec<String> = names.into_iter().collect();
+            v.sort();
+            (module, v)
+        })
+        .collect();
+    from_sorted.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let mut block = String::new();
+    for stmt in &plain_set {
+        block.push_str(stmt);
+        block.push('\n');
+    }
+    for (module, names) in &from_sorted {
+        block.push_str(&format!("from {module} import {}\n", names.join(", ")));
+    }
+    block
 }
 
 /// Rewrite a qualified type annotation to use unqualified names when
@@ -362,17 +559,31 @@ fn handle_class_def(
         replacement: commented,
     });
 
+    // The class name is what we'll use to look up has-one fields in the type_map.
+    let class_name = class_def.name.as_str().to_string();
+
     // Replace Chalk-specific type annotations in field definitions:
     // - FeatureTime -> datetime.datetime
     // - Primary[x] -> x
     // - Windowed[x] -> dict[str, x]
     // - User.id (foreign key refs) -> resolved type from protograph
     // - "Jar.jar_id" (string-quoted foreign key refs) -> resolved type
+    // - has-one / has-many fields: rewrite to the relationship target so feature-path
+    //   access (`Foo.bar.baz`) doesn't trip ty's None-narrowing.
     for stmt in &class_def.body {
         if let Stmt::AnnAssign(ann) = stmt {
+            let target_name = match &*ann.target {
+                Expr::Name(n) => Some(n.id.as_str().to_string()),
+                _ => None,
+            };
             let replacement = resolve_chalk_field_annotation(&ann.annotation, imports)
                 .or_else(|| resolve_feature_ref_annotation(&ann.annotation, source, type_map))
-                .or_else(|| resolve_string_annotation(&ann.annotation, source, type_map));
+                .or_else(|| resolve_string_annotation(&ann.annotation, source, type_map))
+                .or_else(|| {
+                    target_name
+                        .as_ref()
+                        .and_then(|n| resolve_relationship_field(&class_name, n, type_map))
+                });
             if let Some(replacement) = replacement {
                 let range = ann.annotation.range();
                 edits.push(Edit {
@@ -438,6 +649,29 @@ fn format_expr_as_source(expr: &Expr) -> String {
         // Fallback: just use "Any"
         _ => "Any".to_string(),
     }
+}
+
+/// If `(class_name, field_name)` is a has-one or has-many in the type_map,
+/// return its non-nullable target type so `Class.has_one.subfield` resolves
+/// cleanly under ty (which would otherwise complain that `subfield` is "not
+/// defined on None"). Scalar fields are left untouched — callers' nullability
+/// annotations on plain scalars are correct and meaningful.
+fn resolve_relationship_field(
+    class_name: &str,
+    field_name: &str,
+    type_map: &TypeMap,
+) -> Option<String> {
+    let info = type_map
+        .features
+        .get(&(class_name.to_string(), field_name.to_string()))?;
+    // has-one's python_type is the foreign class name (e.g. "Customer").
+    // has-many's is "DataFrame[Customer]". Both are known classes / generic.
+    if info.python_type.starts_with("DataFrame[")
+        || type_map.class_fields.contains_key(&info.python_type)
+    {
+        return Some(info.python_type.clone());
+    }
+    None
 }
 
 /// Resolve string-quoted annotations like `"Jar.jar_id"` or `"OomB.id"`.

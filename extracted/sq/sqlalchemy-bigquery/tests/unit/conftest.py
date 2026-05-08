@@ -18,12 +18,13 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import contextlib
-import mock
 import sqlite3
 
+import mock
 import packaging.version
 import pytest
 import sqlalchemy
+from sqlalchemy.sql.compiler import Compiled
 
 from sqlalchemy_bigquery.base import BigQueryDDLCompiler, BigQueryDialect
 
@@ -68,6 +69,18 @@ def faux_conn():
                 conn.ex = ex
 
                 ex("create table comments" " (key string primary key, comment string)")
+
+                # Modernize faux_conn for SQLAlchemy 2.0+ by allowing it to execute
+                # Compiled objects (common in this test suite)
+                if sqlalchemy_version >= packaging.version.parse("2.0"):
+                    original_execute = conn.execute
+
+                    def execute(statement, *args, **kw):
+                        if isinstance(statement, Compiled):
+                            statement = sqlalchemy.text(str(statement))
+                        return original_execute(statement, *args, **kw)
+
+                    conn.execute = execute
 
                 yield conn
                 conn.close()

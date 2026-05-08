@@ -2,18 +2,21 @@ from unittest.mock import Mock, patch
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.test import TestCase
+
 from esi.models import Token
 
 from allianceauth.tests.auth_utils import AuthUtils
 
 from ..evelinks import eveimageserver
-from ..models import EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo
+from ..models import (
+    EveAllianceInfo, EveCharacter, EveCorporationInfo, EveFactionInfo,
+)
 from ..providers import Alliance, Character, Corporation
 from .esi_client_stub import EsiClientStub
 
 
 class EveCharacterTestCase(TestCase):
-    def test_corporation_prop(self):
+    def test_corporation_prop(self) -> None:
         """
         Test that the correct corporation is returned by the corporation property
         """
@@ -46,7 +49,7 @@ class EveCharacterTestCase(TestCase):
         self.assertEqual(character.corporation, expected)
         self.assertNotEqual(character.corporation, incorrect)
 
-    def test_corporation_prop_exception(self):
+    def test_corporation_prop_exception(self) -> None:
         """
         Check that an exception is raised when the expected
         object is not in the database
@@ -62,9 +65,9 @@ class EveCharacterTestCase(TestCase):
         )
 
         with self.assertRaises(EveCorporationInfo.DoesNotExist):
-            character.corporation
+            _ = character.corporation
 
-    def test_alliance_prop(self):
+    def test_alliance_prop(self) -> None:
         """
         Test that the correct alliance is returned by the alliance property
         """
@@ -95,7 +98,7 @@ class EveCharacterTestCase(TestCase):
         self.assertEqual(character.alliance, expected)
         self.assertNotEqual(character.alliance, incorrect)
 
-    def test_alliance_prop_exception(self):
+    def test_alliance_prop_exception(self) -> None:
         """
         Check that an exception is raised when the expected
         object is not in the database
@@ -111,9 +114,9 @@ class EveCharacterTestCase(TestCase):
         )
 
         with self.assertRaises(EveAllianceInfo.DoesNotExist):
-            character.alliance
+            _ = character.alliance
 
-    def test_alliance_prop_none(self):
+    def test_alliance_prop_none(self) -> None:
         """
         Check that None is returned when the character has no alliance
         """
@@ -129,7 +132,7 @@ class EveCharacterTestCase(TestCase):
 
         self.assertIsNone(character.alliance)
 
-    def test_faction_prop(self):
+    def test_faction_prop(self) -> None:
         """
         Test that the correct faction is returned by the alliance property
         """
@@ -151,7 +154,7 @@ class EveCharacterTestCase(TestCase):
         self.assertEqual(character.faction, expected)
         self.assertNotEqual(character.faction, incorrect)
 
-    def test_faction_prop_exception(self):
+    def test_faction_prop_exception(self) -> None:
         """
         Check that an exception is raised when the expected
         object is not in the database
@@ -169,9 +172,9 @@ class EveCharacterTestCase(TestCase):
         )
 
         with self.assertRaises(EveFactionInfo.DoesNotExist):
-            character.faction
+            _ = character.faction
 
-    def test_faction_prop_none(self):
+    def test_faction_prop_none(self) -> None:
         """
         Check that None is returned when the character has no alliance
         """
@@ -189,8 +192,8 @@ class EveCharacterTestCase(TestCase):
 
         self.assertIsNone(character.faction)
 
-    @patch('allianceauth.eveonline.providers.provider')
-    def test_update_character(self, mock_provider):
+    @patch('allianceauth.eveonline.providers.open_api_provider')
+    def test_update_character(self, mock_provider) -> None:
         mock_provider.get_corp.return_value = Corporation(
             id=2002,
             name='Dummy Corp 2',
@@ -221,7 +224,7 @@ class EveCharacterTestCase(TestCase):
 
         # todo: add test cases not yet covered, e.g. with alliance
 
-    def test_image_url(self):
+    def test_image_url(self) -> None:
         self.assertEqual(
             EveCharacter.generic_portrait_url(42),
             eveimageserver._eve_entity_image_url('character', 42)
@@ -231,7 +234,7 @@ class EveCharacterTestCase(TestCase):
             eveimageserver._eve_entity_image_url('character', 42, 256)
         )
 
-    def test_portrait_urls(self):
+    def test_portrait_urls(self) -> None:
         x = EveCharacter(
             character_id=42,
             character_name='character.name',
@@ -264,7 +267,7 @@ class EveCharacterTestCase(TestCase):
             eveimageserver._eve_entity_image_url('character', 42, size=256)
         )
 
-    def test_corporation_logo_urls(self):
+    def test_corporation_logo_urls(self) -> None:
         x = EveCharacter(
             character_id=42,
             character_name='character.name',
@@ -297,7 +300,7 @@ class EveCharacterTestCase(TestCase):
             eveimageserver._eve_entity_image_url('corporation', 123, size=256)
         )
 
-    def test_alliance_logo_urls(self):
+    def test_alliance_logo_urls(self) -> None:
         x = EveCharacter(
             character_id=42,
             character_name='character.name',
@@ -354,7 +357,7 @@ class EveCharacterTestCase(TestCase):
 
 class EveAllianceTestCase(TestCase):
 
-    def test_str(self):
+    def test_str(self) -> None:
         my_alliance = EveAllianceInfo(
             alliance_id=3001,
             alliance_name='Dummy Alliance 1',
@@ -366,9 +369,9 @@ class EveAllianceTestCase(TestCase):
     @patch(
         'allianceauth.eveonline.models.EveCorporationInfo.objects.create_corporation'
     )
-    def test_populate_alliance(self, mock_create_corporation):
+    def test_populate_alliance(self, mock_create_corporation) -> None:
 
-        def create_corp(corp_id):
+        def create_corp(corp_id, use_etag=True):
             if corp_id == 2002:
                 EveCorporationInfo.objects.create(
                     corporation_id=2002,
@@ -386,6 +389,7 @@ class EveAllianceTestCase(TestCase):
                 name='Dummy Alliance 1',
                 corp_ids=[2001, 2002]
             )
+        mock_EveAllianceProviderManager.get_alliance_corps.return_value = [2001, 2002]
         mock_create_corporation.side_effect = create_corp
 
         EveCorporationInfo.objects.create(
@@ -410,7 +414,7 @@ class EveAllianceTestCase(TestCase):
         ):
             self.assertEqual(corporation.alliance, my_alliance)
 
-    def test_update_alliance_with_object(self):
+    def test_update_alliance_with_object(self) -> None:
         my_alliance = EveAllianceInfo.objects.create(
             alliance_id=3001,
             alliance_name='Dummy Alliance 1',
@@ -430,7 +434,7 @@ class EveAllianceTestCase(TestCase):
         # potential bug
         # update_alliance() is only updateting executor_corp_id when object is given
 
-    def test_update_alliance_wo_object(self):
+    def test_update_alliance_wo_object(self) -> None:
         mock_EveAllianceProviderManager = Mock()
         mock_EveAllianceProviderManager.get_alliance.return_value = \
             Alliance(
@@ -460,7 +464,7 @@ class EveAllianceTestCase(TestCase):
         # potential bug
         # update_alliance() is only updateting executor_corp_id nothing else ???
 
-    def test_image_url(self):
+    def test_image_url(self) -> None:
         self.assertEqual(
             EveAllianceInfo.generic_logo_url(42),
             eveimageserver._eve_entity_image_url('alliance', 42)
@@ -470,7 +474,7 @@ class EveAllianceTestCase(TestCase):
             eveimageserver._eve_entity_image_url('alliance', 42, 256)
         )
 
-    def test_logo_url(self):
+    def test_logo_url(self) -> None:
         x = EveAllianceInfo(
             alliance_id=42,
             alliance_name='alliance.name',
@@ -505,7 +509,7 @@ class EveAllianceTestCase(TestCase):
 
 class EveCorporationTestCase(TestCase):
 
-    def setUp(self):
+    def setUp(self) -> None:
         my_alliance = EveAllianceInfo.objects.create(
             alliance_id=3001,
             alliance_name='Dummy Alliance 1',
@@ -520,10 +524,10 @@ class EveCorporationTestCase(TestCase):
             alliance=my_alliance
         )
 
-    def test_str(self):
+    def test_str(self) -> None:
         self.assertEqual(str(self.my_corp), 'Dummy Corporation 1')
 
-    def test_update_corporation_from_object_w_alliance(self):
+    def test_update_corporation_from_object_w_alliance(self) -> None:
         updated_corp = Corporation(
             members=87
         )
@@ -533,7 +537,7 @@ class EveCorporationTestCase(TestCase):
         # potential bug
         # update_corporation updates member_count only
 
-    def test_update_corporation_no_object_w_alliance(self):
+    def test_update_corporation_no_object_w_alliance(self) -> None:
         mock_provider = Mock()
         mock_provider.get_corporation.return_value = Corporation(members=87)
         self.my_corp.provider = mock_provider
@@ -541,7 +545,7 @@ class EveCorporationTestCase(TestCase):
         self.my_corp.update_corporation()
         self.assertEqual(self.my_corp.member_count, 87)
 
-    def test_update_corporation_from_object_wo_alliance(self):
+    def test_update_corporation_from_object_wo_alliance(self) -> None:
         my_corp2 = EveCorporationInfo(
             corporation_id=2011,
             corporation_name='Dummy Corporation 11',
@@ -555,7 +559,7 @@ class EveCorporationTestCase(TestCase):
         self.assertEqual(my_corp2.member_count, 8)
         self.assertIsNone(my_corp2.alliance)
 
-    def test_image_url(self):
+    def test_image_url(self) -> None:
         self.assertEqual(
             EveCorporationInfo.generic_logo_url(42),
             eveimageserver._eve_entity_image_url('corporation', 42)
@@ -565,7 +569,7 @@ class EveCorporationTestCase(TestCase):
             eveimageserver._eve_entity_image_url('corporation', 42, 256)
         )
 
-    def test_logo_url(self):
+    def test_logo_url(self) -> None:
         self.assertEqual(
             self.my_corp.logo_url(),
             'https://images.evetech.net/corporations/2001/logo?size=32'
@@ -592,96 +596,95 @@ class EveCorporationTestCase(TestCase):
         )
 
 
-@patch('allianceauth.eveonline.providers.esi_client_factory')
 @patch("allianceauth.eveonline.models.notify")
 class TestCharacterUpdate(TestCase):
-    def test_should_update_normal_character(self, mock_notify, mock_esi_client_factory):
+    def test_should_update_normal_character(self, mock_notify) -> None:
         # given
-        mock_esi_client_factory.return_value = EsiClientStub()
-        my_character = EveCharacter.objects.create(
-            character_id=1001,
-            character_name="not my name",
-            corporation_id=2002,
-            corporation_name="Wayne Food",
-            corporation_ticker="WYF",
-            alliance_id=None
-        )
-        # when
-        my_character.update_character()
-        # then
-        my_character.refresh_from_db()
-        self.assertEqual(my_character.character_name, "Bruce Wayne")
-        self.assertEqual(my_character.corporation_id, 2001)
-        self.assertEqual(my_character.corporation_name, "Wayne Technologies")
-        self.assertEqual(my_character.corporation_ticker, "WTE")
-        self.assertEqual(my_character.alliance_id, 3001)
-        self.assertEqual(my_character.alliance_name, "Wayne Enterprises")
-        self.assertEqual(my_character.alliance_ticker, "WYE")
-        self.assertFalse(mock_notify.called)
+        with patch("allianceauth.eveonline.providers.open_api_provider._client", EsiClientStub()):
+            my_character = EveCharacter.objects.create(
+                character_id=1001,
+                character_name="not my name",
+                corporation_id=2002,
+                corporation_name="Wayne Food",
+                corporation_ticker="WYF",
+                alliance_id=None
+            )
+            # when
+            my_character.update_character()
+            # then
+            my_character.refresh_from_db()
+            self.assertEqual(my_character.character_name, "Bruce Wayne")
+            self.assertEqual(my_character.corporation_id, 2001)
+            self.assertEqual(my_character.corporation_name, "Wayne Technologies")
+            self.assertEqual(my_character.corporation_ticker, "WTE")
+            self.assertEqual(my_character.alliance_id, 3001)
+            self.assertEqual(my_character.alliance_name, "Wayne Enterprises")
+            self.assertEqual(my_character.alliance_ticker, "WYE")
+            self.assertFalse(mock_notify.called)
 
     def test_should_update_dead_character_with_owner(
-        self, mock_notify, mock_esi_client_factory
+        self, mock_notify
     ):
         # given
-        mock_esi_client_factory.return_value = EsiClientStub()
-        character_1666 = EveCharacter.objects.create(
-            character_id=1666,
-            character_name="Hal Jordan",
-            corporation_id=2002,
-            corporation_name="Wayne Food",
-            corporation_ticker="WYF",
-            alliance_id=None
-        )
-        user = AuthUtils.create_user("Bruce Wayne")
-        token_1666 = Token.objects.create(
-            user=user,
-            character_id=character_1666.character_id,
-            character_name=character_1666.character_name,
-            character_owner_hash="ABC123-1666",
-        )
-        character_1001 = EveCharacter.objects.create(
-            character_id=1001,
-            character_name="Bruce Wayne",
-            corporation_id=2001,
-            corporation_name="Wayne Technologies",
-            corporation_ticker="WYT",
-            alliance_id=None
-        )
-        token_1001 = Token.objects.create(
-            user=user,
-            character_id=character_1001.character_id,
-            character_name=character_1001.character_name,
-            character_owner_hash="ABC123-1001",
-        )
-        # when
-        character_1666.update_character()
-        # then
-        character_1666.refresh_from_db()
-        self.assertTrue(character_1666.is_biomassed)
-        self.assertNotIn(token_1666, user.token_set.all())
-        self.assertIn(token_1001, user.token_set.all())
-        with self.assertRaises(ObjectDoesNotExist):
-            self.assertTrue(character_1666.character_ownership)
-        user.profile.refresh_from_db()
-        self.assertIsNone(user.profile.main_character)
-        self.assertTrue(mock_notify.called)
+        with patch("allianceauth.eveonline.providers.open_api_provider._client", EsiClientStub()):
+            character_1666 = EveCharacter.objects.create(
+                character_id=1666,
+                character_name="Hal Jordan",
+                corporation_id=2002,
+                corporation_name="Wayne Food",
+                corporation_ticker="WYF",
+                alliance_id=None
+            )
+            user = AuthUtils.create_user("Bruce Wayne")
+            token_1666 = Token.objects.create(
+                user=user,
+                character_id=character_1666.character_id,
+                character_name=character_1666.character_name,
+                character_owner_hash="ABC123-1666",
+            )
+            character_1001 = EveCharacter.objects.create(
+                character_id=1001,
+                character_name="Bruce Wayne",
+                corporation_id=2001,
+                corporation_name="Wayne Technologies",
+                corporation_ticker="WYT",
+                alliance_id=None
+            )
+            token_1001 = Token.objects.create(
+                user=user,
+                character_id=character_1001.character_id,
+                character_name=character_1001.character_name,
+                character_owner_hash="ABC123-1001",
+            )
+            # when
+            character_1666.update_character()
+            # then
+            character_1666.refresh_from_db()
+            self.assertTrue(character_1666.is_biomassed)
+            self.assertNotIn(token_1666, user.token_set.all())
+            self.assertIn(token_1001, user.token_set.all())
+            with self.assertRaises(ObjectDoesNotExist):
+                self.assertTrue(character_1666.character_ownership)
+            user.profile.refresh_from_db()
+            self.assertIsNone(user.profile.main_character)
+            self.assertTrue(mock_notify.called)
 
     def test_should_handle_dead_character_without_owner(
-        self, mock_notify, mock_esi_client_factory
-    ):
+        self, mock_notify
+    ) -> None:
         # given
-        mock_esi_client_factory.return_value = EsiClientStub()
-        character_1666 = EveCharacter.objects.create(
-            character_id=1666,
-            character_name="Hal Jordan",
-            corporation_id=1011,
-            corporation_name="LexCorp",
-            corporation_ticker='LC',
-            alliance_id=None
-        )
-        # when
-        character_1666.update_character()
-        # then
-        character_1666.refresh_from_db()
-        self.assertTrue(character_1666.is_biomassed)
-        self.assertFalse(mock_notify.called)
+        with patch("allianceauth.eveonline.providers.open_api_provider._client", EsiClientStub()):
+            character_1666 = EveCharacter.objects.create(
+                character_id=1666,
+                character_name="Hal Jordan",
+                corporation_id=1011,
+                corporation_name="LexCorp",
+                corporation_ticker='LC',
+                alliance_id=None
+            )
+            # when
+            character_1666.update_character()
+            # then
+            character_1666.refresh_from_db()
+            self.assertTrue(character_1666.is_biomassed)
+            self.assertFalse(mock_notify.called)

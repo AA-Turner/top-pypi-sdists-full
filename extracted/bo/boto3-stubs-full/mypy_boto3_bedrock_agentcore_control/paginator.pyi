@@ -29,6 +29,9 @@ Usage::
         ListMemoriesPaginator,
         ListOauth2CredentialProvidersPaginator,
         ListOnlineEvaluationConfigsPaginator,
+        ListPaymentConnectorsPaginator,
+        ListPaymentCredentialProvidersPaginator,
+        ListPaymentManagersPaginator,
         ListPoliciesPaginator,
         ListPolicyEnginesPaginator,
         ListPolicyGenerationAssetsPaginator,
@@ -58,6 +61,9 @@ Usage::
     list_memories_paginator: ListMemoriesPaginator = client.get_paginator("list_memories")
     list_oauth2_credential_providers_paginator: ListOauth2CredentialProvidersPaginator = client.get_paginator("list_oauth2_credential_providers")
     list_online_evaluation_configs_paginator: ListOnlineEvaluationConfigsPaginator = client.get_paginator("list_online_evaluation_configs")
+    list_payment_connectors_paginator: ListPaymentConnectorsPaginator = client.get_paginator("list_payment_connectors")
+    list_payment_credential_providers_paginator: ListPaymentCredentialProvidersPaginator = client.get_paginator("list_payment_credential_providers")
+    list_payment_managers_paginator: ListPaymentManagersPaginator = client.get_paginator("list_payment_managers")
     list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
     list_policy_engines_paginator: ListPolicyEnginesPaginator = client.get_paginator("list_policy_engines")
     list_policy_generation_assets_paginator: ListPolicyGenerationAssetsPaginator = client.get_paginator("list_policy_generation_assets")
@@ -110,6 +116,12 @@ from .type_defs import (
     ListOauth2CredentialProvidersResponseTypeDef,
     ListOnlineEvaluationConfigsRequestPaginateTypeDef,
     ListOnlineEvaluationConfigsResponseTypeDef,
+    ListPaymentConnectorsRequestPaginateTypeDef,
+    ListPaymentConnectorsResponseTypeDef,
+    ListPaymentCredentialProvidersRequestPaginateTypeDef,
+    ListPaymentCredentialProvidersResponseTypeDef,
+    ListPaymentManagersRequestPaginateTypeDef,
+    ListPaymentManagersResponseTypeDef,
     ListPoliciesRequestPaginateTypeDef,
     ListPoliciesResponseTypeDef,
     ListPolicyEnginesRequestPaginateTypeDef,
@@ -149,6 +161,9 @@ __all__ = (
     "ListMemoriesPaginator",
     "ListOauth2CredentialProvidersPaginator",
     "ListOnlineEvaluationConfigsPaginator",
+    "ListPaymentConnectorsPaginator",
+    "ListPaymentCredentialProvidersPaginator",
+    "ListPaymentManagersPaginator",
     "ListPoliciesPaginator",
     "ListPolicyEnginesPaginator",
     "ListPolicyGenerationAssetsPaginator",
@@ -470,6 +485,62 @@ class ListOnlineEvaluationConfigsPaginator(_ListOnlineEvaluationConfigsPaginator
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListOnlineEvaluationConfigs.html#BedrockAgentCoreControl.Paginator.ListOnlineEvaluationConfigs.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listonlineevaluationconfigspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPaymentConnectorsPaginatorBase = Paginator[ListPaymentConnectorsResponseTypeDef]
+else:
+    _ListPaymentConnectorsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPaymentConnectorsPaginator(_ListPaymentConnectorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPaymentConnectors.html#BedrockAgentCoreControl.Paginator.ListPaymentConnectors)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpaymentconnectorspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPaymentConnectorsRequestPaginateTypeDef]
+    ) -> PageIterator[ListPaymentConnectorsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPaymentConnectors.html#BedrockAgentCoreControl.Paginator.ListPaymentConnectors.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpaymentconnectorspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPaymentCredentialProvidersPaginatorBase = Paginator[
+        ListPaymentCredentialProvidersResponseTypeDef
+    ]
+else:
+    _ListPaymentCredentialProvidersPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPaymentCredentialProvidersPaginator(_ListPaymentCredentialProvidersPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPaymentCredentialProviders.html#BedrockAgentCoreControl.Paginator.ListPaymentCredentialProviders)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpaymentcredentialproviderspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPaymentCredentialProvidersRequestPaginateTypeDef]
+    ) -> PageIterator[ListPaymentCredentialProvidersResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPaymentCredentialProviders.html#BedrockAgentCoreControl.Paginator.ListPaymentCredentialProviders.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpaymentcredentialproviderspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPaymentManagersPaginatorBase = Paginator[ListPaymentManagersResponseTypeDef]
+else:
+    _ListPaymentManagersPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPaymentManagersPaginator(_ListPaymentManagersPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPaymentManagers.html#BedrockAgentCoreControl.Paginator.ListPaymentManagers)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpaymentmanagerspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPaymentManagersRequestPaginateTypeDef]
+    ) -> PageIterator[ListPaymentManagersResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListPaymentManagers.html#BedrockAgentCoreControl.Paginator.ListPaymentManagers.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listpaymentmanagerspaginator)
         """
 
 if TYPE_CHECKING:

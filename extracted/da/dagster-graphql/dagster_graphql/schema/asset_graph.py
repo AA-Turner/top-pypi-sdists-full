@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Union, cast
 
 import graphene
@@ -26,6 +26,7 @@ from dagster._core.definitions.data_version import (
     StaleCauseCategory,
     StaleStatus,
 )
+from dagster._core.definitions.metadata.metadata_set import TableMetadataSet
 from dagster._core.definitions.partitions.context import (
     PartitionLoadingContext,
     partition_loading_context,
@@ -161,6 +162,25 @@ class GrapheneAssetStaleCause(graphene.ObjectType):
         name = "StaleCause"
 
 
+class GrapheneStorageAddress(graphene.ObjectType):
+    storageKind = graphene.String()
+    tableName = graphene.NonNull(graphene.String)
+
+    class Meta:
+        name = "StorageAddress"
+
+    @staticmethod
+    def to_manifest_dict(metadata: Mapping[str, Any]) -> dict | None:
+        address = TableMetadataSet.extract_storage_address(metadata)
+        if address is None:
+            return None
+        return {
+            "__typename": "StorageAddress",
+            "storageKind": address.storage_kind,
+            "tableName": address.table_name,
+        }
+
+
 class GrapheneAssetDependency(graphene.ObjectType):
     class Meta:
         name = "AssetDependency"
@@ -260,7 +280,7 @@ class GrapheneAssetNode(graphene.ObjectType):
     dependedByKeys = non_null_list(GrapheneAssetKey)
     dependencies = non_null_list(GrapheneAssetDependency)
     dependencyKeys = non_null_list(GrapheneAssetKey)
-    description = graphene.String()
+    description = graphene.Field(graphene.String, characterLimit=graphene.Int())
     freshnessInfo = graphene.Field(GrapheneAssetFreshnessInfo)
     freshnessPolicy = graphene.Field(GrapheneFreshnessPolicy)
     freshnessStatusInfo = graphene.Field(GrapheneFreshnessStatusInfo)
@@ -287,6 +307,7 @@ class GrapheneAssetNode(graphene.ObjectType):
     assetPartitionStatuses = graphene.NonNull(GrapheneAssetPartitionStatuses)
     partitionStats = graphene.Field(GraphenePartitionStats)
     metadata_entries = non_null_list(GrapheneMetadataEntry)
+    storageAddress = graphene.Field(GrapheneStorageAddress)
     tags = non_null_list(GrapheneDefinitionTag)
     kinds = non_null_list(graphene.String)
     op = graphene.Field(GrapheneSolidDefinition)
@@ -362,14 +383,22 @@ class GrapheneAssetNode(graphene.ObjectType):
         self._node_definition_snap = None  # lazily loaded
         self._asset_graph_differ = None  # lazily loaded
 
-        super().__init__(
-            id=get_unique_asset_id(
+        # Workspace-scoped ids are prefixed with "w." and repo-scoped ids with "r." so the
+        # two id-spaces are guaranteed disjoint regardless of asset key contents.
+        if isinstance(self._remote_node, RemoteRepositoryAssetNode):
+            asset_id = "r." + get_unique_asset_id(
                 self._asset_node_snap.asset_key,
-                self._repository_handle.location_name,
-                self._repository_handle.repository_name,
-            ),
+                self._remote_node.repository_handle.location_name,
+                self._remote_node.repository_handle.repository_name,
+            )
+        elif isinstance(self._remote_node, RemoteWorkspaceAssetNode):
+            asset_id = "w." + get_unique_asset_id(self._asset_node_snap.asset_key)
+        else:
+            check.failed(f"Unexpected asset node type {self._remote_node.__class__.__name__}")
+
+        super().__init__(
+            id=asset_id,
             assetKey=self._asset_node_snap.asset_key,
-            description=self._asset_node_snap.description,
             opName=self._asset_node_snap.op_name,
             opVersion=self._asset_node_snap.code_version,
             groupName=self._asset_node_snap.group_name,
@@ -856,6 +885,14 @@ class GrapheneAssetNode(graphene.ObjectType):
             for key in self._remote_node.parent_keys
         ]
 
+    def resolve_description(
+        self, _graphene_info: ResolveInfo, characterLimit: int | None = None
+    ) -> str | None:
+        description = self._asset_node_snap.description
+        if description is None or characterLimit is None:
+            return description
+        return description[:characterLimit]
+
     def resolve_freshnessInfo(
         self, graphene_info: ResolveInfo
     ) -> GrapheneAssetFreshnessInfo | None:
@@ -1179,6 +1216,14 @@ class GrapheneAssetNode(graphene.ObjectType):
         self, _graphene_info: ResolveInfo
     ) -> Sequence[GrapheneMetadataEntry]:
         return list(iterate_metadata_entries(self._asset_node_snap.metadata))
+
+    def resolve_storageAddress(self, _graphene_info: ResolveInfo) -> GrapheneStorageAddress | None:
+        address = TableMetadataSet.extract_storage_address(self._asset_node_snap.metadata)
+        if address is None:
+            return None
+        return GrapheneStorageAddress(
+            storageKind=address.storage_kind, tableName=address.table_name
+        )
 
     def resolve_isAutoCreatedStub(self, _graphene_info: ResolveInfo) -> bool:
         return (
@@ -1508,10 +1553,11 @@ class GrapheneAssetNode(graphene.ObjectType):
             if asset_graph_differ is not None
             else []
         )
+        storage_address_dict = GrapheneStorageAddress.to_manifest_dict(snap.metadata)
 
         return {
             "__typename": "AssetNode",
-            "id": get_unique_asset_id(snap.asset_key, location_name, repo_name),
+            "id": "r." + get_unique_asset_id(snap.asset_key, location_name, repo_name),
             "graphName": snap.graph_name,
             "opVersion": snap.code_version,
             "dependencyKeys": [
@@ -1551,6 +1597,7 @@ class GrapheneAssetNode(graphene.ObjectType):
             "jobNames": snap.job_names,
             "kinds": GrapheneAssetNode._get_compute_kinds(snap),
             "repository": repository_dict,
+            "storageAddress": storage_address_dict,
         }
 
 

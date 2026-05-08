@@ -1,15 +1,11 @@
-from django.test import TestCase
 from django.contrib.auth.models import Group
-from django.db import transaction
+from django.test import TestCase
 
+from allianceauth.eveonline.models import EveAllianceInfo, EveCharacter, EveCorporationInfo
 from allianceauth.tests.auth_utils import AuthUtils
 
-from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo, EveAllianceInfo
-
 from ..models import AutogroupsConfig, get_users_for_state
-
-
-from . import patch, connect_signals, disconnect_signals
+from . import connect_signals, disconnect_signals, patch
 
 
 class AutogroupsConfigTestCase(TestCase):

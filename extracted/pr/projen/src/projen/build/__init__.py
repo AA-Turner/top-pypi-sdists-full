@@ -277,6 +277,7 @@ class BuildWorkflow(
         *,
         build_task: "_Task_9fa875b6",
         artifacts_directory: typing.Optional[builtins.str] = None,
+        build_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         container_image: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
@@ -294,6 +295,7 @@ class BuildWorkflow(
         :param project: -
         :param build_task: (experimental) The task to execute in order to build the project.
         :param artifacts_directory: (experimental) A name of a directory that includes build artifacts. Default: "dist"
+        :param build_runs_on: (experimental) Github Runner selection labels. Default: - runsOn
         :param container_image: (experimental) The container image to use for builds. Default: - the default workflow container
         :param git_identity: (experimental) Git identity to use for the workflow. Default: - default GitHub Actions user
         :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. This is enabled by default only if ``githubTokenSecret`` is set. Otherwise it is disabled, which implies that file changes that happen during build will not be pushed back to the branch. Default: true
@@ -315,6 +317,7 @@ class BuildWorkflow(
         options = BuildWorkflowOptions(
             build_task=build_task,
             artifacts_directory=artifacts_directory,
+            build_runs_on=build_runs_on,
             container_image=container_image,
             git_identity=git_identity,
             mutable_build=mutable_build,
@@ -657,6 +660,7 @@ class BuildWorkflowCommonOptions:
         "workflow_triggers": "workflowTriggers",
         "build_task": "buildTask",
         "artifacts_directory": "artifactsDirectory",
+        "build_runs_on": "buildRunsOn",
         "container_image": "containerImage",
         "git_identity": "gitIdentity",
         "mutable_build": "mutableBuild",
@@ -677,6 +681,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         build_task: "_Task_9fa875b6",
         artifacts_directory: typing.Optional[builtins.str] = None,
+        build_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         container_image: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
@@ -693,6 +698,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         :param workflow_triggers: (experimental) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param build_task: (experimental) The task to execute in order to build the project.
         :param artifacts_directory: (experimental) A name of a directory that includes build artifacts. Default: "dist"
+        :param build_runs_on: (experimental) Github Runner selection labels. Default: - runsOn
         :param container_image: (experimental) The container image to use for builds. Default: - the default workflow container
         :param git_identity: (experimental) Git identity to use for the workflow. Default: - default GitHub Actions user
         :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. This is enabled by default only if ``githubTokenSecret`` is set. Otherwise it is disabled, which implies that file changes that happen during build will not be pushed back to the branch. Default: true
@@ -720,6 +726,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
             check_type(argname="argument workflow_triggers", value=workflow_triggers, expected_type=type_hints["workflow_triggers"])
             check_type(argname="argument build_task", value=build_task, expected_type=type_hints["build_task"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
+            check_type(argname="argument build_runs_on", value=build_runs_on, expected_type=type_hints["build_runs_on"])
             check_type(argname="argument container_image", value=container_image, expected_type=type_hints["container_image"])
             check_type(argname="argument git_identity", value=git_identity, expected_type=type_hints["git_identity"])
             check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
@@ -742,6 +749,8 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
             self._values["workflow_triggers"] = workflow_triggers
         if artifacts_directory is not None:
             self._values["artifacts_directory"] = artifacts_directory
+        if build_runs_on is not None:
+            self._values["build_runs_on"] = build_runs_on
         if container_image is not None:
             self._values["container_image"] = container_image
         if git_identity is not None:
@@ -832,6 +841,19 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         '''
         result = self._values.get("artifacts_directory")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def build_runs_on(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Github Runner selection labels.
+
+        :default: - runsOn
+
+        :stability: experimental
+        :description: Defines a target Runner by labels for just the build job
+        :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
+        '''
+        result = self._values.get("build_runs_on")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def container_image(self) -> typing.Optional[builtins.str]:
@@ -973,6 +995,7 @@ def _typecheckingstub__f4d192684ec38f19e56855947a401da7aa8d483beaeef832704f28ff4
     *,
     build_task: _Task_9fa875b6,
     artifacts_directory: typing.Optional[builtins.str] = None,
+    build_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     container_image: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,
@@ -1063,6 +1086,7 @@ def _typecheckingstub__9d08c9df51ed0147527f9d30b5f0f37c5e4482b10a1ea4f55a1488562
     workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     build_task: _Task_9fa875b6,
     artifacts_directory: typing.Optional[builtins.str] = None,
+    build_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     container_image: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,

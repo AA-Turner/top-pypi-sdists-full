@@ -1,14 +1,14 @@
-import re
+import logging
 import random
+import re
 import string
 from urllib.parse import urlparse
 
 import slixmpp
-from django.conf import settings
-from ofrestapi.users import Users as ofUsers
 from ofrestapi import exception
+from ofrestapi.users import Users as ofUsers
 
-import logging
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -60,58 +60,58 @@ class OpenfireManager:
 
     @staticmethod
     def add_user(username):
-        logger.debug("Adding username %s to openfire." % username)
+        logger.debug(f"Adding username {username} to openfire.")
         try:
             sanitized_username = OpenfireManager.__sanitize_username(username)
             password = OpenfireManager.__generate_random_pass()
             api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
             api.add_user(sanitized_username, password)
-            logger.info("Added openfire user %s" % username)
+            logger.info(f"Added openfire user {username}")
         except exception.UserAlreadyExistsException:
             # User exist
-            logger.error("Attempting to add a user %s to openfire which already exists on server." % username)
+            logger.error(f"Attempting to add a user {username} to openfire which already exists on server.")
             return "", ""
 
         return sanitized_username, password
 
     @staticmethod
     def delete_user(username):
-        logger.debug("Deleting user %s from openfire." % username)
+        logger.debug(f"Deleting user {username} from openfire.")
         try:
             api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
             api.delete_user(username)
-            logger.info("Deleted user %s from openfire." % username)
+            logger.info(f"Deleted user {username} from openfire.")
             return True
         except exception.UserNotFoundException:
-            logger.error("Attempting to delete a user %s from openfire which was not found on server." % username)
+            logger.error(f"Attempting to delete a user {username} from openfire which was not found on server.")
             return False
 
     @staticmethod
     def lock_user(username):
-        logger.debug("Locking openfire user %s" % username)
+        logger.debug(f"Locking openfire user {username}")
         api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
         api.lock_user(username)
-        logger.info("Locked openfire user %s" % username)
+        logger.info(f"Locked openfire user {username}")
 
     @staticmethod
     def unlock_user(username):
-        logger.debug("Unlocking openfire user %s" % username)
+        logger.debug(f"Unlocking openfire user {username}")
         api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
         api.unlock_user(username)
-        logger.info("Unlocked openfire user %s" % username)
+        logger.info(f"Unlocked openfire user {username}")
 
     @staticmethod
     def update_user_pass(username, password=None):
-        logger.debug("Updating openfire user %s password." % username)
+        logger.debug(f"Updating openfire user {username} password.")
         try:
             if not password:
                 password = OpenfireManager.__generate_random_pass()
             api = ofUsers(settings.OPENFIRE_ADDRESS, settings.OPENFIRE_SECRET_KEY)
             api.update_user(username, password=password)
-            logger.info("Updated openfire user %s password." % username)
+            logger.info(f"Updated openfire user {username} password.")
             return password
         except exception.UserNotFoundException:
-            logger.error("Unable to update openfire user %s password - user not found on server." % username)
+            logger.error(f"Unable to update openfire user {username} password - user not found on server.")
             return ""
 
     @classmethod
@@ -161,7 +161,7 @@ class OpenfireManager:
             xmpp.process(block=True)
             message = None
             if xmpp.message_sent:
-                logger.debug("Sent jabber ping to group %s" % group_name)
+                logger.debug(f"Sent jabber ping to group {group_name}")
                 return
             else:
                 message = "Failed to send Openfire broadcast message."

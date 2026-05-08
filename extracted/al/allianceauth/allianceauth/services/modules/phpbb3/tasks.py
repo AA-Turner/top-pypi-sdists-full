@@ -1,11 +1,14 @@
 import logging
 
+from celery import shared_task
+
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
-from celery import shared_task
-from allianceauth.services.tasks import QueueOnce
+
 from allianceauth.notifications import notify
 from allianceauth.services.hooks import NameFormatter
+from allianceauth.services.tasks import QueueOnce
+
 from .manager import Phpbb3Manager
 from .models import Phpbb3User
 
@@ -38,7 +41,7 @@ class Phpbb3Tasks:
     @shared_task(bind=True, name="phpbb3.update_groups", base=QueueOnce)
     def update_groups(self, pk):
         user = User.objects.get(pk=pk)
-        logger.debug("Updating phpbb3 groups for user %s" % user)
+        logger.debug(f"Updating phpbb3 groups for user {user}")
         if Phpbb3Tasks.has_account(user):
             groups = [user.profile.state.name]
             for group in user.groups.all():
@@ -46,10 +49,10 @@ class Phpbb3Tasks:
             logger.debug(f"Updating user {user} phpbb3 groups to {groups}")
             try:
                 Phpbb3Manager.update_groups(user.phpbb3.username, groups)
-            except:
-                logger.exception("Phpbb group sync failed for %s, retrying in 10 mins" % user)
-                raise self.retry(countdown=60 * 10)
-            logger.debug("Updated user %s phpbb3 groups." % user)
+            except Exception as e:
+                logger.exception(f"Phpbb group sync failed for {user}, retrying in 10 mins")
+                raise self.retry(exc=e, countdown=60 * 10) from e
+            logger.debug(f"Updated user {user} phpbb3 groups.")
         else:
             logger.debug("User does not have a Phpbb3 account")
 

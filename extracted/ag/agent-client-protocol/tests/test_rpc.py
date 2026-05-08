@@ -2,7 +2,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -26,6 +26,7 @@ from acp import (
     update_agent_message_text,
     update_tool_call,
 )
+from acp.connection import Connection
 from acp.core import AgentSideConnection, ClientSideConnection
 from acp.schema import (
     AgentMessageChunk,
@@ -35,6 +36,7 @@ from acp.schema import (
     DeniedOutcome,
     EmbeddedResourceContentBlock,
     EnvVariable,
+    ForkSessionResponse,
     HttpMcpServer,
     ImageContentBlock,
     Implementation,
@@ -42,6 +44,7 @@ from acp.schema import (
     McpServerStdio,
     PermissionOption,
     ResourceContentBlock,
+    ResumeSessionResponse,
     SseMcpServer,
     TextContentBlock,
     ToolCallLocation,
@@ -50,7 +53,7 @@ from acp.schema import (
     ToolCallUpdate,
     UserMessageChunk,
 )
-from tests.conftest import TestClient
+from tests.conftest import TestAgent, TestClient
 
 # ------------------------ Tests --------------------------
 
@@ -200,12 +203,41 @@ async def test_concurrent_reads(connect, client):
 
 
 @pytest.mark.asyncio
+async def test_pending_request_fails_when_remote_sends_eof(server):
+    conn = Connection(lambda method, params, is_notification: None, server.client_writer, server.client_reader)
+    request = asyncio.create_task(conn.send_request("ping", {"value": 1}))
+
+    await asyncio.sleep(0.05)
+    server.server_writer.close()
+    await server.server_writer.wait_closed()
+
+    with pytest.raises(ConnectionError, match="Connection closed"):
+        await asyncio.wait_for(request, timeout=1.0)
+
+    await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_new_requests_fail_fast_after_remote_eof(server):
+    conn = Connection(lambda method, params, is_notification: None, server.client_writer, server.client_reader)
+
+    server.server_writer.close()
+    await server.server_writer.wait_closed()
+    await asyncio.sleep(0.05)
+
+    with pytest.raises(ConnectionError, match="Connection closed"):
+        await asyncio.wait_for(conn.send_request("ping", {"value": 1}), timeout=1.0)
+
+    await conn.close()
+
+
+@pytest.mark.asyncio
 async def test_invalid_params_results_in_error_response(connect, server):
     # Only start agent-side (server) so we can inject raw request from client socket
     connect(connect_agent=True, connect_client=False)
 
-    # Send initialize with wrong param type (protocolVersion should be int)
-    req = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "oops"}}
+    # Send initialize without the required protocolVersion field.
+    req = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
     server.client_writer.write((json.dumps(req) + "\n").encode())
     await server.client_writer.drain()
 
@@ -215,6 +247,22 @@ async def test_invalid_params_results_in_error_response(connect, server):
     assert resp["id"] == 1
     assert "error" in resp
     assert resp["error"]["code"] == -32602  # invalid params
+
+
+@pytest.mark.asyncio
+async def test_initialize_accepts_legacy_string_protocol_version(connect, server):
+    # Only start agent-side (server) so we can inject raw request from client socket.
+    connect(connect_agent=True, connect_client=False)
+
+    req = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05"}}
+    server.client_writer.write((json.dumps(req) + "\n").encode())
+    await server.client_writer.drain()
+
+    line = await asyncio.wait_for(server.client_reader.readline(), timeout=1)
+    resp = json.loads(line)
+    assert resp["id"] == 1
+    assert "error" not in resp
+    assert resp["result"]["protocolVersion"] == 1
 
 
 @pytest.mark.asyncio
@@ -298,6 +346,102 @@ async def test_list_sessions_stable(connect, agent, client):
 
 
 @pytest.mark.asyncio
+async def test_session_additional_directories_roundtrip(server):
+    class _AdditionalDirectoriesAgent(TestAgent):
+        __test__ = False
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls: dict[str, list[str] | None] = {}
+
+        async def new_session(
+            self,
+            cwd: str,
+            additional_directories: list[str] | None = None,
+            mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio] | None = None,
+            **kwargs: Any,
+        ) -> NewSessionResponse:
+            self.calls["new"] = additional_directories
+            return NewSessionResponse(session_id="sess")
+
+        async def load_session(
+            self,
+            cwd: str,
+            session_id: str,
+            additional_directories: list[str] | None = None,
+            mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio] | None = None,
+            **kwargs: Any,
+        ) -> LoadSessionResponse | None:
+            self.calls["load"] = additional_directories
+            return LoadSessionResponse()
+
+        async def list_sessions(
+            self,
+            additional_directories: list[str] | None = None,
+            cursor: str | None = None,
+            cwd: str | None = None,
+            **kwargs: Any,
+        ) -> ListSessionsResponse:
+            self.calls["list"] = additional_directories
+            return ListSessionsResponse(sessions=[])
+
+        async def fork_session(
+            self,
+            cwd: str,
+            session_id: str,
+            additional_directories: list[str] | None = None,
+            mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio] | None = None,
+            **kwargs: Any,
+        ) -> ForkSessionResponse:
+            self.calls["fork"] = additional_directories
+            return ForkSessionResponse(session_id="forked")
+
+        async def resume_session(
+            self,
+            cwd: str,
+            session_id: str,
+            additional_directories: list[str] | None = None,
+            mcp_servers: list[HttpMcpServer | SseMcpServer | McpServerStdio] | None = None,
+            **kwargs: Any,
+        ) -> ResumeSessionResponse:
+            self.calls["resume"] = additional_directories
+            return ResumeSessionResponse()
+
+    agent = _AdditionalDirectoriesAgent()
+    agent_side = AgentSideConnection(
+        cast(Agent, agent),
+        server.server_writer,
+        server.server_reader,
+        listening=True,
+        use_unstable_protocol=True,
+    )
+    client_side = ClientSideConnection(
+        TestClient(),
+        server.client_writer,
+        server.client_reader,
+        use_unstable_protocol=True,
+    )
+    directories = ["/workspace/lib", "/workspace/tools"]
+
+    await client_side.new_session(cwd="/workspace", additional_directories=directories)
+    await client_side.load_session(cwd="/workspace", session_id="sess", additional_directories=directories)
+    await client_side.list_sessions(cwd="/workspace", additional_directories=directories)
+    await client_side.fork_session(cwd="/workspace", session_id="sess", additional_directories=directories)
+    await client_side.resume_session(cwd="/workspace", session_id="sess", additional_directories=directories)
+
+    assert agent.calls == {
+        "new": directories,
+        "load": directories,
+        "list": directories,
+        "fork": directories,
+        "resume": directories,
+    }
+
+    await client_side.close()
+    await agent_side.close()
+
+
+@pytest.mark.asyncio
 async def test_ignore_invalid_messages(connect, server):
     connect(connect_agent=True, connect_client=False)
 
@@ -314,6 +458,20 @@ async def test_ignore_invalid_messages(connect, server):
     # Should not receive any response lines
     with pytest.raises(asyncio.TimeoutError):
         await asyncio.wait_for(server.client_reader.readline(), timeout=0.1)
+
+
+@pytest.mark.asyncio
+async def test_blank_lines_skipped(connect, server):
+    connect(connect_agent=True, connect_client=False)
+
+    for noise in [b"\n", b"  \n", b"\r\n"]:
+        server.client_writer.write(noise)
+    req = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": 1}}
+    server.client_writer.write((json.dumps(req) + "\n").encode())
+    await server.client_writer.drain()
+
+    resp = json.loads(await asyncio.wait_for(server.client_reader.readline(), timeout=1))
+    assert resp["id"] == 1 and "result" in resp
 
 
 class _ExampleAgent(Agent):

@@ -3,14 +3,15 @@ Admin classes for custom_css app
 """
 
 # Django
-from django.contrib import admin
-
 # Django Solos
 from solo.admin import SingletonModelAdmin
 
+from django.contrib import admin
+
+from allianceauth.custom_css.forms import CustomCSSAdminForm
+
 # Alliance Auth Custom CSS
 from allianceauth.custom_css.models import CustomCSS
-from allianceauth.custom_css.forms import CustomCSSAdminForm
 
 
 @admin.register(CustomCSS)

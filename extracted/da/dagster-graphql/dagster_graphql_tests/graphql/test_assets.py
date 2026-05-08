@@ -351,6 +351,17 @@ GET_ASSET_DATA_VERSIONS = """
     }
 """
 
+GET_ASSET_NODE_DESCRIPTION = """
+    query AssetNodeDescriptionQuery($assetKey: AssetKeyInput!, $characterLimit: Int) {
+        assetNodeOrError(assetKey: $assetKey) {
+            ... on AssetNode {
+                id
+                description(characterLimit: $characterLimit)
+            }
+        }
+    }
+"""
+
 GET_ASSET_DATA_VERSIONS_BY_PARTITION = """
     query AssetNodeQuery($assetKey: AssetKeyInput!, $partition: String, $partitions: [String!]) {
         assetNodeOrError(assetKey: $assetKey) {
@@ -1859,7 +1870,7 @@ class TestAssetAwareEventLog(ExecutingGraphQLContextTestMatrix):
 
         assert len(result.data["assetNodes"]) == 1
         asset_node = result.data["assetNodes"][0]
-        assert asset_node["id"] == f"{main_repo_location_name()}.test_repo.asset_one"
+        assert asset_node["id"] == f"r.{main_repo_location_name()}.test_repo.asset_one"
         assert asset_node["hasMaterializePermission"]
         assert asset_node["hasReportRunlessAssetEventPermission"]
 
@@ -1874,7 +1885,7 @@ class TestAssetAwareEventLog(ExecutingGraphQLContextTestMatrix):
 
         assert len(result.data["assetNodes"]) == 2
         asset_node = result.data["assetNodes"][0]
-        assert asset_node["id"] == f"{main_repo_location_name()}.test_repo.asset_one"
+        assert asset_node["id"] == f"r.{main_repo_location_name()}.test_repo.asset_one"
 
     def test_asset_node_is_executable(self, graphql_context: WorkspaceRequestContext):
         result = execute_dagster_graphql(
@@ -1895,6 +1906,54 @@ class TestAssetAwareEventLog(ExecutingGraphQLContextTestMatrix):
         assert exec_asset_node["isExecutable"] is True
         unexec_asset_node = result.data["assetNodes"][1]
         assert unexec_asset_node["isExecutable"] is False
+
+    def test_asset_node_description_character_limit(self, graphql_context: WorkspaceRequestContext):
+        full_description = "A" * 100
+
+        # No characterLimit -> full description.
+        result = execute_dagster_graphql(
+            graphql_context,
+            GET_ASSET_NODE_DESCRIPTION,
+            variables={"assetKey": {"path": ["asset_with_long_description"]}},
+        )
+        assert result.data
+        assert result.data["assetNodeOrError"]["description"] == full_description
+
+        # characterLimit smaller than description -> truncated.
+        result = execute_dagster_graphql(
+            graphql_context,
+            GET_ASSET_NODE_DESCRIPTION,
+            variables={
+                "assetKey": {"path": ["asset_with_long_description"]},
+                "characterLimit": 10,
+            },
+        )
+        assert result.data
+        assert result.data["assetNodeOrError"]["description"] == full_description[:10]
+
+        # characterLimit >= description length -> full description unchanged.
+        result = execute_dagster_graphql(
+            graphql_context,
+            GET_ASSET_NODE_DESCRIPTION,
+            variables={
+                "assetKey": {"path": ["asset_with_long_description"]},
+                "characterLimit": 1000,
+            },
+        )
+        assert result.data
+        assert result.data["assetNodeOrError"]["description"] == full_description
+
+        # Asset without a description -> None regardless of characterLimit.
+        result = execute_dagster_graphql(
+            graphql_context,
+            GET_ASSET_NODE_DESCRIPTION,
+            variables={
+                "assetKey": {"path": ["asset_without_description"]},
+                "characterLimit": 10,
+            },
+        )
+        assert result.data
+        assert result.data["assetNodeOrError"]["description"] is None
 
     def test_asset_partitions_in_pipeline(self, graphql_context: WorkspaceRequestContext):
         selector = infer_job_selector(graphql_context, "two_assets_job")
@@ -3410,9 +3469,7 @@ class TestAssetAwareEventLog(ExecutingGraphQLContextTestMatrix):
         assert result.data["assetNodes"]
 
         fresh_diamond_bottom = [
-            a
-            for a in result.data["assetNodes"]
-            if a["id"] == f"{main_repo_location_name()}.test_repo.fresh_diamond_bottom"
+            a for a in result.data["assetNodes"] if a["id"] == "w.fresh_diamond_bottom"
         ]
         assert len(fresh_diamond_bottom) == 1
         assert fresh_diamond_bottom[0]["autoMaterializePolicy"]["policyType"] == "LAZY"
@@ -3424,9 +3481,7 @@ class TestAssetAwareEventLog(ExecutingGraphQLContextTestMatrix):
         assert result.data["assetNodes"]
 
         automation_condition_asset = [
-            a
-            for a in result.data["assetNodes"]
-            if a["id"] == f"{main_repo_location_name()}.test_repo.asset_with_automation_condition"
+            a for a in result.data["assetNodes"] if a["id"] == "w.asset_with_automation_condition"
         ]
         assert len(automation_condition_asset) == 1
         condition = automation_condition_asset[0]["automationCondition"]
@@ -3436,8 +3491,7 @@ class TestAssetAwareEventLog(ExecutingGraphQLContextTestMatrix):
         custom_automation_condition_asset = [
             a
             for a in result.data["assetNodes"]
-            if a["id"]
-            == f"{main_repo_location_name()}.test_repo.asset_with_custom_automation_condition"
+            if a["id"] == "w.asset_with_custom_automation_condition"
         ]
         assert len(custom_automation_condition_asset) == 1
         condition = custom_automation_condition_asset[0]["automationCondition"]
@@ -3763,10 +3817,13 @@ class TestAssetAwareEventLog(ExecutingGraphQLContextTestMatrix):
             assert set(gql_by_key.keys()) == set(manifest_by_key.keys())
 
             for key in gql_by_key:
-                assert gql_by_key[key] == manifest_by_key[key], (
+                manifest_node = {
+                    k: v for k, v in manifest_by_key[key].items() if k != "storageAddress"
+                }
+                assert gql_by_key[key] == manifest_node, (
                     f"Mismatch for asset {key!r}:\n"
                     f"  GQL:      {gql_by_key[key]}\n"
-                    f"  Manifest: {manifest_by_key[key]}"
+                    f"  Manifest: {manifest_node}"
                 )
 
 
@@ -4420,11 +4477,7 @@ class TestCrossRepoAssetDependedBy(AllRepositoryGraphQLContextTestMatrix):
             CROSS_REPO_ASSET_GRAPH,
         )
         asset_nodes = result.data["assetNodes"]
-        derived_asset = next(
-            node
-            for node in asset_nodes
-            if node["id"] == "cross_asset_repos.upstream_assets_repository.derived_asset"
-        )
+        derived_asset = next(node for node in asset_nodes if node["id"] == "w.derived_asset")
         dependent_asset_keys = [
             {"path": ["downstream_asset1"]},
             {"path": ["downstream_asset2"]},
@@ -4683,9 +4736,7 @@ def test_legacy_freshness_policy_killswitch(graphql_context: WorkspaceRequestCon
     assert result.data["assetNodes"]
 
     fresh_diamond_bottom = next(
-        a
-        for a in result.data["assetNodes"]
-        if a["id"] == f"{main_repo_location_name()}.test_repo.fresh_diamond_bottom"
+        a for a in result.data["assetNodes"] if a["id"] == "w.fresh_diamond_bottom"
     )
     assert fresh_diamond_bottom["freshnessInfo"] is None
     assert fresh_diamond_bottom["freshnessPolicy"] is None
@@ -5110,3 +5161,70 @@ class TestAssetsForSameStorageAddress(ExecutingGraphQLContextTestMatrix):
         assert result.data
         asset_node = result.data["assetNodeOrError"]
         assert asset_node["assetsForSameStorageAddress"] == []
+
+
+STORAGE_ADDRESS_QUERY = """
+    query StorageAddressQuery($assetKey: AssetKeyInput!) {
+        assetNodeOrError(assetKey: $assetKey) {
+            __typename
+            ... on AssetNode {
+                storageAddress {
+                    storageKind
+                    tableName
+                }
+            }
+        }
+    }
+"""
+
+
+class TestAssetNodeStorageAddress(ExecutingGraphQLContextTestMatrix):
+    def test_storage_address_lowercase(self, graphql_context: WorkspaceRequestContext):
+        # Already-lowercase table_name passes through unchanged; no kind tag -> storageKind null.
+        result = execute_dagster_graphql(
+            graphql_context,
+            STORAGE_ADDRESS_QUERY,
+            variables={"assetKey": {"path": ["table_asset_1"]}},
+        )
+        assert result.data
+        assert result.data["assetNodeOrError"]["storageAddress"] == {
+            "storageKind": None,
+            "tableName": "db.schema.shared_table",
+        }
+
+    def test_storage_address_uppercase_normalized(self, graphql_context: WorkspaceRequestContext):
+        # Uppercase metadata is normalized to lowercase so the frontend can compare directly.
+        result = execute_dagster_graphql(
+            graphql_context,
+            STORAGE_ADDRESS_QUERY,
+            variables={"assetKey": {"path": ["table_asset_2"]}},
+        )
+        assert result.data
+        assert result.data["assetNodeOrError"]["storageAddress"] == {
+            "storageKind": None,
+            "tableName": "db.schema.shared_table",
+        }
+
+    def test_storage_address_missing_returns_null(self, graphql_context: WorkspaceRequestContext):
+        # Asset with no table_name metadata returns null storageAddress.
+        result = execute_dagster_graphql(
+            graphql_context,
+            STORAGE_ADDRESS_QUERY,
+            variables={"assetKey": {"path": ["table_asset_4"]}},
+        )
+        assert result.data
+        assert result.data["assetNodeOrError"]["storageAddress"] is None
+
+    def test_storage_address_with_storage_kind(self, graphql_context: WorkspaceRequestContext):
+        # Asset with the dagster/storage_kind metadata field exposes it on storageAddress so
+        # the frontend doesn't have to dig through metadata.
+        result = execute_dagster_graphql(
+            graphql_context,
+            STORAGE_ADDRESS_QUERY,
+            variables={"assetKey": {"path": ["table_asset_with_kind"]}},
+        )
+        assert result.data
+        assert result.data["assetNodeOrError"]["storageAddress"] == {
+            "storageKind": "snowflake",
+            "tableName": "db.schema.snowflake_table",
+        }

@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import re
 from importlib.resources import files
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +115,39 @@ def _strip_provenance_markers(sql_text: str) -> str:
     )
 
 
+_GOLD_DEDUP_ORDER_PREFERENCE: tuple[str, ...] = (
+    "as_of_date",
+    "inference_point_in_time",
+    "scoring_run_id",
+)
+
+
+def _resolve_gold_dedup_order_by(gold_columns: Optional[Sequence[str]]) -> str:
+    """Choose the ORDER BY expression for the deviation view's gold dedupe.
+
+    The deviation view's ``gold_latest`` CTE uses ``ROW_NUMBER() OVER
+    (PARTITION BY entity_id ORDER BY <expr>)`` to pick one row per entity.
+    Different gold schemas have different timestamp columns:
+
+      • ``as_of_date`` — most pipelines after the temporal merge
+      • ``inference_point_in_time`` — scoring-time stamp on some flavors
+      • ``scoring_run_id`` — last-resort lexicographic ordering
+
+    When none of these are present, fall back to ``1`` — ``ORDER BY 1``
+    sorts by the first selected column, which is deterministic per
+    schema and keeps Spark from rejecting the DDL. The pick may be
+    arbitrary in this fallback path, but every entity still ends up
+    with exactly one row, which is what the topN ranking needs.
+    """
+    if not gold_columns:
+        return "1"
+    available = set(gold_columns)
+    for col in _GOLD_DEDUP_ORDER_PREFERENCE:
+        if col in available:
+            return f"`{col}` DESC"
+    return "1"
+
+
 def render_dashboard_view_sql(
     catalog: str,
     schema: str,
@@ -122,6 +155,7 @@ def render_dashboard_view_sql(
     composite_name: Optional[str] = None,
     include_provenance: bool = True,
     gold_struct_cols: Optional[List[str]] = None,
+    gold_columns: Optional[Sequence[str]] = None,
 ) -> str:
     """Substitute ``{catalog}`` / ``{schema}`` (and optionally ``{composite_name}``)
     into the raw SQL template.
@@ -141,12 +175,23 @@ def render_dashboard_view_sql(
     list. Without this, ``STRUCT(*)`` would include non-double columns
     (entity_id, as_of_date, scoring_run_id) and ``FROM_JSON`` would return
     NULL for the entire map — silently zeroing the deviation view.
+
+    ``gold_columns`` is the FULL column list of ``gold_features_{composite_name}``
+    (not just the numeric ones). Used to pick the dedup ORDER BY in the
+    ``gold_latest`` CTE — different pipelines have different timestamp
+    columns (``as_of_date`` vs. ``inference_point_in_time`` vs. neither).
+    Without this, the SQL hardcodes ``as_of_date`` and fails to publish
+    on schemas that don't carry it.
     """
     text = load_dashboard_view_sql()
     if composite_name:
         text = _strip_deviation_markers(text).replace("{composite_name}", composite_name)
         struct_args = ", ".join(f"`{c}`" for c in (gold_struct_cols or [])) or "1"
         text = text.replace("{gold_struct_cols}", struct_args)
+        text = text.replace(
+            "{gold_dedup_order_by}",
+            _resolve_gold_dedup_order_by(gold_columns),
+        )
     else:
         text = _strip_deviation_block(text)
     if include_provenance:
@@ -192,6 +237,23 @@ def _gold_numeric_columns(spark: "SparkSession", gold_fqn: str) -> List[str]:
         if type_name in _GOLD_NUMERIC_SPARK_TYPES:
             out.append(name)
     return out
+
+
+def _gold_all_columns(spark: "SparkSession", gold_fqn: str) -> List[str]:
+    """Return ``gold_features_<CN>``'s full column list.
+
+    Used by ``render_dashboard_view_sql`` to choose the ORDER BY for the
+    deviation view's ``gold_latest`` CTE. Different pipelines emit gold
+    with different timestamp columns (``as_of_date`` vs.
+    ``inference_point_in_time``) — or none — so the SQL must be
+    parameterized rather than hardcoded.
+    """
+    try:
+        struct_type = spark.table(gold_fqn).schema
+    except Exception as exc:  # noqa: BLE001 — best-effort introspection
+        logger.warning("could not introspect %s schema for all cols: %s", gold_fqn, exc)
+        return []
+    return [field.name for field in struct_type]
 
 
 def split_view_statements(sql_text: str) -> List[str]:
@@ -379,12 +441,86 @@ def _try_materialize_feature_meta_from_sidecar(
     return spark.catalog.tableExists(fqn)
 
 
+def _synthetic_placeholder_column_descriptions():
+    """Synthetic ``ColumnDescriptionRow``s for placeholder source-column tokens.
+
+    ``parse_aggregation_feature_name`` emits synthetic source-column names
+    like ``event`` (for ``event_count_*``) and ``event_gap`` (for
+    ``inter_event_gap_*``). Those tokens are not real columns on any
+    bronze/landing table, so the LEFT JOIN in ``v_feature_provenance``
+    that produces ``source_column_defs[].business_definition`` returns
+    NULL for every event-derived feature unless we seed a row for each
+    placeholder. Operators see these phrases in the dashboard's Feature
+    dictionary panel under each SHAP driver.
+    """
+    from customer_retention.stages.causal.column_descriptions_writer import (
+        ColumnDescriptionRow,
+    )
+    return [
+        ColumnDescriptionRow(
+            table="__synthetic__",
+            column_name="event",
+            business_name="Engagement event",
+            business_definition=(
+                "A single engagement record from the source landing/bronze "
+                "table — one row per event such as an email send, open, "
+                "click, unsubscribe, or bounce. ``event_count_*`` features "
+                "count rows of this kind within a rolling time window."
+            ),
+            source="framework_synthetic",
+        ),
+        ColumnDescriptionRow(
+            table="__synthetic__",
+            column_name="event_gap",
+            business_name="Inter-event gap",
+            business_definition=(
+                "Time delta in days between two consecutive engagement "
+                "events for the same entity. ``inter_event_gap_*`` features "
+                "aggregate this gap series with min / max / mean."
+            ),
+            source="framework_synthetic",
+        ),
+    ]
+
+
+def _seed_synthetic_column_descriptions(
+    spark: "SparkSession", catalog: str, schema: str
+) -> None:
+    """Upsert the synthetic placeholder rows. Idempotent — safe on re-run."""
+    fqn = f"{catalog}.{schema}.column_descriptions"
+    try:
+        from customer_retention.stages.causal.column_descriptions_writer import (
+            ColumnDescriptionsConfig,
+            write_column_descriptions,
+        )
+        write_column_descriptions(
+            ColumnDescriptionsConfig(
+                spark=spark, table_fqn=fqn,
+                rows=_synthetic_placeholder_column_descriptions(),
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort; never fail the publish
+        logger.warning(
+            "could not seed synthetic placeholder column_descriptions into %s: %s",
+            fqn, exc,
+        )
+
+
 def _try_materialize_column_descriptions_from_sidecar(
     spark: "SparkSession", catalog: str, schema: str
 ) -> bool:
-    """Best-effort: materialize the ``column_descriptions`` JSON sidecar into UC."""
+    """Best-effort: materialize the ``column_descriptions`` JSON sidecar into UC.
+
+    Always seeds the synthetic placeholder rows for ``event`` / ``event_gap``
+    too — those are required so the dashboard's Feature dictionary panel
+    shows a business definition for event-derived features (which use those
+    tokens as their source_column placeholders).
+    """
     fqn = f"{catalog}.{schema}.column_descriptions"
     if spark.catalog.tableExists(fqn):
+        # Existing table — still seed synthetic placeholders since they may
+        # not have been present when the table was first written.
+        _seed_synthetic_column_descriptions(spark, catalog, schema)
         return True
     try:
         from customer_retention.analysis.auto_explorer.run_namespace import RunNamespace
@@ -401,13 +537,10 @@ def _try_materialize_column_descriptions_from_sidecar(
         ns = RunNamespace.from_env_or_latest()
     except Exception:  # noqa: BLE001
         ns = None
-    if ns is None:
-        return False
-    sidecar = load_column_descriptions_sidecar(ns) or {}
-    if not sidecar:
-        return False
+    sidecar = load_column_descriptions_sidecar(ns) if ns is not None else {}
+    rows = list((sidecar or {}).values())
+    rows.extend(_synthetic_placeholder_column_descriptions())
     try:
-        rows = list(sidecar.values())
         write_column_descriptions(
             ColumnDescriptionsConfig(spark=spark, table_fqn=fqn, rows=rows)
         )
@@ -496,6 +629,7 @@ def publish_dashboard_views(
 
     effective_composite = composite_name
     gold_numeric_cols: List[str] = []
+    gold_all_cols: List[str] = []
     if composite_name:
         ok, missing = _deviation_prerequisites_present(spark, catalog, schema, composite_name)
         if not ok:
@@ -509,6 +643,7 @@ def publish_dashboard_views(
         else:
             gold_fqn = f"{catalog}.{schema}.gold_features_{composite_name}"
             gold_numeric_cols = _gold_numeric_columns(spark, gold_fqn)
+            gold_all_cols = _gold_all_columns(spark, gold_fqn)
             if not gold_numeric_cols:
                 logger.warning(
                     "deviation views skipped: %s has zero numeric columns "
@@ -540,6 +675,7 @@ def publish_dashboard_views(
         composite_name=effective_composite,
         include_provenance=include_provenance,
         gold_struct_cols=gold_numeric_cols,
+        gold_columns=gold_all_cols,
     )
     statements = split_view_statements(rendered)
     submitted: List[str] = []

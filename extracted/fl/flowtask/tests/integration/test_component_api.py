@@ -111,8 +111,11 @@ class TestComponentAPIRoutes:
                 assert resp.status == 200
                 data = await resp.json()
                 assert data["count"] == 2
-                assert "AddDataset" in data["components"]
-                assert "FileList" in data["components"]
+                names = [c["name"] for c in data["components"]]
+                assert "AddDataset" in names
+                assert "FileList" in names
+                for entry in data["components"]:
+                    assert set(entry.keys()) == {"name", "description"}
 
     @pytest.mark.asyncio
     async def test_get_component_returns_doc(self, mock_docs_dir):
@@ -155,7 +158,7 @@ class TestComponentAPIRoutes:
                 assert resp.status == 200
                 data = await resp.json()
                 assert data["count"] == 1
-                assert "AddDataset" in data["components"]
+                assert data["components"][0]["name"] == "AddDataset"
 
     @pytest.mark.asyncio
     async def test_filter_by_tag(self, mock_docs_dir):
@@ -169,7 +172,7 @@ class TestComponentAPIRoutes:
                 assert resp.status == 200
                 data = await resp.json()
                 assert data["count"] == 1
-                assert "FileList" in data["components"]
+                assert data["components"][0]["name"] == "FileList"
 
 
 class TestComponentDocumentationExtension:

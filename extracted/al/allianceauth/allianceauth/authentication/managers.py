@@ -1,7 +1,7 @@
 import logging
 
 from django.db import transaction
-from django.db.models import Manager, QuerySet, Q
+from django.db.models import Manager, Q, QuerySet
 
 from allianceauth.eveonline.models import EveCharacter
 

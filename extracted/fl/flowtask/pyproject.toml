@@ -70,7 +70,7 @@ dependencies = [
     "gitpython==3.1.43",
     "watchdog>=6.0.0",
     "hachiko==0.4.0",
-    "paramiko==3.4.0",
+    "paramiko>=4.0.0",
     "jira==3.10.5",
     "datatable==1.1.0",
     "imageio==2.37.0",
@@ -149,7 +149,8 @@ dev = [
     "coverage",
     "pytest-asyncio==0.23.8",
     "pytest-xdist==3.3.1",
-    "pytest-assume==2.4.3"
+    "pytest-assume==2.4.3",
+    "ruff",
 ]
 
 [project.scripts]
@@ -172,9 +173,13 @@ version = {attr = "flowtask.__version__"}
 exclude = ["contrib", "bin", "settings", "examples", "tests", "plugins"]
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 addopts = [
     "--strict-config",
     "--strict-markers",
+]
+markers = [
+    "integration: marks tests that require a live Postgres instance (deselect with '-m not integration')",
 ]
 filterwarnings = [
     "error",
@@ -186,6 +191,7 @@ override-dependencies = [
     "pgvector==0.4.1",
     "numba==0.62.1",
     "numpy>=2.0.0,<2.4",
+    "pandas>=2.3,<3",
     "cython<3.0.0",
     "emoji==2.14.1",
     "babel>=2.16.0",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: repairwheel
-Version: 0.3.2
+Version: 0.4.0
 Summary: Repair any wheel, anywhere
 Project-URL: homepage, https://github.com/jvolkman/repairwheel
 License: Copyright © 2023 Jeremy Volkman
@@ -27,15 +27,14 @@ License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8
-Requires-Dist: delvewheel>=1.3.6
+Requires-Python: >=3.10
+Requires-Dist: delvewheel>=1.9.0
 Requires-Dist: macholib>=1.16
 Requires-Dist: packaging>=20.9
 Requires-Dist: pefile>=2023.2.7

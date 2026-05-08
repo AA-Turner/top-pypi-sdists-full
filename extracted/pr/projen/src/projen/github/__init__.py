@@ -1349,10 +1349,12 @@ class ContributorStatementOptions:
         "pull_request_description": "pullRequestDescription",
         "pull_request_title": "pullRequestTitle",
         "workflow_name": "workflowName",
+        "add_paths": "addPaths",
         "assignees": "assignees",
         "base_branch": "baseBranch",
         "branch_name": "branchName",
         "credentials": "credentials",
+        "delete_branch": "deleteBranch",
         "git_identity": "gitIdentity",
         "labels": "labels",
         "signoff": "signoff",
@@ -1367,10 +1369,12 @@ class CreatePullRequestOptions:
         pull_request_description: builtins.str,
         pull_request_title: builtins.str,
         workflow_name: builtins.str,
+        add_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
         assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
         base_branch: typing.Optional[builtins.str] = None,
         branch_name: typing.Optional[builtins.str] = None,
         credentials: typing.Optional["GithubCredentials"] = None,
+        delete_branch: typing.Optional[builtins.bool] = None,
         git_identity: typing.Optional[typing.Union["GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         labels: typing.Optional[typing.Sequence[builtins.str]] = None,
         signoff: typing.Optional[builtins.bool] = None,
@@ -1381,10 +1385,12 @@ class CreatePullRequestOptions:
         :param pull_request_description: (experimental) Description added to the pull request. Providence information are automatically added.
         :param pull_request_title: (experimental) The full title used to create the pull request. If PR titles are validated in this repo, the title should comply with the respective rules.
         :param workflow_name: (experimental) The name of the workflow that will create the PR.
+        :param add_paths: (experimental) Paths to add to the commit, mapping to the action's ``add-paths`` input. Default: - all paths
         :param assignees: (experimental) Assignees to add on the PR. Default: - no assignees
         :param base_branch: (experimental) Sets the pull request base branch. Default: - The branch checked out in the workflow.
         :param branch_name: (experimental) The pull request branch name. Default: ``github-actions/${options.workflowName}``
         :param credentials: (experimental) The job credentials used to create the pull request. Provided credentials must have permissions to create a pull request on the repository.
+        :param delete_branch: (experimental) Whether to delete the pull request branch when the pull request is closed, mapping to the action's ``delete-branch`` input. Default: false
         :param git_identity: (experimental) The git identity used to create the commit. Default: - default GitHub Actions user
         :param labels: (experimental) Labels to apply on the PR. Default: - no labels.
         :param signoff: (experimental) Add Signed-off-by line by the committer at the end of the commit log message. Default: true
@@ -1400,10 +1406,12 @@ class CreatePullRequestOptions:
             check_type(argname="argument pull_request_description", value=pull_request_description, expected_type=type_hints["pull_request_description"])
             check_type(argname="argument pull_request_title", value=pull_request_title, expected_type=type_hints["pull_request_title"])
             check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
+            check_type(argname="argument add_paths", value=add_paths, expected_type=type_hints["add_paths"])
             check_type(argname="argument assignees", value=assignees, expected_type=type_hints["assignees"])
             check_type(argname="argument base_branch", value=base_branch, expected_type=type_hints["base_branch"])
             check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
             check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
+            check_type(argname="argument delete_branch", value=delete_branch, expected_type=type_hints["delete_branch"])
             check_type(argname="argument git_identity", value=git_identity, expected_type=type_hints["git_identity"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
             check_type(argname="argument signoff", value=signoff, expected_type=type_hints["signoff"])
@@ -1414,6 +1422,8 @@ class CreatePullRequestOptions:
             "pull_request_title": pull_request_title,
             "workflow_name": workflow_name,
         }
+        if add_paths is not None:
+            self._values["add_paths"] = add_paths
         if assignees is not None:
             self._values["assignees"] = assignees
         if base_branch is not None:
@@ -1422,6 +1432,8 @@ class CreatePullRequestOptions:
             self._values["branch_name"] = branch_name
         if credentials is not None:
             self._values["credentials"] = credentials
+        if delete_branch is not None:
+            self._values["delete_branch"] = delete_branch
         if git_identity is not None:
             self._values["git_identity"] = git_identity
         if labels is not None:
@@ -1468,6 +1480,17 @@ class CreatePullRequestOptions:
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def add_paths(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Paths to add to the commit, mapping to the action's ``add-paths`` input.
+
+        :default: - all paths
+
+        :stability: experimental
+        '''
+        result = self._values.get("add_paths")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def assignees(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Assignees to add on the PR.
 
@@ -1510,6 +1533,17 @@ class CreatePullRequestOptions:
         '''
         result = self._values.get("credentials")
         return typing.cast(typing.Optional["GithubCredentials"], result)
+
+    @builtins.property
+    def delete_branch(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to delete the pull request branch when the pull request is closed, mapping to the action's ``delete-branch`` input.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("delete_branch")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def git_identity(self) -> typing.Optional["GitIdentity"]:
@@ -6530,10 +6564,12 @@ class PullRequestBackportOptions:
         "pull_request_description": "pullRequestDescription",
         "pull_request_title": "pullRequestTitle",
         "workflow_name": "workflowName",
+        "add_paths": "addPaths",
         "assignees": "assignees",
         "base_branch": "baseBranch",
         "branch_name": "branchName",
         "credentials": "credentials",
+        "delete_branch": "deleteBranch",
         "git_identity": "gitIdentity",
         "labels": "labels",
         "signoff": "signoff",
@@ -6552,10 +6588,12 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
         pull_request_description: builtins.str,
         pull_request_title: builtins.str,
         workflow_name: builtins.str,
+        add_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
         assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
         base_branch: typing.Optional[builtins.str] = None,
         branch_name: typing.Optional[builtins.str] = None,
         credentials: typing.Optional["GithubCredentials"] = None,
+        delete_branch: typing.Optional[builtins.bool] = None,
         git_identity: typing.Optional[typing.Union["GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         labels: typing.Optional[typing.Sequence[builtins.str]] = None,
         signoff: typing.Optional[builtins.bool] = None,
@@ -6570,10 +6608,12 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
         :param pull_request_description: (experimental) Description added to the pull request. Providence information are automatically added.
         :param pull_request_title: (experimental) The full title used to create the pull request. If PR titles are validated in this repo, the title should comply with the respective rules.
         :param workflow_name: (experimental) The name of the workflow that will create the PR.
+        :param add_paths: (experimental) Paths to add to the commit, mapping to the action's ``add-paths`` input. Default: - all paths
         :param assignees: (experimental) Assignees to add on the PR. Default: - no assignees
         :param base_branch: (experimental) Sets the pull request base branch. Default: - The branch checked out in the workflow.
         :param branch_name: (experimental) The pull request branch name. Default: ``github-actions/${options.workflowName}``
         :param credentials: (experimental) The job credentials used to create the pull request. Provided credentials must have permissions to create a pull request on the repository.
+        :param delete_branch: (experimental) Whether to delete the pull request branch when the pull request is closed, mapping to the action's ``delete-branch`` input. Default: false
         :param git_identity: (experimental) The git identity used to create the commit. Default: - default GitHub Actions user
         :param labels: (experimental) Labels to apply on the PR. Default: - no labels.
         :param signoff: (experimental) Add Signed-off-by line by the committer at the end of the commit log message. Default: true
@@ -6597,10 +6637,12 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
             check_type(argname="argument pull_request_description", value=pull_request_description, expected_type=type_hints["pull_request_description"])
             check_type(argname="argument pull_request_title", value=pull_request_title, expected_type=type_hints["pull_request_title"])
             check_type(argname="argument workflow_name", value=workflow_name, expected_type=type_hints["workflow_name"])
+            check_type(argname="argument add_paths", value=add_paths, expected_type=type_hints["add_paths"])
             check_type(argname="argument assignees", value=assignees, expected_type=type_hints["assignees"])
             check_type(argname="argument base_branch", value=base_branch, expected_type=type_hints["base_branch"])
             check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
             check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
+            check_type(argname="argument delete_branch", value=delete_branch, expected_type=type_hints["delete_branch"])
             check_type(argname="argument git_identity", value=git_identity, expected_type=type_hints["git_identity"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
             check_type(argname="argument signoff", value=signoff, expected_type=type_hints["signoff"])
@@ -6616,6 +6658,8 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
             "workflow_name": workflow_name,
             "patch": patch,
         }
+        if add_paths is not None:
+            self._values["add_paths"] = add_paths
         if assignees is not None:
             self._values["assignees"] = assignees
         if base_branch is not None:
@@ -6624,6 +6668,8 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
             self._values["branch_name"] = branch_name
         if credentials is not None:
             self._values["credentials"] = credentials
+        if delete_branch is not None:
+            self._values["delete_branch"] = delete_branch
         if git_identity is not None:
             self._values["git_identity"] = git_identity
         if labels is not None:
@@ -6676,6 +6722,17 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def add_paths(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Paths to add to the commit, mapping to the action's ``add-paths`` input.
+
+        :default: - all paths
+
+        :stability: experimental
+        '''
+        result = self._values.get("add_paths")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def assignees(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Assignees to add on the PR.
 
@@ -6718,6 +6775,17 @@ class PullRequestFromPatchOptions(CreatePullRequestOptions):
         '''
         result = self._values.get("credentials")
         return typing.cast(typing.Optional["GithubCredentials"], result)
+
+    @builtins.property
+    def delete_branch(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to delete the pull request branch when the pull request is closed, mapping to the action's ``delete-branch`` input.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("delete_branch")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def git_identity(self) -> typing.Optional["GitIdentity"]:
@@ -9568,10 +9636,12 @@ class WorkflowActions(
         pull_request_description: builtins.str,
         pull_request_title: builtins.str,
         workflow_name: builtins.str,
+        add_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
         assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
         base_branch: typing.Optional[builtins.str] = None,
         branch_name: typing.Optional[builtins.str] = None,
         credentials: typing.Optional["GithubCredentials"] = None,
+        delete_branch: typing.Optional[builtins.bool] = None,
         git_identity: typing.Optional[typing.Union["GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         labels: typing.Optional[typing.Sequence[builtins.str]] = None,
         signoff: typing.Optional[builtins.bool] = None,
@@ -9583,10 +9653,12 @@ class WorkflowActions(
         :param pull_request_description: (experimental) Description added to the pull request. Providence information are automatically added.
         :param pull_request_title: (experimental) The full title used to create the pull request. If PR titles are validated in this repo, the title should comply with the respective rules.
         :param workflow_name: (experimental) The name of the workflow that will create the PR.
+        :param add_paths: (experimental) Paths to add to the commit, mapping to the action's ``add-paths`` input. Default: - all paths
         :param assignees: (experimental) Assignees to add on the PR. Default: - no assignees
         :param base_branch: (experimental) Sets the pull request base branch. Default: - The branch checked out in the workflow.
         :param branch_name: (experimental) The pull request branch name. Default: ``github-actions/${options.workflowName}``
         :param credentials: (experimental) The job credentials used to create the pull request. Provided credentials must have permissions to create a pull request on the repository.
+        :param delete_branch: (experimental) Whether to delete the pull request branch when the pull request is closed, mapping to the action's ``delete-branch`` input. Default: false
         :param git_identity: (experimental) The git identity used to create the commit. Default: - default GitHub Actions user
         :param labels: (experimental) Labels to apply on the PR. Default: - no labels.
         :param signoff: (experimental) Add Signed-off-by line by the committer at the end of the commit log message. Default: true
@@ -9601,10 +9673,12 @@ class WorkflowActions(
             pull_request_description=pull_request_description,
             pull_request_title=pull_request_title,
             workflow_name=workflow_name,
+            add_paths=add_paths,
             assignees=assignees,
             base_branch=base_branch,
             branch_name=branch_name,
             credentials=credentials,
+            delete_branch=delete_branch,
             git_identity=git_identity,
             labels=labels,
             signoff=signoff,
@@ -9697,10 +9771,12 @@ class WorkflowJobs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowJob
         pull_request_description: builtins.str,
         pull_request_title: builtins.str,
         workflow_name: builtins.str,
+        add_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
         assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
         base_branch: typing.Optional[builtins.str] = None,
         branch_name: typing.Optional[builtins.str] = None,
         credentials: typing.Optional["GithubCredentials"] = None,
+        delete_branch: typing.Optional[builtins.bool] = None,
         git_identity: typing.Optional[typing.Union["GitIdentity", typing.Dict[builtins.str, typing.Any]]] = None,
         labels: typing.Optional[typing.Sequence[builtins.str]] = None,
         signoff: typing.Optional[builtins.bool] = None,
@@ -9716,10 +9792,12 @@ class WorkflowJobs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowJob
         :param pull_request_description: (experimental) Description added to the pull request. Providence information are automatically added.
         :param pull_request_title: (experimental) The full title used to create the pull request. If PR titles are validated in this repo, the title should comply with the respective rules.
         :param workflow_name: (experimental) The name of the workflow that will create the PR.
+        :param add_paths: (experimental) Paths to add to the commit, mapping to the action's ``add-paths`` input. Default: - all paths
         :param assignees: (experimental) Assignees to add on the PR. Default: - no assignees
         :param base_branch: (experimental) Sets the pull request base branch. Default: - The branch checked out in the workflow.
         :param branch_name: (experimental) The pull request branch name. Default: ``github-actions/${options.workflowName}``
         :param credentials: (experimental) The job credentials used to create the pull request. Provided credentials must have permissions to create a pull request on the repository.
+        :param delete_branch: (experimental) Whether to delete the pull request branch when the pull request is closed, mapping to the action's ``delete-branch`` input. Default: false
         :param git_identity: (experimental) The git identity used to create the commit. Default: - default GitHub Actions user
         :param labels: (experimental) Labels to apply on the PR. Default: - no labels.
         :param signoff: (experimental) Add Signed-off-by line by the committer at the end of the commit log message. Default: true
@@ -9738,10 +9816,12 @@ class WorkflowJobs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowJob
             pull_request_description=pull_request_description,
             pull_request_title=pull_request_title,
             workflow_name=workflow_name,
+            add_paths=add_paths,
             assignees=assignees,
             base_branch=base_branch,
             branch_name=branch_name,
             credentials=credentials,
+            delete_branch=delete_branch,
             git_identity=git_identity,
             labels=labels,
             signoff=signoff,
@@ -10224,10 +10304,12 @@ def _typecheckingstub__42dbc4c6e52abbc74605066eb4f3323d0948617836847a6b99285ed90
     pull_request_description: builtins.str,
     pull_request_title: builtins.str,
     workflow_name: builtins.str,
+    add_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
     assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
     base_branch: typing.Optional[builtins.str] = None,
     branch_name: typing.Optional[builtins.str] = None,
     credentials: typing.Optional[GithubCredentials] = None,
+    delete_branch: typing.Optional[builtins.bool] = None,
     git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     labels: typing.Optional[typing.Sequence[builtins.str]] = None,
     signoff: typing.Optional[builtins.bool] = None,
@@ -10726,10 +10808,12 @@ def _typecheckingstub__0c1e5279fc8c18480c3113cc60b389aa13938b2052436bbdcb3069cfe
     pull_request_description: builtins.str,
     pull_request_title: builtins.str,
     workflow_name: builtins.str,
+    add_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
     assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
     base_branch: typing.Optional[builtins.str] = None,
     branch_name: typing.Optional[builtins.str] = None,
     credentials: typing.Optional[GithubCredentials] = None,
+    delete_branch: typing.Optional[builtins.bool] = None,
     git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     labels: typing.Optional[typing.Sequence[builtins.str]] = None,
     signoff: typing.Optional[builtins.bool] = None,

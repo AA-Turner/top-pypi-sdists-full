@@ -11,9 +11,14 @@ class TokenUsage(UniversalBaseModel):
     The number of tokens used in the generation.
     """
 
-    output_tokens: typing.Optional[int] = pydantic.Field(default=None)
+    output_tokens: int = pydantic.Field()
     """
     The number of tokens in the generated text.
+    """
+
+    input_tokens: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    The number of tokens consumed by the input (prompt and video). Omitted for Pegasus 1.5.
     """
 
     if IS_PYDANTIC_V2:

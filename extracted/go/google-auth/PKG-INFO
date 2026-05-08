@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-auth
-Version: 2.50.0
+Version: 2.52.0
 Summary: Google Authentication Library
 Home-page: https://github.com/googleapis/google-auth-library-python
 Author: Google Cloud Platform
@@ -8,8 +8,6 @@ Author-email: googleapis-packages@google.com
 License: Apache 2.0
 Keywords: google auth oauth client
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -23,14 +21,14 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: pyasn1-modules>=0.2.1
 Requires-Dist: cryptography>=38.0.3
 Provides-Extra: cryptography
 Requires-Dist: cryptography>=38.0.3; extra == "cryptography"
 Provides-Extra: aiohttp
-Requires-Dist: aiohttp<4.0.0,>=3.6.2; extra == "aiohttp"
+Requires-Dist: aiohttp<4.0.0,>=3.8.0; extra == "aiohttp"
 Requires-Dist: requests<3.0.0,>=2.20.0; extra == "aiohttp"
 Provides-Extra: enterprise-cert
 Requires-Dist: pyopenssl; extra == "enterprise-cert"
@@ -55,7 +53,7 @@ Requires-Dist: pyu2f>=0.1.5; extra == "testing"
 Requires-Dist: responses; extra == "testing"
 Requires-Dist: urllib3; extra == "testing"
 Requires-Dist: packaging; extra == "testing"
-Requires-Dist: aiohttp<4.0.0,>=3.6.2; extra == "testing"
+Requires-Dist: aiohttp<4.0.0,>=3.8.0; extra == "testing"
 Requires-Dist: requests<3.0.0,>=2.20.0; extra == "testing"
 Requires-Dist: aioresponses; extra == "testing"
 Requires-Dist: pytest-asyncio; extra == "testing"
@@ -116,18 +114,7 @@ Note that the extras pyopenssl and enterprise_cert should not be used together b
 
 Supported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-Python >= 3.8
-
-**NOTE**:
-Python 3.8 and Python 3.9 were marked as `unsupported`_ by the python community in 
-October 2024 and October 2025, respectively.
-We recommend that all developers upgrade to Python 3.10 and newer as soon as
-they can. Support for end-of-life Python runtimes will be removed from this
-library in future updates.
-Previous releases that support end-of-life Python versions will continue to be available
-for download, but future releases will only target supported versions.
-
-.. _unsupported: https://devguide.python.org/versions/#unsupported-versions
+Python >= 3.10
 
 Unsupported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
