@@ -241,7 +241,7 @@ class FindingsParser:
         landing_lifecycle_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
         landing_filter_overrides: Optional[Dict[str, str]] = None,
         landing_drop_columns_overrides: Optional[Dict[str, Iterable[str]]] = None,
-        strict_datetime_parity: bool = True,
+        strict_datetime_parity: bool = False,
     ):
         self._findings_dir = Path(findings_dir)
         self._namespace = namespace
@@ -306,12 +306,13 @@ class FindingsParser:
         )
         from customer_retention.runtime.flags import is_user_extensions_disabled
         self._ext_disabled: bool = is_user_extensions_disabled(disable_user_extensions)
-        # `strict_datetime_parity=True` (default) raises when `FeatureSpec`
-        # selects a datetime-derived feature whose source column is not
-        # declared in the dataset's `datetime_derivation_sources`. When
-        # `False`, the parser auto-extends the source list (warn-only)
-        # and lets codegen continue. The runtime gate in NB07/NB08 still
-        # catches the missing column at training time.
+        # `strict_datetime_parity=False` (default) auto-extends the
+        # dataset's `datetime_derivation_sources` (warn-only) when
+        # `FeatureSpec` selects a datetime-derived feature whose
+        # source column wasn't declared. Set to `True` to raise
+        # instead — useful when the operator wants codegen to refuse
+        # any silent schema patch. The runtime gate in NB07/NB08 still
+        # catches the missing column at training time either way.
         self._strict_datetime_parity: bool = bool(strict_datetime_parity)
 
     @property
@@ -407,6 +408,141 @@ class FindingsParser:
         if self._feature_spec is not None:
             self._enforce_spec_schema_parity(config)
         return config
+
+    def diagnostic_summary(
+        self, config: Optional["PipelineConfig"] = None
+    ) -> Dict[str, Any]:
+        """Structured pre-codegen audit of the parser's output (PA-5).
+
+        Replaces the operator-side `probe_codegen_diagnostics` user_code
+        cell that the SPS engagement carried in NB10. Returns a JSON-
+        serialisable dict with:
+
+        * ``target_column`` / ``target_dataset``
+        * ``landing[<ds>]`` — filters / lifecycle_enrichments /
+          drop_columns counts; ``datetime_derivation.source_columns``
+        * ``bronze_event[<ds>]`` — same shape as landing for event
+          datasets
+        * ``silver`` — derived_columns count by action; total
+        * ``gold`` — encodings count by method; scalings count;
+          feature_selections count
+        * ``feature_spec`` — selection count, exploration_run_id (if a
+          spec was loaded)
+        * ``parity`` — declared-vs-emitted silver_derived counts
+          (the A4 check the operator probe surfaced) plus any
+          ``parity_ignored_features`` carried by the parser
+
+        Pass a pre-parsed ``PipelineConfig`` to avoid re-running
+        ``parse()``; otherwise the method calls ``parse()`` itself.
+        Caller is expected to print or persist the dict — this method
+        does no I/O.
+        """
+        if config is None:
+            config = self.parse()
+        landing_summary: Dict[str, Dict[str, Any]] = {}
+        for ds, lcfg in (config.landing or {}).items():
+            dt = getattr(lcfg, "datetime_derivation", None)
+            landing_summary[ds] = {
+                "filters": len(lcfg.filters),
+                "lifecycle_enrichments": len(lcfg.lifecycle_enrichments),
+                "drop_columns": list(lcfg.drop_columns),
+                "datetime_derivation_sources": (
+                    list(dt.source_columns) if dt else []
+                ),
+            }
+        bronze_event_summary: Dict[str, Dict[str, Any]] = {}
+        for ds, ecfg in (config.bronze_event or {}).items():
+            dt = getattr(ecfg, "datetime_derivation", None)
+            agg = getattr(ecfg, "aggregation", None)
+            bronze_event_summary[ds] = {
+                "datetime_derivation_sources": (
+                    list(dt.source_columns) if dt else []
+                ),
+                "aggregation_windows": (
+                    list(agg.windows) if agg and agg.windows else []
+                ),
+                "aggregation_funcs": (
+                    list(agg.agg_funcs) if agg and agg.agg_funcs else []
+                ),
+            }
+        silver_action_counts: Dict[str, int] = {}
+        for step in (config.silver.derived_columns if config.silver else []):
+            params = step.parameters or {}
+            action = params.get("action") or params.get("feature_type") or "unknown"
+            silver_action_counts[action] = silver_action_counts.get(action, 0) + 1
+        encoding_methods: Dict[str, int] = {}
+        for step in (config.gold.encodings if config.gold else []):
+            method = (step.parameters or {}).get("method", "one_hot")
+            encoding_methods[method] = encoding_methods.get(method, 0) + 1
+        feature_spec_size = (
+            len(self._feature_spec.selected_features)
+            if self._feature_spec is not None else None
+        )
+        # A4 parity check: declared silver_derived recs (pre-_apply
+        # filter) vs emitted derived_columns. Only meaningful when a
+        # registry was loaded.
+        declared_silver = self._declared_silver_derived_count()
+        emitted_silver = (
+            len(config.silver.derived_columns) if config.silver else 0
+        )
+        return {
+            "target_column": getattr(config, "target_column", None),
+            "target_dataset": getattr(config, "target_dataset", None),
+            "landing": landing_summary,
+            "bronze_event": bronze_event_summary,
+            "silver": {
+                "derived_columns_total": emitted_silver,
+                "by_action": silver_action_counts,
+            },
+            "gold": {
+                "encodings_total": (
+                    len(config.gold.encodings) if config.gold else 0
+                ),
+                "encodings_by_method": encoding_methods,
+                "scalings_total": (
+                    len(config.gold.scalings) if config.gold else 0
+                ),
+                "feature_selections_total": (
+                    len(config.gold.feature_selections) if config.gold else 0
+                ),
+            },
+            "feature_spec": {
+                "selected_features_count": feature_spec_size,
+                "exploration_run_id": (
+                    self._feature_spec.exploration_run_id
+                    if self._feature_spec is not None else None
+                ),
+            },
+            "parity": {
+                "silver_declared": declared_silver,
+                "silver_emitted": emitted_silver,
+                "silver_lost": (
+                    max(0, declared_silver - emitted_silver)
+                    if declared_silver is not None else None
+                ),
+                "parity_ignored_features": list(
+                    getattr(self, "_parity_ignored_features", []) or []
+                ),
+                "strict_datetime_parity": getattr(
+                    self, "_strict_datetime_parity", False
+                ),
+            },
+        }
+
+    def _declared_silver_derived_count(self) -> Optional[int]:
+        """Count of `silver.derived_columns` recs in the on-disk
+        recommendations registry, before any pipeline filtering. Used
+        by `diagnostic_summary` to surface the A4 declared-vs-emitted
+        gap. Returns ``None`` when no recommendations file is present
+        (``_load_recommendations`` already returns ``None`` for a
+        missing file). YAML-parse and registry-shape errors propagate
+        — a corrupt registry should fail the manifest write loudly,
+        not silently zero out the parity counter.
+        """
+        registry = self._load_recommendations()
+        if registry is None or registry.silver is None:
+            return None
+        return len(registry.silver.derived_columns or [])
 
     def _enforce_target_dtype_parity(
         self,
@@ -522,7 +658,8 @@ class FindingsParser:
 
     def _index_raw_source_columns(self, discovered_events: Dict[str, ExplorationFindings]) -> None:
         for name, findings in discovered_events.items():
-            self._raw_source_columns[name] = set(findings.columns.keys())
+            cols = set(findings.columns.keys())
+            self._raw_source_columns.setdefault(name, set()).update(cols)
             per_col: Dict[str, List[str]] = {}
             for col_name, col_finding in findings.columns.items():
                 tm = getattr(col_finding, "type_metrics", None) or {}
@@ -537,7 +674,15 @@ class FindingsParser:
                         for c in top_cats
                     ]
             if per_col:
-                self._value_counts_by_source[name] = per_col
+                # Merge — don't replace. Two findings files (entity-level and
+                # pre-aggregated) can both register columns under the same
+                # source name; the second pass otherwise clobbers the first
+                # and loses raw event-stream value-counts (e.g. event_type)
+                # that only the entity-level file carries.
+                bucket = self._value_counts_by_source.setdefault(name, {})
+                for col, vals in per_col.items():
+                    if col not in bucket:
+                        bucket[col] = vals
         self._augment_value_counts_from_spec()
 
     _SPEC_TRAILING_WINDOW_RE = re.compile(r"^(?P<head>.+)_count_(?:\d+[dhw]|all_time)$")
@@ -1211,6 +1356,7 @@ class FindingsParser:
         source_findings: Optional[Dict[str, "ExplorationFindings"]] = None,
     ) -> None:
         self._apply_bronze_recommendations(config, registry)
+        self._apply_registry_bronze_aggregations(config, registry)
         self._apply_imbalance_recommendations(config, registry)
         self._apply_silver_recommendations(config, registry)
         zero_inflation_opt_in_prefixes = self._collect_zero_inflation_opt_in_prefixes(
@@ -1256,9 +1402,31 @@ class FindingsParser:
         replay the same logic at runtime via the existing template branches
         (`databricks_landing.py.j2` `config.lifecycle_enrichments` /
         `config.filters`).
+
+        Idempotency: when a dataset already carries a step of the same kind
+        from the recommendations registry (post-NB00-migration), the override
+        is skipped instead of double-appended. Without this, the generated
+        landing notebook runs `enrich_lifecycle_dataset(...)` twice and the
+        second call crashes with UNRESOLVED_COLUMN because the first already
+        renamed the lifecycle's `valid_from_column`.
         """
+        already_filter = {
+            ds for ds, lc in (config.landing or {}).items()
+            if getattr(lc, "filters", None)
+        }
+        already_lifecycle = {
+            ds for ds, lc in (config.landing or {}).items()
+            if getattr(lc, "lifecycle_enrichments", None)
+        }
         for dataset, predicate in self._landing_filter_overrides.items():
             if not predicate:
+                continue
+            if dataset in already_filter:
+                logger.warning(
+                    "landing_filter_overrides: dataset %r already has registry-driven "
+                    "filter step(s); skipping operator override to avoid double-apply.",
+                    dataset,
+                )
                 continue
             target = config.landing.get(dataset)
             if target is None:
@@ -1276,6 +1444,13 @@ class FindingsParser:
             ))
         for dataset, lifecycle_cfg in self._landing_lifecycle_overrides.items():
             if not lifecycle_cfg:
+                continue
+            if dataset in already_lifecycle:
+                logger.warning(
+                    "landing_lifecycle_overrides: dataset %r already has registry-driven "
+                    "lifecycle step(s); skipping operator override to avoid double-apply.",
+                    dataset,
+                )
                 continue
             target = config.landing.get(dataset)
             if target is None:
@@ -1393,11 +1568,18 @@ class FindingsParser:
                 if name in config.landing:
                     siblings.append(name)
                     seen.add(name)
+            # Translate Python-list `in [a, b]` into Spark-SQL `in (a, b)`
+            # — exploration's filter executor goes through
+            # `_spark_safe_query_expr`, but production's generated landing
+            # script feeds the predicate straight into Spark SQL via
+            # `df.filter(...)` and rejects bracket lists with PARSE_SYNTAX_ERROR.
+            from customer_retention.core.compat import _spark_safe_query_expr
+            sql_predicate = _spark_safe_query_expr(str(predicate))
             target.filters.append(TransformationStep(
                 type=PipelineTransformationType.LANDING_FILTER,
                 column=dataset,
                 parameters={
-                    "predicate": str(predicate),
+                    "predicate": sql_predicate,
                     "sibling_views": list(siblings),
                 },
                 rationale="NB00 SAMPLE_FILTER_COLUMNS (cohort scope)",
@@ -1573,6 +1755,19 @@ class FindingsParser:
                 rationale=rec.rationale,
                 source_notebook=rec.source_notebook,
             ))
+        # PA-3: registry-declared per-column landing drops — case-EXACT,
+        # idempotent against operator-side ``landing_drop_columns_overrides``
+        # which `_apply_landing_overrides` later appends to the same list.
+        # `_landing_from_dict` always supplies an empty list when YAML omits
+        # the key, so direct attribute access is safe even on older recs.
+        for rec in landing.drop_columns:
+            dataset = rec.parameters.get("dataset")
+            target = self._resolve_landing_target(config, dataset, kind="drop_columns")
+            existing = set(target.drop_columns)
+            for col in rec.parameters.get("columns", []) or []:
+                if col not in existing:
+                    target.drop_columns.append(col)
+                    existing.add(col)
 
     @staticmethod
     def _resolve_landing_target(
@@ -1595,6 +1790,43 @@ class FindingsParser:
             if cfg is target_bronze:
                 return name
         return None
+
+    def _apply_registry_bronze_aggregations(
+        self, config: PipelineConfig, registry: RecommendationRegistry
+    ) -> None:
+        """Promote ``registry.bronze_aggregations`` onto event_cfg for sources
+        the operator didn't restate in NB10's ``BRONZE_AGGREGATIONS`` dict.
+
+        Without this, a per-source declaration made via
+        ``add_bronze_value_counts`` / ``add_bronze_per_grid_date_mode`` during
+        exploration is silently ignored at codegen unless the operator
+        manually echoes it into NB10. Recs that depend on the per-value count
+        shape (e.g. ``subscription_terminate_to_start_ratio_*``) get dropped.
+        Operator overrides win on conflict; only un-overridden sources are
+        filled in here.
+        """
+        ba = getattr(registry, "bronze_aggregations", None) or {}
+        if not isinstance(ba, dict) or not ba:
+            return
+        if self._bronze_aggregation_overrides is None:
+            self._bronze_aggregation_overrides = {}
+        for src, entry in ba.items():
+            if src in self._bronze_aggregation_overrides:
+                continue
+            if src not in config.bronze_event:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            recognized = {
+                k: v for k, v in entry.items()
+                if k in _RECOGNIZED_BRONZE_OVERRIDE_KEYS
+            }
+            if not recognized:
+                continue
+            self._bronze_aggregation_overrides[src] = recognized
+            self._apply_bronze_aggregation_overrides(
+                config.bronze_event[src], src,
+            )
 
     def _apply_bronze_recommendations(self, config: PipelineConfig, registry: RecommendationRegistry) -> None:
         sources_to_process = dict(registry.sources)
@@ -2343,10 +2575,10 @@ class FindingsParser:
                         break
                 if not attached:
                     unresolved.append((feature, base))
-        # `getattr` default keeps tests that build a parser via
-        # `FindingsParser.__new__(...)` (skipping __init__) on the
-        # strict-by-default behavior the production constructor enforces.
-        strict = getattr(self, "_strict_datetime_parity", True)
+        # `getattr` default mirrors the constructor default (PA-4: lenient).
+        # Tests that explicitly want strict mode set `_strict_datetime_parity
+        # = True` after `FindingsParser.__new__(...)` (skipping __init__).
+        strict = getattr(self, "_strict_datetime_parity", False)
         if strict and (unresolved or proposed_landing or proposed_event):
             # Strict mode: any spec feature whose source isn't declared raises,
             # whether or not the parser could guess a target layer to attach it
@@ -3242,6 +3474,8 @@ class FindingsParser:
             categorical_value_counts=categorical_value_counts,
         )
 
+    _DATETIME_DERIVED_SUFFIXES = ("_delta_hours", "_hour", "_dow", "_is_weekend")
+
     @staticmethod
     def _apply_sparse_aggregate_prune(
         *, ts, value_columns: List[str], blocked: Dict[str, List[str]],
@@ -3255,12 +3489,19 @@ class FindingsParser:
         median-imputed downstream, polluting selection with near-constant noise.
         ``count``/``sum`` remain emitted; categorical and binary aggregates are
         not affected. Fails open (no pruning) when metadata is missing.
+
+        Datetime-derived columns (``_delta_hours`` / ``_hour`` / ``_dow`` /
+        ``_is_weekend``) are exempt — they're per-row signals computed at
+        ingestion, where ``max``/``mean`` are well-defined even at one event
+        per entity (e.g. ``max(is_weekend)`` = "ever fired on a weekend").
         """
         if ts is None or ts.avg_events_per_entity is None:
             return
         if float(ts.avg_events_per_entity) >= threshold:
             return
         for col in value_columns:
+            if col.endswith(FindingsParser._DATETIME_DERIVED_SUFFIXES):
+                continue
             existing = set(blocked.get(col, []))
             existing.update(["mean", "max"])
             blocked[col] = sorted(existing)
@@ -3656,6 +3897,15 @@ class FindingsParser:
                 )
             else:
                 event_cfg.aggregation.windows = resolved_windows
+        # `_event_aggregated_columns` only emits per-value count columns when
+        # "value_counts" is in `categorical_agg_funcs`; mirror the runtime intent.
+        if "value_counts_columns" in overrides:
+            if event_cfg.aggregation is None:
+                event_cfg.aggregation = AggregationWindowConfig(windows=[])
+            _funcs = list(event_cfg.aggregation.categorical_agg_funcs or [])
+            if "value_counts" not in _funcs:
+                _funcs.append("value_counts")
+                event_cfg.aggregation.categorical_agg_funcs = _funcs
 
     def _discover_event_sources(
         self, source_findings: Dict[str, ExplorationFindings]

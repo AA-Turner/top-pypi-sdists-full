@@ -1,9 +1,10 @@
-use crate::IntoPyException;
 use ahash::HashMap;
 use futures_util::stream;
 use hyper::body::Bytes;
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyBytes};
 use pyo3_stub_gen::derive::*;
+
+use crate::IntoPyException;
 
 /// Represents an uploaded file in a multipart/form-data request.
 ///
@@ -35,7 +36,7 @@ use pyo3_stub_gen::derive::*;
 /// ```
 #[derive(Clone, Debug)]
 #[gen_stub_pyclass]
-#[pyclass]
+#[pyclass(from_py_object)]
 pub struct File {
     #[pyo3(get)]
     pub name: String,
@@ -67,9 +68,10 @@ impl File {
     ///
     /// Example:
     /// ```python
-    /// file_bytes = uploaded_file.content()
+    /// file_bytes = uploaded_file.content
     /// file_size = len(file_bytes)
     /// ```
+    #[getter]
     fn content<'py>(&'py self, py: Python<'py>) -> Bound<'py, PyBytes> {
         let data = &self.data.to_vec()[..];
         PyBytes::new(py, data)
@@ -143,9 +145,10 @@ pub async fn parse_multipart(content_type: &str, body_stream: Bytes) -> PyResult
     let mut multipart = Multipart::default();
 
     while let Some(field) = multer_multipart.next_field().await.into_py_exception()? {
-        match (field.file_name(), field.content_type()) {
-            (Some(_), Some(_)) => multipart.parse_file(field).await?,
-            _ => multipart.parse_field(field).await?,
+        if field.file_name().is_some() && field.content_type().is_some() {
+            multipart.parse_file(field).await?;
+        } else {
+            multipart.parse_field(field).await?;
         }
     }
 

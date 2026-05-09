@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -85,8 +85,10 @@ class Builder(tfds.core.GeneratorBasedBuilder):
       Generator yielding the next examples
     """
     with tf.io.gfile.GFile(data_path, "rb") as f:
-      images = np.loadtxt(f, delimiter=" ", dtype=np.uint8).reshape(
-          (-1,) + mnist.MNIST_IMAGE_SHAPE
+      images = (
+          np.loadtxt(f, delimiter=" ")
+          .astype(np.uint8)
+          .reshape((-1,) + mnist.MNIST_IMAGE_SHAPE)
       )
     for index, image in enumerate(images):
       yield index, {"image": image}

@@ -15,7 +15,7 @@ from schemathesis.core.failures import Failure, FailureGroup
 from schemathesis.core.transport import Response
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.engine.run.unit._executor import validate_response
-from schemathesis.openapi.checks import JsonSchemaError, UndefinedContentType, UndefinedStatusCode
+from schemathesis.openapi.checks import JsonSchemaError, UndefinedContentType, UndefinedStatusCode, UseAfterFree
 from schemathesis.schemas import APIOperation, OperationDefinition
 from schemathesis.specs.openapi.checks import (
     _coerce_header_value,
@@ -23,12 +23,25 @@ from schemathesis.specs.openapi.checks import (
     response_headers_conformance,
     response_schema_conformance,
     status_code_conformance,
+    use_after_free,
 )
 
 if TYPE_CHECKING:
     from schemathesis.schemas import BaseSchema
 
 CTX = CheckContext(override=None, auth=None, headers=None, config=ChecksConfig(), transport_kwargs=None)
+
+
+def _oas3_response(schema, *, description="text", media_type="application/json"):
+    return {"description": description, "content": {media_type: {"schema": schema}}}
+
+
+def _oas3_definition(schema, *, status="default", description="text", media_type="application/json"):
+    return {"responses": {status: _oas3_response(schema, description=description, media_type=media_type)}}
+
+
+def _swagger_definition(schema, *, status="default", description="text"):
+    return {"responses": {status: {"description": description, "schema": schema}}}
 
 
 def make_case(schema: BaseSchema, definition: dict[str, Any]) -> Case:
@@ -42,6 +55,14 @@ def make_case(schema: BaseSchema, definition: dict[str, Any]) -> Case:
         responses=responses,
         security=security,
     ).Case()
+
+
+def _case_from_raw_operation(schema: BaseSchema, path: str, method: str) -> Case:
+    return make_case(schema, schema.raw_schema["paths"][path][method])
+
+
+def _data_case(schema: BaseSchema) -> Case:
+    return _case_from_raw_operation(schema, "/data", "get")
 
 
 @pytest.fixture
@@ -133,8 +154,9 @@ def test_content_type_conformance_valid(spec, response, case):
     ],
 )
 @pytest.mark.parametrize(("content_type", "is_error"), [("application/json", False), ("application/xml", True)])
-def test_content_type_conformance_integration(response_factory, raw_schema, content_type, is_error):
-    assert_content_type_conformance(response_factory, raw_schema, content_type, is_error)
+def test_content_type_conformance_integration(ctx, response_factory, raw_schema, content_type, is_error):
+    schema = ctx.openapi.from_full_schema(raw_schema)
+    assert_content_type_conformance(response_factory, schema, content_type, is_error)
 
 
 @pytest.mark.parametrize(
@@ -144,7 +166,7 @@ def test_content_type_conformance_integration(response_factory, raw_schema, cont
         ("application/xml", True),
     ],
 )
-def test_content_type_conformance_default_response(response_factory, content_type, is_error):
+def test_content_type_conformance_default_response(ctx, response_factory, content_type, is_error):
     raw_schema = {
         "openapi": "3.0.2",
         "info": {"title": "Test", "description": "Test", "version": "0.1.0"},
@@ -156,14 +178,15 @@ def test_content_type_conformance_default_response(response_factory, content_typ
             }
         },
     }
-    assert_content_type_conformance(response_factory, raw_schema, content_type, is_error)
+    schema = ctx.openapi.from_full_schema(raw_schema)
+    assert_content_type_conformance(response_factory, schema, content_type, is_error)
 
 
 @pytest.mark.parametrize(
     ("schema_media_type", "response_media_type"),
     [("application:json", "application/json"), ("application/json", "application:json")],
 )
-def test_malformed_content_type(schema_media_type, response_media_type, response_factory):
+def test_malformed_content_type(ctx, schema_media_type, response_media_type, response_factory):
     # When the verified content type is malformed
     raw_schema = {
         "openapi": "3.0.2",
@@ -177,10 +200,11 @@ def test_malformed_content_type(schema_media_type, response_media_type, response
         },
     }
     # Then it should raise an assertion error, rather than an internal one
-    assert_content_type_conformance(response_factory, raw_schema, response_media_type, True, "Malformed media type")
+    schema = ctx.openapi.from_full_schema(raw_schema)
+    assert_content_type_conformance(response_factory, schema, response_media_type, True, "Malformed media type")
 
 
-def test_content_type_conformance_another_status_code(response_factory):
+def test_content_type_conformance_another_status_code(ctx, response_factory):
     # When the schema only defines a response for status code 400
     raw_schema = {
         "openapi": "3.0.2",
@@ -195,7 +219,8 @@ def test_content_type_conformance_another_status_code(response_factory):
     }
     # And the response has another status code
     # Then the content type should be ignored, since the schema does not contain relevant definitions
-    assert_content_type_conformance(response_factory, raw_schema, "application/xml", False)
+    schema = ctx.openapi.from_full_schema(raw_schema)
+    assert_content_type_conformance(response_factory, schema, "application/xml", False)
 
 
 @pytest.mark.parametrize(
@@ -207,23 +232,20 @@ def test_content_type_conformance_another_status_code(response_factory):
         ("application/json", True),
     ],
 )
-def test_content_type_wildcards(content_type, is_error, response_factory):
-    raw_schema = {
-        "openapi": "3.0.2",
-        "info": {"title": "Test", "description": "Test", "version": "0.1.0"},
-        "paths": {
+def test_content_type_wildcards(ctx, content_type, is_error, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
             "/users": {
                 "get": {
                     "responses": {"200": {"description": "Error", "content": {content_type: {"schema": {}}}}},
                 }
             }
-        },
-    }
-    assert_content_type_conformance(response_factory, raw_schema, "application/xml", is_error)
+        }
+    )
+    assert_content_type_conformance(response_factory, schema, "application/xml", is_error)
 
 
-def assert_content_type_conformance(response_factory, raw_schema, content_type, is_error, match=None):
-    schema = schemathesis.openapi.from_dict(raw_schema)
+def assert_content_type_conformance(response_factory, schema, content_type, is_error, match=None):
     operation = schema["/users"]["get"]
     case = operation.Case()
     response = Response.from_requests(response_factory.requests(content_type=content_type), True)
@@ -273,15 +295,9 @@ def test_content_type_conformance_invalid(spec, response, case):
     assert exc_info.value.message == f"Received: {response.headers['content-type'][0]}\nDocumented: application/json"
 
 
-def test_invalid_schema_on_content_type_check(response_factory):
+def test_invalid_schema_on_content_type_check(ctx, response_factory):
     # When schema validation is disabled, and it doesn't contain "responses" key
-    schema = schemathesis.openapi.from_dict(
-        {
-            "openapi": "3.0.2",
-            "info": {"title": "Test", "description": "Test", "version": "0.1.0"},
-            "paths": {"/users": {"get": {}}},
-        }
-    )
+    schema = ctx.openapi.load_schema({"/users": {"get": {}}})
     operation = schema["/users"]["get"]
     case = operation.Case()
     response = response_factory.requests(content_type="application/json")
@@ -311,12 +327,12 @@ STRING_FORMAT_SCHEMA = {
         (b'{"success": true}', {}),
         (b'{"success": true}', {"responses": {"200": {"description": "text"}}}),
         (b'{"random": "text"}', {"responses": {"200": {"description": "text"}}}),
-        (b'{"success": true}', {"responses": {"200": {"description": "text", "schema": SUCCESS_SCHEMA}}}),
-        (b'{"success": true}', {"responses": {"2XX": {"description": "text", "schema": SUCCESS_SCHEMA}}}),
-        (b'{"success": true}', {"responses": {"default": {"description": "text", "schema": SUCCESS_SCHEMA}}}),
+        (b'{"success": true}', _swagger_definition(SUCCESS_SCHEMA, status="200")),
+        (b'{"success": true}', _swagger_definition(SUCCESS_SCHEMA, status="2XX")),
+        (b'{"success": true}', _swagger_definition(SUCCESS_SCHEMA)),
         (
             b'{"value": "2017-07-21"}',
-            {"responses": {"default": {"description": "text", "schema": STRING_FORMAT_SCHEMA}}},
+            _swagger_definition(STRING_FORMAT_SCHEMA),
         ),
     ],
 )
@@ -338,9 +354,7 @@ def test_response_schema_conformance_type_after_large_required(openapi_30, respo
 
     # Response is a string, not an object - will fail on 'type' validation
     response = Response.from_requests(response_factory.requests(content=b'"not an object"'), True)
-    case = make_case(
-        openapi_30, {"responses": {"200": {"description": "text", "content": {"application/json": {"schema": schema}}}}}
-    )
+    case = make_case(openapi_30, _oas3_definition(schema, status="200"))
 
     with pytest.raises(JsonSchemaError) as exc:
         response_schema_conformance(CTX, response, case)
@@ -407,19 +421,11 @@ Value:
         ),
         (
             b'{"success": true}',
-            {
-                "responses": {
-                    "200": {"description": "text", "content": {"application/json": {"schema": SUCCESS_SCHEMA}}}
-                }
-            },
+            _oas3_definition(SUCCESS_SCHEMA, status="200"),
         ),
         (
             b'{"success": true}',
-            {
-                "responses": {
-                    "2XX": {"description": "text", "content": {"application/json": {"schema": SUCCESS_SCHEMA}}}
-                }
-            },
+            _oas3_definition(SUCCESS_SCHEMA, status="2XX"),
         ),
         (
             b'{"success": true}',
@@ -447,22 +453,11 @@ Value:
         ),
         (
             b'{"success": true}',
-            {
-                "responses": {
-                    "default": {"description": "text", "content": {"application/json": {"schema": SUCCESS_SCHEMA}}}
-                }
-            },
+            {"responses": {"default": _oas3_response(SUCCESS_SCHEMA)}},
         ),
         (
             b'{"value": "2017-07-21"}',
-            {
-                "responses": {
-                    "default": {
-                        "description": "text",
-                        "content": {"application/json": {"schema": STRING_FORMAT_SCHEMA}},
-                    }
-                }
-            },
+            {"responses": {"default": _oas3_response(STRING_FORMAT_SCHEMA)}},
         ),
     ],
 )
@@ -475,9 +470,7 @@ def test_response_schema_conformance_openapi(openapi_30, content, definition, re
 
 def test_response_schema_conformance_yaml(openapi_30, response_factory):
     content = b"success: true"
-    definition = {
-        "responses": {"default": {"description": "text", "content": {"application/yaml": {"schema": SUCCESS_SCHEMA}}}}
-    }
+    definition = _oas3_definition(SUCCESS_SCHEMA, media_type="application/yaml")
     response = Response.from_requests(
         response_factory.requests(
             content=content,
@@ -501,14 +494,7 @@ def test_response_schema_conformance_openapi_31_boolean(openapi_31, response_fac
     response = Response.from_requests(response_factory.requests(content=b'{"success": true}'), True)
     case = make_case(
         openapi_31,
-        {
-            "responses": {
-                "default": {
-                    "description": "text",
-                    "content": {"application/json": {"schema": schema}},
-                }
-            }
-        },
+        _oas3_definition(schema),
     )
     assert response_schema_conformance(CTX, response, case) is None
     assert case.operation.is_valid_response(response)
@@ -567,7 +553,7 @@ def assert_no_media_types(response_factory, schema, definition):
     assert response_schema_conformance(CTX, response, case) is None
 
 
-def test_response_conformance_unresolvable_file(ctx, cli, openapi3_base_url, snapshot_cli):
+def test_response_conformance_unresolvable_file(ctx, cli, snapshot_cli):
     schema_path = ctx.openapi.write_schema(
         {
             "/test": {
@@ -591,8 +577,9 @@ def test_response_conformance_unresolvable_file(ctx, cli, openapi3_base_url, sna
         },
         version="2.0",
     )
+    api = ctx.openapi.apps.success()
     assert (
-        cli.run(str(schema_path), f"--url={openapi3_base_url}", "--checks=response_schema_conformance") == snapshot_cli
+        cli.run(str(schema_path), f"--url={api.base_url}/api", "--checks=response_schema_conformance") == snapshot_cli
     )
 
 
@@ -601,16 +588,10 @@ def test_response_conformance_no_content_type(request, spec, response_factory):
     # When there is a media type defined in the schema
     schema = request.getfixturevalue(spec)
     if spec == "swagger_20":
-        definition = {
-            "produces": ["application/json"],
-            "responses": {"default": {"description": "text", "schema": SUCCESS_SCHEMA}},
-        }
+        definition = _swagger_definition(SUCCESS_SCHEMA)
+        definition["produces"] = ["application/json"]
     else:
-        definition = {
-            "responses": {
-                "default": {"description": "text", "content": {"application/json": {"schema": SUCCESS_SCHEMA}}}
-            }
-        }
+        definition = _oas3_definition(SUCCESS_SCHEMA)
     case = make_case(schema, definition)
     # And no "Content-Type" header in the received response
     response = Response.from_requests(response_factory.requests(content_type=None, status_code=200), True)
@@ -653,10 +634,10 @@ Value:
 @pytest.mark.parametrize(
     ("content", "definition"),
     [
-        (b'{"random": "text"}', {"responses": {"200": {"description": "text", "schema": SUCCESS_SCHEMA}}}),
-        (b'{"random": "text"}', {"responses": {"2XX": {"description": "text", "schema": SUCCESS_SCHEMA}}}),
-        (b'{"random": "text"}', {"responses": {"default": {"description": "text", "schema": SUCCESS_SCHEMA}}}),
-        (b'{"value": "text"}', {"responses": {"default": {"description": "text", "schema": STRING_FORMAT_SCHEMA}}}),
+        (b'{"random": "text"}', _swagger_definition(SUCCESS_SCHEMA, status="200")),
+        (b'{"random": "text"}', _swagger_definition(SUCCESS_SCHEMA, status="2XX")),
+        (b'{"random": "text"}', _swagger_definition(SUCCESS_SCHEMA)),
+        (b'{"value": "text"}', _swagger_definition(STRING_FORMAT_SCHEMA)),
     ],
 )
 def test_response_schema_conformance_invalid_swagger(swagger_20, content, definition, response_factory):
@@ -673,65 +654,32 @@ def test_response_schema_conformance_invalid_swagger(swagger_20, content, defini
         (
             "application/json",
             b'{"random": "text"}',
-            {
-                "responses": {
-                    "200": {"description": "text", "content": {"application/json": {"schema": SUCCESS_SCHEMA}}}
-                }
-            },
+            _oas3_definition(SUCCESS_SCHEMA, status="200"),
         ),
         (
             "application/json",
             b'{"random": "text"}',
-            {
-                "responses": {
-                    "2XX": {"description": "text", "content": {"application/json": {"schema": SUCCESS_SCHEMA}}}
-                }
-            },
+            _oas3_definition(SUCCESS_SCHEMA, status="2XX"),
         ),
         (
             "application/json",
             b'{"random": "text"}',
-            {
-                "responses": {
-                    "default": {"description": "text", "content": {"application/json": {"schema": SUCCESS_SCHEMA}}}
-                }
-            },
+            _oas3_definition(SUCCESS_SCHEMA),
         ),
         (
             "application/json",
             b'{"value": "text"}',
-            {
-                "responses": {
-                    "default": {
-                        "description": "text",
-                        "content": {"application/json": {"schema": STRING_FORMAT_SCHEMA}},
-                    }
-                }
-            },
+            _oas3_definition(STRING_FORMAT_SCHEMA),
         ),
         (
             "application/json",
             b'{"value": "text"}',
-            {
-                "responses": {
-                    "default": {
-                        "description": "text",
-                        "content": {"application/json": {"schema": False}},
-                    }
-                }
-            },
+            _oas3_definition(False),
         ),
         (
             "application/problem+json",
             b'{"random": "text"}',
-            {
-                "responses": {
-                    "default": {
-                        "description": "text",
-                        "content": {"application/problem+json": {"schema": SUCCESS_SCHEMA}},
-                    }
-                }
-            },
+            _oas3_definition(SUCCESS_SCHEMA, media_type="application/problem+json"),
         ),
     ],
 )
@@ -794,22 +742,16 @@ def test_response_schema_conformance_references_valid(complex_schema, value, res
 
 def test_response_schema_conformance_custom_deserializer(openapi_30, response_factory):
     media_type = "application/vnd.custom"
-    definition = {
-        "responses": {
-            "200": {
-                "description": "OK",
-                "content": {
-                    media_type: {
-                        "schema": {
-                            "type": "object",
-                            "properties": {"name": {"type": "string"}, "count": {"type": "integer", "minimum": 1}},
-                            "required": ["name", "count"],
-                        }
-                    }
-                },
-            }
-        }
-    }
+    definition = _oas3_definition(
+        {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "count": {"type": "integer", "minimum": 1}},
+            "required": ["name", "count"],
+        },
+        status="200",
+        description="OK",
+        media_type=media_type,
+    )
     case = make_case(openapi_30, definition)
     # Response content that violates the schema
     response = Response.from_requests(
@@ -836,18 +778,15 @@ def test_response_schema_conformance_custom_deserializer(openapi_30, response_fa
 
 def test_deduplication(ctx, response_factory):
     # See GH-1394
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "get": {
-                    "responses": {
-                        "200": {"description": "OK", "content": {"application/json": {"schema": {"type": "integer"}}}}
-                    },
+                    "responses": {"200": _oas3_response({"type": "integer"}, description="OK")},
                 },
             },
         }
     )
-    schema = schemathesis.openapi.from_dict(schema)
     operation = schema["/data"]["GET"]
     case = operation.Case()
     response = Response.from_requests(response_factory.requests(), True)
@@ -872,7 +811,7 @@ def test_deduplication(ctx, response_factory):
 @pytest.fixture(params=["2.0", "3.0"])
 def schema_with_optional_headers(ctx, request):
     if request.param == "2.0":
-        return ctx.openapi.build_schema(
+        return ctx.openapi.load_schema(
             {
                 "/data": {
                     "get": {
@@ -895,7 +834,7 @@ def schema_with_optional_headers(ctx, request):
             version="2.0",
         )
     if request.param == "3.0":
-        return ctx.openapi.build_schema(
+        return ctx.openapi.load_schema(
             {
                 "/data": {
                     "get": {
@@ -922,8 +861,8 @@ def test_optional_headers_missing(schema_with_optional_headers, response_factory
     # When a response header is declared as optional
     # NOTE: Open API 2.0 headers are much simpler and do not contain any notion of declaring them as optional
     # For this reason we support `x-required` instead
-    schema = schemathesis.openapi.from_dict(schema_with_optional_headers)
-    case = make_case(schema, schema_with_optional_headers["paths"]["/data"]["get"])
+    schema = schema_with_optional_headers
+    case = _data_case(schema)
     response = Response.from_requests(response_factory.requests(), True)
     # Then it should not be reported as missing
     assert response_headers_conformance(CTX, response, case) is None
@@ -944,7 +883,7 @@ DATETIME_HEADER = {"type": "string", "format": "date-time"}
     ],
 )
 def test_header_conformance(ctx, response_factory, version, header, schema, value, expected):
-    base_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "get": {
@@ -964,8 +903,7 @@ def test_header_conformance(ctx, response_factory, version, header, schema, valu
         },
         version=version,
     )
-    schema = schemathesis.openapi.from_dict(base_schema)
-    case = make_case(schema, base_schema["paths"]["/data"]["get"])
+    case = _data_case(schema)
     response = Response.from_requests(response_factory.requests(headers={header: value}), True)
     if expected:
         assert response_headers_conformance(CTX, response, case) is None
@@ -975,7 +913,7 @@ def test_header_conformance(ctx, response_factory, version, header, schema, valu
 
 
 def test_header_conformance_definition_behind_ref(ctx, response_factory):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "get": {
@@ -1000,15 +938,14 @@ def test_header_conformance_definition_behind_ref(ctx, response_factory):
             },
         },
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
-    case = make_case(schema, raw_schema["paths"]["/data"]["get"])
+    case = _data_case(schema)
     response = Response.from_requests(response_factory.requests(headers={"Link": "Test"}), True)
     with pytest.raises(AssertionError, match="Response header does not conform to the schema"):
         response_headers_conformance(CTX, response, case)
 
 
 def test_header_conformance_schema_behind_ref(ctx, response_factory):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "get": {
@@ -1032,8 +969,7 @@ def test_header_conformance_schema_behind_ref(ctx, response_factory):
             },
         },
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
-    case = make_case(schema, raw_schema["paths"]["/data"]["get"])
+    case = _data_case(schema)
 
     response = Response.from_requests(response_factory.requests(headers={"X-RateLimit-Limit": "50"}), True)
     assert response_headers_conformance(CTX, response, case) is None
@@ -1044,7 +980,7 @@ def test_header_conformance_schema_behind_ref(ctx, response_factory):
 
 
 def test_header_conformance_no_headers_defined(ctx, response_factory):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "get": {
@@ -1058,8 +994,7 @@ def test_header_conformance_no_headers_defined(ctx, response_factory):
             },
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
-    case = make_case(schema, raw_schema["paths"]["/data"]["get"])
+    case = _data_case(schema)
     response = Response.from_requests(response_factory.requests(), True)
 
     assert response_headers_conformance(CTX, response, case) is None
@@ -1083,9 +1018,8 @@ MULTIPLE_HEADERS = {
 
 
 def test_header_conformance_multiple_invalid_headers(ctx, response_factory):
-    raw_schema = ctx.openapi.build_schema(MULTIPLE_HEADERS)
-    schema = schemathesis.openapi.from_dict(raw_schema)
-    case = make_case(schema, raw_schema["paths"]["/data"]["get"])
+    schema = ctx.openapi.load_schema(MULTIPLE_HEADERS)
+    case = _data_case(schema)
     response = Response.from_requests(
         response_factory.requests(headers={"X-RateLimit-Limit": "150", "X-RateLimit-Reset": "Invalid"}), True
     )
@@ -1128,9 +1062,8 @@ Value:
 
 
 def test_header_conformance_missing_and_invalid(ctx, response_factory):
-    raw_schema = ctx.openapi.build_schema(MULTIPLE_HEADERS)
-    schema = schemathesis.openapi.from_dict(raw_schema)
-    case = make_case(schema, raw_schema["paths"]["/data"]["get"])
+    schema = ctx.openapi.load_schema(MULTIPLE_HEADERS)
+    case = _data_case(schema)
     response = Response.from_requests(response_factory.requests(headers={"X-RateLimit-Limit": "150"}), True)
     with pytest.raises(FailureGroup) as exc:
         response_headers_conformance(CTX, response, case)
@@ -1186,8 +1119,16 @@ The following required headers are missing from the response:
         ("false", {"type": "boolean"}, False),
         ("1", {"type": "boolean"}, True),
         ("0", {"type": "boolean"}, False),
+        # Array type — Swagger 2.0 collectionFormat splits the wire value into items.
+        ("a,b,c", {"type": "array", "items": {"type": "string"}}, ["a", "b", "c"]),
+        (
+            "1,2,3",
+            {"type": "array", "items": {"type": "integer"}, "collectionFormat": "csv"},
+            [1, 2, 3],
+        ),
+        ("a b c", {"type": "array", "items": {"type": "string"}, "collectionFormat": "ssv"}, ["a", "b", "c"]),
+        ("a,b", {"type": "array", "items": {"type": "string"}, "collectionFormat": "multi"}, "a,b"),
         # Unsupported type
-        ("test", {"type": "array"}, "test"),
         ("test", {"type": "object"}, "test"),
         # No type specified
         ("test", {}, "test"),
@@ -1204,7 +1145,7 @@ def test_module_access():
 
 
 def test_response_schema_conformance_reports_all_errors(ctx, response_factory):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "get": {
@@ -1229,8 +1170,7 @@ def test_response_schema_conformance_reports_all_errors(ctx, response_factory):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
-    case = make_case(schema, raw_schema["paths"]["/data"]["get"])
+    case = _data_case(schema)
     response = Response.from_requests(
         response_factory.requests(content=b'{"id": "not-an-int", "name": 42}'),
         True,
@@ -1245,7 +1185,7 @@ def test_response_schema_conformance_reports_all_errors(ctx, response_factory):
 
 
 def test_response_schema_conformance_deduplicates_same_schema_path(ctx, response_factory):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "get": {
@@ -1266,8 +1206,7 @@ def test_response_schema_conformance_deduplicates_same_schema_path(ctx, response
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
-    case = make_case(schema, raw_schema["paths"]["/data"]["get"])
+    case = _data_case(schema)
     # All three items violate the same schema_path (items/type) — dedup collapses to one error
     response = Response.from_requests(
         response_factory.requests(content=b"[1, 2, 3]"),
@@ -1279,7 +1218,7 @@ def test_response_schema_conformance_deduplicates_same_schema_path(ctx, response
 
 
 def test_header_conformance_reports_multiple_errors_from_one_header(ctx, response_factory):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "get": {
@@ -1293,8 +1232,7 @@ def test_header_conformance_reports_multiple_errors_from_one_header(ctx, respons
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
-    case = make_case(schema, raw_schema["paths"]["/data"]["get"])
+    case = _data_case(schema)
     # 75 is both less than minimum=100 and greater than maximum=50 — two distinct violations
     response = Response.from_requests(
         response_factory.requests(headers={"X-Rate-Limit": "75"}),
@@ -1307,3 +1245,206 @@ def test_header_conformance_reports_multiple_errors_from_one_header(ctx, respons
     assert all(isinstance(f, JsonSchemaError) for f in failures)
     schema_paths = {"/".join(str(s) for s in f.schema_path) for f in failures}
     assert schema_paths == {"minimum", "maximum"}
+
+
+def test_use_after_free_no_false_positive_on_idempotent_delete(ctx, response_factory):
+    # RFC 7231 §4.3.5: a repeated DELETE may legitimately return 200/204 instead of 404.
+    schema = ctx.openapi.load_schema(
+        {
+            "/users": {
+                "post": {
+                    "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+                    "responses": {"201": {"description": "Created"}},
+                },
+            },
+            "/users/{userId}": {
+                "delete": {
+                    "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"204": {"description": "No Content"}, "404": {"description": "Not Found"}},
+                }
+            },
+        }
+    )
+    post_op = schema["/users"]["POST"]
+    delete_op = schema["/users/{userId}"]["DELETE"]
+
+    parent = post_op.Case(method="POST", body={}, media_type="application/json")
+    first_delete = delete_op.Case(method="DELETE", path_parameters={"userId": 1})
+    second_delete = delete_op.Case(method="DELETE", path_parameters={"userId": 1})
+
+    recorder = ScenarioRecorder(label="use-after-free-test")
+    recorder.record_case(parent_id=None, case=parent, transition=None, is_transition_applied=False)
+    recorder.record_response(
+        case_id=parent.id,
+        response=Response.from_requests(response_factory.requests(status_code=201), True),
+    )
+    recorder.record_case(parent_id=parent.id, case=first_delete, transition=None, is_transition_applied=False)
+    recorder.record_response(
+        case_id=first_delete.id,
+        response=Response.from_requests(response_factory.requests(status_code=204), True),
+    )
+    recorder.record_case(parent_id=parent.id, case=second_delete, transition=None, is_transition_applied=False)
+    second_response = Response.from_requests(response_factory.requests(status_code=200), True)
+    recorder.record_response(case_id=second_delete.id, response=second_response)
+
+    check_ctx = CheckContext(
+        override=None,
+        auth=None,
+        headers=None,
+        config=ChecksConfig(),
+        transport_kwargs=None,
+        recorder=recorder,
+    )
+
+    assert use_after_free(check_ctx, second_response, second_delete) is None
+
+
+def test_use_after_free_failure_references_prior_delete(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/users": {
+                "post": {
+                    "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+                    "responses": {"201": {"description": "Created"}},
+                },
+            },
+            "/users/{userId}": {
+                "get": {
+                    "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Not Found"}},
+                },
+                "delete": {
+                    "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"204": {"description": "No Content"}, "404": {"description": "Not Found"}},
+                },
+            },
+        }
+    )
+    post_op = schema["/users"]["POST"]
+    get_op = schema["/users/{userId}"]["GET"]
+    delete_op = schema["/users/{userId}"]["DELETE"]
+
+    parent = post_op.Case(method="POST", body={}, media_type="application/json")
+    sibling_delete = delete_op.Case(method="DELETE", path_parameters={"userId": 1})
+    current_get = get_op.Case(method="GET", path_parameters={"userId": 1})
+
+    recorder = ScenarioRecorder(label="sibling-curl-test")
+    recorder.record_case(parent_id=None, case=parent, transition=None, is_transition_applied=False)
+    recorder.record_response(
+        case_id=parent.id,
+        response=Response.from_requests(response_factory.requests(status_code=201), True),
+    )
+    recorder.record_case(parent_id=parent.id, case=sibling_delete, transition=None, is_transition_applied=False)
+    recorder.record_response(
+        case_id=sibling_delete.id,
+        response=Response.from_requests(response_factory.requests(status_code=204), True),
+    )
+    recorder.record_case(parent_id=parent.id, case=current_get, transition=None, is_transition_applied=False)
+    get_response = Response.from_requests(response_factory.requests(status_code=200), True)
+    recorder.record_response(case_id=current_get.id, response=get_response)
+
+    check_ctx = CheckContext(
+        override=None,
+        auth=None,
+        headers=None,
+        config=ChecksConfig(),
+        transport_kwargs=None,
+        recorder=recorder,
+    )
+
+    with pytest.raises(UseAfterFree) as exc_info:
+        use_after_free(check_ctx, get_response, current_get)
+
+    assert exc_info.value.deleted_case_id == sibling_delete.id
+
+
+def test_use_after_free_no_false_positive_on_collection_delete(ctx, response_factory):
+    # DELETE on a bare collection (no path parameters) does not free a specific resource;
+    # a follow-up GET on the same collection returning 200 is a list read, not a use-after-free.
+    schema = ctx.openapi.load_schema(
+        {
+            "/locations": {
+                "post": {
+                    "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+                    "responses": {"201": {"description": "Created"}},
+                },
+                "get": {"responses": {"200": {"description": "OK"}}},
+                "delete": {"responses": {"200": {"description": "OK"}, "204": {"description": "No Content"}}},
+            },
+        }
+    )
+    post_op = schema["/locations"]["POST"]
+    get_op = schema["/locations"]["GET"]
+    delete_op = schema["/locations"]["DELETE"]
+
+    parent = post_op.Case(method="POST", body={}, media_type="application/json")
+    collection_delete = delete_op.Case(method="DELETE")
+    current_get = get_op.Case(method="GET")
+
+    recorder = ScenarioRecorder(label="collection-delete-test")
+    recorder.record_case(parent_id=None, case=parent, transition=None, is_transition_applied=False)
+    recorder.record_response(
+        case_id=parent.id,
+        response=Response.from_requests(response_factory.requests(status_code=201), True),
+    )
+    recorder.record_case(parent_id=parent.id, case=collection_delete, transition=None, is_transition_applied=False)
+    recorder.record_response(
+        case_id=collection_delete.id,
+        response=Response.from_requests(response_factory.requests(status_code=204), True),
+    )
+    recorder.record_case(parent_id=parent.id, case=current_get, transition=None, is_transition_applied=False)
+    get_response = Response.from_requests(response_factory.requests(status_code=200), True)
+    recorder.record_response(case_id=current_get.id, response=get_response)
+
+    check_ctx = CheckContext(
+        override=None,
+        auth=None,
+        headers=None,
+        config=ChecksConfig(),
+        transport_kwargs=None,
+        recorder=recorder,
+    )
+
+    assert use_after_free(check_ctx, get_response, current_get) is None
+
+
+def test_iter_chain_cases_includes_referenced_sibling(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/users": {
+                "post": {
+                    "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+                    "responses": {"201": {"description": "Created"}},
+                },
+            },
+            "/users/{userId}": {
+                "get": {
+                    "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                },
+                "delete": {
+                    "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"204": {"description": "No Content"}},
+                },
+            },
+        }
+    )
+    post_op = schema["/users"]["POST"]
+    get_op = schema["/users/{userId}"]["GET"]
+    delete_op = schema["/users/{userId}"]["DELETE"]
+
+    parent = post_op.Case(method="POST", body={}, media_type="application/json")
+    sibling_delete = delete_op.Case(method="DELETE", path_parameters={"userId": 1})
+    current_get = get_op.Case(method="GET", path_parameters={"userId": 1})
+
+    recorder = ScenarioRecorder(label="chain-helper-test")
+    for c in (parent, sibling_delete, current_get):
+        recorder.record_case(
+            parent_id=parent.id if c is not parent else None,
+            case=c,
+            transition=None,
+            is_transition_applied=False,
+        )
+
+    chain = list(recorder.iter_chain_cases(case_id=current_get.id, related_case_ids=(sibling_delete.id,)))
+    assert [c.id for c in chain] == [parent.id, sibling_delete.id, current_get.id]

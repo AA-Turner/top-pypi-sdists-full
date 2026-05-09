@@ -278,7 +278,6 @@ async def release_rm(semver: str, oldest_rollback: bool, force: bool, yes: bool,
 @cli.group()
 def branch() -> None:
     """Branch commands. Branches are an experimental feature only available in beta. Running branch commands without activation will return an error"""
-    pass
 
 
 @branch.command(name="ls")

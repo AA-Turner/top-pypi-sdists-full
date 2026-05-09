@@ -1,19 +1,13 @@
 import pathlib
 from xml.etree import ElementTree
 
-import pytest
-
 from test.utils import load_json_or_fail, load_yaml_or_fail
 
 
-def _make_xdist_test(testdir, content, base_url, paths=None):
+def _make_xdist_test(ctx, testdir, content, base_url, paths=None):
     if paths is None:
         paths = {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}}
-    schema_dict = {
-        "openapi": "3.0.2",
-        "info": {"title": "Test", "description": "Test", "version": "0.1.0"},
-        "paths": paths,
-    }
+    schema_dict = ctx.openapi.build_schema(paths)
     testdir.makepyfile(
         f"""
 import schemathesis
@@ -27,11 +21,12 @@ schema.config.update(base_url="{base_url}")
     )
 
 
-def test_vcr_report_written_via_config(testdir, openapi3_base_url):
+def test_vcr_report_written_via_config(testdir, ctx):
+    api = ctx.openapi.apps.success()
     cassette_path = str(testdir.tmpdir.join("cassette.yaml"))
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 schema.config.reports.update(vcr_path=r"{cassette_path}")
 
 @schema.parametrize()
@@ -48,11 +43,12 @@ def test_api(case):
     assert len(cassette["http_interactions"]) >= 1
 
 
-def test_vcr_report_records_check_failures(testdir, openapi3_base_url):
+def test_vcr_report_records_check_failures(testdir, ctx):
+    api = ctx.openapi.apps.failure()
     cassette_path = str(testdir.tmpdir.join("cassette.yaml"))
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 schema.config.reports.update(vcr_path=r"{cassette_path}")
 
 @schema.parametrize()
@@ -71,11 +67,12 @@ def test_api(case):
     assert any(c["status"] == "FAILURE" for c in all_checks)
 
 
-def test_vcr_report_no_interactions_when_call_raises(testdir, openapi3_base_url):
+def test_vcr_report_no_interactions_when_call_raises(testdir, ctx):
+    api = ctx.openapi.apps.success()
     cassette_path = str(testdir.tmpdir.join("cassette.yaml"))
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 schema.config.reports.update(vcr_path=r"{cassette_path}")
 
 @schema.parametrize()
@@ -94,11 +91,12 @@ def test_api(case, monkeypatch):
     assert cassette["http_interactions"] is None
 
 
-def test_har_report_written_via_config(testdir, openapi3_base_url):
+def test_har_report_written_via_config(testdir, ctx):
+    api = ctx.openapi.apps.success()
     cassette_path = str(testdir.tmpdir.join("cassette.har"))
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 schema.config.reports.update(har_path=r"{cassette_path}")
 
 @schema.parametrize()
@@ -115,11 +113,12 @@ def test_api(case):
     assert len(har["log"]["entries"]) >= 1
 
 
-def test_junit_report_written_via_config(testdir, openapi3_base_url):
+def test_junit_report_written_via_config(testdir, ctx):
+    api = ctx.openapi.apps.success()
     report_path = str(testdir.tmpdir.join("report.xml"))
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 schema.config.reports.update(junit_path=r"{report_path}")
 
 @schema.parametrize()
@@ -137,11 +136,12 @@ def test_api(case):
     assert all(tc.find("failure") is None for tc in test_cases)
 
 
-def test_junit_report_records_check_failures(testdir, openapi3_base_url):
+def test_junit_report_records_check_failures(testdir, ctx):
+    api = ctx.openapi.apps.failure()
     report_path = str(testdir.tmpdir.join("report.xml"))
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 schema.config.reports.update(junit_path=r"{report_path}")
 
 @schema.parametrize()
@@ -160,9 +160,11 @@ def test_api(case):
     assert len(failures) >= 1
 
 
-def test_vcr_report_written_via_xdist(testdir, openapi3_base_url):
+def test_vcr_report_written_via_xdist(testdir, ctx):
+    api = ctx.openapi.apps.success()
     cassette_path = str(testdir.tmpdir.join("cassette.yaml"))
     _make_xdist_test(
+        ctx,
         testdir,
         f"""
 schema.config.reports.update(vcr_path=r"{cassette_path}")
@@ -172,7 +174,7 @@ schema.config.reports.update(vcr_path=r"{cassette_path}")
 def test_api(case):
     case.call()
 """,
-        base_url=openapi3_base_url,
+        base_url=f"{api.base_url}/api",
     )
     result = testdir.runpytest("-n", "2")
     result.assert_outcomes(passed=1)
@@ -186,9 +188,11 @@ def test_api(case):
     assert all("phase" in i for i in interactions)
 
 
-def test_har_report_written_via_xdist(testdir, openapi3_base_url):
+def test_har_report_written_via_xdist(testdir, ctx):
+    api = ctx.openapi.apps.success()
     cassette_path = str(testdir.tmpdir.join("cassette.har"))
     _make_xdist_test(
+        ctx,
         testdir,
         f"""
 schema.config.reports.update(har_path=r"{cassette_path}")
@@ -198,7 +202,7 @@ schema.config.reports.update(har_path=r"{cassette_path}")
 def test_api(case):
     case.call()
 """,
-        base_url=openapi3_base_url,
+        base_url=f"{api.base_url}/api",
     )
     result = testdir.runpytest("-n", "2")
     result.assert_outcomes(passed=1)
@@ -208,9 +212,11 @@ def test_api(case):
     assert len(har["log"]["entries"]) >= 1
 
 
-def test_junit_report_written_via_xdist(testdir, openapi3_base_url):
+def test_junit_report_written_via_xdist(testdir, ctx):
+    api = ctx.openapi.apps.success()
     report_path = str(testdir.tmpdir.join("report.xml"))
     _make_xdist_test(
+        ctx,
         testdir,
         f"""
 schema.config.reports.update(junit_path=r"{report_path}")
@@ -220,7 +226,7 @@ schema.config.reports.update(junit_path=r"{report_path}")
 def test_api(case):
     case.call()
 """,
-        base_url=openapi3_base_url,
+        base_url=f"{api.base_url}/api",
     )
     result = testdir.runpytest("-n", "2")
     result.assert_outcomes(passed=1)
@@ -231,9 +237,11 @@ def test_api(case):
     assert all(tc.find("failure") is None for tc in test_cases)
 
 
-def test_junit_report_records_check_failures_via_xdist(testdir, openapi3_base_url):
+def test_junit_report_records_check_failures_via_xdist(testdir, ctx):
+    api = ctx.openapi.apps.failure()
     report_path = str(testdir.tmpdir.join("report.xml"))
     _make_xdist_test(
+        ctx,
         testdir,
         f"""
 schema.config.reports.update(junit_path=r"{report_path}")
@@ -243,7 +251,7 @@ schema.config.reports.update(junit_path=r"{report_path}")
 def test_api(case):
     case.call_and_validate()
 """,
-        base_url=openapi3_base_url,
+        base_url=f"{api.base_url}/api",
         paths={"/failure": {"get": {"responses": {"500": {"description": "Internal Server Error"}}}}},
     )
     result = testdir.runpytest("-n", "2")
@@ -254,9 +262,11 @@ def test_api(case):
     assert len(failures) >= 1
 
 
-def test_vcr_report_records_check_failures_via_xdist(testdir, openapi3_base_url):
+def test_vcr_report_records_check_failures_via_xdist(testdir, ctx):
+    api = ctx.openapi.apps.failure()
     cassette_path = str(testdir.tmpdir.join("cassette.yaml"))
     _make_xdist_test(
+        ctx,
         testdir,
         f"""
 schema.config.reports.update(vcr_path=r"{cassette_path}")
@@ -266,7 +276,7 @@ schema.config.reports.update(vcr_path=r"{cassette_path}")
 def test_api(case):
     case.call_and_validate()
 """,
-        base_url=openapi3_base_url,
+        base_url=f"{api.base_url}/api",
         paths={"/failure": {"get": {"responses": {"500": {"description": "Internal Server Error"}}}}},
     )
     result = testdir.runpytest("-n", "2")
@@ -277,7 +287,8 @@ def test_api(case):
     assert any(c["status"] == "FAILURE" for c in all_checks)
 
 
-def test_vcr_report_examples_phase_via_xdist(testdir, openapi3_base_url):
+def test_vcr_report_examples_phase_via_xdist(testdir, ctx):
+    api = ctx.openapi.apps.success()
     cassette_path = str(testdir.tmpdir.join("cassette.yaml"))
     paths = {
         "/users/": {
@@ -303,6 +314,7 @@ def test_vcr_report_examples_phase_via_xdist(testdir, openapi3_base_url):
         }
     }
     _make_xdist_test(
+        ctx,
         testdir,
         f"""
 schema.config.reports.update(vcr_path=r"{cassette_path}")
@@ -312,7 +324,7 @@ schema.config.reports.update(vcr_path=r"{cassette_path}")
 def test_api(case):
     case.call()
 """,
-        base_url=openapi3_base_url,
+        base_url=f"{api.base_url}/api",
         paths=paths,
     )
     result = testdir.runpytest("-n", "2")
@@ -327,11 +339,13 @@ def test_api(case):
     assert all(i["request"]["body"] is not None for i in interactions)
 
 
-def test_vcr_report_via_directory_via_xdist(testdir, openapi3_base_url):
+def test_vcr_report_via_directory_via_xdist(testdir, ctx):
+    api = ctx.openapi.apps.success()
     # enable VCR via `formats=` without an explicit path so get_stable_path()
     # falls through to the directory-based filename branch
     report_dir = str(testdir.tmpdir.mkdir("reports"))
     _make_xdist_test(
+        ctx,
         testdir,
         f"""
 from schemathesis.config._report import ReportFormat
@@ -344,7 +358,7 @@ schema.config.reports.update(formats=[ReportFormat.VCR], directory=Path(r"{repor
 def test_api(case):
     case.call()
 """,
-        base_url=openapi3_base_url,
+        base_url=f"{api.base_url}/api",
     )
     result = testdir.runpytest("-n", "2")
     result.assert_outcomes(passed=1)
@@ -355,10 +369,12 @@ def test_api(case):
     assert len(cassette["http_interactions"]) >= 1
 
 
-def test_xdist_no_report_configured(testdir, openapi3_base_url):
+def test_xdist_no_report_configured(testdir, ctx):
     # workers always send data via workeroutput even with no reports configured;
     # the controller must silently skip processing when no writers are opened
+    api = ctx.openapi.apps.success()
     _make_xdist_test(
+        ctx,
         testdir,
         """
 @schema.parametrize()
@@ -366,17 +382,19 @@ def test_xdist_no_report_configured(testdir, openapi3_base_url):
 def test_api(case):
     case.call()
 """,
-        base_url=openapi3_base_url,
+        base_url=f"{api.base_url}/api",
     )
     result = testdir.runpytest("-n", "2")
     result.assert_outcomes(passed=1)
 
 
-def test_vcr_report_multiple_operations_via_xdist(testdir, openapi3_base_url):
+def test_vcr_report_multiple_operations_via_xdist(testdir, ctx):
     # two operations share the same schema_id; the second pytest_testnodedown call
     # must reuse already-opened writers rather than opening new ones
+    api = ctx.openapi.apps.success()
     cassette_path = str(testdir.tmpdir.join("cassette.yaml"))
     _make_xdist_test(
+        ctx,
         testdir,
         f"""
 schema.config.reports.update(vcr_path=r"{cassette_path}")
@@ -386,7 +404,7 @@ schema.config.reports.update(vcr_path=r"{cassette_path}")
 def test_api(case):
     case.call()
 """,
-        base_url=openapi3_base_url,
+        base_url=f"{api.base_url}/api",
         paths={
             "/users": {"get": {"responses": {"200": {"description": "OK"}}}},
             "/health": {"get": {"responses": {"200": {"description": "OK"}}}},
@@ -399,9 +417,10 @@ def test_api(case):
     assert len(cassette["http_interactions"]) >= 2
 
 
-def test_vcr_report_network_error_via_xdist(testdir):
+def test_vcr_report_network_error_via_xdist(testdir, ctx):
     cassette_path = str(testdir.tmpdir.join("cassette.yaml"))
     _make_xdist_test(
+        ctx,
         testdir,
         f"""
 import requests
@@ -428,21 +447,20 @@ def test_api(case):
     assert all(i["status"] == "ERROR" for i in interactions)
 
 
-def test_two_schemas_same_vcr_path_via_xdist(testdir, openapi3_base_url):
+def test_two_schemas_same_vcr_path_via_xdist(testdir, ctx):
     # Two schemas both enabling VCR without an explicit path share the same
     # default filename; the controller adds a schema-id suffix so they don't
     # overwrite each other.
+    api = ctx.openapi.apps.success()
     report_dir = str(testdir.tmpdir.mkdir("reports"))
-    schema_a = {
-        "openapi": "3.0.2",
-        "info": {"title": "A", "description": "", "version": "0.1.0"},
-        "paths": {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}},
-    }
-    schema_b = {
-        "openapi": "3.0.2",
-        "info": {"title": "B", "description": "", "version": "0.1.0"},
-        "paths": {"/health": {"get": {"responses": {"200": {"description": "OK"}}}}},
-    }
+    schema_a = ctx.openapi.build_schema(
+        {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        info={"title": "A", "description": "", "version": "0.1.0"},
+    )
+    schema_b = ctx.openapi.build_schema(
+        {"/health": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        info={"title": "B", "description": "", "version": "0.1.0"},
+    )
     testdir.makepyfile(
         f"""
 import schemathesis
@@ -451,11 +469,11 @@ from pathlib import Path
 from hypothesis import settings
 
 schema_a = schemathesis.openapi.from_dict({schema_a!r})
-schema_a.config.update(base_url="{openapi3_base_url}")
+schema_a.config.update(base_url="{api.base_url}/api")
 schema_a.config.reports.update(formats=[ReportFormat.VCR], directory=Path(r"{report_dir}"))
 
 schema_b = schemathesis.openapi.from_dict({schema_b!r})
-schema_b.config.update(base_url="{openapi3_base_url}")
+schema_b.config.update(base_url="{api.base_url}/api")
 schema_b.config.reports.update(formats=[ReportFormat.VCR], directory=Path(r"{report_dir}"))
 
 @schema_a.parametrize()
@@ -480,13 +498,15 @@ def test_schema_b(case):
         assert len(cassette["http_interactions"]) >= 1
 
 
-def test_xdist_writer_open_failure(testdir, openapi3_base_url):
+def test_xdist_writer_open_failure(testdir, ctx):
     # VCR opens successfully, then HAR fails (path is a directory);
     # the except block must close the already-opened VCR writer before re-raising
+    api = ctx.openapi.apps.success()
     vcr_path = str(testdir.tmpdir.join("cassette.yaml"))
     har_path = str(testdir.tmpdir.join("cassette.har"))
     testdir.tmpdir.mkdir("cassette.har")
     _make_xdist_test(
+        ctx,
         testdir,
         f"""
 schema.config.reports.update(vcr_path=r"{vcr_path}", har_path=r"{har_path}")
@@ -496,7 +516,7 @@ schema.config.reports.update(vcr_path=r"{vcr_path}", har_path=r"{har_path}")
 def test_api(case):
     case.call()
 """,
-        base_url=openapi3_base_url,
+        base_url=f"{api.base_url}/api",
     )
     result = testdir.runpytest("-n", "2")
     # the writer open failure propagates from pytest_testnodedown as a session error
@@ -507,13 +527,13 @@ def test_api(case):
     assert "recorded_with" in content
 
 
-@pytest.mark.operations("create_user", "get_user", "update_user")
-def test_vcr_report_written_for_stateful_test(testdir, openapi3_base_url, openapi3_schema_url):
+def test_vcr_report_written_for_stateful_test(ctx, testdir):
+    api = ctx.openapi.apps.users_crud()
     cassette_path = str(testdir.tmpdir.join("cassette.yaml"))
     testdir.make_test(
         f"""
-schema = schemathesis.openapi.from_url("{openapi3_schema_url}")
-schema.config.update(base_url="{openapi3_base_url}")
+schema = schemathesis.openapi.from_url("{api.schema_url}")
+schema.config.update(base_url="{api.base_url}")
 schema.config.reports.update(vcr_path=r"{cassette_path}")
 TestCase = schema.as_state_machine().TestCase
 """,
@@ -528,13 +548,13 @@ TestCase = schema.as_state_machine().TestCase
     assert "response" in interactions[0]
 
 
-@pytest.mark.operations("create_user", "get_user", "update_user")
-def test_har_report_written_for_stateful_test(testdir, openapi3_base_url, openapi3_schema_url):
+def test_har_report_written_for_stateful_test(ctx, testdir):
+    api = ctx.openapi.apps.users_crud()
     har_path = str(testdir.tmpdir.join("cassette.har"))
     testdir.make_test(
         f"""
-schema = schemathesis.openapi.from_url("{openapi3_schema_url}")
-schema.config.update(base_url="{openapi3_base_url}")
+schema = schemathesis.openapi.from_url("{api.schema_url}")
+schema.config.update(base_url="{api.base_url}")
 schema.config.reports.update(har_path=r"{har_path}")
 TestCase = schema.as_state_machine().TestCase
 """,
@@ -549,13 +569,13 @@ TestCase = schema.as_state_machine().TestCase
     assert "response" in entries[0]
 
 
-@pytest.mark.operations("create_user", "get_user", "update_user")
-def test_junit_report_written_for_stateful_test(testdir, openapi3_base_url, openapi3_schema_url):
+def test_junit_report_written_for_stateful_test(ctx, testdir):
+    api = ctx.openapi.apps.users_crud()
     report_path = str(testdir.tmpdir.join("report.xml"))
     testdir.make_test(
         f"""
-schema = schemathesis.openapi.from_url("{openapi3_schema_url}")
-schema.config.update(base_url="{openapi3_base_url}")
+schema = schemathesis.openapi.from_url("{api.schema_url}")
+schema.config.update(base_url="{api.base_url}")
 schema.config.reports.update(junit_path=r"{report_path}")
 TestCase = schema.as_state_machine().TestCase
 """,
@@ -571,15 +591,15 @@ TestCase = schema.as_state_machine().TestCase
     assert len(failures) >= 1
 
 
-@pytest.mark.operations("create_user", "get_user", "update_user")
-def test_vcr_report_written_for_stateful_test_via_xdist(testdir, openapi3_base_url, openapi3_schema_url):
+def test_vcr_report_written_for_stateful_test_via_xdist(ctx, testdir):
+    api = ctx.openapi.apps.users_crud()
     cassette_path = str(testdir.tmpdir.join("cassette.yaml"))
     testdir.makepyfile(
         f"""
 import schemathesis
 
-schema = schemathesis.openapi.from_url("{openapi3_schema_url}")
-schema.config.update(base_url="{openapi3_base_url}")
+schema = schemathesis.openapi.from_url("{api.schema_url}")
+schema.config.update(base_url="{api.base_url}")
 schema.config.reports.update(vcr_path=r"{cassette_path}")
 
 TestCase = schema.as_state_machine().TestCase

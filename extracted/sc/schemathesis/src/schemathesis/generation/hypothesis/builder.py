@@ -12,6 +12,7 @@ from time import perf_counter
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.resources import ExtraDataSource
     from schemathesis.specs.openapi.adapter.parameters import OpenApiBody
 
@@ -20,7 +21,6 @@ from hypothesis import Phase, Verbosity
 from hypothesis import strategies as st
 from hypothesis._settings import all_settings
 from hypothesis.errors import Unsatisfiable
-from jsonschema.exceptions import SchemaError
 from jsonschema_rs import ValidationError
 from requests.models import CaseInsensitiveDict
 
@@ -39,6 +39,7 @@ from schemathesis.core.errors import (
 )
 from schemathesis.core.jsonschema import make_validator
 from schemathesis.core.marks import Mark
+from schemathesis.core.media_types import FORM_MEDIA_TYPES, MEDIA_TYPE_STRATEGIES, find_media_type_strategy
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.transport import prepare_urlencoded
@@ -46,6 +47,7 @@ from schemathesis.core.validation import has_invalid_characters, is_latin_1_enco
 from schemathesis.generation import GenerationMode, coverage
 from schemathesis.generation.case import Case
 from schemathesis.generation.hypothesis import examples, setup
+from schemathesis.generation.hypothesis._response_matching import find_matching_in_responses
 from schemathesis.generation.hypothesis.examples import add_single_example
 from schemathesis.generation.hypothesis.given import GivenInput, format_given_and_schema_examples_error
 from schemathesis.generation.meta import (
@@ -64,6 +66,7 @@ from schemathesis.hooks import (
     _should_skip_hook,
 )
 from schemathesis.schemas import APIOperation, ParameterSet
+from schemathesis.transport.serialization import quote_all
 
 setup()
 
@@ -346,7 +349,6 @@ def generate_example_cases(
         Unsatisfiable,
         UnresolvableReference,
         SerializationNotPossible,
-        SchemaError,
         ValidationError,
     ) as exc:
         result = []
@@ -354,8 +356,6 @@ def generate_example_cases(
             UnsatisfiableExampleMark.set(test, exc)
         if isinstance(exc, SerializationNotPossible):
             NonSerializableMark.set(test, exc)
-        if isinstance(exc, SchemaError):
-            InvalidRegexMark.set(test, exc)
         if is_regex_validation_error(exc):
             InvalidRegexMark.set(test, exc)
         if isinstance(exc, InfiniteRecursiveReference):
@@ -431,6 +431,7 @@ def generate_coverage_cases(
         app=operation.app,
     )
     extra_data_source = as_strategy_kwargs.get("extra_data_source")
+    error_feedback = as_strategy_kwargs.get("error_feedback")
     overrides = {
         container: as_strategy_kwargs[container]
         for container in LOCATION_TO_CONTAINER.values()
@@ -452,6 +453,7 @@ def generate_coverage_cases(
             generation_config=generation_config,
             extra_data_source=extra_data_source,
             unexpected_methods_seen=unexpected_methods_seen,
+            error_feedback=error_feedback,
         ):
             if case.media_type and operation.schema.transport.get_first_matching_media_type(case.media_type) is None:
                 continue
@@ -528,8 +530,6 @@ class Template:
         self._components[ParameterLocation.BODY] = ComponentInfo(mode=body.generation_mode)
 
     def _serialize(self, kwargs: dict[str, Any]) -> dict[str, Any]:
-        from schemathesis.specs.openapi._hypothesis import quote_all
-
         output = {}
         for container_name, value in kwargs.items():
             serializer = self._serializers.get(container_name)
@@ -614,13 +614,22 @@ def _is_pool_eligible(schema: Any) -> bool:
     return isinstance(schema, dict) and not (_GATING_KEYS & schema.keys())
 
 
+class _NestedOverlay:
+    """Sentinel distinguishing per-leaf sub-field overlays from raw pool object values."""
+
+    __slots__ = ("fields",)
+
+    def __init__(self, fields: dict[str, Any]) -> None:
+        self.fields = fields
+
+
 def _body_pool_overlays(
     *,
     correlated: dict[tuple[ParameterLocation, str], Any],
     body_schema: Any,
     validator_cls: type,
 ) -> dict[str, Any]:
-    """Return pool overlay values for top-level body properties — only those valid against the destination schema."""
+    """Return pool overlay values for body properties valid against the destination schema."""
     if not isinstance(body_schema, dict):
         return {}
     properties = body_schema.get("properties")
@@ -628,27 +637,56 @@ def _body_pool_overlays(
         return {}
     overlays: dict[str, Any] = {}
     for prop_name, prop_schema in properties.items():
-        if not _is_pool_eligible(prop_schema):
+        if _is_pool_eligible(prop_schema):
+            value = correlated.get((ParameterLocation.BODY, prop_name))
+            if value is not None:
+                try:
+                    if make_validator(prop_schema, validator_cls).is_valid(value):
+                        overlays[prop_name] = value
+                        continue
+                except Exception:
+                    pass
+        # Fall through to the nested branch even when the top-level lookup misses:
+        # an object-typed property is pool-eligible but its overlay key lives one level deeper.
+        if isinstance(prop_schema, dict) and isinstance(prop_schema.get("properties"), dict):
+            nested = _nested_body_pool_overlay(
+                correlated=correlated, outer_name=prop_name, inner_schema=prop_schema, validator_cls=validator_cls
+            )
+            if nested:
+                overlays[prop_name] = _NestedOverlay(nested)
+    return overlays
+
+
+def _nested_body_pool_overlay(
+    *,
+    correlated: dict[tuple[ParameterLocation, str], Any],
+    outer_name: str,
+    inner_schema: dict[str, Any],
+    validator_cls: type,
+) -> dict[str, Any]:
+    inner_props = inner_schema.get("properties")
+    assert isinstance(inner_props, dict), "caller must validate inner_schema['properties'] is a dict"
+    inner: dict[str, Any] = {}
+    for sub_name, sub_schema in inner_props.items():
+        if not _is_pool_eligible(sub_schema):
             continue
-        value = correlated.get((ParameterLocation.BODY, prop_name))
+        value = correlated.get((ParameterLocation.BODY, f"{outer_name}/{sub_name}"))
         if value is None:
             continue
         try:
-            if not make_validator(prop_schema, validator_cls).is_valid(value):
+            if not make_validator(sub_schema, validator_cls).is_valid(value):
                 continue
         except Exception:
             continue
-        overlays[prop_name] = value
-    return overlays
+        inner[sub_name] = value
+    return inner
 
 
 def _generate_coverage_values_from_custom_strategy(
     media_type: str,
 ) -> Generator[coverage.GeneratedValue, None, None]:
     """Generate coverage values from a custom media type strategy."""
-    from schemathesis.specs.openapi._hypothesis import _find_media_type_strategy
-
-    strategy = _find_media_type_strategy(media_type)
+    strategy = find_media_type_strategy(media_type)
     if strategy is None:
         return
 
@@ -665,9 +703,6 @@ def _generate_multipart_body_from_custom_strategies(body: OpenApiBody) -> dict[s
 
     Returns None if the body doesn't have custom encoding strategies or isn't a form type.
     """
-    from schemathesis.specs.openapi._hypothesis import _find_media_type_strategy
-    from schemathesis.specs.openapi.adapter.parameters import FORM_MEDIA_TYPES
-
     if body.media_type not in FORM_MEDIA_TYPES:
         return None
 
@@ -685,7 +720,7 @@ def _generate_multipart_body_from_custom_strategies(body: OpenApiBody) -> dict[s
 
         content_types = content_type if isinstance(content_type, list) else content_type.split(",")
         for ct in content_types:
-            strategy = _find_media_type_strategy(ct.strip())
+            strategy = find_media_type_strategy(ct.strip())
             if strategy is not None:
                 result[prop_name] = examples.generate_one(strategy)
                 has_custom_strategy = True
@@ -708,25 +743,22 @@ def _iter_coverage_cases(
     generation_config: GenerationConfig,
     extra_data_source: ExtraDataSource | None = None,
     unexpected_methods_seen: set[tuple[str, str]] | None = None,
+    error_feedback: ErrorFeedbackStore | None = None,
 ) -> Generator[Case, None, None]:
-    from schemathesis.specs.openapi._hypothesis import _build_custom_formats
-    from schemathesis.specs.openapi.examples import find_matching_in_responses
-    from schemathesis.specs.openapi.media_types import MEDIA_TYPES
-    from schemathesis.specs.openapi.schemas import OpenApiSchema
-    from schemathesis.specs.openapi.serialization import get_serializers_for_operation
-
     generators: dict[tuple[ParameterLocation, str], Generator[coverage.GeneratedValue, None, None]] = {}
-    serializers = get_serializers_for_operation(operation)
+    serializers = operation.get_parameter_serializers()
     template = Template(serializers)
 
     instant = Instant()
     responses = list(operation.responses.iter_examples())
-    custom_formats = _build_custom_formats(generation_config, GenerationMode.POSITIVE)
+    custom_formats = operation.schema.get_custom_format_strategies(generation_config, GenerationMode.POSITIVE)
 
     seen_negative = coverage.HashSet()
     seen_positive = coverage.HashSet()
-    assert isinstance(operation.schema, OpenApiSchema)
-    validator_cls = operation.schema.adapter.jsonschema_validator_cls
+    capabilities = operation.schema.get_coverage_capabilities()
+    validator_cls = capabilities.validator_cls
+    update_pattern = capabilities.update_pattern
+    assert validator_cls is not None, "Coverage phase requires a JSON schema validator class"
 
     correlated: dict[tuple[ParameterLocation, str], Any]
     if extra_data_source is not None:
@@ -737,15 +769,64 @@ def _iter_coverage_cases(
     else:
         correlated = {}
 
+    inferred_properties_per_location: dict[ParameterLocation, dict[str, Any] | None] = {}
+
+    def _inferred_properties(target_location: ParameterLocation) -> dict[str, Any] | None:
+        if target_location in inferred_properties_per_location:
+            return inferred_properties_per_location[target_location]
+        # Caller guards with `error_feedback is not None`; the narrowing is invisible inside the closure.
+        assert error_feedback is not None
+        from schemathesis.specs.openapi.adapter.parameters import OpenApiParameterSet
+        from schemathesis.specs.openapi.error_feedback import apply_adjustments
+
+        container = getattr(operation, target_location.container_name, None)
+        result: dict[str, Any] | None = None
+        if isinstance(container, OpenApiParameterSet):
+            base = container.schema
+            adjusted = apply_adjustments(
+                operation=operation,
+                location=target_location,
+                schema=base,
+                store=error_feedback,
+            )
+            # `apply_adjustments` returns the input unchanged when there are no observations;
+            # only splice when something was actually inferred.
+            if adjusted is not base and isinstance(adjusted, dict):
+                properties = adjusted.get("properties")
+                if isinstance(properties, dict):
+                    result = properties
+        inferred_properties_per_location[target_location] = result
+        return result
+
     for parameter in operation.iter_parameters():
         location = parameter.location
         name = parameter.name
         schema = parameter.unoptimized_schema
+        schema_is_clone = False
+        if error_feedback is not None and isinstance(schema, dict):
+            inferred_properties = _inferred_properties(location)
+            if inferred_properties is not None:
+                inferred = inferred_properties.get(name)
+                if isinstance(inferred, dict):
+                    schema = {**schema, **inferred}
+                    schema_is_clone = True
         examples = parameter.examples
+        if examples and schema_is_clone:
+            try:
+                parameter_validator = make_validator(schema, validator_cls)
+            except Exception:
+                parameter_validator = None
+            if parameter_validator is not None:
+                examples = [example for example in examples if parameter_validator.is_valid(example)]
         if examples:
-            schema = dict(schema)
+            if not schema_is_clone:
+                schema = dict(schema)
+                schema_is_clone = True
             schema["examples"] = examples
         for value in find_matching_in_responses(responses, parameter.name):
+            if not schema_is_clone:
+                schema = dict(schema)
+                schema_is_clone = True
             schema.setdefault("examples", []).append(value)
         if _is_pool_eligible(schema):
             pool_value = correlated.get((location, name))
@@ -760,6 +841,7 @@ def _iter_coverage_cases(
                 is_required=parameter.is_required,
                 custom_formats=custom_formats,
                 validator_cls=validator_cls,
+                update_pattern=update_pattern,
                 allow_extra_parameters=generation_config.allow_extra_parameters,
             ),
             schema,
@@ -780,6 +862,7 @@ def _iter_coverage_cases(
                         is_required=parameter.is_required,
                         custom_formats=custom_formats,
                         validator_cls=validator_cls,
+                        update_pattern=update_pattern,
                         allow_extra_parameters=generation_config.allow_extra_parameters,
                     ),
                     schema,
@@ -803,6 +886,12 @@ def _iter_coverage_cases(
     template_time = instant.elapsed
     has_required_body = operation.body and any(b.is_required for b in operation.body)
     has_generated_required_body = False
+    # Set when the body template substrate had to fall back to a negative value because
+    # positive coverage yielded nothing (e.g. readOnly + allOf composition makes every
+    # template option unsatisfiable). In that case the rest of this iterator must skip
+    # parameter-mutation cases — they would otherwise emit a negative body labeled with
+    # a non-body target, mixing two negatives in one case.
+    template_body_is_fallback_negative = False
     if operation.body:
         for body in operation.body:
             instant = Instant()
@@ -850,21 +939,52 @@ def _iter_coverage_cases(
                 continue
 
             schema = body.unoptimized_schema
+            schema_is_clone = False
+            if error_feedback is not None:
+                from schemathesis.specs.openapi.error_feedback import apply_adjustments
+
+                adjusted = apply_adjustments(
+                    operation=operation,
+                    location=ParameterLocation.BODY,
+                    schema=schema,
+                    store=error_feedback,
+                )
+                if adjusted is not schema:
+                    schema = adjusted
+                    schema_is_clone = True
             examples = body.examples
+            if examples and schema_is_clone:
+                # Drop examples invalidated by inferred constraints so coverage falls back to schema generation.
+                try:
+                    body_validator = make_validator(schema, validator_cls)
+                except Exception:
+                    body_validator = None
+                if body_validator is not None:
+                    examples = [example for example in examples if body_validator.is_valid(example)]
             if examples:
-                schema = dict(schema)
+                if not schema_is_clone:
+                    schema = dict(schema)
                 # User-registered media types should only handle text / binary data
-                if body.media_type in MEDIA_TYPES:
+                if body.media_type in MEDIA_TYPE_STRATEGIES:
                     schema["examples"] = [example for example in examples if isinstance(example, str | bytes)]
                 else:
                     schema["examples"] = examples
             body_overlays = _body_pool_overlays(correlated=correlated, body_schema=schema, validator_cls=validator_cls)
             if body_overlays:
                 schema = dict(schema)
-                schema_properties = dict(schema.get("properties") or {})
+                schema_properties = dict(schema["properties"])
                 for prop_name, value in body_overlays.items():
-                    prop_schema = schema_properties.get(prop_name)
-                    if isinstance(prop_schema, dict):
+                    prop_schema = schema_properties[prop_name]
+                    assert isinstance(prop_schema, dict), "_body_pool_overlays only emits dict-schema keys"
+                    if isinstance(value, _NestedOverlay):
+                        # Splice per leaf so the coverage generator still fills sibling fields.
+                        sub_props = dict(prop_schema.get("properties") or {})
+                        for sub_name, sub_value in value.fields.items():
+                            sub_schema = sub_props[sub_name]
+                            assert isinstance(sub_schema, dict), "_nested_body_pool_overlay only emits dict-schema keys"
+                            sub_props[sub_name] = {**sub_schema, "examples": [sub_value]}
+                        schema_properties[prop_name] = {**prop_schema, "properties": sub_props}
+                    else:
                         schema_properties[prop_name] = {**prop_schema, "examples": [value]}
                 schema["properties"] = schema_properties
             try:
@@ -882,13 +1002,14 @@ def _iter_coverage_cases(
                     is_required=body.is_required,
                     custom_formats=custom_formats,
                     validator_cls=validator_cls,
+                    update_pattern=update_pattern,
                     allow_extra_parameters=generation_config.allow_extra_parameters,
                 ),
                 schema,
             )
             value = next(gen, NOT_SET)
             if isinstance(value, NotSet) or (
-                body.media_type in MEDIA_TYPES and not isinstance(value.value, str | bytes)
+                body.media_type in MEDIA_TYPE_STRATEGIES and not isinstance(value.value, str | bytes)
             ):
                 continue
             if body.is_required:
@@ -898,8 +1019,6 @@ def _iter_coverage_cases(
                 template_time += elapsed
                 if value.generation_mode == GenerationMode.POSITIVE:
                     template.set_body(value, body.media_type)
-                    if body_overlays and isinstance(template._template.get("body"), dict):
-                        template._template["body"].update(body_overlays)
                 else:
                     # The template must be a valid positive baseline so that
                     # parameter-mutation cases (e.g. missing required header) only
@@ -915,17 +1034,17 @@ def _iter_coverage_cases(
                             is_required=body.is_required,
                             custom_formats=custom_formats,
                             validator_cls=validator_cls,
+                            update_pattern=update_pattern,
                             allow_extra_parameters=generation_config.allow_extra_parameters,
                         ),
                         schema,
                     )
                     first_positive = next(pos_gen, NOT_SET)
-                    template.set_body(
-                        value if isinstance(first_positive, NotSet) else first_positive,
-                        body.media_type,
-                    )
-                    if body_overlays and isinstance(template._template.get("body"), dict):
-                        template._template["body"].update(body_overlays)
+                    if isinstance(first_positive, NotSet):
+                        template_body_is_fallback_negative = True
+                        template.set_body(value, body.media_type)
+                    else:
+                        template.set_body(first_positive, body.media_type)
             data = template.with_body(value=value, media_type=body.media_type)
             yield operation.Case(
                 **data.kwargs,
@@ -949,7 +1068,7 @@ def _iter_coverage_cases(
                 instant = Instant()
                 try:
                     next_value = next(iterator)
-                    if body.media_type in MEDIA_TYPES and not isinstance(next_value.value, str | bytes):
+                    if body.media_type in MEDIA_TYPE_STRATEGIES and not isinstance(next_value.value, str | bytes):
                         continue
 
                     data = template.with_body(value=next_value, media_type=body.media_type)
@@ -988,6 +1107,9 @@ def _iter_coverage_cases(
                 ),
             ),
         )
+
+    if template_body_is_fallback_negative:
+        return
 
     for (location, name), gen in generators.items():
         iterator = iter(gen)
@@ -1179,6 +1301,7 @@ def _iter_coverage_cases(
                         is_required=is_required,
                         custom_formats=custom_formats,
                         validator_cls=validator_cls,
+                        update_pattern=update_pattern,
                         allow_extra_parameters=generation_config.allow_extra_parameters,
                     ),
                     subschema,
@@ -1297,7 +1420,7 @@ def find_invalid_headers(headers: Mapping) -> Generator[tuple[str, str], None, N
 
 UnsatisfiableExampleMark = Mark[Unsatisfiable](attr_name="unsatisfiable_example")
 NonSerializableMark = Mark[SerializationNotPossible](attr_name="non_serializable")
-InvalidRegexMark = Mark[SchemaError | ValidationError](attr_name="invalid_regex")
+InvalidRegexMark = Mark[ValidationError](attr_name="invalid_regex")
 InvalidHeadersExampleMark = Mark[dict[str, str]](attr_name="invalid_example_header")
 MissingPathParameters = Mark[InvalidSchema](attr_name="missing_path_parameters")
 InfiniteRecursiveReferenceMark = Mark[InfiniteRecursiveReference](attr_name="infinite_recursive_reference")

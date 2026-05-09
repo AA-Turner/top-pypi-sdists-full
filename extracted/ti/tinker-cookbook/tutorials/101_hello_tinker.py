@@ -60,7 +60,24 @@ def _(mo):
 
 
 @app.cell
-async def _(tinker):
+def _(mo):
+    api_key = mo.ui.text(kind="password", label="Paste your Tinker API key")
+    api_key  # noqa: B018
+    return (api_key,)
+
+
+@app.cell
+async def _(api_key, mo, tinker):
+    import os
+
+    mo.stop(
+        "TINKER_API_KEY" not in os.environ and not api_key.value,
+        "Paste your API key above",
+    )
+
+    if api_key.value:
+        os.environ["TINKER_API_KEY"] = api_key.value
+
     # Create a ServiceClient. This reads TINKER_API_KEY from your environment.
     service_client = tinker.ServiceClient()
 
@@ -104,6 +121,7 @@ async def _(service_client):
 async def _(sampling_client, tokenizer, types):
     # Encode a prompt into tokens
     prompt_text = "The three largest cities in the world by population are"
+    print("Prompt tokens:", tokenizer.encode(prompt_text))
     prompt = types.ModelInput.from_ints(tokenizer.encode(prompt_text))
 
     # Sample a completion
@@ -114,6 +132,7 @@ async def _(sampling_client, tokenizer, types):
 
     # Decode and print
     completion_tokens = result.sequences[0].tokens
+    print("Completion tokens:", completion_tokens)
     print(prompt_text + tokenizer.decode(completion_tokens))
     return prompt, result
 
@@ -134,10 +153,10 @@ def _(mo):
 @app.cell
 def _(result):
     _seq = result.sequences[0]
-    print(f"Stop reason:    {_seq.stop_reason}")
+    print(f"Stop reason:      {_seq.stop_reason}")
     print(f"Tokens generated: {len(_seq.tokens)}")
-    print(f"Token IDs:      {_seq.tokens[:10]}...")
-    print(f"Log probs:      {_seq.logprobs}")  # first 10
+    print(f"Token IDs:        {_seq.tokens[:10]} ...")
+    print(f"Log probs:        {_seq.logprobs[:10]} ...")  # first 10
     return
 
 

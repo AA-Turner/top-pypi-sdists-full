@@ -629,7 +629,8 @@ def forward_sequence(
             raise OutOfResources(required=TN, limit=DH, name="TN")
         if TK > DH:
             raise OutOfResources(required=TK, limit=DH, name="TK")
-        return (NH, triton.cdiv(B, siz_B))
+        g = (NH, triton.cdiv(B, siz_B))
+        return g
 
     _forward_sequence_kernel[grid](
         states_initial=states_initial_kshaped,

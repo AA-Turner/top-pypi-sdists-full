@@ -15,7 +15,7 @@ dynamic = [
     'version',
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
     "License :: OSI Approved :: MIT License",
@@ -49,6 +49,7 @@ docs = [
     "sphinxcontrib-bibtex >= 2.5",
     "sphinx-book-theme",
     "sphinx-autoapi",
+    "sphinx-copybutton",
     "myst-parser >= 2.0",
     "linkify-it-py",
 ]

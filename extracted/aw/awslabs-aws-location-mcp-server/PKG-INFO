@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.aws-location-mcp-server
-Version: 2.0.16
+Version: 2.0.18
 Summary: An AWS Labs Model Context Protocol (MCP) server for AWS Location Service
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/aws-location-mcp-server/

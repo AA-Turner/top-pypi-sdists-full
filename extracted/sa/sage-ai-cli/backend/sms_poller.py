@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import email as _email_mod
+import email.header
 import email.utils
 import imaplib
 import logging
@@ -129,17 +130,19 @@ async def dispatch_to_cli(
     if not futures:
         return None
 
-    try:
-        # Wait up to 3 minutes for the CLI to respond
-        results = await asyncio.wait_for(
-            asyncio.gather(*futures, return_exceptions=True),
-            timeout=180,
-        )
-        outputs = [r for r in results if isinstance(r, str)]
-        return "\n\n".join(outputs) if outputs else "Task completed."
-    except asyncio.TimeoutError:
-        _pending.pop(task_id, None)
-        return "⏱ Task timed out (>3 min). Check your terminal for progress."
+    # No timeout: real coding tasks (multi-step `sage run` agent invocations,
+    # large refactors, test loops, etc.) routinely cross any deadline we'd
+    # set, and the user already accepted "this could take a while" by
+    # texting a complex task. A wait_for here just truncated legitimate
+    # work and dropped the user's reply.
+    #
+    # The future still resolves naturally when the CLI sends back its
+    # `result` packet, OR when the WebSocket dies (which sets the future
+    # to an exception via the cleanup path). So we don't need a deadline
+    # to detect a stuck dispatch — the WS heartbeat catches that.
+    results = await asyncio.gather(*futures, return_exceptions=True)
+    outputs = [r for r in results if isinstance(r, str)]
+    return "\n\n".join(outputs) if outputs else "Task completed."
 
 
 async def dispatch_native_message(
@@ -210,6 +213,34 @@ def _clean_body(raw: str) -> str:
             break
         clean.append(line)
     return "\n".join(clean).strip()
+
+
+def _parse_subject_target(subject: str) -> str | None:
+    """Extract the target computer name from a `SAGE — <name>` subject.
+
+    Replies sent by `_build_mime` use ``Subject: SAGE — <computer_name>``,
+    so when the user replies inside that Gmail thread the inbound subject
+    becomes ``Re: SAGE — <computer_name>`` (possibly with extra ``Fwd:``
+    or ``Re:`` prefixes from forwarding). Pull the computer name out so
+    we can dispatch the task back to the same bridge — that keeps the
+    conversation in one Gmail thread.
+
+    Returns the lower-cased computer name, or None if the subject
+    doesn't match the SAGE pattern.
+    """
+    if not subject:
+        return None
+    s = subject.strip()
+    # Strip any sequence of leading "Re:" / "Fwd:" / "FW:" prefixes.
+    s = re.sub(r"^(?:(?:re|fwd|fw)\s*:\s*)+", "", s, flags=re.IGNORECASE).strip()
+    # Match SAGE — <name> with em-dash, en-dash, or hyphen, and trim
+    # any trailing " (computer is offline)" / similar parentheticals.
+    m = re.match(r"^SAGE\s*[—–\-]+\s*(.+?)\s*$", s, flags=re.IGNORECASE)
+    if not m:
+        return None
+    name = m.group(1).strip()
+    name = re.sub(r"\s*\([^)]*\)\s*$", "", name).strip()
+    return name.lower() or None
 
 
 def _parse_routing(text: str) -> tuple[str | None, str]:
@@ -530,7 +561,7 @@ async def _handle_bounce(raw_body: str) -> None:
 
 # ── Inbound email handler ──────────────────────────────────────────────────────
 
-async def handle_inbound_email(from_addr: str, body: str) -> None:
+async def handle_inbound_email(from_addr: str, body: str, subject: str = "") -> None:
     """
     Process one inbound email: route task to CLI, reply.
 
@@ -538,6 +569,16 @@ async def handle_inbound_email(from_addr: str, body: str) -> None:
     If the sender isn't registered, fall back to the owner of any online
     computer — this handles phone SMS-gateway addresses (e.g. 4085073140@vtext.com)
     that weren't explicitly registered but come from the bridge owner's phone.
+
+    Routing precedence:
+      1. Body `@<computer>:` prefix (explicit user intent in this message)
+      2. Subject `SAGE — <computer>` (replying inside a per-computer thread)
+      3. First online (no target specified)
+
+    The subject path keeps Gmail threading intact: each computer's replies
+    use a distinct subject (`SAGE — <name>`), so when the user replies
+    in that thread the same computer handles the follow-up and its
+    response lands back in the same Gmail thread.
     """
     from .sms_manager import find_user_by_contact_email
 
@@ -583,6 +624,16 @@ async def handle_inbound_email(from_addr: str, body: str) -> None:
             return
 
     target, task = _parse_routing(body)
+    if target is None:
+        # No explicit @target: in the body — try the subject. Replies
+        # inside a `SAGE — <computer>` Gmail thread give us the target
+        # via subject, so the response goes to the same machine and
+        # threading stays intact.
+        subj_target = _parse_subject_target(subject)
+        if subj_target:
+            target = subj_target
+            logger.info("Subject-derived target: [%s] (from %r)", target, subject)
+
     _poller_state["tasks_dispatched"] += 1
     logger.info("Task from %s → [%s]: %s", from_addr, target or "any", task[:80])
 
@@ -599,23 +650,15 @@ async def handle_inbound_email(from_addr: str, body: str) -> None:
         )
         return
 
-    # Decide reply path:
-    #   - Apple from SMS gateway: native iMessage (CLI). Apple's thread model
-    #     unifies Apple ID + phone, so native delivery lands the reply in the
-    #     same iMessage thread the user originally messaged from.
-    #   - Android from SMS gateway: SMTP back through the email bridge. KDE
-    #     Connect SMS to the user's own phone number files Android's reply in
-    #     a SEPARATE self-SMS thread (4085073140-to-4085073140), splitting the
-    #     conversation away from the email-bridge thread
-    #     (4085073140-to-messages@sageworksai.com). SMTP from
-    #     messages@sageworksai.com lands in the email-bridge thread, so the
-    #     conversation stays unified.
-    #   - Anything else (gmail, regular email): SMTP, same as before.
+    # When the sender came in through a carrier email-to-SMS gateway, the CLI
+    # is the only place that can reliably deliver the reply (most carriers
+    # silently drop our outbound replies). Look up the contact's device_type
+    # and ask the CLI to deliver natively.
     device_type = ""
     deliver_natively = False
     if _is_sms_gateway(from_addr):
         device_type = _lookup_device_type(uid, from_addr)
-        deliver_natively = device_type == "apple"
+        deliver_natively = bool(device_type)
 
     output = await dispatch_to_cli(
         uid, target, task_id, task, from_addr,
@@ -761,7 +804,9 @@ async def _drain_and_dispatch(mail: imaplib.IMAP4_SSL) -> int:
         _poller_state["messages_processed"] += 1
         _poller_state["last_message_at"] = time.time()
         _poller_state["last_message_from"] = m.get("from")
-        asyncio.create_task(handle_inbound_email(m["from"], m["body"]))
+        asyncio.create_task(
+            handle_inbound_email(m["from"], m["body"], subject=m.get("subject", ""))
+        )
     return len(messages)
 
 
@@ -801,9 +846,21 @@ def _fetch_unseen(mail: imaplib.IMAP4_SSL) -> list[dict]:
             raw = raw_data[0][1] if isinstance(raw_data[0], tuple) else b""
             msg = _email_mod.message_from_bytes(raw)
             from_addr = _email_mod.utils.parseaddr(msg.get("From", ""))[1].lower().strip()
+            # Subject can be MIME-encoded when it contains non-ASCII chars
+            # (every "SAGE — <name>" reply with the em-dash arrives as
+            # `=?utf-8?Q?SAGE_=E2=80=94_...?=` over the wire). Decode all
+            # encoded fragments so the routing parser sees the literal text.
+            raw_subject = msg.get("Subject") or ""
+            decoded_parts = []
+            for chunk, charset in _email_mod.header.decode_header(raw_subject):
+                if isinstance(chunk, bytes):
+                    decoded_parts.append(chunk.decode(charset or "utf-8", errors="replace"))
+                else:
+                    decoded_parts.append(chunk)
+            subject = "".join(decoded_parts).strip()
             body_text = _extract_text(msg)
             if from_addr and body_text.strip():
-                results.append({"from": from_addr, "body": body_text})
+                results.append({"from": from_addr, "subject": subject, "body": body_text})
         except Exception as exc:
             logger.warning("Failed to fetch message %s: %s", mid, exc)
     return results

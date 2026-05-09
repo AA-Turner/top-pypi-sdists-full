@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import typing_extensions
+
 import httpx
 
 from .chat import (
@@ -194,6 +196,7 @@ class AIResource(SyncAPIResource):
         """
         return AIResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     def retrieve_models(
         self,
         *,
@@ -205,11 +208,15 @@ class AIResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AIRetrieveModelsResponse:
         """
-        This endpoint returns a list of Open Source and OpenAI models that are available
-        for use. <br /><br /> **Note**: Model `id`'s will be in the form
-        `{source}/{model_name}`. For example `openai/gpt-4` or
-        `mistralai/Mistral-7B-Instruct-v0.1` consistent with HuggingFace naming
-        conventions.
+        **Deprecated**: Use `GET /v2/ai/openai/models` instead.
+
+        Returns the same `ModelsResponse` payload as the OpenAI-compatible endpoint —
+        open-source LLMs hosted on Telnyx (e.g. `moonshotai/Kimi-K2.6`,
+        `zai-org/GLM-5.1-FP8`, `MiniMaxAI/MiniMax-M2.7`), embedding models, and
+        fine-tuned models — kept around for backwards compatibility. New integrations
+        should use `/v2/ai/openai/models`.
+
+        Model ids follow the `{organization}/{model_name}` convention from Hugging Face.
         """
         return self._get(
             "/ai/models",
@@ -353,6 +360,7 @@ class AsyncAIResource(AsyncAPIResource):
         """
         return AsyncAIResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     async def retrieve_models(
         self,
         *,
@@ -364,11 +372,15 @@ class AsyncAIResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AIRetrieveModelsResponse:
         """
-        This endpoint returns a list of Open Source and OpenAI models that are available
-        for use. <br /><br /> **Note**: Model `id`'s will be in the form
-        `{source}/{model_name}`. For example `openai/gpt-4` or
-        `mistralai/Mistral-7B-Instruct-v0.1` consistent with HuggingFace naming
-        conventions.
+        **Deprecated**: Use `GET /v2/ai/openai/models` instead.
+
+        Returns the same `ModelsResponse` payload as the OpenAI-compatible endpoint —
+        open-source LLMs hosted on Telnyx (e.g. `moonshotai/Kimi-K2.6`,
+        `zai-org/GLM-5.1-FP8`, `MiniMaxAI/MiniMax-M2.7`), embedding models, and
+        fine-tuned models — kept around for backwards compatibility. New integrations
+        should use `/v2/ai/openai/models`.
+
+        Model ids follow the `{organization}/{model_name}` convention from Hugging Face.
         """
         return await self._get(
             "/ai/models",
@@ -440,8 +452,10 @@ class AIResourceWithRawResponse:
     def __init__(self, ai: AIResource) -> None:
         self._ai = ai
 
-        self.retrieve_models = to_raw_response_wrapper(
-            ai.retrieve_models,
+        self.retrieve_models = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                ai.retrieve_models,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.summarize = to_raw_response_wrapper(
             ai.summarize,
@@ -506,8 +520,10 @@ class AsyncAIResourceWithRawResponse:
     def __init__(self, ai: AsyncAIResource) -> None:
         self._ai = ai
 
-        self.retrieve_models = async_to_raw_response_wrapper(
-            ai.retrieve_models,
+        self.retrieve_models = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                ai.retrieve_models,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.summarize = async_to_raw_response_wrapper(
             ai.summarize,
@@ -572,8 +588,10 @@ class AIResourceWithStreamingResponse:
     def __init__(self, ai: AIResource) -> None:
         self._ai = ai
 
-        self.retrieve_models = to_streamed_response_wrapper(
-            ai.retrieve_models,
+        self.retrieve_models = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                ai.retrieve_models,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.summarize = to_streamed_response_wrapper(
             ai.summarize,
@@ -638,8 +656,10 @@ class AsyncAIResourceWithStreamingResponse:
     def __init__(self, ai: AsyncAIResource) -> None:
         self._ai = ai
 
-        self.retrieve_models = async_to_streamed_response_wrapper(
-            ai.retrieve_models,
+        self.retrieve_models = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                ai.retrieve_models,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.summarize = async_to_streamed_response_wrapper(
             ai.summarize,

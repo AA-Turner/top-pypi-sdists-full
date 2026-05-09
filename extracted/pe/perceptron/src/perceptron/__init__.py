@@ -13,7 +13,7 @@ network access. Transport and streaming are added in later phases.
 
 import importlib
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 
 from .annotations import annotate_image
 from .client import (
@@ -28,7 +28,7 @@ from .client import (
     regex_format,
 )
 from .config import config, configure, settings
-from .dsl.nodes import agent, block, box, image, point, polygon, system, text
+from .dsl.nodes import agent, block, box, image, point, polygon, system, text, video
 from .dsl.perceive import PerceiveResult, async_perceive, inspect_task, perceive
 from .errors import (
     AnchorError,
@@ -45,16 +45,20 @@ from .highlevel import caption, detect, detect_from_coco, ocr, ocr_html, ocr_mar
 from .pointing.geometry import scale_points_to_pixels
 from .pointing.parser import (
     PointParser,
+    extract_clips,
     extract_points,
     parse_text,
     strip_tags,
 )
 from .pointing.types import (
     BoundingBox,
+    Clip,
+    ClipTimestamp,
     Collection,
     Polygon,
     SinglePoint,
     bbox,
+    clip,
     collection,
     poly,
     pt,
@@ -79,6 +83,8 @@ __all__ = [
     "BadRequestError",
     "BoundingBox",
     "Client",
+    "Clip",
+    "ClipTimestamp",
     "Collection",
     "ExpectationError",
     "JsonSchemaFormat",
@@ -102,11 +108,13 @@ __all__ = [
     "block",
     "box",
     "caption",
+    "clip",
     "collection",
     "config",
     "configure",
     "detect",
     "detect_from_coco",
+    "extract_clips",
     "extract_points",
     "image",
     "inspect_task",
@@ -129,4 +137,5 @@ __all__ = [
     "system",
     "tensorstream",
     "text",
+    "video",
 ]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ydb
-Version: 3.28.4
+Version: 3.29.0
 Summary: YDB Python SDK
 Home-page: http://github.com/ydb-platform/ydb-python-sdk
 Author: Yandex LLC
@@ -23,6 +23,8 @@ Requires-Dist: protobuf<7.0.0,>=3.13.0
 Requires-Dist: aiohttp<4
 Provides-Extra: yc
 Requires-Dist: yandexcloud; extra == "yc"
+Provides-Extra: opentelemetry
+Requires-Dist: opentelemetry-api>=1.0.0; extra == "opentelemetry"
 
 YDB Python SDK
 ---

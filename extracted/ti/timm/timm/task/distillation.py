@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from timm.models import create_model
+from timm.models import create_model, group_parameters
 from timm.utils import unwrap_model
 
 from .task import TrainingTask
@@ -86,6 +86,36 @@ class DistillationTeacher(nn.Module):
         std_kd = torch.tensor(std, device=device, dtype=dtype).view(1, -1, 1, 1)
         self.register_buffer('mean_kd', mean_kd, persistent=False)
         self.register_buffer('std_kd', std_kd, persistent=False)
+        self._compiled_forward_features = None
+
+    def _forward_features(self, input: torch.Tensor) -> torch.Tensor:
+        if not hasattr(self.model, 'forward_features') or not hasattr(self.model, 'forward_head'):
+            raise ValueError(
+                f"Model {self.model.__class__.__name__} does not support feature extraction. "
+                "Ensure the model has 'forward_features' and 'forward_head' methods."
+            )
+        feature_map = self.model.forward_features(input)
+        return self.model.forward_head(feature_map, pre_logits=True)
+
+    def compile(
+            self,
+            backend: str = 'inductor',
+            mode: Optional[str] = None,
+            compile_model: bool = True,
+            compile_features: bool = False,
+            **compile_kwargs,
+    ) -> 'DistillationTeacher':
+        """Compile teacher inference paths used by distillation tasks."""
+        if compile_model:
+            self.model = torch.compile(self.model, backend=backend, mode=mode, **compile_kwargs)
+        if compile_features:
+            self._compiled_forward_features = torch.compile(
+                self._forward_features,
+                backend=backend,
+                mode=mode,
+                **compile_kwargs,
+            )
+        return self
 
     def forward(
             self,
@@ -102,13 +132,9 @@ class DistillationTeacher(nn.Module):
             Logits or pooled pre-logits features depending on return_features flag
         """
         if return_features:
-            if not hasattr(self.model, 'forward_features') or not hasattr(self.model, 'forward_head'):
-                raise ValueError(
-                    f"Model {self.model.__class__.__name__} does not support feature extraction. "
-                    "Ensure the model has 'forward_features' and 'forward_head' methods."
-                )
-            feature_map = self.model.forward_features(input)
-            return self.model.forward_head(feature_map, pre_logits=True)
+            if self._compiled_forward_features is not None:
+                return self._compiled_forward_features(input)
+            return self._forward_features(input)
         else:
             return self.model(input)
 
@@ -237,7 +263,7 @@ class LogitDistillationTask(TrainingTask):
             self.dtype,
         )
 
-        self.student = student_model
+        self.trainable_module = student_model
         self.teacher = teacher
         self.criterion = criterion if criterion is not None else nn.CrossEntropyLoss()
         self.loss_type = loss_type
@@ -317,8 +343,27 @@ class LogitDistillationTask(TrainingTask):
         for param in self.teacher.parameters():
             param.requires_grad = False
 
-        self.student = DDP(self.student, device_ids=device_ids, **ddp_kwargs)
+        self.trainable_module = DDP(self.trainable_module, device_ids=device_ids, **ddp_kwargs)
         return self
+
+    def compile(
+            self,
+            backend: str = 'inductor',
+            mode: Optional[str] = None,
+            **compile_kwargs,
+    ) -> nn.Module:
+        """Compile student eval/train forward and teacher logit forward."""
+        self.trainable_module = torch.compile(self.trainable_module, backend=backend, mode=mode, **compile_kwargs)
+        # Logit distillation uses the same student forward for training and eval.
+        self.eval_model = self.trainable_module
+        self.teacher.compile(
+            backend=backend,
+            mode=mode,
+            compile_model=True,
+            compile_features=False,
+            **compile_kwargs,
+        )
+        return self.trainable_module
 
     def forward(
             self,
@@ -338,7 +383,7 @@ class LogitDistillationTask(TrainingTask):
                 - 'task_loss': Classification loss component
                 - 'kd_loss': Logit distillation loss component
         """
-        student_logits = self.student(input)
+        student_logits = self.trainable_module(input)
         task_loss = self.criterion(student_logits, target)
 
         with torch.no_grad():
@@ -381,6 +426,27 @@ class FeatureDistillationTrainableModule(nn.Module):
         super().__init__()
         self.student = student_model
         self.projection = projection
+
+    def no_weight_decay(self):
+        student = unwrap_model(self.student)
+        if not hasattr(student, 'no_weight_decay'):
+            return set()
+        return {'student.' + name for name in student.no_weight_decay()}
+
+    def group_matcher(self, coarse: bool = False):
+        student = unwrap_model(self.student)
+        if not hasattr(student, 'group_matcher'):
+            return {}
+
+        student_layer_map = group_parameters(student, student.group_matcher(coarse=coarse), reverse=True)
+        task_layer = max(student_layer_map.values(), default=0)
+
+        def _matcher(name):
+            if name.startswith('student.'):
+                return student_layer_map.get(name[len('student.'):], task_layer)
+            return task_layer
+
+        return _matcher
 
     def forward(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Forward pass through student and projection.
@@ -575,6 +641,87 @@ class FeatureDistillationTask(TrainingTask):
 
         self.trainable_module = DDP(self.trainable_module, device_ids=device_ids, **ddp_kwargs)
         return self
+
+    def compile(
+            self,
+            backend: str = 'inductor',
+            mode: Optional[str] = None,
+            **compile_kwargs,
+    ) -> nn.Module:
+        """Compile feature-distillation train and eval entry points."""
+        eval_model = torch.compile(self.trainable_module.student, backend=backend, mode=mode, **compile_kwargs)
+        self.eval_model = eval_model
+        self.trainable_module = torch.compile(
+            self.trainable_module,
+            backend=backend,
+            mode=mode,
+            **compile_kwargs,
+        )
+        self.teacher.compile(
+            backend=backend,
+            mode=mode,
+            compile_model=False,
+            compile_features=True,
+            **compile_kwargs,
+        )
+        return eval_model
+
+    def get_eval_model(self, module: Optional[nn.Module] = None, ema: bool = False) -> Optional[nn.Module]:
+        resolved = super().get_eval_model(module=module, ema=ema)
+        current = resolved
+        while current is not None:
+            if isinstance(current, FeatureDistillationTrainableModule):
+                return current.student
+            if not hasattr(current, 'module'):
+                break
+            current = current.module
+        return resolved
+
+    def get_task_state(
+            self,
+            module: Optional[nn.Module] = None,
+            ema: bool = False,
+    ) -> Dict[str, Dict[str, torch.Tensor]]:
+        module = module if module is not None else self.get_trainable_module(ema=ema)
+        if module is None:
+            return {}
+        trainable = unwrap_model(module)
+        if trainable.projection is None:
+            return {}
+        return {'projection': trainable.projection.state_dict()}
+
+    def get_clip_parameters(self, exclude_head: bool = False):
+        trainable = unwrap_model(self.trainable_module)
+        parameters = list(trainable.student.parameters())
+        if exclude_head:
+            parameters = parameters[:-2]
+        if trainable.projection is not None:
+            parameters.extend(trainable.projection.parameters())
+        return parameters
+
+    def load_task_state(
+            self,
+            state: Optional[Dict[str, Dict[str, torch.Tensor]]],
+            strict: bool = True,
+            module: Optional[nn.Module] = None,
+            ema: bool = False,
+    ) -> None:
+        if not state:
+            return
+        module = module if module is not None else self.get_trainable_module(ema=ema)
+        if module is None:
+            if ema:
+                raise RuntimeError("Cannot load EMA task state before setup_ema().")
+            raise RuntimeError("Cannot load task state without a trainable module.")
+        trainable = unwrap_model(module)
+        projection_state = state.get('projection')
+        if projection_state is None:
+            return
+        if trainable.projection is None:
+            if strict:
+                raise RuntimeError("Checkpoint has projection task state but task has no projection.")
+            return
+        trainable.projection.load_state_dict(projection_state, strict=strict)
 
     def forward(
             self,

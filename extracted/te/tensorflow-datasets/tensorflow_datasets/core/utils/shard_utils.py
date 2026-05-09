@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -249,7 +249,7 @@ def get_file_instructions(
       if examples_in_shards is not None:
         examples_in_shard = examples_in_shards[shard_index]
         if take == -1 and examples_in_shard != length:
-          take = length
+          take = length - skip
       else:
         examples_in_shard = length
       file_instructions.append(

@@ -191,6 +191,7 @@ def parse_arguments(args: Sequence[str]) -> Args:  # noqa: PLR0915 - too many st
         help="Looks for sparse, over-crowded or unrealistic components and responsibilities",
     )
     parser_check_plausibility.set_defaults(func=_fn_check_plausibility)
+    parser_check_plausibility.add_argument("entities", type=str, nargs="*", metavar="PATH")
 
     # These have no help text -> don't show up in console help text (intentionally)
 
@@ -583,61 +584,93 @@ async def _fn_validate_config(
 async def _fn_check_plausibility(
     cli_args: Args,
     status: Status,
-    gerrit_client: GerritClient,
     owners_client: CodeOwnersClient,
 ) -> None:
 
-    status.update("check for plausibility issues..")
-    await owners_client._ensure_all_entries_loaded()  # noqa: SLF001
-    all_files = await owners_client.all_remote_files()
-    all_directories = {Path(p).parent for p in all_files}
+    status.start()
 
-    # how many files in a folder?
-    # how many changes in last time?
+    await owners_client._ensure_all_entries_loaded()  # noqa: SLF001
+    all_files = set(map(Path, await owners_client.all_remote_files()))
+    sorted_file_strs = sorted(f"/{f.as_posix().lstrip('/')}" for f in all_files)
+    all_paths = set(map(Path, await owners_client.all_remote_paths()))
+    all_directories = all_paths - all_files
+    supplied_paths = {Path(f"/{path.lstrip('/').rstrip('/')}") for path in cli_args.entities}
+
+    if missing_paths := (supplied_paths - all_paths):
+        raise FatalError(
+            f"Not a valid path in {cli_args.project_name} @ {cli_args.branch}: {' '.join(map(str, missing_paths))}"
+        )
+
+    # fixme(frans): currently we only check directories - paths to files will be replaced by their parent directory, but we might want to check them as well (e.g. for too much responsibility or wrong owners)
+    paths_to_check = {
+        p if p in all_directories else p.parent for p in supplied_paths
+    } or all_directories
+
     # compare owners / git blame
     # people with too much responsibility
 
     count = 0
     last_dir = None
     cutoff_date = datetime.datetime.now(tz=datetime.UTC).date() - datetime.timedelta(days=60)
-    wrong_owners_style = "yellow"
-    matching_owners_style = "green"
-    missing_owners_style = "red"
 
     rich_print(
         f"{'Path':<65}"
         # f"{'Entry':<40}"
         f"{'Component':<42}"
-        f"{'Commits':<10}"
+        f"{'tot.':>10}"
+        f"{'aff.':>10}"
+        f"{'Commits':>10}"
         f"{'Owners':>10}"
-        f"{'Matching':>10}{'Wrong':>10}{'Missing':>10}"
+        f"{'Matching':>10}{'Missing':>10}{'Wrong':>10}"
     )
 
-    for i, dir_path in enumerate(sorted(all_directories)):
-        status.update(f"{i} {dir_path}..")
+    for i, dir_path in enumerate(sorted(paths_to_check)):
+        status.update(f"{i} / {len(all_directories)} [{STYLE_PATH}]{dir_path}[/]..")
         dir_path_str = dir_path.as_posix()
+
+        file_count = len({f for f in sorted_file_strs if f.startswith(f"{dir_path_str}/")})
+        # print({f for f in sorted_file_strs if f.startswith(f"{dir_path_str}/")})
+        # print({f for f in all_files if f.is_relative_to(dir_path)})
+        # assert file_count == (other_len:=len({f for f in all_files if f.is_relative_to(dir_path)})), f"{dir_path_str} {file_count} {other_len}"
+
         entry, components, raw_owners_mails = owners_client._query(dir_path_str)  # noqa: SLF001
+
+        # double check this: prune if the last entry already covered this one
         if last_dir and dir_path.is_relative_to(last_dir[0]) and entry == last_dir[1]:
-            # print(f"{dir_path_str} {entry}")
             continue
 
         last_dir = dir_path, entry
 
-        if not raw_owners_mails:
-            continue  # fixme(frans): suggest mails
+        # if not raw_owners_mails:
+        #     continue  # fixme(frans): suggest mails
 
         count += 1
-        # commit_id, date, author, message, list of files affected)
-        log_data = await gerrit_client.get_log(
-            dir_path_str, cutoff_date, cli_args.project_name, cli_args.branch
-        )
 
+        # get all commits which are not only related to OWNERS files
+        commits = [
+            c
+            for c in await owners_client.get_log(dir_path_str, cutoff_date)
+            if not all("OWNERS" in p for p in c.affected_files)
+        ]
+
+        # what code-owners says..
         owners_mails = {email.split("@")[0] for email in raw_owners_mails}
 
-        committer_emails = {email.split("@")[0] for _, _, email, _, _ in log_data}
-        if "lm" in committer_emails:
-            committer_emails.remove("lm")
-            committer_emails.add("lars.michelsen")
+        # what history tells us..
+        committer_emails = {
+            name if name != "lm" else "lars.michelsen"
+            for c in commits
+            for name in (c.author.email.split("@")[0],)
+        }
+
+        # all still existing files in this directory affected since cutoff date
+        affected_files = {
+            p
+            for c in commits
+            for p in c.affected_files
+            if (path := Path(f"/{p}")).is_relative_to(dir_path)
+            if path in all_files
+        }
 
         path_str = (
             dir_path_str
@@ -645,42 +678,52 @@ async def _fn_check_plausibility(
             else f"{dir_path_str[: 60 // 2]}..{dir_path_str[-60 // 2 :]}"
         )
 
-        wrong_owners_str = (
-            f"[{wrong_owners_style}]{' '.join(wrong_owners)}[/]"
-            if (wrong_owners := (committer_emails - owners_mails))
-            else ""
+        wrong_owners = committer_emails - owners_mails
+        matching_owners = owners_mails & committer_emails
+        missing_owners = owners_mails - committer_emails
+
+        sev_file_count = 0 if not entry else 1 if file_count < 100 else 2  # noqa: PLR2004
+        sev_affected_files = 0 if not entry else 1 if len(affected_files) < 20 else 2  # noqa: PLR2004
+        sev_commits = 0 if not entry else 1 if len(commits) < 80 else 2  # noqa: PLR2004
+        sev_owners_mails = 0 if not entry else 1 if len(owners_mails) > 1 else 3
+        sev_matching_owners = 0 if not entry else 3 if not matching_owners else 1
+        sev_missing_owners = 0 if not entry else 2 if len(missing_owners) > len(owners_mails) else 1
+        sev_wrong_owners = (
+            0 if not entry else 1 if not wrong_owners else 3 if len(wrong_owners) > 3 else 2  # noqa: PLR2004
         )
-        matching_owners_str = (
-            f"[{matching_owners_style}]{' '.join(matching_owners)}[/]"
-            if (matching_owners := (owners_mails & committer_emails))
-            else ""
-        )
-        missing_owners_str = (
-            f"[{missing_owners_style}]{' '.join(missing_owners)}[/]"
-            if (missing_owners := (owners_mails - committer_emails))
-            else ""
-        )
+
+        sev_style = {0: "default", 1: "black on green", 2: "black on yellow", 3: "black on red"}
 
         rich_print(
             f"[{STYLE_PATH}]{path_str[1:]:<65}[/]"
             # f"{entry!r:<40}"
             f"[{STYLE_COMPONENT_ID}]{(components and components[0]) or '':42}[/]"
-            f"{len(log_data):>10}"
-            f"{len(owners_mails):>10}"
-            f"[{matching_owners_style}]{len(matching_owners):>10}[/]"
-            f"[{wrong_owners_style}]{len(wrong_owners):>10}[/]"
-            f"[{missing_owners_style}]{len(missing_owners):>10}[/]"
+            f"   [{sev_style[sev_file_count]}]{file_count:>6} [/]"
+            f"   [{sev_style[sev_affected_files]}]{len(affected_files):>6} [/]"
+            f"   [{sev_style[sev_commits]}]{len(commits):>6} [/]"
+            f"   [{sev_style[sev_owners_mails]}]{len(owners_mails):>6} [/]"
+            f"   [{sev_style[sev_matching_owners]}]{len(matching_owners):>6} [/]"
+            f"   [{sev_style[sev_missing_owners]}]{len(missing_owners):>6} [/]"
+            f"   [{sev_style[sev_wrong_owners]}]{len(wrong_owners):>6} [/]"
         )
 
-        rich_print(f"{wrong_owners_str} {matching_owners_str} {missing_owners_str}")
-
-        # for commit_id, commit_date, author, message, paths in log_data:
-        #    print(f"  {commit_id[:8]} {commit_date} {author:20} {message.splitlines()[0]}")
-        # contributors_by_git_blame =
-        # print(f"  git blame contributors: {', '.join(contributors_by_git_blame)}")
-
-        if count > 10:  # noqa: PLR2004
-            break
+        if supplied_paths:
+            wrong_owners_str = (
+                f"[{sev_style[sev_wrong_owners]}]{' '.join(wrong_owners)}[/]"
+                if wrong_owners
+                else ""
+            )
+            matching_owners_str = (
+                f"[{sev_style[sev_matching_owners]}]{' '.join(matching_owners)}[/]"
+                if matching_owners
+                else ""
+            )
+            missing_owners_str = (
+                f"[{sev_style[sev_missing_owners]}]{' '.join(missing_owners)}[/]"
+                if missing_owners
+                else ""
+            )
+            rich_print(f"{wrong_owners_str} {matching_owners_str} {missing_owners_str}")
 
 
 @with_gerrit_client()
@@ -933,14 +976,14 @@ def main(args: None | Sequence[str] = None) -> int:
     """See main docstring"""
     traceback.install()
     cli_args = parse_arguments(args or sys.argv[1:])
-    status = None
 
     t1 = time.time()
 
     with ExitStack() as context:
+        status = context.enter_context(console.status(""))
+        status.stop()
+
         if cli_args.func != _fn_tui:
-            status = context.enter_context(console.status(""))
-            status.stop()
             setup_logging(log(), level=cli_args.log_level, show_name=20, show_funcname=30)
             logging.getLogger("vcr.matchers").setLevel(logging.WARNING)
 

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ def test_builder_cls(dummy_register: register_package.PackageRegister):  # pylin
   builder_cls = dummy_register.builder_cls(ds_name)
   assert builder_cls.name == 'dummy_dataset'
 
-  clshash = 'd66db99e4dbd05066b84b97ff9528f404fc71e61d556add952a67416e70a1786'
+  clshash = '89a6603e427554b46d2b4895b24ce8d4c2d703d453deaff3946c941fefaf1412'
   assert installed_path / f'{clshash}/dummy_dataset.py' == builder_cls.code_path
   assert 'kaggle' in builder_cls.code_path.parts
   assert issubclass(builder_cls, dataset_builder.DatasetBuilder)

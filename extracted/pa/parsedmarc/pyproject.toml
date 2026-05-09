@@ -55,6 +55,12 @@ dependencies = [
 
 [project.optional-dependencies]
 build = [
+    # Used only by maintainer tooling under parsedmarc/resources/maps/ —
+    # `collect_domain_info.py --use-search-fallback` falls back to a
+    # DuckDuckGo search when the homepage fetch returns a bot-block / parked
+    # / empty page. Optional import; the script runs without it as long as
+    # the fallback flag isn't passed.
+    "ddgs>=9.0.0",
     "hatch>=1.14.0",
     "myst-parser[linkify]",
     "nose",
@@ -82,10 +88,11 @@ include = [
 [tool.hatch.build]
 exclude = [
     "base_reverse_dns.csv",
-    "find_bad_utf8.py",
-    "find_unknown_base_reverse_dns.py",
     "unknown_base_reverse_dns.csv",
-    "sortmaps.py",
     "README.md",
-    "*.bak"
+    "*.bak",
+    # Maintenance tooling: any Python file under parsedmarc/resources/maps/
+    # whose name doesn't start with `_` (i.e. everything except __init__.py,
+    # which must keep shipping for `importlib.resources.files()` lookups).
+    "parsedmarc/resources/maps/[!_]*.py",
 ]

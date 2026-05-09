@@ -12,10 +12,15 @@ from schemathesis.core import NOT_SET
 from schemathesis.core.compat import RefResolutionError
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.result import Ok
-from schemathesis.specs.openapi.adapter.references import maybe_resolve
+from schemathesis.specs.openapi.adapter.parameters import ParameterLocation
+from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
+from schemathesis.specs.openapi.stateful.dependencies import naming
 from schemathesis.specs.openapi.stateful.dependencies.inputs import (
+    disambiguate_module_variants,
+    disambiguate_path_suffix_matches,
     extract_inputs,
     merge_related_resources,
+    rebind_orphan_synthetics,
     update_input_field_bindings,
 )
 from schemathesis.specs.openapi.stateful.dependencies.models import (
@@ -60,17 +65,27 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
     # Cache for expensive canonicalize() calls - same schemas are often processed multiple times
     canonicalization_cache: CanonicalizationCache = {}
 
+    # Nested-body FK lookups whose target resource wasn't yet registered when the consumer
+    # was scanned. Keyed by operation label so we can land the slot in the right OperationNode.
+    deferred_nested_fks: dict[str, list[tuple[str, str, str]]] = {}
+
+    # Backs the body-FK gate so `<word>_name` fields without a real target don't spawn ghosts.
+    candidate_resource_names = naming.collect_candidate_resource_names(schema.raw_schema)
+
     for result in schema.get_all_operations():
         if isinstance(result, Ok):
             operation = result.ok()
             try:
+                pending: list[tuple[str, str, str]] = []
                 inputs = list(
                     extract_inputs(
                         operation=operation,
                         resources=resources,
                         updated_resources=updated_resources,
-                        resolver=schema.resolver,
+                        resolver=schema.root_resolver,
                         canonicalization_cache=canonicalization_cache,
+                        deferred_nested_fks=pending,
+                        candidate_resource_names=candidate_resource_names,
                     )
                 )
                 outputs = extract_outputs(
@@ -78,7 +93,7 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
                     inputs=inputs,
                     resources=resources,
                     updated_resources=updated_resources,
-                    resolver=schema.resolver,
+                    resolver=schema.root_resolver,
                     canonicalization_cache=canonicalization_cache,
                 )
                 operations[operation.label] = OperationNode(
@@ -87,10 +102,29 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
                     inputs=inputs,
                     outputs=list(outputs),
                 )
+                if pending:
+                    deferred_nested_fks[operation.label] = pending
             except RefResolutionError:
                 # Skip operations with unresolvable $refs (e.g., unavailable external references or references with typos)
                 # These won't participate in dependency detection
                 continue
+
+    # Replay nested-FK lookups whose target resource was registered later in the scan -
+    # producer paths can sort after their consumers (e.g. /departments alphabetises before
+    # /locations) and the per-operation pass would otherwise drop those slots.
+    for label, items in deferred_nested_fks.items():
+        for target_resource_name, target_field, parameter_name in items:
+            target_resource = resources.get(target_resource_name)
+            if target_resource is None:
+                continue
+            operations[label].inputs.append(
+                InputSlot(
+                    resource=target_resource,
+                    resource_field=target_field,
+                    parameter_name=parameter_name,
+                    parameter_location=ParameterLocation.BODY,
+                )
+            )
 
     # Update input slots with improved resource definitions discovered during extraction
     #
@@ -102,6 +136,15 @@ def analyze(schema: OpenApiSchema) -> DependencyGraph:
 
     # Merge parameter-inferred resources with schema-defined ones
     merge_related_resources(operations, resources)
+
+    # Rebind orphan synthetics (e.g. `Spouse` from `spouse_id`) to the path-derived parent.
+    rebind_orphan_synthetics(operations, resources)
+
+    # Prefer same-module variants for spec-suffixed duplicates (`Group` / `Group1`).
+    disambiguate_module_variants(operations, resources)
+
+    # Steer path slots away from cross-module suffix-match hits (`KeyDateResource` -> `ResourceItem`).
+    disambiguate_path_suffix_matches(operations, resources)
 
     # Clean up orphaned resources
     remove_unused_resources(operations, resources)
@@ -140,7 +183,7 @@ def inject_links(schema: OpenApiSchema) -> int:
 
 def _normalize_link(link: Mapping[str, Any], schema: OpenApiSchema) -> NormalizedLink:
     """Normalize a link definition for comparison."""
-    _, link = maybe_resolve(link, schema.resolver, "")
+    _, link = maybe_resolve_with_resolver(link, schema.root_resolver)
     operation = _resolve_link_operation(link, schema)
 
     normalized_params = _normalize_parameter_keys(link.get("parameters", {}), operation)

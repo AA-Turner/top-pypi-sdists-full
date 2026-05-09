@@ -184,13 +184,14 @@ class SubprocessWorker(Worker):
         shutil.copy2(_ipc_shared_src, self._temp_dir / "_ipc_shared.py")
 
     def _find_comfyui_base(self) -> Optional[Path]:
-        """Find ComfyUI base directory."""
-        # Use folder_paths.base_path (canonical source) if available
-        try:
-            import folder_paths
-            return Path(folder_paths.base_path)
-        except ImportError:
-            pass
+        """Find ComfyUI source directory (where main.py, comfy/, folder_paths.py live).
+
+        Uses find_comfyui_source_dir which handles both standard and Desktop app layouts.
+        """
+        from ...environment.cache import find_comfyui_source_dir
+        result = find_comfyui_source_dir(self.working_dir)
+        if result:
+            return result
 
         # Fallback: Check common child directories (for test environments)
         for base in [self.working_dir, self.working_dir.parent]:

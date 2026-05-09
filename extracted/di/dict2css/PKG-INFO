@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: dict2css
-Version: 0.3.0.post1
+Version: 0.4.0
 Summary: A μ-library for constructing cascading style sheets from Python dictionaries.
 Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
 License: MIT
@@ -18,19 +18,19 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.6
-Requires-Dist: cssutils>=2.2.0
+Requires-Python: >=3.7
+Requires-Dist: cssutils<=2.11.0,>=2.2.0
 Requires-Dist: domdf-python-tools>=2.2.0
 Description-Content-Type: text/x-rst
 
@@ -123,12 +123,12 @@ dict2css
 	:target: https://pypi.org/project/dict2css/
 	:alt: PyPI - Wheel
 
-.. |conda-version| image:: https://img.shields.io/conda/v/domdfcoding/dict2css?logo=anaconda
-	:target: https://anaconda.org/domdfcoding/dict2css
+.. |conda-version| image:: https://img.shields.io/conda/v/conda-forge/dict2css?logo=anaconda
+	:target: https://anaconda.org/conda-forge/dict2css
 	:alt: Conda - Package Version
 
-.. |conda-platform| image:: https://img.shields.io/conda/pn/domdfcoding/dict2css?label=conda%7Cplatform
-	:target: https://anaconda.org/domdfcoding/dict2css
+.. |conda-platform| image:: https://img.shields.io/conda/pn/conda-forge/dict2css?label=conda%7Cplatform
+	:target: https://anaconda.org/conda-forge/dict2css
 	:alt: Conda - Platform
 
 .. |license| image:: https://img.shields.io/github/license/sphinx-toolbox/dict2css
@@ -138,7 +138,7 @@ dict2css
 .. |language| image:: https://img.shields.io/github/languages/top/sphinx-toolbox/dict2css
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/sphinx-toolbox/dict2css/v0.3.0.post1
+.. |commits-since| image:: https://img.shields.io/github/commits-since/sphinx-toolbox/dict2css/v0.4.0
 	:target: https://github.com/sphinx-toolbox/dict2css/pulse
 	:alt: GitHub commits since tagged version
 
@@ -146,11 +146,11 @@ dict2css
 	:target: https://github.com/sphinx-toolbox/dict2css/commit/master
 	:alt: GitHub last commit
 
-.. |maintained| image:: https://img.shields.io/maintenance/yes/2023
+.. |maintained| image:: https://img.shields.io/maintenance/yes/2026
 	:alt: Maintenance
 
 .. |pypi-downloads| image:: https://img.shields.io/pypi/dm/dict2css
-	:target: https://pypi.org/project/dict2css/
+	:target: https://pypistats.org/packages/dict2css
 	:alt: PyPI - Downloads
 
 .. end shields
@@ -184,17 +184,8 @@ To install with ``pip``:
 
 To install with ``conda``:
 
-	* First add the required channels
+.. code-block:: bash
 
-	.. code-block:: bash
-
-		$ conda config --add channels https://conda.anaconda.org/conda-forge
-		$ conda config --add channels https://conda.anaconda.org/domdfcoding
-
-	* Then install
-
-	.. code-block:: bash
-
-		$ conda install dict2css
+	$ conda install -c conda-forge dict2css
 
 .. end installation

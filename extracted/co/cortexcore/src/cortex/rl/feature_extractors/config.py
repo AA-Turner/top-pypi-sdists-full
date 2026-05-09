@@ -19,7 +19,7 @@ class TokenPerceiverFeatureExtractorConfig(BaseModel):
     use_mask: bool = True
     pool: Literal["mean", "first", "none"] = "mean"
     coord_max_value: float = Field(default=10.0, gt=0.0)
-    max_tokens: int | None = Field(default=300, ge=1)
+    max_tokens: int | None = Field(default=128, ge=1)
     ignore_inventory_power_tokens: bool = True
 
 
@@ -34,7 +34,7 @@ class TokenMLPFeatureExtractorConfig(BaseModel):
     use_mask: bool = True
     pool: Literal["mean", "sum"] = "mean"
     coord_max_value: float = Field(default=10.0, gt=0.0)
-    max_tokens: int | None = Field(default=300, ge=1)
+    max_tokens: int | None = Field(default=128, ge=1)
     ignore_inventory_power_tokens: bool = True
 
 
@@ -54,20 +54,11 @@ class BoxCNNFeatureExtractorConfig(BaseModel):
     output_dim: int = Field(default=128, ge=1)
 
 
-class BoxMLPFeatureExtractorConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    type: Literal["box_mlp"] = "box_mlp"
-    hidden_features: list[int] = Field(default_factory=lambda: [256])
-    output_dim: int = Field(default=128, ge=1)
-
-
 FeatureExtractorConfig = Annotated[
     Union[
         TokenPerceiverFeatureExtractorConfig,
         TokenMLPFeatureExtractorConfig,
         BoxCNNFeatureExtractorConfig,
-        BoxMLPFeatureExtractorConfig,
     ],
     Field(discriminator="type"),
 ]
@@ -83,10 +74,10 @@ def feature_extractor_output_dim(config: FeatureExtractorConfig) -> int:
     return int(config.output_dim)
 
 
-def feature_extractor_input_kind(config: FeatureExtractorConfig) -> Literal["token", "box"]:
-    if isinstance(config, (BoxCNNFeatureExtractorConfig, BoxMLPFeatureExtractorConfig)):
+def feature_extractor_input_kind(config: FeatureExtractorConfig) -> Literal["tokens", "box"]:
+    if isinstance(config, BoxCNNFeatureExtractorConfig):
         return "box"
-    return "token"
+    return "tokens"
 
 
 def token_feature_extractor_max_tokens(config: FeatureExtractorConfig) -> int | None:
@@ -107,7 +98,6 @@ def token_feature_extractor_ignore_inventory_power_tokens(config: FeatureExtract
 
 __all__ = [
     "BoxCNNFeatureExtractorConfig",
-    "BoxMLPFeatureExtractorConfig",
     "FeatureExtractorConfig",
     "TokenMLPFeatureExtractorConfig",
     "TokenPerceiverFeatureExtractorConfig",

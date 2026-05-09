@@ -17,6 +17,7 @@ pub mod serde_utils;
 pub mod snapshot;
 pub mod storage;
 pub mod tool;
+pub mod tool_context;
 pub mod tool_error;
 pub mod tool_failure;
 pub mod tool_handle;
@@ -61,9 +62,8 @@ pub use usage::{
 };
 use uuid::Uuid;
 
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize, sqlx::Type)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[derive(ts_rs::TS, Clone, Debug, Default, Deserialize, PartialEq, Serialize, sqlx::Type)]
+#[ts(export)]
 #[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "text", rename_all = "snake_case")]
 pub enum FunctionType {
@@ -82,11 +82,10 @@ impl FunctionType {
 }
 
 /// A single resolved object type for a given UUID.
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, PartialEq, Serialize, TensorZeroDeserialize)]
+#[derive(ts_rs::TS, Clone, Debug, PartialEq, Serialize, TensorZeroDeserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
+#[ts(export, optional_fields)]
 pub enum ResolvedObject {
     Inference {
         function_name: String,
@@ -115,9 +114,8 @@ pub enum ResolvedObject {
 }
 
 /// Response type for the resolve_uuid endpoint.
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[derive(ts_rs::TS, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[ts(export)]
 pub struct ResolveUuidResponse {
     pub id: Uuid,
     pub object_types: Vec<ResolvedObject>,

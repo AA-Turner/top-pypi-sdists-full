@@ -68,7 +68,7 @@ def _GetExceptionsLocal(*args):
     return _gnm._GetExceptionsLocal(*args)
 
 def _SetExceptionsLocal(*args):
-    r"""_SetExceptionsLocal(int bVal)"""
+    r"""_SetExceptionsLocal(bVal)"""
     return _gnm._SetExceptionsLocal(*args)
 
 def _UseExceptions(*args):

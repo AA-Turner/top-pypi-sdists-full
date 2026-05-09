@@ -7,8 +7,11 @@ from typing import TYPE_CHECKING, Any
 
 from schemathesis.config import ProjectConfig
 from schemathesis.core import NOT_SET, NotSet
+from schemathesis.core.error_feedback import ErrorFeedbackStore
 from schemathesis.engine.control import ExecutionControl
+from schemathesis.engine.health import HealthState
 from schemathesis.engine.observations import Observations
+from schemathesis.engine.supervisor import Supervisor
 from schemathesis.generation.case import Case
 from schemathesis.schemas import APIOperation, BaseSchema
 
@@ -34,12 +37,17 @@ class EngineContext:
         "schema",
         "control",
         "outcome_cache",
+        "health",
         "start_time",
         "observations",
         "_thread_local",
         "_transport_kwargs_cache",
         "_extra_data_source",
         "_extra_data_source_lock",
+        "_error_feedback",
+        "_error_feedback_lock",
+        "_supervisor",
+        "_supervisor_lock",
     )
 
     def __init__(
@@ -59,11 +67,16 @@ class EngineContext:
             start_time=self.start_time,
         )
         self.outcome_cache = {}
+        self.health = HealthState()
         self.observations = observations
         self._thread_local = threading.local()
         self._transport_kwargs_cache: dict[str | None, dict[str, Any]] = {}
         self._extra_data_source: ExtraDataSource | None = None
         self._extra_data_source_lock = threading.Lock()
+        self._error_feedback: ErrorFeedbackStore | None = None
+        self._error_feedback_lock = threading.Lock()
+        self._supervisor: Supervisor | None = None
+        self._supervisor_lock = threading.Lock()
 
     def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
 
@@ -101,20 +114,9 @@ class EngineContext:
         if self.observations is not None:
             self.observations.extract_observations_from(recorder)
 
-    def inject_links(self) -> int:
-        """Inject inferred OpenAPI links into API operations based on collected observations."""
-        from schemathesis.specs.openapi.schemas import OpenApiSchema
-
-        injected = 0
-        if self.observations is not None and self.observations.location_headers:
-            assert isinstance(self.schema, OpenApiSchema)
-
-            # Generate links from collected Location headers
-            for operation, entries in self.observations.location_headers.items():
-                injected += self.schema.analysis.inferencer.inject_links(operation.responses, entries)
-        if isinstance(self.schema, OpenApiSchema) and self.schema.analysis.should_inject_links():
-            injected += self.schema.analysis.inject_links()
-        return injected
+    def apply_stateful_inference(self) -> int:
+        """Discover spec-specific stateful transitions; return the number available."""
+        return self.schema.apply_stateful_inference(self)
 
     def stop(self) -> None:
         self.control.stop()
@@ -150,6 +152,13 @@ class EngineContext:
                 cached["proxies"] = {"all": proxy}
             self._transport_kwargs_cache[key] = cached
         kwargs = cached.copy()
+        # Apply the health timeout override only when it strictly tightens the configured timeout.
+        if operation is not None:
+            override = self.health.timeout_override(operation.label)
+            if override is not None:
+                base_timeout = kwargs.get("timeout")
+                if base_timeout is None or override < base_timeout:
+                    kwargs["timeout"] = override
         kwargs["session"] = self.get_session(operation=operation)
         return kwargs
 
@@ -166,6 +175,26 @@ class EngineContext:
                 if self._extra_data_source is None:
                     self._extra_data_source = self.schema.create_extra_data_source()
         return self._extra_data_source
+
+    @property
+    def error_feedback(self) -> ErrorFeedbackStore | None:
+        """Store of parser observations from 4xx responses."""
+        if not self.config.phases.fuzzing.error_feedback.is_enabled:
+            return None
+        if self._error_feedback is None:
+            with self._error_feedback_lock:
+                if self._error_feedback is None:
+                    self._error_feedback = ErrorFeedbackStore()
+        return self._error_feedback
+
+    @property
+    def supervisor(self) -> Supervisor:
+        """Per-operation runtime supervisor that issues scheduling directives based on observed signals."""
+        if self._supervisor is None:
+            with self._supervisor_lock:
+                if self._supervisor is None:
+                    self._supervisor = Supervisor()
+        return self._supervisor
 
 
 def make_session(config: ProjectConfig, *, operation: APIOperation | None = None) -> requests.Session:

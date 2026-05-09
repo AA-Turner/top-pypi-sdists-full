@@ -315,7 +315,6 @@ async def folder_init(
         except FileExistsError:
             if not force:
                 click.echo(FeedbackManager.info_path_already_exists(path=x))
-            pass
 
     if generate_datasources:
         for format in SUPPORTED_FORMATS:

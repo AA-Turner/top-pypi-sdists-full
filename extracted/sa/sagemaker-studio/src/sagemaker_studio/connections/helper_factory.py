@@ -10,6 +10,7 @@ from sagemaker_studio.connections.sql_helper.postgresql_helper import PostgreSQL
 from sagemaker_studio.connections.sql_helper.redshift_sql_helper import RedshiftSqlHelper
 from sagemaker_studio.connections.sql_helper.snowflake_sql_helper import SnowflakeSqlHelper
 from sagemaker_studio.connections.sql_helper.sql_helper import SqlHelper
+from sagemaker_studio.connections.sql_helper.vertica_sql_helper import VerticaSQLHelper
 
 
 class HelperFactory:
@@ -57,5 +58,7 @@ class HelperFactory:
             return PostgreSQLHelper
         if type == "OPENSEARCH":
             return OpenSearchSQLHelper
+        if type == "VERTICA":
+            return VerticaSQLHelper
         else:
             return None

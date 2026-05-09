@@ -19,35 +19,77 @@ class MockSparkConnectGrpcException(Exception):
 
 
 # Mock PySpark and gRPC modules before importing our code
-pyspark_modules = [
-    "pyspark",
-    "pyspark.sql",
-    "pyspark.sql.session",
-    "pyspark.sql.connect",
-    "pyspark.sql.connect.session",
-    "pyspark.sql.connect.client",
-    "grpc",
-    "pyspark.errors",
-    "pyspark.errors.exceptions",
-    "pyspark.errors.exceptions.connect",
-]
+with patch("sagemaker_studio.Project"):
 
-for module_name in pyspark_modules:
-    if module_name not in sys.modules:
-        mock_module = Mock()
-        if module_name == "grpc":
-            # Mock gRPC specific classes and functions
-            mock_module.insecure_channel = Mock()
-            mock_module.secure_channel = Mock()
-            mock_module.UnaryUnaryClientInterceptor = Mock()
-        elif module_name == "pyspark.errors.exceptions.connect":
-            mock_module.SparkConnectGrpcException = MockSparkConnectGrpcException
-        sys.modules[module_name] = mock_module
+    sys.modules["aws_embedded_metrics"] = Mock()
+    sys.modules["aws_embedded_metrics.sinks"] = Mock()
+    sys.modules["aws_embedded_metrics.sinks.stdout_sink"] = Mock()
+    sys.modules["aws_embedded_metrics.logger"] = Mock()
+    sys.modules["aws_embedded_metrics.logger.metrics_logger"] = Mock()
+    sys.modules["aws_embedded_metrics.logger.metrics_context"] = Mock()
+    sys.modules["aws_embedded_metrics.environment"] = Mock()
+    sys.modules["aws_embedded_metrics.environment.local_environment"] = Mock()
 
-from sagemaker_studio.utils.spark.session.lazy_spark_session import LazySparkSession  # noqa: E402
-from sagemaker_studio.utils.spark.session.spark_session_manager import (  # noqa: E402
-    SparkSessionManager,
-)
+    pyspark_modules = [
+        "pyspark",
+        "pyspark.sql",
+        "pyspark.sql.session",
+        "pyspark.sql.connect",
+        "pyspark.sql.connect.session",
+        "pyspark.sql.connect.client",
+        "grpc",
+        "pyspark.errors",
+        "pyspark.errors.exceptions",
+        "pyspark.errors.exceptions.connect",
+    ]
+
+    for module_name in pyspark_modules:
+        if module_name not in sys.modules:
+            mock_module = Mock()
+            if module_name == "grpc":
+                # Mock gRPC specific classes and functions
+                mock_module.insecure_channel = Mock()
+                mock_module.secure_channel = Mock()
+                mock_module.intercept_channel = Mock()
+                # Interceptor bases and ClientCallDetails must be real classes
+                # because base_interceptors.py subclasses them (see test_base_interceptors.py).
+                mock_module.UnaryUnaryClientInterceptor = type(
+                    "UnaryUnaryClientInterceptor", (), {}
+                )
+                mock_module.UnaryStreamClientInterceptor = type(
+                    "UnaryStreamClientInterceptor", (), {}
+                )
+                mock_module.StreamUnaryClientInterceptor = type(
+                    "StreamUnaryClientInterceptor", (), {}
+                )
+                mock_module.StreamStreamClientInterceptor = type(
+                    "StreamStreamClientInterceptor", (), {}
+                )
+                mock_module.ClientCallDetails = type("ClientCallDetails", (tuple,), {})
+            elif module_name == "pyspark.sql.connect.client":
+                mock_module.ChannelBuilder = Mock()
+            elif module_name == "pyspark.errors.exceptions.connect":
+                mock_module.SparkConnectGrpcException = MockSparkConnectGrpcException
+            sys.modules[module_name] = mock_module
+
+    # Mock interceptors modules to avoid importing actual gRPC interceptors
+    mock_athena_interceptors = Mock()
+    mock_athena_interceptors.CustomChannelBuilder = Mock()
+    sys.modules["sagemaker_studio.utils.spark.session.athena.interceptors"] = (
+        mock_athena_interceptors
+    )
+    mock_emr_interceptors = Mock()
+    mock_emr_interceptors.CustomChannelBuilder = Mock()
+    sys.modules["sagemaker_studio.utils.spark.session.emr_serverless.interceptors"] = (
+        mock_emr_interceptors
+    )
+
+    from sagemaker_studio.utils.spark.session.lazy_spark_session import (  # noqa: E402
+        LazySparkSession,
+    )
+    from sagemaker_studio.utils.spark.session.spark_session_manager import (  # noqa: E402
+        SparkSessionManager,
+    )
 
 
 @pytest.fixture
@@ -295,3 +337,333 @@ class TestLazySparkSession:
         lazy_session.stop()
 
         assert lazy_session._spark is None
+
+    def test_init_with_deferred_params(self):
+        """Test LazySparkSession initialization with deferred connection_name and config."""
+        lazy_session = LazySparkSession(None, connection_name="my-conn", config="my-config")
+
+        assert lazy_session._spark is None
+        assert lazy_session._session_manager is None
+        assert lazy_session._connection_name == "my-conn"
+        assert lazy_session._config == "my-config"
+
+    @patch(
+        "sagemaker_studio.utils.spark.session.lazy_spark_session.SparkConnectGrpcException",
+        MockSparkConnectGrpcException,
+    )
+    def test_get_spark_deferred_resolution(self):
+        """Test _get_spark resolves session manager lazily when not provided."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_spark = Mock()
+        mock_manager.create.return_value = mock_spark
+        mock_manager.get_session_id.return_value = "sess-1"
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        lazy_session = LazySparkSession(None, connection_name="deferred-conn", config="cfg")
+
+        with patch(
+            "sagemaker_studio.utils.spark.session.lazy_spark_session._resolve_connection_and_create_session_manager",
+            return_value=mock_manager,
+        ) as mock_resolve:
+            result = lazy_session._get_spark()
+
+        mock_resolve.assert_called_once_with(connection_name="deferred-conn", config="cfg")
+        assert result is mock_spark
+        assert lazy_session._session_manager is mock_manager
+
+    @patch(
+        "sagemaker_studio.utils.spark.session.lazy_spark_session.SparkConnectGrpcException",
+        MockSparkConnectGrpcException,
+    )
+    def test_getattr_client_error_athena_stopped(self):
+        """Test __getattr__ handles ClientError for Athena STOPPED state."""
+        from botocore.exceptions import ClientError
+
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        # First session raises ClientError on version access
+        bad_session = Mock()
+        error_response = {
+            "Error": {"Code": "InvalidRequestException", "Message": "Session is in STOPPED state"}
+        }
+        type(bad_session).version = PropertyMock(
+            side_effect=ClientError(error_response, "GetSession")
+        )
+
+        # Second session works
+        good_session = Mock()
+        good_session.version = "3.0.0"
+        good_session.sql = Mock(return_value="result")
+
+        mock_manager.create.side_effect = [bad_session, good_session]
+
+        lazy_session = LazySparkSession(mock_manager)
+
+        result = lazy_session.sql
+        assert result is good_session.sql
+        assert mock_manager.create.call_count == 2
+        mock_manager.stop.assert_called_once()
+
+    @patch(
+        "sagemaker_studio.utils.spark.session.lazy_spark_session.SparkConnectGrpcException",
+        MockSparkConnectGrpcException,
+    )
+    def test_getattr_client_error_emr_resource_not_found(self):
+        """Test __getattr__ handles ClientError for EMR ResourceNotFoundException."""
+        from botocore.exceptions import ClientError
+
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        bad_session = Mock()
+        error_response = {
+            "Error": {"Code": "ResourceNotFoundException", "Message": "Session not found"}
+        }
+        type(bad_session).version = PropertyMock(
+            side_effect=ClientError(error_response, "GetSession")
+        )
+
+        good_session = Mock()
+        good_session.version = "3.0.0"
+        good_session.sql = Mock(return_value="result")
+
+        mock_manager.create.side_effect = [bad_session, good_session]
+
+        lazy_session = LazySparkSession(mock_manager)
+
+        result = lazy_session.sql
+        assert result is good_session.sql
+        mock_manager.stop.assert_called_once()
+
+    @patch(
+        "sagemaker_studio.utils.spark.session.lazy_spark_session.SparkConnectGrpcException",
+        MockSparkConnectGrpcException,
+    )
+    def test_getattr_client_error_unknown_reraises(self):
+        """Test __getattr__ re-raises unknown ClientErrors."""
+        from botocore.exceptions import ClientError
+
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        bad_session = Mock()
+        error_response = {"Error": {"Code": "AccessDeniedException", "Message": "Not authorized"}}
+        type(bad_session).version = PropertyMock(
+            side_effect=ClientError(error_response, "GetSession")
+        )
+
+        mock_manager.create.return_value = bad_session
+
+        lazy_session = LazySparkSession(mock_manager)
+
+        with pytest.raises(ClientError):
+            _ = lazy_session.sql
+
+    def test_get_athena_session_id_with_athena_manager(self):
+        """Test get_athena_session_id returns session ID for Athena managers."""
+        # Import the actual AthenaSparkSessionManager class (already mocked at module level)
+        from sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager import (
+            AthenaSparkSessionManager,
+        )
+
+        mock_manager = Mock(spec=AthenaSparkSessionManager)
+        mock_manager.get_session_id.return_value = "athena-sess-1"
+
+        lazy_session = LazySparkSession(mock_manager)
+        result = lazy_session.get_athena_session_id()
+
+        assert result == "athena-sess-1"
+
+    def test_get_athena_session_id_with_non_athena_manager(self):
+        """Test get_athena_session_id returns None for non-Athena managers."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        lazy_session = LazySparkSession(mock_manager)
+
+        result = lazy_session.get_athena_session_id()
+
+        assert result is None
+
+    def test_get_athena_session_id_no_manager(self):
+        """Test get_athena_session_id returns None when no manager."""
+        lazy_session = LazySparkSession(None)
+
+        result = lazy_session.get_athena_session_id()
+
+        assert result is None
+
+    def test_get_session_id_with_manager(self):
+        """Test get_session_id returns session ID from manager."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_manager.get_session_id.return_value = "sess-xyz"
+        lazy_session = LazySparkSession(mock_manager)
+
+        assert lazy_session.get_session_id() == "sess-xyz"
+
+    def test_get_session_id_no_manager(self):
+        """Test get_session_id returns None when no manager."""
+        lazy_session = LazySparkSession(None)
+        assert lazy_session.get_session_id() is None
+
+    def test_get_session_info_with_active_session(self):
+        """Test get_session_info returns dict with session_id and session_type."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_manager.get_session_id.return_value = "sess-info"
+        type(mock_manager).__name__ = "EMRServerlessSparkSessionManager"
+        lazy_session = LazySparkSession(mock_manager)
+
+        result = lazy_session.get_session_info()
+
+        assert result == {
+            "session_id": "sess-info",
+            "session_type": "EMR_SERVERLESS_SPARK_CONNECT",
+        }
+
+    def test_get_session_info_athena(self):
+        """Test get_session_info returns correct type for Athena."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_manager.get_session_id.return_value = "athena-sess"
+        type(mock_manager).__name__ = "AthenaSparkSessionManager"
+        lazy_session = LazySparkSession(mock_manager)
+
+        result = lazy_session.get_session_info()
+
+        assert result == {
+            "session_id": "athena-sess",
+            "session_type": "ATHENA_SPARK_CONNECT",
+        }
+
+    def test_get_session_info_no_manager(self):
+        """Test get_session_info returns None when no manager."""
+        lazy_session = LazySparkSession(None)
+        assert lazy_session.get_session_info() is None
+
+    def test_get_session_info_no_session_id(self):
+        """Test get_session_info returns None when session_id is None."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_manager.get_session_id.return_value = None
+        lazy_session = LazySparkSession(mock_manager)
+
+        assert lazy_session.get_session_info() is None
+
+    def test_get_session_info_unknown_manager(self):
+        """Test get_session_info uses class name as fallback for unknown managers."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_manager.get_session_id.return_value = "sess-custom"
+        type(mock_manager).__name__ = "CustomSparkManager"
+        lazy_session = LazySparkSession(mock_manager)
+
+        result = lazy_session.get_session_info()
+
+        assert result == {
+            "session_id": "sess-custom",
+            "session_type": "CustomSparkManager",
+        }
+
+    def test_stop_logs_session_duration_metric(self, mock_spark_session):
+        """Test that stop() logs session duration metric when session was started."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_manager.create.return_value = mock_spark_session
+        mock_manager.get_session_id.return_value = "sess-dur"
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+        type(mock_manager).__name__ = "EMRServerlessSparkSessionManager"
+
+        lazy_session = LazySparkSession(mock_manager)
+        lazy_session._get_spark()
+
+        with patch("sagemaker_studio.utils.loggerutils.log_session_metric") as mock_log:
+            lazy_session.stop()
+
+        mock_log.assert_called()
+        # Find the SessionStopped call (there may also be a SessionCreated call from _get_spark)
+        stop_calls = [
+            c for c in mock_log.call_args_list if c[1].get("metric_name") == "SessionStopped"
+        ]
+        assert len(stop_calls) == 1
+        assert stop_calls[0][1]["session_id"] == "sess-dur"
+
+    def test_stop_metric_logging_exception_handled(self, mock_spark_session, caplog):
+        """Test that stop() handles metric logging exceptions gracefully."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_manager.create.return_value = mock_spark_session
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        lazy_session = LazySparkSession(mock_manager)
+        lazy_session._get_spark()
+
+        with patch(
+            "sagemaker_studio.utils.loggerutils.log_session_metric",
+            side_effect=Exception("metric error"),
+        ), caplog.at_level(logging.ERROR):
+            lazy_session.stop()
+
+        assert lazy_session._spark is None
+        assert "Failed to log session stop metric" in caplog.text
+
+    def test_get_spark_logs_session_creation_metric(self):
+        """Test that _get_spark logs SessionCreated metric."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_spark = Mock()
+        mock_manager.create.return_value = mock_spark
+        mock_manager.get_session_id.return_value = "sess-metric"
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+        type(mock_manager).__name__ = "AthenaSparkSessionManager"
+
+        lazy_session = LazySparkSession(mock_manager)
+
+        with patch("sagemaker_studio.utils.loggerutils.log_session_metric") as mock_log:
+            lazy_session._get_spark()
+
+        mock_log.assert_called_once()
+        call_kwargs = mock_log.call_args[1]
+        assert call_kwargs["metric_name"] == "SessionCreated"
+        assert call_kwargs["additional_properties"]["SessionType"] == "ATHENA_SPARK_CONNECT"
+
+    def test_get_spark_metric_logging_failure_does_not_block(self):
+        """Test that _get_spark continues even if metric logging fails."""
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_spark = Mock()
+        mock_manager.create.return_value = mock_spark
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        lazy_session = LazySparkSession(mock_manager)
+
+        with patch(
+            "sagemaker_studio.utils.loggerutils.log_session_metric",
+            side_effect=Exception("metric fail"),
+        ):
+            result = lazy_session._get_spark()
+
+        assert result is mock_spark

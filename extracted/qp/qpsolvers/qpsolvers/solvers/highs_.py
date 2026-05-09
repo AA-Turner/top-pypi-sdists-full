@@ -16,6 +16,7 @@ work, consider citing the corresponding paper [Huangfu2018]_.
 **Warm-start:** this solver interface supports warm starting 🔥
 """
 
+import time
 import warnings
 from typing import Optional, Union
 
@@ -38,10 +39,11 @@ def __set_hessian(model: highspy.HighsModel, P: spa.csc_matrix) -> None:
     P :
         Positive semidefinite cost matrix.
     """
-    model.hessian_.dim_ = P.shape[0]
-    model.hessian_.start_ = P.indptr
-    model.hessian_.index_ = P.indices
-    model.hessian_.value_ = P.data
+    P_lower = spa.tril(P, format="csc")
+    model.hessian_.dim_ = P_lower.shape[0]
+    model.hessian_.start_ = P_lower.indptr
+    model.hessian_.index_ = P_lower.indices
+    model.hessian_.value_ = P_lower.data
 
 
 def __set_columns(
@@ -170,6 +172,7 @@ def highs_solve_problem(
     Check out the `HiGHS documentation <https://ergo-code.github.io/HiGHS/>`_
     for more information on the solver.
     """
+    build_start_time = time.perf_counter()
     if initvals is not None:
         warnings.warn(
             "HiGHS: warm-start values are not available for this solver, "
@@ -195,7 +198,9 @@ def highs_solve_problem(
     for option, value in kwargs.items():
         solver.setOptionValue(option, value)
     solver.passModel(model)
+    solve_start_time = time.perf_counter()
     solver.run()
+    solve_end_time = time.perf_counter()
 
     result = solver.getSolution()
     model_status = solver.getModelStatus()
@@ -220,6 +225,8 @@ def highs_solve_problem(
         if lb is not None or ub is not None
         else np.empty((0,))
     )
+    solution.build_time = solve_start_time - build_start_time
+    solution.solve_time = solve_end_time - solve_start_time
     return solution
 
 

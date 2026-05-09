@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from schemathesis.core.errors import MalformedMediaType
+
+if TYPE_CHECKING:
+    from hypothesis import strategies as st
 
 YAML_MEDIA_TYPES: tuple[str, ...] = (
     "text/yaml",
@@ -12,6 +16,37 @@ YAML_MEDIA_TYPES: tuple[str, ...] = (
     "text/vnd.yaml",
     "application/yaml",
 )
+JSON_MEDIA_TYPES: frozenset[tuple[str, str]] = frozenset({("application", "jose+jwe")})
+
+FORM_MEDIA_TYPES: frozenset[str] = frozenset(["multipart/form-data", "application/x-www-form-urlencoded"])
+
+# Registry of user-supplied strategies for content types. Populated via the public
+# `schemathesis.openapi.media_type(...)` API, but the storage is spec-agnostic.
+MEDIA_TYPE_STRATEGIES: dict[str, st.SearchStrategy[bytes]] = {}
+
+
+def find_media_type_strategy(content_type: str) -> st.SearchStrategy[bytes] | None:
+    """Find a registered strategy for a content type, supporting wildcard patterns."""
+    if content_type in MEDIA_TYPE_STRATEGIES:
+        return MEDIA_TYPE_STRATEGIES[content_type]
+
+    try:
+        main, sub = parse(content_type)
+    except MalformedMediaType:
+        return None
+
+    for registered_type, strategy in MEDIA_TYPE_STRATEGIES.items():
+        try:
+            target_main, target_sub = parse(registered_type)
+        except MalformedMediaType:
+            continue
+        # `*` on either side acts as a wildcard.
+        main_match = main == "*" or target_main == "*" or main == target_main
+        sub_match = sub == "*" or target_sub == "*" or sub == target_sub
+        if main_match and sub_match:
+            return strategy
+
+    return None
 
 
 def _parseparam(s: str) -> Generator[str]:
@@ -59,8 +94,7 @@ def is_json(value: str) -> bool:
 
     For example - ``application/problem+json`` matches.
     """
-    main, sub = parse(value)
-    return main == "application" and (sub == "json" or sub.endswith("+json"))
+    return is_json_parts(parse(value))
 
 
 def is_yaml(value: str) -> bool:
@@ -86,6 +120,12 @@ def is_form_urlencoded(value: str | None) -> bool:
         return parse(value) == ("application", "x-www-form-urlencoded")
     except MalformedMediaType:
         return False
+
+
+def is_json_parts(media_type: tuple[str, str]) -> bool:
+    """Detect variations of the ``application/json`` media type from a parsed tuple."""
+    main, sub = media_type
+    return main == "application" and (sub == "json" or sub.endswith("+json") or media_type in JSON_MEDIA_TYPES)
 
 
 def is_xml(value: str) -> bool:

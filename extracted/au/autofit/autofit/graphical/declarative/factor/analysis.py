@@ -118,7 +118,17 @@ class AnalysisFactor(AbstractModelFactor):
             return getattr(self.prior_model, item)
 
     def name_for_variable(self, variable):
-        path = ".".join(self.prior_model.path_for_prior(variable))
+        path_iter = self.prior_model.path_for_prior(variable)
+        if path_iter is None:
+            # Variable is no longer in the factor's prior model — typically
+            # because it was replaced by a fixed scalar after the factor was
+            # registered in the graph (the constant-element pattern of
+            # ``Array.__setitem__``). The factor still appears in the graph's
+            # variable→factor map, but it does not reference this variable
+            # anymore, so info-only callers (graph.info, results text) get
+            # ``None`` and are expected to skip it.
+            return None
+        path = ".".join(path_iter)
         return f"{self.name}.{path}"
 
     def visualize(
@@ -161,6 +171,61 @@ class AnalysisFactor(AbstractModelFactor):
         """
         self.analysis.visualize_before_fit(paths=paths, model=model)
 
+    def visualize_combined(
+        self,
+        analyses,
+        paths: AbstractPaths,
+        instance: ModelInstance,
+        during_analysis: bool,
+        quick_update: bool = False,
+    ):
+        """
+        Forward a combined-analysis visualisation request to the wrapped analysis's
+        ``Visualizer.visualize_combined``.
+
+        ``FactorGraphModel.visualize_combined`` calls this method on
+        ``model_factors[0]`` and passes the full list of factors as ``analyses``. The
+        ``Analysis.__getattr__`` auto-forwarder skips any visualizer method whose
+        signature contains ``analyses`` (it cannot tell whether the call originated
+        from a single-analysis path or from a combined-analysis path), so without
+        this explicit method the dispatch silently no-ops and combined plots like
+        ``fit_combined.png`` are never written.
+
+        We unwrap each ``AnalysisFactor`` (or ``HierarchicalFactor``) to the
+        underlying ``Analysis`` before calling the visualizer — the static method
+        expects raw analyses with a ``.dataset`` attribute, not factor wrappers.
+        """
+        inner_analyses = [
+            getattr(factor, "analysis", factor) for factor in analyses
+        ]
+        self.analysis.Visualizer.visualize_combined(
+            analyses=inner_analyses,
+            paths=paths,
+            instance=instance,
+            during_analysis=during_analysis,
+            quick_update=quick_update,
+        )
+
+    def visualize_before_fit_combined(
+        self,
+        analyses,
+        paths: AbstractPaths,
+        model: Model,
+    ):
+        """
+        Forward a combined before-fit visualisation request to the wrapped analysis's
+        ``Visualizer.visualize_before_fit_combined``. See ``visualize_combined`` for
+        why this explicit forwarder is required.
+        """
+        inner_analyses = [
+            getattr(factor, "analysis", factor) for factor in analyses
+        ]
+        self.analysis.Visualizer.visualize_before_fit_combined(
+            analyses=inner_analyses,
+            paths=paths,
+            model=model,
+        )
+
     def save_attributes(self, paths: AbstractPaths):
         """
         Save the attributes of the analysis object to a file.
@@ -187,3 +252,71 @@ class AnalysisFactor(AbstractModelFactor):
 
     def log_likelihood_function(self, instance: ModelInstance) -> float:
         return self.analysis.log_likelihood_function(instance)
+
+
+class EPAnalysisFactor(AnalysisFactor):
+    """
+    An ``AnalysisFactor`` that exposes the EP cavity distribution to its
+    ``Analysis`` on each likelihood evaluation.
+
+    On every iteration of the EP optimiser, the cavity distribution
+    ``q⁻ᵃ`` — the product of the posterior approximations from all
+    *other* factors over the variables this factor shares with them —
+    is computed in
+    :class:`autofit.graphical.mean_field.FactorApproximation`. For most
+    factors that distribution is consumed implicitly: it becomes the
+    prior the search samples from.
+
+    Some hierarchical / population-level analyses want to read those
+    cavity messages directly. A canonical example is a "global"
+    Analysis whose log-likelihood compares model predictions to the
+    per-dataset Gaussian posterior summaries produced by upstream
+    local fits, e.g.::
+
+        log L = -0.5 * sum_i || (pred_i - cavity_mean_i) / cavity_sigma_i ||^2
+
+    To support that, ``EPAnalysisFactor`` attaches the current cavity
+    distribution to its ``Analysis`` immediately before optimisation,
+    via the attribute ``_cavity_mean_field``. The user's
+    ``log_likelihood_function`` can then read each shared variable's
+    cavity message (``.mean`` and ``.scale`` on the
+    ``AbstractMessage`` value) out of the dict.
+
+    The hook is invoked from
+    :func:`autofit.graphical.expectation_propagation.optimiser.factor_step`
+    via duck-typing (``hasattr(factor, "set_cavity_dist")``), so the
+    behaviour of plain ``AnalysisFactor`` is unaffected.
+    """
+
+    def set_cavity_dist(self, cavity_dist):
+        """
+        Store the cavity distribution on the wrapped ``Analysis``.
+
+        Called by :func:`factor_step` once per EP iteration, before this
+        factor's local search runs. The Analysis can read the messages
+        inside ``log_likelihood_function`` by inspecting
+        ``self._cavity_mean_field`` — a ``MeanField`` mapping each
+        shared :class:`Variable` (i.e. ``Prior``) to an
+        ``AbstractMessage`` whose ``.mean`` and ``.scale`` give the
+        cavity Gaussian summary.
+        """
+        self.analysis._cavity_mean_field = cavity_dist
+
+    def set_model_approx(self, model_approx):
+        """
+        Store the full ``EPMeanField`` on the wrapped ``Analysis``.
+
+        Called by :func:`factor_step` before ``set_cavity_dist`` on
+        each EP iteration. ``set_cavity_dist`` only exposes the cavity
+        ``MeanField`` over this factor's *own* variables; some
+        hierarchical use cases additionally need to inspect the
+        per-factor messages of *sibling* factors (e.g. a "global"
+        Analysis that reads each upstream local fit's posterior on a
+        variable that the global model itself does not formally vary).
+
+        The default implementation just attaches ``model_approx`` to
+        the Analysis as ``_mean_field``. Subclasses (e.g. workspace
+        factors that freeze a subset of priors at sibling-fit means
+        between iterations) can override to add more behaviour.
+        """
+        self.analysis._mean_field = model_approx

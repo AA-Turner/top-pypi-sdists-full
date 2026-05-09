@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time as _time
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 
 Sender = Literal["user", "app"]
@@ -78,3 +78,12 @@ class Message:
         if self.attachments:
             d["attachments"] = [a.to_dict() for a in self.attachments]
         return d
+
+
+@dataclass
+class Event:
+    """Structured UI event sent from a Capsule component to an app action."""
+
+    name: str
+    payload: dict[str, Any] = field(default_factory=dict)
+    source: dict[str, Any] | None = None

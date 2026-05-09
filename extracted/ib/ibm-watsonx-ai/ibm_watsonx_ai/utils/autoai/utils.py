@@ -2189,7 +2189,7 @@ def check_dependencies_versions(
                 installed_module_version = get_module_version(package["name"])
 
                 # workaround for autoai-libs and lale and snapml: versions >= version in SW is accepted
-                if package["name"] == "autoai-libs" or package["name"] == "lale":
+                if package["name"] in ["autoai-libs", "lale", "snapml"]:
                     if version.parse(installed_module_version) < version.parse(
                         package["version"]
                     ):
@@ -3764,11 +3764,19 @@ def prepare_onnx_model_to_publish(
     """Read ONNX request & update model metadata"""
 
     model_number = int(model.split("_")[-1])
-    if model_number < len(run_params["entity"]["status"]["metrics"]):
-        model_info = run_params["entity"]["status"]["metrics"][model_number]
+    max_number = len(run_params["entity"]["status"]["metrics"])
+
+    if max_number == 0:
+        raise WMLClientError(
+            "No available metrics found for the provided `experiment_run_id`"
+        )
+
+    if 0 < model_number <= max_number:
+        model_info = run_params["entity"]["status"]["metrics"][model_number - 1]
     else:
-        max_number = len(run_params["entity"]["status"]["metrics"]) - 1
-        raise WMLClientError(f"{model} is out of range (max: Pipeline_{max_number})")
+        raise WMLClientError(
+            f"{model} is out of range (min: Pipeline_1, max: Pipeline_{max_number})"
+        )
 
     intermediate_model = model_info["context"]["intermediate_model"]
     if intermediate_model["location"].get("onnx_model") is None:

@@ -15,6 +15,7 @@ from .aggregator.base import AggBase
 from .database.aggregator.aggregator import GridSearchAggregator
 from .graphical.expectation_propagation.history import EPHistory
 from .graphical.declarative.factor.analysis import AnalysisFactor
+from .graphical.declarative.factor.analysis import EPAnalysisFactor
 from .graphical.declarative.collection import FactorGraphModel
 from .graphical.declarative.factor.hierarchical import HierarchicalFactor
 from .graphical.laplace import LaplaceOptimiser
@@ -77,6 +78,7 @@ from .non_linear.initializer import InitializerPrior
 from .non_linear.initializer import InitializerParamBounds
 from .non_linear.initializer import InitializerParamStartPoints
 from .non_linear.search.mcmc.auto_correlations import AutoCorrelationsSettings
+from .non_linear.search.mcmc.blackjax.nuts.search import BlackJAXNUTS
 from .non_linear.search.mcmc.emcee.search import Emcee
 from .non_linear.search.mcmc.zeus.search import Zeus
 from .non_linear.search.nest.nautilus.search import Nautilus
@@ -138,7 +140,7 @@ def save_abc(pickler, obj):
     pickle._Pickler.save_type(pickler, obj)
 
 
-__version__ = "2026.5.1.4"
+__version__ = "2026.5.8.2"
 
 from autoconf import check_version
 

@@ -699,10 +699,12 @@ def create_workspace_interactive(
 def print_data_branch_summary(client, job_id, response=None):
     response = client.job(job_id) if job_id else response or {"partitions": []}
     columns = ["Data Source", "Partition", "Status", "Error"]
-    table = []
+    table: list[list] = []
     for partition in response["partitions"]:
-        for p in partition["partitions"]:
-            table.append([partition["datasource"]["name"], p["partition"], p["status"], p.get("error", "")])
+        table.extend(
+            [partition["datasource"]["name"], p["partition"], p["status"], p.get("error", "")]
+            for p in partition["partitions"]
+        )
     echo_safe_humanfriendly_tables_format_smart_table(table, column_names=columns)
 
 
@@ -2262,10 +2264,11 @@ def create_organization_and_add_workspaces(
 
     # Add existing orphan workspaces to the organization - this is only needed for backwards compatibility
     user_workspaces = client.user_workspaces_with_organization(version="v1")
-    workspaces_to_migrate = []
-    for workspace in user_workspaces["workspaces"]:
-        if workspace.get("organization") is None and workspace.get("role") == "admin":
-            workspaces_to_migrate.append(workspace["id"])
+    workspaces_to_migrate = [
+        workspace["id"]
+        for workspace in user_workspaces["workspaces"]
+        if workspace.get("organization") is None and workspace.get("role") == "admin"
+    ]
     client.add_workspaces_to_organization(organization["id"], workspaces_to_migrate)
 
     return organization
@@ -2283,7 +2286,6 @@ def get_user_token(config: CLIConfig, user_token: Optional[str] = None) -> str:
                 check_user_token_with_client(client, user_token)
             except Exception:
                 user_token = None
-                pass
         if not user_token:
             user_token = ask_for_user_token("delete a workspace", ui_host)
         if not user_token:

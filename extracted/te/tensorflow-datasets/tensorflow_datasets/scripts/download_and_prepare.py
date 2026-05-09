@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,43 +15,21 @@
 
 r"""Wrapper around `tfds build`."""
 
-import argparse
-from typing import List
-
 from absl import app
 from absl import flags
-from absl import logging
-
 from tensorflow_datasets.scripts.cli import main as main_cli
 
-module_import = flags.DEFINE_string('module_import', None, '`--imports` flag.')
-dataset = flags.DEFINE_string('dataset', None, 'singleton `--datasets` flag.')
 
-builder_config_id = flags.DEFINE_integer(
-    'builder_config_id', None, '`--config_idx` flag'
-)
-
-
-
-def _parse_flags(argv: List[str]) -> argparse.Namespace:
+def _parse_flags(argv: list[str]) -> main_cli.Args:
   """Command lines flag parsing."""
   return main_cli._parse_flags([argv[0], 'build'] + argv[1:])  # pylint: disable=protected-access
 
 
-_display_warning = True
-
-
-def main(args: argparse.Namespace) -> None:
-  if _display_warning:
-    logging.warning(
-        '***`tfds build` should be used instead of `download_and_prepare`.***'
-    )
-  if module_import.value:
-    args.imports = module_import.value
-  if dataset.value:
-    args.datasets = [dataset.value]
-  if builder_config_id.value is not None:
-    args.config_idx = builder_config_id.value
+def main(args: main_cli.Args) -> None:
+  from absl import logging
+  logging.warning(
+      '***`tfds build` should be used instead of `download_and_prepare`.***'
+  )
   main_cli.main(args)
 
 

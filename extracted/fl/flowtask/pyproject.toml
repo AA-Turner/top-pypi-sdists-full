@@ -1,7 +1,6 @@
 [build-system]
 requires = [
     "setuptools>=67.6.1",
-    "setuptools_scm[toml]>=6.0",
     "Cython==3.0.11",
     "wheel>=0.44.0"
 ]
@@ -163,14 +162,22 @@ Source = "https://github.com/phenobarbital/flowtask"
 Funding = "https://paypal.me/phenobarbital"
 "Say Thanks!" = "https://saythanks.io/to/phenobarbital"
 
-[tool.setuptools_scm]
-write_to = "flowtask/_version.py"
-
 [tool.setuptools.dynamic]
 version = {attr = "flowtask.__version__"}
 
+[tool.setuptools]
+include-package-data = true
+
+# Allowlist: only the `flowtask` package and its subpackages are part of the distribution.
+# Everything else at the repo root (sdd/, agents/, examples/, tests/, etc.) is for
+# development only and must NOT ship to PyPI.
 [tool.setuptools.packages.find]
-exclude = ["contrib", "bin", "settings", "examples", "tests", "plugins"]
+where = ["."]
+include = ["flowtask*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+flowtask = ["py.typed", "**/py.typed", "**/*.pxd", "**/*.pxi"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

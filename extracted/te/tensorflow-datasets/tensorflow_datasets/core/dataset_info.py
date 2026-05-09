@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@ with epy.lazy_imports():
   # pylint: disable=g-import-not-at-top
   from tensorflow_datasets.core.utils import file_utils
   from tensorflow_datasets.core.utils import gcs_utils
+  from tensorflow_datasets.core.utils import retry
 
   from google.protobuf import json_format
   # pylint: enable=g-import-not-at-top
@@ -537,6 +538,9 @@ class DatasetInfo:
       updated_split_infos = []
       for split_info in self.splits.values():
         if split_info.filename_template is None:
+          logging.warning(
+              "Split %s has no filename template, skipping.", split_info.name
+          )
           continue
         updated_split_info = split_info.replace(
             filename_template=split_info.filename_template.replace(
@@ -718,7 +722,7 @@ class DatasetInfo:
       )
 
     self._identity = DatasetIdentity.from_proto(
-        info_proto=parsed_proto, data_dir=dataset_info_dir
+        info_proto=parsed_proto, data_dir=os.fspath(dataset_info_dir)
     )
 
     # Update splits
@@ -781,10 +785,15 @@ class DatasetInfo:
       if not is_defined_in_restored:
         continue
       # Otherwise, we restore the dataset_info.json value
+      is_repeated = getattr(
+          field,
+          "is_repeated",
+          getattr(field, "label", None) == getattr(field, "LABEL_REPEATED", 3),
+      )
       if field.type == field.TYPE_MESSAGE:
         field_value.MergeFrom(field_value_restored)
-      elif field.label == field.LABEL_REPEATED:
-        del field_value[:]
+      elif is_repeated:
+        field_value[:] = []
         field_value.extend(field_value_restored)
       else:
         setattr(self._info_proto, field_name, field_value_restored)
@@ -1123,7 +1132,7 @@ def read_from_json(path: epath.PathLike) -> dataset_info_pb2.DatasetInfo:
     DatasetInfoFileError: If the dataset info file cannot be read.
   """
   try:
-    json_str = epath.Path(path).read_text()
+    json_str = retry.retry(epath.Path(path).read_text)
   except OSError as e:
     raise DatasetInfoFileError(
         f"Could not read dataset info from {path}"

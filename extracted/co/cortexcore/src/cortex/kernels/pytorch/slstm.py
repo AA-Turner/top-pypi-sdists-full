@@ -83,7 +83,8 @@ def _recurrent_mix(y: torch.Tensor, R: torch.Tensor) -> torch.Tensor:
 
     # _slstm_pointwise expects flattened gate-major order: [i_all_heads, f_all_heads, z_all_heads, o_all_heads].
     # Convert from [head, gate*dim] to [gate, head, dim] before flattening.
-    return Ry.view(B, NH, 4, DH).permute(0, 2, 1, 3).reshape(B, 4 * NH * DH)
+    Ry = Ry.view(B, NH, 4, DH).permute(0, 2, 1, 3).reshape(B, 4 * NH * DH)
+    return Ry
 
 
 def slstm_sequence_pytorch(

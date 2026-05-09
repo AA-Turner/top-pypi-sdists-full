@@ -445,6 +445,12 @@ _request_classifier = _RequestClassifier()
 # Current request classification - ENFORCED during file writing
 _current_classification: _ClassifiedRequest | None = None
 
+# When True, the classifier will mark every request as IMPLEMENTATION mode so
+# FILE: writes are not rejected as "MODE VIOLATION". Used by `sage run --prompt`
+# (the SMS bridge entry point) where there's no human in the loop to "approve
+# implementation" — the texted task IS the approval.
+_force_implementation_mode: bool = False
+
 # Current working directory - Used for session persistence across turns
 _current_cwd: Path | None = None
 
@@ -489,6 +495,17 @@ def _classify_and_store_request(user_input: str) -> _ClassifiedRequest:
     """
     global _current_classification
     _current_classification = _request_classifier.classify(user_input)
+
+    # SMS bridge / non-interactive override: when --prompt is set, the user
+    # has explicitly requested an action over a channel where they can't
+    # follow up with "yes, implement it". Force IMPLEMENTATION classification
+    # so FILE: writes don't get rejected as "MODE VIOLATION: read-only analysis".
+    if _force_implementation_mode and _current_classification is not None:
+        try:
+            _current_classification.read_only = False
+            _current_classification.request_type = _RequestType.IMPLEMENTATION
+        except Exception:
+            pass  # Object may be immutable in some classifier versions; safe to ignore.
 
     # Ensure is_informational is set for all classification objects (V1/V2 compatibility)
     if not hasattr(_current_classification, "is_informational"):
@@ -2412,7 +2429,7 @@ def _ensure_llama_cpp_runtime() -> bool:
             "  2. Use Ollama instead of GGUF:\n"
             "       sage pull ollama:<model-name>   # e.g. ollama:gemma3\n"
             "       sage use ollama:<model-name>\n"
-            "  3. Use a cloud model: sage use gemini-2.0-flash (needs GEMINI_API_KEY)."
+            "  3. Use SAGE-hosted server models: sage login"
         )
         _llama_cpp_runtime_bootstrap_error = (
             f"Python {py_major}.{py_minor} has no llama-cpp-python wheels "
@@ -2660,10 +2677,10 @@ def _prepare_model_for_use(
         target = fallback_model or _pick_runtime_fallback(cfg)
         if not target:
             raise RuntimeError(
-                "llama-cpp-python is unavailable and no cloud/Ollama fallback is configured.\n"
+                "llama-cpp-python is unavailable and no Ollama/server fallback is configured.\n"
                 "Pick one of:\n"
                 "  • Install Ollama and run: sage pull ollama:gemma3 && sage use ollama:gemma3\n"
-                "  • Set a cloud API key, e.g. SAGE_GEMINI_API_KEY, then: sage use gemini-2.0-flash\n"
+                "  • Use SAGE-hosted server models: sage login\n"
                 "  • Run sage from Python 3.13 (which has llama-cpp-python wheels)."
             )
         model_id = target
@@ -11783,6 +11800,19 @@ def run(
             help="Disable ANSI colors (also respects NO_COLOR in the environment)",
         ),
     ] = False,
+    prompt: Annotated[
+        str | None,
+        typer.Option(
+            "--prompt",
+            "-p",
+            help=(
+                "Run the agent on a single task non-interactively then exit. "
+                "Used by the SMS bridge so texted tasks (e.g. 'create a project', "
+                "'run the tests', 'fix the failing build') get the full agent "
+                "loop — shell, file edits, tests, retries — instead of one-shot chat."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Interactive coding agent — Claude Code–style READ/SEARCH/edit/run using your models."""
     import os
@@ -11825,6 +11855,28 @@ def run(
     cfg = load_config()
     router = _build_router(cfg)
     prompt_reader = _build_prompt_reader(cwd)
+
+    # Non-interactive one-shot mode: feed the supplied task once, then raise
+    # EOFError on the next read so the REPL hits its `except EOFError: break`
+    # path and exits cleanly. The full agent loop (tool use, shell, edits,
+    # tests, retries) runs in between — this is what the SMS bridge uses so
+    # texted tasks like "create a React Native project" actually execute.
+    if prompt:
+        _one_shot_value = prompt
+        _one_shot_consumed = {"done": False}
+
+        def _one_shot_reader(_prompt_text: str) -> str:
+            if _one_shot_consumed["done"]:
+                raise EOFError
+            _one_shot_consumed["done"] = True
+            return _one_shot_value
+
+        prompt_reader = _one_shot_reader
+
+        # Bypass the read-only / analysis guard. SMS users can't reply
+        # "yes, implement it" — the texted task IS the approval.
+        global _force_implementation_mode
+        _force_implementation_mode = True
 
     last_used_model = _get_last_used_model(cwd)
     model_id = model or last_used_model or cfg.default_model

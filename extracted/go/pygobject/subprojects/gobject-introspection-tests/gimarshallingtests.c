@@ -2128,6 +2128,24 @@ gi_marshalling_tests_array_struct_in (GIMarshallingTestsBoxedStruct **structs, g
 }
 
 /**
+ * gi_marshalling_tests_array_struct_full_in:
+ * @structs: (array length=length) (transfer full):
+ */
+void
+gi_marshalling_tests_array_struct_full_in (GIMarshallingTestsBoxedStruct **structs, gint length)
+{
+  g_assert_cmpint (length, ==, 3);
+  g_assert_cmpint (structs[0]->long_, ==, 1);
+  g_assert_cmpint (structs[1]->long_, ==, 2);
+  g_assert_cmpint (structs[2]->long_, ==, 3);
+
+  for (int i = 0; i < length; i++)
+    g_free (structs[i]);
+
+  g_free (structs);
+}
+
+/**
  * gi_marshalling_tests_array_struct_value_in:
  * @structs: (array length=length):
  */
@@ -2922,9 +2940,12 @@ gi_marshalling_tests_zero_terminated_array_utf8_full_return (void)
 /**
  * gi_marshalling_tests_zero_terminated_array_utf8_none_in:
  * @array: (array zero-terminated) (transfer none):
+ * @extra: (nullable) (transfer none):
+ *    The extra parameter can be used to trigger marshalling errors,
+ *    so you can test the cleanup of array in case of invalid parameters.
  */
 void
-gi_marshalling_tests_zero_terminated_array_utf8_none_in (const gchar *const *array)
+gi_marshalling_tests_zero_terminated_array_utf8_none_in (const gchar *const *array, gchar *extra)
 {
   g_assert_cmpstr (array[0], ==, SQUARED_A);
   g_assert_cmpstr (array[1], ==, BETA);
@@ -2932,16 +2953,20 @@ gi_marshalling_tests_zero_terminated_array_utf8_none_in (const gchar *const *arr
   g_assert_cmpstr (array[3], ==, "d");
 
   g_assert_null (array[4]);
+  g_assert_null (extra);
 }
 
 /**
  * gi_marshalling_tests_zero_terminated_array_utf8_container_in:
  * @array: (array zero-terminated) (transfer container):
+ * @extra: (nullable) (transfer none):
+ *    The extra parameter can be used to trigger marshalling errors,
+ *    so you can test the cleanup of array in case of invalid parameters.
  */
 void
-gi_marshalling_tests_zero_terminated_array_utf8_container_in (const gchar **array)
+gi_marshalling_tests_zero_terminated_array_utf8_container_in (const gchar **array, gchar *extra)
 {
-  gi_marshalling_tests_zero_terminated_array_utf8_none_in (array);
+  gi_marshalling_tests_zero_terminated_array_utf8_none_in (array, extra);
 
   g_clear_pointer (&array, g_free);
 }
@@ -2949,11 +2974,14 @@ gi_marshalling_tests_zero_terminated_array_utf8_container_in (const gchar **arra
 /**
  * gi_marshalling_tests_zero_terminated_array_utf8_full_in:
  * @array: (array zero-terminated) (transfer full):
+ * @extra: (nullable) (transfer none):
+ *    The extra parameter can be used to trigger marshalling errors,
+ *    so you can test the cleanup of array in case of invalid parameters.
  */
 void
-gi_marshalling_tests_zero_terminated_array_utf8_full_in (gchar **array)
+gi_marshalling_tests_zero_terminated_array_utf8_full_in (gchar **array, gchar *extra)
 {
-  gi_marshalling_tests_zero_terminated_array_utf8_none_in ((const gchar *const *) array);
+  gi_marshalling_tests_zero_terminated_array_utf8_none_in ((const gchar *const *) array, extra);
 
   for (size_t i = 0; array && array[i] != NULL; i++)
     g_clear_pointer (&array[i], g_free);
@@ -3000,7 +3028,7 @@ gi_marshalling_tests_zero_terminated_array_utf8_none_inout (const gchar *const *
 {
   static const gchar *array_out[] = { "a", "b", CENT, ABCD, NULL };
 
-  gi_marshalling_tests_zero_terminated_array_utf8_none_in (*array_inout);
+  gi_marshalling_tests_zero_terminated_array_utf8_none_in (*array_inout, NULL);
 
   *array_inout = array_out;
 }
@@ -3014,7 +3042,7 @@ gi_marshalling_tests_zero_terminated_array_utf8_container_inout (const gchar ***
 {
   const gchar **array_out = g_new0 (const gchar *, 5);
 
-  gi_marshalling_tests_zero_terminated_array_utf8_container_in (*array_inout);
+  gi_marshalling_tests_zero_terminated_array_utf8_container_in (*array_inout, NULL);
 
   array_out[0] = "a";
   array_out[1] = "b";
@@ -3034,7 +3062,7 @@ gi_marshalling_tests_zero_terminated_array_utf8_full_inout (gchar ***array_inout
   gchar **array_out = g_new0 (gchar *, 5);
 
   gi_marshalling_tests_zero_terminated_array_utf8_full_in (
-    g_steal_pointer (array_inout));
+    g_steal_pointer (array_inout), NULL);
 
   array_out[0] = g_strdup ("a");
   array_out[1] = g_strdup ("b");
@@ -4641,7 +4669,7 @@ gi_marshalling_tests_zero_terminated_array_of_gstrv_transfer_none_inout (GStrv *
 void
 gi_marshalling_tests_zero_terminated_array_of_gstrv_transfer_container_inout (GStrv **array_inout)
 {
-  GStrv *array = g_new0 (GStrv, 4);
+  GStrv *array = g_new0 (GStrv, 5);
 
   static const gchar *values0[] = { "-1", "0", "1", "2", NULL };
   static const gchar *values1[] = { "-1", "3", "4", "5", NULL };
@@ -4654,6 +4682,7 @@ gi_marshalling_tests_zero_terminated_array_of_gstrv_transfer_container_inout (GS
   array[1] = (GStrv) values1;
   array[2] = (GStrv) values2;
   array[3] = (GStrv) values3;
+  array[4] = NULL;
 
   *array_inout = (GStrv *) array;
 }
@@ -6717,6 +6746,63 @@ gi_marshalling_tests_boxed_struct_inout (GIMarshallingTestsBoxedStruct **struct_
   (*struct_)->long_ = 0;
 }
 
+static GIMarshallingTestsPointerArrayStruct *
+gi_marshalling_tests_pointer_array_struct_copy (GIMarshallingTestsPointerArrayStruct *struct_)
+{
+  struct_->ref_count += 1;
+  return struct_;
+}
+
+static void
+gi_marshalling_tests_pointer_array_struct_free (GIMarshallingTestsPointerArrayStruct *struct_)
+{
+  if (struct_ && struct_->ref_count > 0)
+    {
+      struct_->ref_count -= 1;
+      if (struct_->ref_count == 0)
+        {
+          g_clear_pointer (&struct_->array, g_array_unref);
+          g_free (struct_);
+        }
+    }
+}
+
+GType
+gi_marshalling_tests_pointer_array_struct_get_type (void)
+{
+  static GType type = 0;
+
+  if (type == 0)
+    {
+      type = g_boxed_type_register_static ("GIMarshallingTestsPointerArrayStruct",
+                                           (GBoxedCopyFunc) gi_marshalling_tests_pointer_array_struct_copy,
+                                           (GBoxedFreeFunc) gi_marshalling_tests_pointer_array_struct_free);
+    }
+
+  return type;
+}
+
+/**
+ * gi_marshalling_tests_pointer_array_struct_with_uint8_array:
+ * Returns: (transfer full):
+ */
+GIMarshallingTestsPointerArrayStruct *
+gi_marshalling_tests_pointer_array_struct_with_uint8_array (void)
+{
+  GIMarshallingTestsPointerArrayStruct *struct_;
+  static const gchar values[] = "0123456789";
+  gint i;
+
+  struct_ = g_new0 (GIMarshallingTestsPointerArrayStruct, 1);
+
+  struct_->array = g_array_new (TRUE, TRUE, sizeof (guint8));
+  for (i = 0; values[i]; i++)
+    g_array_append_val (struct_->array, values[i]);
+
+  struct_->ref_count = 1;
+  return struct_;
+}
+
 static GIMarshallingTestsUnion *
 gi_marshalling_tests_union_copy (GIMarshallingTestsUnion *union_)
 {
@@ -7532,6 +7618,38 @@ gi_marshalling_tests_callback_owned_boxed (GIMarshallingTestsCallbackOwnedBoxed 
   callback (box, callback_data);
   ret = box->long_;
   return ret;
+}
+
+/**
+ * gi_marshalling_tests_callback_user_data_after_callback:
+ * @a:
+ * @b:
+ * @callback: (scope call) (closure user_data):
+ * @user_data:
+ */
+void
+gi_marshalling_tests_callback_user_data_after_callback (gint a,
+                                                        gint b,
+                                                        GIMarshallingTestsCallbackWithTwoParametersAndUserData callback,
+                                                        gpointer user_data)
+{
+  callback (a, b, user_data);
+}
+
+/**
+ * gi_marshalling_tests_callback_user_data_before_callback:
+ * @a:
+ * @b:
+ * @user_data:
+ * @callback: (scope call) (closure user_data):
+ */
+void
+gi_marshalling_tests_callback_user_data_before_callback (gint a,
+                                                         gint b,
+                                                         gpointer user_data,
+                                                         GIMarshallingTestsCallbackWithTwoParametersAndUserData callback)
+{
+  callback (a, b, user_data);
 }
 
 gboolean
@@ -10200,7 +10318,7 @@ gi_marshalling_tests_signals_object_emit_boxed_struct (GIMarshallingTestsSignals
   GIMarshallingTestsBoxedStruct *boxed = gi_marshalling_tests_boxed_struct_new ();
   boxed->long_ = 99;
   boxed->string_ = g_strdup ("a string");
-  boxed->g_strv = g_strdupv ((GStrv) (const char *[]){ "foo", "bar", "baz", NULL });
+  boxed->g_strv = g_strdupv ((GStrv) (const char *[]) { "foo", "bar", "baz", NULL });
 
   g_signal_emit_by_name (object, "some-boxed-struct", boxed);
   g_clear_pointer (&boxed, gi_marshalling_tests_boxed_struct_free);
@@ -10213,6 +10331,6 @@ gi_marshalling_tests_signals_object_emit_boxed_struct_full (GIMarshallingTestsSi
 
   boxed->long_ = 99;
   boxed->string_ = g_strdup ("a string");
-  boxed->g_strv = g_strdupv ((GStrv) (const char *[]){ "foo", "bar", "baz", NULL });
+  boxed->g_strv = g_strdupv ((GStrv) (const char *[]) { "foo", "bar", "baz", NULL });
   g_signal_emit_by_name (object, "some-boxed-struct-full", g_steal_pointer (&boxed));
 }

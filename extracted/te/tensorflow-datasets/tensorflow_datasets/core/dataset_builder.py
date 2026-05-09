@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,6 +64,7 @@ with epy.lazy_imports():
   from tensorflow_datasets.core.utils import file_utils
   from tensorflow_datasets.core.utils import gcs_utils
   from tensorflow_datasets.core.utils import read_config as read_config_lib
+  from tensorflow_datasets.core.utils import retry
   from tensorflow_datasets.core.utils import type_utils
   # pylint: enable=g-import-not-at-top
 
@@ -152,7 +153,10 @@ def _get_builder_datadir_path(builder_cls: Type[Any]) -> epath.Path:
   """
   pkg_names = builder_cls.__module__.split(".")
   # -1 to remove the xxx.py python file.
-  return epath.resource_path(pkg_names[0]).joinpath(*pkg_names[1:-1])
+  path = epath.resource_path(pkg_names[0])
+  for pkg_name in pkg_names[1:-1]:
+    path = path.joinpath(pkg_name)
+  return path
 
 
 class DatasetBuilder(registered.RegisteredDataset):
@@ -290,7 +294,8 @@ class DatasetBuilder(registered.RegisteredDataset):
     # Compute the base directory (for download) and dataset/version directory.
     self._data_dir_root, self._data_dir = self._build_data_dir(data_dir)
     # If the dataset info is available, use it.
-    if dataset_info.dataset_info_path(self.data_path).exists():
+    dataset_info_path = dataset_info.dataset_info_path(self.data_path)
+    if retry.retry(dataset_info_path.exists):
       self.info.read_from_directory(self._data_dir)
     else:  # Use the code version (do not restore data)
       self.info.initialize_from_bucket()
@@ -341,7 +346,9 @@ class DatasetBuilder(registered.RegisteredDataset):
             or path.parts
         ):
           modules[-1] += ".py"
-          return path.joinpath(*modules[1:])
+          for module in modules[1:]:
+            path = path.joinpath(module)
+          return path
     # Otherwise, fallback to `pathlib.Path`. For non-zipapp, it should be
     # equivalent to the above return.
     try:
@@ -466,8 +473,8 @@ class DatasetBuilder(registered.RegisteredDataset):
         # zipfile.Path does not have `.parts`. Additionally, `os.fspath`
         # will extract the file, so use `str`.
         "tensorflow_datasets" in str(new_path)
-        and legacy_path.exists()
-        and not new_path.exists()
+        and retry.retry(legacy_path.exists)
+        and not retry.retry(new_path.exists)
     ):
       return legacy_path
     else:
@@ -484,7 +491,7 @@ class DatasetBuilder(registered.RegisteredDataset):
     # Search for the url_info file.
     checksums_path = cls._checksums_path
     # If url_info file is found, load the urls
-    if checksums_path and checksums_path.exists():
+    if checksums_path and retry.retry(checksums_path.exists):
       return download.checksums.load_url_infos(checksums_path)
     else:
       return None
@@ -618,13 +625,13 @@ class DatasetBuilder(registered.RegisteredDataset):
       RuntimeError: when the config cannot be found.
       DatasetBlockedError: if the given version, or combination of version and
         config, has been marked as blocked in the builder's BLOCKED_VERSIONS.
-    """
+    """  # fmt: skip
     self.assert_is_not_blocked()
 
 
     download_config = download_config or download.DownloadConfig()
     data_path = self.data_path
-    data_exists = data_path.exists()
+    data_exists = retry.retry(data_path.exists)
 
     # Saving nondeterministic_order in the DatasetInfo for documentation.
     if download_config.nondeterministic_order:
@@ -640,7 +647,7 @@ class DatasetBuilder(registered.RegisteredDataset):
             "Deleting pre-existing dataset %s (%s)", self.name, self.data_dir
         )
         data_path.rmtree()  # Delete pre-existing data.
-        data_exists = data_path.exists()
+        data_exists = retry.retry(data_path.exists)
       else:
         logging.info("Reusing dataset %s (%s)", self.name, self.data_dir)
         return
@@ -805,7 +812,7 @@ class DatasetBuilder(registered.RegisteredDataset):
   def _update_dataset_info(self) -> None:
     """Updates the `dataset_info.json` file in the dataset dir."""
     info_file = self.data_path / constants.DATASET_INFO_FILENAME
-    if not info_file.exists():
+    if not retry.retry(info_file.exists):
       raise AssertionError(f"To update {info_file}, it must already exist.")
     new_info = self.info
     new_info.read_from_directory(self.data_path)
@@ -888,18 +895,22 @@ class DatasetBuilder(registered.RegisteredDataset):
         )
       chosen_format = file_format
     else:
-      chosen_format = suitable_formats.pop()
-      logging.info(
-          "Found random access formats: %s. Chose to use %s. Overriding file"
-          " format in the dataset info.",
-          ", ".join([f.name for f in suitable_formats]),
-          chosen_format,
-      )
+      if info.file_format in suitable_formats:
+        chosen_format = info.file_format
+      else:
+        chosen_format = suitable_formats.pop()
+        logging.info(
+            "Found random access formats: %s. Chose to use %s. Overriding file"
+            " format in the dataset info.",
+            ", ".join([f.name for f in suitable_formats]),
+            chosen_format,
+        )
 
-    # Change the dataset info to read from a random access format.
-    info.set_file_format(
-        chosen_format, override=True, override_if_initialized=True
-    )
+    if info.file_format != chosen_format:
+      # Change the dataset info to read from a random access format.
+      info.set_file_format(
+          chosen_format, override=True, override_if_initialized=True
+      )
 
     # Create a dataset for each of the given splits
     def build_single_data_source(split: str) -> Sequence[Any]:
@@ -1020,7 +1031,7 @@ class DatasetBuilder(registered.RegisteredDataset):
     self.assert_is_not_blocked()
 
     # pylint: enable=line-too-long
-    if not self.data_path.exists():
+    if not retry.retry(self.data_path.exists):
       raise AssertionError(
           "Dataset %s: could not find data in %s. Please make sure to call "
           "dataset_builder.download_and_prepare(), or pass download=True to "
@@ -1817,7 +1828,7 @@ class GeneratorBasedBuilder(FileReaderBuilder):
     """Returns the text in the given file and records the lineage."""
     filename = epath.Path(filename)
     self.info.add_file_data_source_access(filename)
-    return filename.read_text(encoding=encoding)
+    return retry.retry(filename.read_text, encoding=encoding)
 
   def read_tfrecord_as_dataset(
       self,
@@ -2057,9 +2068,9 @@ def _save_default_config_name(
 def load_default_config_name(builder_dir: epath.Path) -> str | None:
   """Load `builder_cls` metadata (common to all builder configs)."""
   config_path = builder_dir / ".config" / constants.METADATA_FILENAME
-  if not config_path.exists():
+  if not retry.retry(config_path.exists):
     return None
-  data = json.loads(config_path.read_text())
+  data = json.loads(retry.retry(config_path.read_text))
   return data.get("default_config_name")
 
 

@@ -156,7 +156,6 @@ def deployment_group() -> None:
     """
     Deployment commands.
     """
-    pass
 
 
 @deployment_group.command(name="create")
@@ -262,9 +261,7 @@ def deployment_ls(ctx: click.Context, include_deleted: bool) -> None:
     # Handle different output formats
     if output == "json":
         # Create JSON structure
-        deployments_json = []
-        for row in table:
-            deployments_json.append({"id": row[0], "status": row[1], "created_at": row[2]})
+        deployments_json = [{"id": row[0], "status": row[1], "created_at": row[2]} for row in table]
         from tinybird.tb.modules.common import echo_json
 
         echo_json({"deployments": deployments_json})

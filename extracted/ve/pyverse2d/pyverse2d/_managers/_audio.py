@@ -15,6 +15,7 @@ import random
 from dataclasses import dataclass
 from numbers import Real, Integral
 from typing import ClassVar, Type, Callable, Any
+from concurrent.futures import ThreadPoolExecutor
 
 # ======================================== CONSTANTS ========================================
 _CROSSFADE_STEPS = 20
@@ -137,8 +138,9 @@ class MusicHandle(AudioHandle):
     def stop(self) -> None:
         """Arrête la musique"""
         if self._active:
-            self.music._set_state(AudioState.SLEEPING)
-            self.music._set_handle(None)
+            if self.music._handle is self:
+                self.music._set_state(AudioState.SLEEPING)
+                self.music._set_handle(None)
             self.delete()
 
 # ======================================== GROUPS ========================================
@@ -286,7 +288,7 @@ class AudioManager(Manager):
     __slots__ = (
         "_master_volume", "_music_volume",
         "_active_sounds", "_current_music", "_crossfade", "_playlist",
-        "_source_cache",
+        "_source_cache", "_executor",
     )
 
     _ID: ClassVar[str] = "audio"
@@ -321,6 +323,7 @@ class AudioManager(Manager):
         self._crossfade: _CrossfadeRequest | None = None
         self._playlist: _PlaylistRequest | None = None
         self._source_cache: dict[str, _media.StaticSource] = {}
+        self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=2)
 
     # ======================================== PROPERTIES ========================================
     @property
@@ -498,6 +501,8 @@ class AudioManager(Manager):
         """Nettoyage complet"""
         self.stop_sounds()
         self._stop_music_immediate()
+        self._executor.shutdown(wait=False)
+        self._executor = ThreadPoolExecutor(max_workers=2)
 
     # ======================================== SOUNDS ========================================
     @profile_section("manager.audio.play_sound")
@@ -678,7 +683,9 @@ class AudioManager(Manager):
             self._playlist.playing = False
 
         # Génération du handle
-        source = music._source or _media.load(music.path, streaming=True)
+        source = music._get_source()
+        if source is None:
+            source = _media.load(music.path, streaming=True)
         player = _media.Player()
         player.loop = loop
         player.queue(source)
@@ -813,10 +820,9 @@ class AudioManager(Manager):
         music_out = self._current_music
 
         # Génération du handle
-        if music == music_out:
+        source = music._get_source()
+        if source is None:
             source = _media.load(music.path, streaming=True)
-        else:
-            source = music._source or _media.load(music.path, streaming=True)
         player = _media.Player()
         player.loop = loop
         player.queue(source)
@@ -998,10 +1004,7 @@ class AudioManager(Manager):
 
         if cf.step >= cf.steps:
             if cf.handle_out is not None:
-                if cf.handle_in is not None and cf.handle_in.music == cf.handle_out.music:
-                    cf.handle_out.delete()
-                else:
-                    cf.handle_out.stop()
+                cf.handle_out.stop()
             if cf.handle_in is not None:
                 cf.handle_in.play_volume = cf.vol_in
             self._crossfade = None
@@ -1028,16 +1031,7 @@ class AudioManager(Manager):
             if self._current_music._handle is not None:
                 self._current_music._handle.stop()
             self._current_music = None
-
-    def _clear_current_music(self, music: Music) -> None:
-        """Nettoie la musique courante si elle correspond à la musique donnée
-        
-        Args:
-            music: musique à tester
-        """
-        if self._current_music is music:
-            self._current_music = None
-
+            
     def _on_interrupted_music_end(self, handle: MusicHandle) -> None:
         """Reprend la playlist après une musique de surcharge
         
@@ -1049,6 +1043,24 @@ class AudioManager(Manager):
             self._playlist.delay_timer = 0.0
             self._play_playlist_next()
 
+    def _reload_source(self, music: Music) -> None:
+        """Recharge une source fraîche pour la musique (appelé depuis l'executor)
+        
+        Args:
+            music: musique à recharger
+        """
+        with music._source_lock:
+            if music._source is not None or music._loading_source:
+                return
+            music._loading_source = True
+
+        source = _media.load(music.path, streaming=True)
+
+        with music._source_lock:
+            if music._source is None:
+                music._source = source
+            music._loading_source = False
+
     def _make_on_stop(self, music: Music, on_end: Callable[[MusicHandle], Any], playlist_fallback: bool) -> Callable:
         """Construit le callback on_stop en fusionnant la logique musique et playlist
         
@@ -1058,15 +1070,22 @@ class AudioManager(Manager):
             playlist_fallback: reprise de la playlist à la fin de lecture
         """
         def on_stop(h: MusicHandle) -> None:
-            self._clear_current_music(music)
+            self._executor.submit(self._reload_source, music)
             if on_end is not None:
                 on_end(h)
+            if self._current_music is None or h is not self._current_music._handle:
+                return
+            self._current_music = None
             if playlist_fallback and self._playlist is not None and not self._playlist.playing:
                 self._on_interrupted_music_end(h)
         return on_stop
 
     def _cancel_crossfade(self) -> None:
         """Annule le cross-fade"""
+        if self._crossfade is not None:
+            cf = self._crossfade
+            if cf.handle_out is not None:
+                cf.handle_out.stop()
         self._crossfade = None
 
     def _refresh_volumes(self) -> None:
@@ -1075,7 +1094,7 @@ class AudioManager(Manager):
         if self._crossfade is not None:
             cf = self._crossfade
             if cf.handle_out is not None:
-                cf.handle_out.base_volume = base_musics_volume * cf.handle_in.music.volume
+                cf.handle_out.base_volume = base_musics_volume * cf.handle_out.music.volume
             if cf.handle_in is not None:
                 cf.handle_in.base_volume = base_musics_volume * cf.handle_in.music.volume
         elif self._current_music is not None:

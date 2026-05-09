@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,3 +21,7 @@ from tensorflow_datasets.robotics.asimov.asimov import AsimovDilemmasScifiVal
 from tensorflow_datasets.robotics.asimov.asimov import AsimovInjuryVal
 from tensorflow_datasets.robotics.asimov.asimov import AsimovMultimodalAutoVal
 from tensorflow_datasets.robotics.asimov.asimov import AsimovMultimodalManualVal
+from tensorflow_datasets.robotics.asimov.asimov_v2 import AsimovV2ConstraintsWithoutRationale
+from tensorflow_datasets.robotics.asimov.asimov_v2 import AsimovV2ConstraintsWithRationale
+from tensorflow_datasets.robotics.asimov.asimov_v2 import AsimovV2Injuries
+from tensorflow_datasets.robotics.asimov.asimov_v2 import AsimovV2Videos

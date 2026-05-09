@@ -18,7 +18,7 @@ import shutil
 import warnings
 from abc import abstractmethod
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Hashable
 from glob import glob
 from pathlib import Path
 from typing import Any, Generic, Iterable, no_type_check
@@ -298,34 +298,95 @@ def _build_windowed_repr(
 
 
 def _zarr_to_memmap(zarr_path, group_name):
-    """Decompress a zarr array to a float64 ``.npy`` memmap (one-time, atomic).
+    """Materialise a zarr array as a float64 ``.npy`` memmap, race-free.
 
-    Saved as float64 so MNE objects can wrap the memmap zero-copy
-    (MNE requires float64 internally).  Copy-on-write mode (``'c'``)
-    means preprocessing writes go to RAM, the file stays untouched.
+    Decompress the ``group_name`` array inside ``zarr_path`` into a
+    float64 ``.npy`` file inside a sibling ``.<zarr>_memmap/`` cache
+    directory and return the path to that file.  The dtype is float64
+    because MNE objects wrap the memmap zero-copy and MNE requires
+    float64 internally.  Callers open the result with
+    ``np.load(path, mmap_mode='c')`` so preprocessing writes land in
+    anonymous copy-on-write pages and never mutate the on-disk file.
+
+    Concurrency contract
+    --------------------
+    Safe to call from any number of threads or processes concurrently
+    on the same ``(zarr_path, group_name)``, on local POSIX, NFSv3,
+    Lustre and SMB.  The published ``.npy`` file is **created exactly
+    once and never replaced**: subsequent callers either hit the
+    already-materialised file on the fast path or lose the
+    publication race and discard their own copy.
+
+    The atomic publication step is ``os.link``, not ``rename``.
+    ``os.link(tmp, dst)`` either creates ``dst`` pointing at ``tmp``'s
+    inode or fails with :class:`FileExistsError` when ``dst`` already
+    exists — the "create only if absent" primitive we need, available
+    on every POSIX filesystem.  ``rename`` was the wrong primitive:
+    it atomically *replaces* its destination, which unlinks the inode
+    that concurrent readers may already have ``mmap``'d.  On NFSv3
+    that produced ``.nfsXXXX`` silly-rename files and intermittent
+    ``SIGBUS`` when workers page-faulted on the unlinked inode.
+
+    Under ``N`` concurrent writers, every racer materialises the data
+    into its own per-pid temp file and then tries to publish it; at
+    most one ``os.link`` wins, and the losers silently ``unlink``
+    their temp file in a ``finally`` block.  The wasted I/O scales
+    with the number of racers; for the workloads braindecode targets
+    (a handful of concurrent workers per group) it is negligible.
+
+    Crash recovery: if a writer dies mid-run the only debris is a
+    ``<group>.<pid>.tmp.npy`` file.  Such files are namespaced by pid
+    so they can never collide with a live writer, they are never
+    read by the fast path, and they do not prevent subsequent
+    callers from producing a correct result.  Caches written by
+    earlier braindecode versions remain valid: the fast path only
+    requires ``<group>.npy`` to exist.
     """
     zarr_p = Path(zarr_path)
     cache_dir = zarr_p.parent / f".{zarr_p.name}_memmap"
     npy_path = cache_dir / f"{group_name}.npy"
 
-    if not npy_path.exists():
-        arr = zarr.open(zarr_path, mode="r")[group_name]["data"]
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        tmp_path = cache_dir / f"{group_name}.{os.getpid()}.tmp.npy"
-        # Write chunk-by-chunk to avoid materializing the full array in RAM
+    # Fast path: the file is already fully materialised.  A single
+    # stat() is all the steady-state workload pays.
+    if npy_path.exists():
+        return npy_path
+
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    arr = zarr.open(zarr_path, mode="r")[group_name]["data"]
+    tmp_path = cache_dir / f"{group_name}.{os.getpid()}.tmp.npy"
+    try:
+        # Write chunk-by-chunk to avoid materialising the whole zarr
+        # array in RAM.
         mm = np.lib.format.open_memmap(
             tmp_path, mode="w+", dtype=np.float64, shape=arr.shape
         )
-        chunk0 = arr.chunks[0] if hasattr(arr, "chunks") else arr.shape[0]
-        for start in range(0, arr.shape[0], chunk0):
-            end = min(start + chunk0, arr.shape[0])
-            mm[start:end] = np.asarray(arr[start:end], dtype=np.float64)
-        mm.flush()
-        del mm
         try:
-            tmp_path.rename(npy_path)
-        except OSError:
-            tmp_path.unlink(missing_ok=True)
+            chunk0 = arr.chunks[0] if hasattr(arr, "chunks") else arr.shape[0]
+            for start in range(0, arr.shape[0], chunk0):
+                end = min(start + chunk0, arr.shape[0])
+                mm[start:end] = np.asarray(arr[start:end], dtype=np.float64)
+            mm.flush()
+        finally:
+            del mm
+
+        # Atomic publication.  ``os.link`` never replaces an existing
+        # destination, so the published inode is immutable for the
+        # lifetime of the cache directory.  Concurrent readers never
+        # see their mmap'd inode vanish from under them.
+        try:
+            os.link(tmp_path, npy_path)
+        except FileExistsError:
+            # Another writer beat us to it.  Their file is the
+            # canonical one; ours is discarded in the finally block.
+            pass
+    finally:
+        # Always remove our private per-pid temp file.  It is
+        # namespaced by pid so this cannot clobber a concurrent
+        # writer's in-progress tmp file.
+        try:
+            os.unlink(tmp_path)
+        except FileNotFoundError:
+            pass
 
     return npy_path
 
@@ -1278,6 +1339,124 @@ class BaseConcatDataset(ConcatDataset, HubDatasetMixin, Generic[T]):
         if not (callable(fn) or fn is None):
             raise TypeError("target_transform must be a callable.")
         self._target_transform = fn
+
+    def set_target(self, column: Hashable) -> "BaseConcatDataset":
+        """Use ``column`` as the target ``y`` for every subdataset.
+
+        Dispatches on the subdataset type:
+
+        * For :class:`WindowsDataset` / :class:`EEGWindowsDataset`,
+          ``column`` is looked up in per-window ``metadata`` first, then in
+          the per-record ``description`` (broadcast to every window). The
+          resolved values overwrite ``ds.metadata['target']`` and ``ds.y``.
+          For :class:`WindowsDataset`, the underlying ``ds.windows.metadata``
+          is kept in sync so ``get_metadata()`` and the repr reflect the
+          new target.
+        * For :class:`RawDataset`, ``column`` must exist on the
+          ``description``. ``ds.target_name`` is set to ``column`` so
+          ``__getitem__`` reads ``description[column]`` as ``y`` on every
+          access — no rebuild needed.
+
+        Parameters
+        ----------
+        column : Hashable
+            Name of a metadata column or description field (BIDS entity,
+            participants.tsv extra, ...). Typically a string, but any
+            hashable that pandas accepts as a column label is allowed.
+
+        Returns
+        -------
+        self : BaseConcatDataset
+
+        Raises
+        ------
+        TypeError
+            If any subdataset is not a :class:`WindowsDataset`,
+            :class:`EEGWindowsDataset`, or :class:`RawDataset`, or if a
+            windowed subdataset has lazy (non-DataFrame) metadata.
+        ValueError
+            If ``column`` is not present on a subdataset's metadata or
+            description, or if a windowed subdataset has
+            ``targets_from='channels'`` (which would make this a silent
+            no-op since ``__getitem__`` reads y from misc channels, not
+            from ``metadata['target']``).
+        """
+        for i, ds in enumerate(self.datasets):
+            if isinstance(ds, (WindowsDataset, EEGWindowsDataset)):
+                if not isinstance(ds.metadata, pd.DataFrame):
+                    # _LazyDataFrame (lazy_metadata=True) does not implement
+                    # .copy()/__setitem__, so the in-place write below would
+                    # raise AttributeError. Surface the precondition cleanly.
+                    raise TypeError(
+                        "set_target requires a materialized metadata "
+                        f"DataFrame; datasets[{i}].metadata is "
+                        f"{type(ds.metadata).__name__}. Re-window with "
+                        "lazy_metadata=False to use set_target."
+                    )
+                if getattr(ds, "targets_from", "metadata") != "metadata":
+                    # __getitem__ would read y from misc channels; writing
+                    # metadata['target']/ds.y would be a silent no-op.
+                    raise ValueError(
+                        f"datasets[{i}] has targets_from="
+                        f"{ds.targets_from!r}; set_target only applies when "
+                        "targets_from='metadata' (otherwise __getitem__ "
+                        "derives y from misc channels and would ignore the "
+                        "rewritten target column)."
+                    )
+                n = len(ds)
+                md = ds.metadata
+                if column in md.columns:
+                    values = md[column].iloc[:n].to_list()
+                elif (
+                    isinstance(ds.description, pd.Series)
+                    and column in ds.description.index
+                ):
+                    values = [ds.description[column]] * n
+                else:
+                    desc_keys = (
+                        list(ds.description.index)
+                        if isinstance(ds.description, pd.Series)
+                        else []
+                    )
+                    raise ValueError(
+                        f"Column {column!r} not found on datasets[{i}]: "
+                        f"metadata cols={list(md.columns)}, "
+                        f"description keys={desc_keys}."
+                    )
+                # In-place write so the WindowsDataset's metadata and the
+                # underlying mne.Epochs.metadata (which start as the same
+                # object reference) both reflect the new target. Defensive
+                # second write covers the case where they got de-aliased
+                # earlier by a caller-side reassignment.
+                md["target"] = values
+                windows_obj = getattr(ds, "_windows", None)
+                if windows_obj is not None and windows_obj.metadata is not md:
+                    windows_obj.metadata["target"] = values
+                # values is already a fresh list (Series.to_list() / [x] * n);
+                # no defensive copy needed — pandas keeps its own representation
+                # for md["target"] so mutating ds.y won't reach back into it.
+                ds.y = values
+            elif isinstance(ds, RawDataset):
+                if (
+                    not isinstance(ds.description, pd.Series)
+                    or column not in ds.description.index
+                ):
+                    desc_keys = (
+                        list(ds.description.index)
+                        if isinstance(ds.description, pd.Series)
+                        else []
+                    )
+                    raise ValueError(
+                        f"Column {column!r} not found on datasets[{i}] "
+                        f"description (keys={desc_keys})."
+                    )
+                ds.target_name = column
+            else:
+                raise TypeError(
+                    "set_target requires WindowsDataset, EEGWindowsDataset, "
+                    f"or RawDataset; datasets[{i}] is {type(ds).__name__}."
+                )
+        return self
 
     def _outdated_save(self, path, overwrite=False):
         """This is a copy of the old saving function, that had inconsistent.

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ from tensorflow_datasets.robotics.rtx.rtx import NyuDoorOpeningSurprisingEffecti
 from tensorflow_datasets.robotics.rtx.rtx import NyuFrankaPlayDatasetConvertedExternallyToRlds
 from tensorflow_datasets.robotics.rtx.rtx import NyuRotDatasetConvertedExternallyToRlds
 from tensorflow_datasets.robotics.rtx.rtx import PlexRobosuite
+from tensorflow_datasets.robotics.rtx.rtx import RoboAiUR5e
 from tensorflow_datasets.robotics.rtx.rtx import RoboSet
 from tensorflow_datasets.robotics.rtx.rtx import Roboturk
 from tensorflow_datasets.robotics.rtx.rtx import SpocRobot

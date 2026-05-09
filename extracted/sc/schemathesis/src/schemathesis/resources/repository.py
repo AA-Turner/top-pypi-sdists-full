@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 import jsonschema_rs
 
 from schemathesis.core.parameters import ParameterLocation
-from schemathesis.core.transforms import UNRESOLVABLE, resolve_pointer
+from schemathesis.core.transforms import UNRESOLVABLE, Unresolvable, resolve_pointer, resolve_pointer_all
 from schemathesis.core.transport import status_code_matches
 from schemathesis.resources.descriptors import Cardinality, ResourceDescriptor, ResourceFieldRef
 
@@ -80,6 +80,26 @@ class ResourceRepository:
         for bucket in context_buckets.values():
             instances.extend(bucket)
         return tuple(instances)
+
+    def remove_by_value(self, resource_name: str, value: Any) -> int:
+        """Drop instances whose data carries the given value; returns the number removed.
+
+        Called after a successful DELETE so subsequent draws don't re-feed a server-side gone id.
+        """
+        context_buckets = self._resource_buckets.get(resource_name)
+        if not context_buckets:
+            return 0
+        removed = 0
+        with self._lock:
+            for bucket in context_buckets.values():
+                kept = deque(
+                    (instance for instance in bucket if value not in instance.data.values()),
+                    maxlen=bucket.maxlen,
+                )
+                removed += len(bucket) - len(kept)
+                bucket.clear()
+                bucket.extend(kept)
+        return removed
 
     def record_response(
         self, *, operation: str, status_code: int, payload: Any, context: dict[str, Any] | None = None
@@ -153,25 +173,38 @@ class ResourceRepository:
         pointer = descriptor.pointer
         if pointer in ("", None, "/"):
             target = payload
+        elif "/*" in pointer:
+            result = resolve_pointer_all(payload, pointer)
+            if isinstance(result, Unresolvable):
+                return ()
+            # MANY descriptors yield one list per wildcard branch; flatten so each
+            # resource instance becomes a single pool entry.
+            if descriptor.cardinality == Cardinality.MANY:
+                values: list[Any] = []
+                for item in result:
+                    if isinstance(item, list):
+                        values.extend(item)
+                    else:
+                        values.append(item)
+            else:
+                values = result
+            return _wrap_extracted_values(values, descriptor)
         else:
             target = resolve_pointer(payload, pointer)
             if target is UNRESOLVABLE:
                 return ()
+
+        if descriptor.extract_object_keys and descriptor.identifier_field is not None and isinstance(target, dict):
+            # Map-by-id payload: keys ARE the identifier values.
+            # Example: GET /teams/statuses -> {"frc1": {...}, "frc2": {...}}
+            return [{descriptor.identifier_field: key} for key in target]
 
         if descriptor.cardinality == Cardinality.MANY and isinstance(target, list):
             values = target
         else:
             values = [target]
 
-        results: list[dict[str, Any]] = []
-        for value in values:
-            if isinstance(value, dict):
-                results.append(value)
-            elif descriptor.is_primitive_identifier and descriptor.identifier_field is not None:
-                # Wrap primitive identifier (string, int, etc.) in a dict
-                # Example: POST /recipes returns "my-slug" -> {"slug": "my-slug"}
-                results.append({descriptor.identifier_field: value})
-        return results
+        return _wrap_extracted_values(values, descriptor)
 
     def _store(
         self,
@@ -216,6 +249,17 @@ class ResourceRepository:
                 context_order.append(context_key)
 
             context_buckets[context_key].append(instance)
+
+
+def _wrap_extracted_values(values: Iterable[Any], descriptor: ResourceDescriptor) -> list[dict[str, Any]]:
+    """Wrap raw values as resource-instance dicts, lifting primitives onto `identifier_field`."""
+    results: list[dict[str, Any]] = []
+    for value in values:
+        if isinstance(value, dict):
+            results.append(value)
+        elif descriptor.is_primitive_identifier and descriptor.identifier_field is not None:
+            results.append({descriptor.identifier_field: value})
+    return results
 
 
 def _extract_request_value(slot: ResourceFieldRef, case: Case) -> Any:

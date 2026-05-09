@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tinker_cookbook
-Version: 0.3.0
+Version: 0.4.0
 Summary: Implementations of post-training algorithms using the Tinker API
 Project-URL: Homepage, https://thinkingmachines.ai/tinker
 Project-URL: Repository, https://github.com/thinking-machines-lab/tinker-cookbook
@@ -26,7 +26,7 @@ Requires-Dist: tiktoken>=0.12.0
 Requires-Dist: tinker>=0.9.0
 Requires-Dist: torch>=2.0
 Requires-Dist: tqdm>=4.60.0
-Requires-Dist: transformers<=5.3.0,>=4.57.6
+Requires-Dist: transformers<=5.5.3,>=4.57.6
 Provides-Extra: all
 Requires-Dist: antlr4-python3-runtime<4.14,>=4.11; extra == 'all'
 Requires-Dist: chromadb>=1.0.0; extra == 'all'
@@ -153,8 +153,7 @@ We provide two libraries for the broader community to customize their language m
 
 ## Tinker
 
-Refer to the [docs](https://tinker-docs.thinkingmachines.ai/training-sampling) to start from basics.
-Here we introduce a few Tinker primitives - the basic components to fine-tune LLMs:
+Here we introduce a few Tinker primitives — the basic components to fine-tune LLMs (see the [quickstart guide](https://tinker-docs.thinkingmachines.ai/tinker/quickstart/) for more details):
 
 ```python
 import tinker
@@ -238,17 +237,12 @@ Tinker Cookbook ships with [Claude Code skills](https://docs.anthropic.com/en/do
 /plugin marketplace add thinking-machines-lab/tinker-cookbook
 ```
 
-Then install the **tinker** plugin from the Discover tab (`/plugin` → Discover). Once installed, the following skills are available:
+Then install the **tinker** plugin from the Discover tab (`/plugin` → Discover). Once installed, two skills are available:
 
 | Command | What it does |
 |---|---|
-| `/tinker:core` | Getting started — installation, models, SDK basics, hyperparameters |
-| `/tinker:sft` | Supervised fine-tuning, datasets, renderers, distillation |
-| `/tinker:rl` | Reinforcement learning — GRPO, custom environments, multi-turn |
-| `/tinker:preferences` | DPO and RLHF pipelines |
-| `/tinker:ops` | Checkpoints, weight export, logging, evaluation |
-| `/tinker:debug` | Diagnose slow training, hangs, output mismatches, errors |
-| `/tinker:dev` | Contributing to this repo — tests, CI, recipes |
+| `/tinker:research` | Plan and run post-training experiments — SFT, RL, DPO, distillation, evaluation, hyperparameters, model selection, and more |
+| `/tinker:debug` | Diagnose slow training, hangs, output mismatches, renderer issues, and errors |
 
 Skills also trigger automatically based on context — ask Claude to "set up SFT training" and it will load the right skill without a slash command. Skills update automatically when the repo is updated.
 

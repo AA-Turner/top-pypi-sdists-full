@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ class LvisTest(tfds.testing.DatasetBuilderTestCase):
       'validation_images': '',
       'test_annotation': '',
       'test_images': '',
-      'minival_annotation': '',
+      'minival_annotation': 'lvis_v1_minival_inserted_image_name.json',
   }
 
 

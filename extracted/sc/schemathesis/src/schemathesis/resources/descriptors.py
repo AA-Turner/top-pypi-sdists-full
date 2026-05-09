@@ -19,7 +19,7 @@ class _ResourceRef(Protocol):
     """Identifies a resource by name."""
 
     @property
-    def name(self) -> str: ...
+    def name(self) -> str: ...  # pragma: no cover
 
 
 class ResourceFieldRef(Protocol):
@@ -29,13 +29,13 @@ class ResourceFieldRef(Protocol):
     """
 
     @property
-    def resource(self) -> _ResourceRef: ...
+    def resource(self) -> _ResourceRef: ...  # pragma: no cover
     @property
-    def resource_field(self) -> str | None: ...
+    def resource_field(self) -> str | None: ...  # pragma: no cover
     @property
-    def parameter_name(self) -> str | int: ...
+    def parameter_name(self) -> str | int: ...  # pragma: no cover
     @property
-    def parameter_location(self) -> ParameterLocation: ...
+    def parameter_location(self) -> ParameterLocation: ...  # pragma: no cover
 
 
 @dataclass(slots=True)
@@ -60,3 +60,6 @@ class ResourceDescriptor:
     cardinality: Cardinality
     is_primitive_identifier: bool = False
     identifier_field: str | None = None
+    # When True, the response payload is a `{<id>: <object>, ...}` map and the keys are the
+    # identifier values (e.g. Kubernetes pod-statuses, TBA team-statuses, slack auth.test).
+    extract_object_keys: bool = False

@@ -2495,27 +2495,31 @@ def set_const(m: types.Model, d: types.Data):
 
   Model fields that can be modified safely with set_const:
 
-    Field                            | Notes
-    ---------------------------------|----------------------------------------------
-    qpos0, qpos_spring               |
-    body_mass, body_inertia,         | Mass and inertia are usually scaled together
-    body_ipos, body_iquat            | since inertia is sum(m * r^2).
-    body_pos, body_quat              | Unsafe for static bodies (invalidates BVH).
-    body_gravcomp                    | If changing from 0 to >0 bodies, required.
-    dof_armature                     |
-    eq_data                          | For connect/weld, offsets computed if not set.
-    hfield_size                      |
-    tendon_stiffness, tendon_damping | Only if changing from/to zero.
-    actuator_gainprm, actuator_biasprm | For position actuators with dampratio.
+  ==================================  ==============================================
+  Field                               Notes
+  ==================================  ==============================================
+  qpos0, qpos_spring
+  body_mass, body_inertia,            Mass and inertia are usually scaled together
+  body_ipos, body_iquat               since inertia is sum(m * r^2).
+  body_pos, body_quat                 Unsafe for static bodies (invalidates BVH).
+  body_gravcomp                       If changing from 0 to >0 bodies, required.
+  dof_armature
+  eq_data                             For connect/weld, offsets computed if not set.
+  hfield_size
+  tendon_stiffness, tendon_damping    Only if changing from/to zero.
+  actuator_gainprm, actuator_biasprm  For position actuators with dampratio.
+  ==================================  ==============================================
 
   For selective updates, use the sub-functions directly based on what changed:
 
-    Modified Field  | Call
-    ----------------|------------------
-    body_mass       | set_const
-    body_gravcomp   | set_const_fixed
-    body_inertia    | set_const_0
-    qpos0           | set_const_0
+  ==============  ===============
+  Modified Field  Call
+  ==============  ===============
+  body_mass       set_const
+  body_gravcomp   set_const_fixed
+  body_inertia    set_const_0
+  qpos0           set_const_0
+  ==============  ===============
 
   Computes:
     - Fixed quantities (via set_const_fixed):
@@ -2767,11 +2771,13 @@ def create_render_context(
   render_seg: list[bool] | bool | None = None,
   use_textures: bool = True,
   use_shadows: bool = False,
+  use_ambient_lighting: bool = True,
   enabled_geom_groups: list[int] = [0, 1, 2],
   cam_active: list[bool] | None = None,
   flex_render_smooth: bool = True,
   use_precomputed_rays: bool = True,
   render_skybox: bool = False,
+  enable_backface_culling: bool = True,
 ) -> types.RenderContext:
   """Creates a render context on device.
 
@@ -2786,6 +2792,8 @@ def create_render_context(
       If None, uses the MuJoCo model values.
     use_textures: Whether to use textures.
     use_shadows: Whether to use shadows.
+    use_ambient_lighting: Whether to add the renderer's hemispheric ambient
+      lighting term before applying model lights.
     enabled_geom_groups: The geom groups to render.
     cam_active: List of booleans indicating which cameras to include in rendering.
                 If None, all cameras are included.
@@ -2794,6 +2802,10 @@ def create_render_context(
                           When using domain randomization for camera intrinsics, set to False.
     render_skybox: Whether to shade missed rays with the MuJoCo skybox texture.
                    Requires the model to contain a texture with type `mjTEXTURE_SKYBOX`.
+    enable_backface_culling: Drop primitive-ray hits whose normal faces away from
+                             the ray (ray origin inside the geom). Matches MuJoCo's
+                             mesh-ray rule. Default True. Disable for a small
+                             performance gain when no camera is ever inside a geom.
 
   Returns:
     The render context containing rendering fields and output arrays on device.
@@ -2980,6 +2992,7 @@ def create_render_context(
     cam_id_map=wp.array(active_cam_indices, dtype=int),
     use_textures=use_textures,
     use_shadows=use_shadows,
+    use_ambient_lighting=use_ambient_lighting,
     background_color=render_util.pack_rgba_to_uint32(0.1 * 255.0, 0.1 * 255.0, 0.2 * 255.0, 1.0 * 255.0),
     use_precomputed_rays=use_precomputed_rays,
     render_skybox=render_skybox,
@@ -3025,6 +3038,7 @@ def create_render_context(
     render_seg=wp.array(render_seg, dtype=bool),
     znear=znear,
     total_rays=int(total),
+    enable_backface_culling=enable_backface_culling,
   )
 
   bvh.build_scene_bvh(mjm, mjd, rc, nworld)

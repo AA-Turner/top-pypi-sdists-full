@@ -60,10 +60,12 @@ def _http_base(ctx: Optional[ConfigContext]) -> str:
     if url := os.environ.get("CAPSULE_HTTP_URL"):
         return url.rstrip("/")
     if not ctx:
-        return "https://gateway.capsule.new"
+        return "https://api.capsule.new"
     host = ctx.gateway_host or "gateway.capsule.new"
     grpc_port = ctx.gateway_port or 443
     if grpc_port == 443:
+        if host == "gateway.capsule.new":
+            return "https://api.capsule.new"
         return f"https://{host}"
     return f"http://{host}:{grpc_port + 1}"
 
@@ -130,8 +132,13 @@ class Client:
     def _api_post(self, path: str, body: dict) -> dict:
         return self._request("POST", path, body)
 
-    def _api_delete(self, path: str) -> dict:
-        return self._request("DELETE", path)
+    def _api_delete(self, path: str, body: dict | None = None) -> dict:
+        return self._request("DELETE", path, body)
+
+    def reset_onboarding(self, app: str) -> dict:
+        """Reset onboarding for the authenticated user of an app."""
+        app_id = self._resolve_app_id(app)
+        return self._api_delete(f"/app/{app_id}/onboarding/complete", {"reset": True})
 
     def _get_stream(self, url: str) -> Iterator[StreamChunk]:
         req = urllib.request.Request(url, headers=self._headers())

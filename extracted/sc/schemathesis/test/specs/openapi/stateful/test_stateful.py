@@ -8,6 +8,8 @@ from schemathesis.core.failures import FailureGroup
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.generation.stateful.state_machine import DEFAULT_STATE_MACHINE_SETTINGS, StepOutput
 from schemathesis.specs.openapi.stateful import make_response_filter, match_status_code
+from test.apps.catalog.openapi import users as openapi_users
+from test.apps.catalog.openapi.modifiers.stateful import NoMergeBody
 
 
 @pytest.mark.parametrize(
@@ -43,13 +45,14 @@ def test_default_status_code(response_status, status_codes, matching, response_f
     assert filter_function(StepOutput(response, None)) is matching
 
 
-def test_custom_rule(testdir, openapi3_base_url):
+def test_custom_rule(ctx, testdir):
+    api = ctx.openapi.apps.success()
     # When the state machine contains a failing rule that does not expect `Case`
     testdir.make_test(
         f"""
 from hypothesis.stateful import initialize, rule
 
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 
 class APIWorkflow(schema.as_state_machine()):
 
@@ -81,12 +84,12 @@ TestStateful = APIWorkflow.TestCase
 #   3. Get info about this user
 
 
-@pytest.mark.operations("create_user", "get_user", "update_user")
-def test_hidden_failure(testdir, app_schema, openapi3_base_url):
+def test_hidden_failure(ctx, testdir):
+    api = ctx.openapi.apps.users_crud()
     # When we run test as a state machine
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}")
 schema.config.generation.update(modes=[GenerationMode.POSITIVE])
 TestStateful = schema.as_state_machine().TestCase
 TestStateful.settings = settings(
@@ -97,13 +100,13 @@ TestStateful.settings = settings(
     stateful_step_count=3  # There is no need for longer sequences to uncover the bug
 )
 """,
-        schema=app_schema,
+        schema=api.spec,
     )
     result = testdir.runpytest()
     # Then it should be able to find a hidden error:
     result.assert_outcomes(failed=1)
     # And there should be cURL command to reproduce the error in the GET call
-    result.stdout.re_match_lines([rf".+curl -X GET '{openapi3_base_url}/users/\w+.+"])
+    result.stdout.re_match_lines([rf".+curl -X GET '{api.base_url}/users/\w+.+"])
 
 
 def removeprefix(value: str, prefix: str) -> str:
@@ -112,13 +115,18 @@ def removeprefix(value: str, prefix: str) -> str:
     return value
 
 
-@pytest.mark.parametrize("factory_name", ["wsgi_app_factory", "asgi_app_factory"])
-def test_hidden_failure_app(request, factory_name, open_api_3):
-    factory = request.getfixturevalue(factory_name)
-    app = factory(operations=("create_user", "get_user", "update_user"), version=open_api_3)
+@pytest.mark.parametrize(
+    ("transport", "factory"),
+    [
+        ("wsgi", openapi_users.crud),
+        ("asgi", openapi_users.crud_asgi),
+    ],
+)
+def test_hidden_failure_app(transport, factory):
+    app = factory()
 
-    if factory_name == "asgi_app_factory":
-        schema = schemathesis.openapi.from_asgi("/openapi.json", app=app)
+    if transport == "asgi":
+        schema = schemathesis.openapi.from_asgi("/openapi.json", app=app.server)
         schema.raw_schema["paths"]["/users/"]["post"]["responses"]["201"]["links"] = {
             "GET /users/{user_id}": {
                 "parameters": {
@@ -140,7 +148,7 @@ def test_hidden_failure_app(request, factory_name, open_api_3):
             }
         }
     else:
-        schema = schemathesis.openapi.from_wsgi("/schema.yaml", app=app)
+        schema = schemathesis.openapi.from_wsgi("/openapi.json", app=app.server)
 
     schema.config.generation.update(modes=[GenerationMode.POSITIVE])
     state_machine = schema.as_state_machine()
@@ -156,22 +164,17 @@ def test_hidden_failure_app(request, factory_name, open_api_3):
             )
         )
     failures = [str(e) for e in exc.value.exceptions]
-    assert (
-        "Undocumented HTTP status code" in failures[0]
-        or "Undocumented HTTP status code" in failures[1]
-        or "Undocumented HTTP status code" in failures[2]
-    )
-    assert "Server error" in failures[0] or "Server error" in failures[1] or "Server error" in failures[2]
+    # Either failure kind confirms the chained PATCH/GET reached the planted 500.
+    assert any("Undocumented HTTP status code" in failure or "Server error" in failure for failure in failures)
 
 
-@pytest.mark.openapi_version("3.0")
-@pytest.mark.operations("create_user", "get_user", "update_user")
-def test_step_override(testdir, app_schema, base_url):
+def test_step_override(ctx, testdir):
     # See GH-970
+    api = ctx.openapi.apps.users_crud()
     # When the user overrides the `step` method
     testdir.make_test(
         f"""
-schema.config.update(base_url="{base_url}")
+schema.config.update(base_url="{api.base_url}")
 
 class APIWorkflow(schema.as_state_machine()):
 
@@ -186,7 +189,7 @@ TestStateful.settings = settings(
     suppress_health_check=list(HealthCheck),
 )
 """,
-        schema=app_schema,
+        schema=api.spec,
     )
     result = testdir.runpytest()
     # Then it should be overridden
@@ -195,17 +198,16 @@ TestStateful.settings = settings(
     result.stdout.re_match_lines([r".+ValueError: ERROR FOUND!"])
 
 
-@pytest.mark.openapi_version("3.0")
-@pytest.mark.operations("multiple_failures")
-def test_trimmed_output(testdir, app_schema, base_url):
+def test_trimmed_output(ctx, testdir):
+    api = ctx.openapi.apps.multiple_failures()
     # When an issue is found
     testdir.make_test(
         f"""
-schema.config.update(base_url="{base_url}")
+schema.config.update(base_url="{api.base_url}")
 
 TestStateful = schema.as_state_machine().TestCase
 """,
-        schema=app_schema,
+        schema=api.spec,
     )
     result = testdir.runpytest("--tb=short")
     result.assert_outcomes(failed=1)
@@ -213,20 +215,18 @@ TestStateful = schema.as_state_machine().TestCase
     assert " in step" not in result.stdout.str()
 
 
-@pytest.mark.openapi_version("3.0")
-@pytest.mark.operations("success")
-def test_no_transitions_error(app_schema):
-    schema = schemathesis.openapi.from_dict(app_schema)
+def test_no_transitions_error(ctx):
+    api = ctx.openapi.apps.success()
+    schema = schemathesis.openapi.from_dict(api.spec)
     state_machine_cls = schema.as_state_machine()
 
     with pytest.raises(NoLinksFound):
         state_machine_cls()
 
 
-@pytest.mark.openapi_version("3.0")
-@pytest.mark.operations("create_user", "get_user", "update_user")
-def test_settings_error(app_schema):
-    schema = schemathesis.openapi.from_dict(app_schema)
+def test_settings_error(ctx):
+    api = ctx.openapi.apps.users_crud()
+    schema = schemathesis.openapi.from_dict(api.spec)
 
     class Workflow(schema.as_state_machine()):
         settings = settings(max_examples=5)
@@ -236,9 +236,10 @@ def test_settings_error(app_schema):
 
 
 @pytest.mark.parametrize("merge_body", [True, False])
-def test_dynamic_body(merge_body, app_factory):
-    app = app_factory(merge_body=merge_body)
-    schema = schemathesis.openapi.from_wsgi("/openapi.json", app=app)
+def test_dynamic_body(merge_body, ctx):
+    modifiers = () if merge_body else (NoMergeBody(),)
+    api = ctx.openapi.apps.stateful_users(*modifiers)
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", app=api.wsgi_app)
     schema.config.generation.update(modes=[GenerationMode.POSITIVE])
     state_machine = schema.as_state_machine()
 
@@ -253,22 +254,21 @@ def test_dynamic_body(merge_body, app_factory):
     )
 
 
-def test_custom_config_in_test_case(app_factory):
-    app = app_factory()
-    schema = schemathesis.openapi.from_wsgi("/openapi.json", app=app)
+def test_custom_config_in_test_case(ctx):
+    api = ctx.openapi.apps.stateful_users()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", app=api.wsgi_app)
     settings = schema.as_state_machine().TestCase.settings
     for key, value in DEFAULT_STATE_MACHINE_SETTINGS.__dict__.items():
         assert getattr(settings, key) == value
 
 
-@pytest.mark.openapi_version("3.0")
-@pytest.mark.operations("create_user", "get_user", "update_user")
-def test_passing_transport_kwargs(app_schema, openapi3_base_url, mocker):
-    schema = schemathesis.openapi.from_dict(app_schema)
-    schema.config.update(base_url=openapi3_base_url)
+def test_passing_transport_kwargs(ctx, mocker):
+    api = ctx.openapi.apps.users_crud()
+    schema = schemathesis.openapi.from_dict(api.spec)
+    schema.config.update(base_url=api.base_url)
 
     mocker.patch(
-        "schemathesis.specs.openapi.checks._get_security_parameters",
+        "schemathesis.specs.openapi.checks.get_security_parameters",
         return_value=[{"name": "token", "required": True, "in": "query"}],
     )
     mocked = mocker.patch("schemathesis.specs.openapi.checks._contains_auth")

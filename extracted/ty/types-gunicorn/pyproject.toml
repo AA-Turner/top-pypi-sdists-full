@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-gunicorn"
-version = "25.3.0.20260508"
+version = "26.0.0.20260509"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for gunicorn"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`gunicorn`](https://github.com/benoitc/gunicorn) package. It can be used by type checkers
 to check code that uses `gunicorn`. This version of
 `types-gunicorn` aims to provide accurate annotations for
-`gunicorn==25.3.0`.
+`gunicorn==26.0.0`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.20.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.408
+* [mypy](https://github.com/python/mypy/) 2.0.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.409
 
 It was generated from typeshed commit
-[`a7f0a8286aaf594602b81bef79c77175fcf9ceda`](https://github.com/python/typeshed/commit/a7f0a8286aaf594602b81bef79c77175fcf9ceda).
+[`6a4075c7bcf192227421bc13558c19bc9fd2342e`](https://github.com/python/typeshed/commit/6a4075c7bcf192227421bc13558c19bc9fd2342e).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -50,4 +50,4 @@ packages = ['gunicorn-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'gunicorn-stubs' = ['__init__.pyi', '_types.pyi', 'app/__init__.pyi', 'app/base.pyi', 'app/pasterapp.pyi', 'app/wsgiapp.pyi', 'arbiter.pyi', 'asgi/__init__.pyi', 'asgi/lifespan.pyi', 'asgi/parser.pyi', 'asgi/protocol.pyi', 'asgi/unreader.pyi', 'asgi/uwsgi.pyi', 'asgi/websocket.pyi', 'config.pyi', 'ctl/__init__.pyi', 'ctl/cli.pyi', 'ctl/client.pyi', 'ctl/handlers.pyi', 'ctl/protocol.pyi', 'ctl/server.pyi', 'debug.pyi', 'dirty/__init__.pyi', 'dirty/app.pyi', 'dirty/arbiter.pyi', 'dirty/client.pyi', 'dirty/errors.pyi', 'dirty/protocol.pyi', 'dirty/stash.pyi', 'dirty/tlv.pyi', 'dirty/worker.pyi', 'errors.pyi', 'glogging.pyi', 'http/__init__.pyi', 'http/body.pyi', 'http/errors.pyi', 'http/message.pyi', 'http/parser.pyi', 'http/unreader.pyi', 'http/wsgi.pyi', 'http2/__init__.pyi', 'http2/async_connection.pyi', 'http2/connection.pyi', 'http2/errors.pyi', 'http2/request.pyi', 'http2/stream.pyi', 'instrument/__init__.pyi', 'instrument/statsd.pyi', 'pidfile.pyi', 'reloader.pyi', 'sock.pyi', 'systemd.pyi', 'util.pyi', 'uwsgi/__init__.pyi', 'uwsgi/errors.pyi', 'uwsgi/message.pyi', 'uwsgi/parser.pyi', 'workers/__init__.pyi', 'workers/base.pyi', 'workers/base_async.pyi', 'workers/gasgi.pyi', 'workers/geventlet.pyi', 'workers/ggevent.pyi', 'workers/gthread.pyi', 'workers/gtornado.pyi', 'workers/sync.pyi', 'workers/workertmp.pyi', 'METADATA.toml', 'py.typed']
+'gunicorn-stubs' = ['__init__.pyi', '_types.pyi', 'app/__init__.pyi', 'app/base.pyi', 'app/pasterapp.pyi', 'app/wsgiapp.pyi', 'arbiter.pyi', 'asgi/__init__.pyi', 'asgi/lifespan.pyi', 'asgi/parser.pyi', 'asgi/protocol.pyi', 'asgi/unreader.pyi', 'asgi/uwsgi.pyi', 'asgi/websocket.pyi', 'config.pyi', 'ctl/__init__.pyi', 'ctl/cli.pyi', 'ctl/client.pyi', 'ctl/handlers.pyi', 'ctl/protocol.pyi', 'ctl/server.pyi', 'debug.pyi', 'dirty/__init__.pyi', 'dirty/app.pyi', 'dirty/arbiter.pyi', 'dirty/client.pyi', 'dirty/errors.pyi', 'dirty/protocol.pyi', 'dirty/stash.pyi', 'dirty/tlv.pyi', 'dirty/worker.pyi', 'errors.pyi', 'glogging.pyi', 'http/__init__.pyi', 'http/body.pyi', 'http/errors.pyi', 'http/message.pyi', 'http/parser.pyi', 'http/unreader.pyi', 'http/wsgi.pyi', 'http2/__init__.pyi', 'http2/async_connection.pyi', 'http2/connection.pyi', 'http2/errors.pyi', 'http2/request.pyi', 'http2/stream.pyi', 'instrument/__init__.pyi', 'instrument/statsd.pyi', 'pidfile.pyi', 'reloader.pyi', 'sock.pyi', 'systemd.pyi', 'util.pyi', 'uwsgi/__init__.pyi', 'uwsgi/errors.pyi', 'uwsgi/message.pyi', 'uwsgi/parser.pyi', 'workers/__init__.pyi', 'workers/base.pyi', 'workers/base_async.pyi', 'workers/gasgi.pyi', 'workers/ggevent.pyi', 'workers/gthread.pyi', 'workers/gtornado.pyi', 'workers/sync.pyi', 'workers/workertmp.pyi', 'METADATA.toml', 'py.typed']

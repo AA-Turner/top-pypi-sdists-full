@@ -1,9 +1,9 @@
 import os
 from typing import Optional
 
-from cortex.kernels.cuda.extension_loader import safe_load_extension
 from torch import Tensor
 from torch.library import custom_op
+from torch.utils.cpp_extension import load
 
 _mod_path = os.path.dirname(__file__)
 _ext: Optional[object] = None
@@ -17,22 +17,21 @@ def _load_ext() -> object:
         os.path.join(_mod_path, "rtu_seq_allin_binding.cpp"),
         os.path.join(_mod_path, "rtu_seq_allin_kernels.cu"),
     ]
-    _ext = safe_load_extension(
+    _ext = load(
         name="rtu_seq_allin",
         sources=sources,
         extra_cflags=["-O3"],
         extra_cuda_cflags=["-O3", "-Xptxas", "-O3"],
+        # Use torch's default build cache under ~/.cache/torch_extensions
+        # (avoid creating per-arch folders inside the repo).
+        build_directory=None,
         verbose=False,
     )
     return _ext
 
 
-def prewarm_rtu_seq_allin() -> None:
-    _load_ext()
-
-
 @custom_op("cortex::rtu_seq_allin_forward", mutates_args=())
-def forward_allin(
+def _rtu_seq_allin_forward(
     x: Tensor,
     nu_log: Tensor,
     theta_log: Tensor,
@@ -73,7 +72,7 @@ def forward_allin(
     )
 
 
-@forward_allin.register_fake
+@_rtu_seq_allin_forward.register_fake
 def _(
     x: Tensor,
     nu_log: Tensor,
@@ -125,7 +124,7 @@ def _(
 
 
 @custom_op("cortex::rtu_seq_allin_backward", mutates_args=())
-def backward_allin(
+def _rtu_seq_allin_backward(
     grad_y: Tensor,
     x: Tensor,
     nu_log: Tensor,
@@ -172,7 +171,7 @@ def backward_allin(
     )
 
 
-@backward_allin.register_fake
+@_rtu_seq_allin_backward.register_fake
 def _(
     grad_y: Tensor,
     x: Tensor,
@@ -211,4 +210,90 @@ def _(
         grad_w2_h,
         grad_hc1_init_bh,
         grad_hc2_init_bh,
+    )
+
+
+def forward_allin(
+    x: Tensor,
+    nu_log: Tensor,
+    theta_log: Tensor,
+    w1: Tensor,
+    w2: Tensor,
+    hc1_init: Tensor,
+    hc2_init: Tensor,
+    E_nu_c1_in: Tensor,
+    E_nu_c2_in: Tensor,
+    E_th_c1_in: Tensor,
+    E_th_c2_in: Tensor,
+    E_w1_c1_in: Tensor,
+    E_w1_c2_in: Tensor,
+    E_w2_c1_in: Tensor,
+    E_w2_c2_in: Tensor,
+    resets_u8: Tensor,
+    act_id: int,
+) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+    return _rtu_seq_allin_forward(
+        x,
+        nu_log,
+        theta_log,
+        w1,
+        w2,
+        hc1_init,
+        hc2_init,
+        E_nu_c1_in,
+        E_nu_c2_in,
+        E_th_c1_in,
+        E_th_c2_in,
+        E_w1_c1_in,
+        E_w1_c2_in,
+        E_w2_c1_in,
+        E_w2_c2_in,
+        resets_u8,
+        act_id,
+    )
+
+
+def backward_allin(
+    grad_y: Tensor,
+    x: Tensor,
+    nu_log: Tensor,
+    theta_log: Tensor,
+    w1: Tensor,
+    w2: Tensor,
+    pre1: Tensor,
+    pre2: Tensor,
+    hc1_init: Tensor,
+    hc2_init: Tensor,
+    resets_u8: Tensor,
+    E_nu_c1_in: Tensor,
+    E_nu_c2_in: Tensor,
+    E_th_c1_in: Tensor,
+    E_th_c2_in: Tensor,
+    E_w1_c1_in: Tensor,
+    E_w1_c2_in: Tensor,
+    E_w2_c1_in: Tensor,
+    E_w2_c2_in: Tensor,
+    act_id: int,
+) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+    return _rtu_seq_allin_backward(
+        grad_y,
+        x,
+        nu_log,
+        theta_log,
+        w1,
+        w2,
+        pre1,
+        pre2,
+        hc1_init,
+        hc2_init,
+        resets_u8,
+        E_nu_c1_in,
+        E_nu_c2_in,
+        E_th_c1_in,
+        E_th_c2_in,
+        E_w1_c1_in,
+        E_w1_c2_in,
+        E_w2_c1_in,
+        E_w2_c2_in,
+        act_id,
     )

@@ -557,3 +557,126 @@ class TestInternalUtils(unittest.TestCase):
             mock_get_field.return_value = None
             account_id = self.utils._get_account_id()
             self.assertIsNone(account_id)
+
+
+@patch.object(
+    sagemaker_studio.utils, "SAGEMAKER_METADATA_JSON_PATH", "test_sagemaker_space_metadata.json"
+)
+class TestResolveConnectionIdFromNotebook(unittest.TestCase):
+    """Tests for _resolve_connection_id_from_notebook with WIP fallback."""
+
+    def setUp(self):
+        self.utils = InternalUtils()
+
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_field_from_environment")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    def test_returns_empty_when_missing_domain_id(self, mock_get_domain_id, mock_get_field):
+        """Should return empty string when domain_id is missing."""
+        mock_get_domain_id.return_value = ""
+        mock_get_field.return_value = "notebook-123"
+        config = Mock()
+
+        result = self.utils._resolve_connection_id_from_notebook(config)
+        self.assertEqual(result, "")
+
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_field_from_environment")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    def test_returns_empty_when_missing_notebook_id(self, mock_get_domain_id, mock_get_field):
+        """Should return empty string when notebook_id is missing."""
+        mock_get_domain_id.return_value = "domain-123"
+        mock_get_field.return_value = ""
+        config = Mock()
+
+        result = self.utils._resolve_connection_id_from_notebook(config)
+        self.assertEqual(result, "")
+
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_field_from_environment")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    def test_get_notebook_wip_success(self, mock_get_domain_id, mock_get_field):
+        """Should use get_notebook_wip and return connection ID from metadata."""
+        mock_get_domain_id.return_value = "domain-123"
+        mock_get_field.return_value = "notebook-456"
+
+        mock_dz_client = Mock()
+        mock_dz_client.get_notebook_wip.return_value = {
+            "metadata": {"defaultSparkConnectionId": "conn-abc"}
+        }
+
+        with patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI") as MockAPI:
+            mock_api_instance = Mock()
+            mock_api_instance.datazone_api = mock_dz_client
+            MockAPI.return_value = mock_api_instance
+
+            result = self.utils._resolve_connection_id_from_notebook(Mock())
+
+        self.assertEqual(result, "conn-abc")
+        mock_dz_client.get_notebook_wip.assert_called_once_with(
+            domainIdentifier="domain-123",
+            identifier="notebook-456",
+        )
+        mock_dz_client.get_notebook.assert_not_called()
+
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_field_from_environment")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    def test_falls_back_to_get_notebook_on_wip_failure(self, mock_get_domain_id, mock_get_field):
+        """Should fall back to get_notebook when get_notebook_wip raises an exception."""
+        mock_get_domain_id.return_value = "domain-123"
+        mock_get_field.return_value = "notebook-456"
+
+        mock_dz_client = Mock()
+        mock_dz_client.get_notebook_wip.side_effect = Exception("WIP API not available")
+        mock_dz_client.get_notebook.return_value = {
+            "metadata": {"defaultSparkConnectionId": "conn-fallback"}
+        }
+
+        with patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI") as MockAPI:
+            mock_api_instance = Mock()
+            mock_api_instance.datazone_api = mock_dz_client
+            MockAPI.return_value = mock_api_instance
+
+            result = self.utils._resolve_connection_id_from_notebook(Mock())
+
+        self.assertEqual(result, "conn-fallback")
+        mock_dz_client.get_notebook_wip.assert_called_once()
+        mock_dz_client.get_notebook.assert_called_once_with(
+            domainId="domain-123",
+            notebookId="notebook-456",
+        )
+
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_field_from_environment")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    def test_returns_empty_when_no_connection_in_metadata(self, mock_get_domain_id, mock_get_field):
+        """Should return empty string when metadata has no defaultSparkConnectionId."""
+        mock_get_domain_id.return_value = "domain-123"
+        mock_get_field.return_value = "notebook-456"
+
+        mock_dz_client = Mock()
+        mock_dz_client.get_notebook_wip.return_value = {"metadata": {}}
+
+        with patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI") as MockAPI:
+            mock_api_instance = Mock()
+            mock_api_instance.datazone_api = mock_dz_client
+            MockAPI.return_value = mock_api_instance
+
+            result = self.utils._resolve_connection_id_from_notebook(Mock())
+
+        self.assertEqual(result, "")
+
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_field_from_environment")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    def test_returns_empty_when_metadata_is_none(self, mock_get_domain_id, mock_get_field):
+        """Should return empty string when metadata field is None."""
+        mock_get_domain_id.return_value = "domain-123"
+        mock_get_field.return_value = "notebook-456"
+
+        mock_dz_client = Mock()
+        mock_dz_client.get_notebook_wip.return_value = {"metadata": None}
+
+        with patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI") as MockAPI:
+            mock_api_instance = Mock()
+            mock_api_instance.datazone_api = mock_dz_client
+            MockAPI.return_value = mock_api_instance
+
+            result = self.utils._resolve_connection_id_from_notebook(Mock())
+
+        self.assertEqual(result, "")

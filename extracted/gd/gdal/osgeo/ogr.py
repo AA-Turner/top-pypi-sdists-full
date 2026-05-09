@@ -410,6 +410,12 @@ ODsCDeleteFieldDomain = _ogr.ODsCDeleteFieldDomain
 
 ODsCUpdateFieldDomain = _ogr.ODsCUpdateFieldDomain
 
+ODsCAddRelationship = _ogr.ODsCAddRelationship
+
+ODsCDeleteRelationship = _ogr.ODsCDeleteRelationship
+
+ODsCUpdateRelationship = _ogr.ODsCUpdateRelationship
+
 ODrCCreateDataSource = _ogr.ODrCCreateDataSource
 
 ODrCDeleteDataSource = _ogr.ODrCDeleteDataSource
@@ -450,7 +456,7 @@ def _GetExceptionsLocal(*args):
     return _ogr._GetExceptionsLocal(*args)
 
 def _SetExceptionsLocal(*args):
-    r"""_SetExceptionsLocal(int bVal)"""
+    r"""_SetExceptionsLocal(bVal)"""
     return _ogr._SetExceptionsLocal(*args)
 
 def _UseExceptions(*args):
@@ -627,38 +633,38 @@ class MajorObject(object):
     __repr__ = _swig_repr
 
     def GetDescription(self, *args):
-        r"""GetDescription(MajorObject self) -> char const *"""
+        r"""GetDescription(self) -> char const *"""
         return _ogr.MajorObject_GetDescription(self, *args)
 
     def SetDescription(self, *args):
-        r"""SetDescription(MajorObject self, char const * pszNewDesc)"""
+        r"""SetDescription(self, pszNewDesc)"""
         return _ogr.MajorObject_SetDescription(self, *args)
 
     def GetMetadataDomainList(self, *args):
-        r"""GetMetadataDomainList(MajorObject self) -> char **"""
+        r"""GetMetadataDomainList(self) -> char **"""
         return _ogr.MajorObject_GetMetadataDomainList(self, *args)
 
     def GetMetadata_Dict(self, *args):
-        r"""GetMetadata_Dict(MajorObject self, char const * pszDomain="") -> char **"""
+        r"""GetMetadata_Dict(self, pszDomain="") -> char **"""
         return _ogr.MajorObject_GetMetadata_Dict(self, *args)
 
     def GetMetadata_List(self, *args):
-        r"""GetMetadata_List(MajorObject self, char const * pszDomain="") -> char **"""
+        r"""GetMetadata_List(self, pszDomain="") -> char **"""
         return _ogr.MajorObject_GetMetadata_List(self, *args)
 
     def SetMetadata(self, *args):
         r"""
-        SetMetadata(MajorObject self, char ** papszMetadata, char const * pszDomain="") -> CPLErr
-        SetMetadata(MajorObject self, char * pszMetadataString, char const * pszDomain="") -> CPLErr
+        SetMetadata(self, papszMetadata, pszDomain="") -> CPLErr
+        SetMetadata(self, pszMetadataString, pszDomain="") -> CPLErr
         """
         return _ogr.MajorObject_SetMetadata(self, *args)
 
     def GetMetadataItem(self, *args):
-        r"""GetMetadataItem(MajorObject self, char const * pszName, char const * pszDomain="") -> char const *"""
+        r"""GetMetadataItem(self, pszName, pszDomain="") -> char const *"""
         return _ogr.MajorObject_GetMetadataItem(self, *args)
 
     def SetMetadataItem(self, *args):
-        r"""SetMetadataItem(MajorObject self, char const * pszName, char const * pszValue, char const * pszDomain="") -> CPLErr"""
+        r"""SetMetadataItem(self, pszName, pszValue, pszDomain="") -> CPLErr"""
         return _ogr.MajorObject_SetMetadataItem(self, *args)
 
     def GetMetadata(self, domain=''):
@@ -671,11 +677,11 @@ class MajorObject(object):
 _ogr.MajorObject_swigregister(MajorObject)
 
 def GetFieldTypeByName(*args):
-    r"""GetFieldTypeByName(char const * typeName) -> OGRFieldType"""
+    r"""GetFieldTypeByName(typeName) -> OGRFieldType"""
     return _ogr.GetFieldTypeByName(*args)
 
 def GetFieldSubtypeByName(*args):
-    r"""GetFieldSubtypeByName(char const * subTypeName) -> OGRFieldSubType"""
+    r"""GetFieldSubtypeByName(subTypeName) -> OGRFieldSubType"""
     return _ogr.GetFieldSubtypeByName(*args)
 
 def GetGEOSVersionMajor(*args):
@@ -696,36 +702,36 @@ class StyleTable(object):
     __repr__ = _swig_repr
 
     def __init__(self, *args):
-        r"""__init__(StyleTable self) -> StyleTable"""
+        r"""__init__(self) -> StyleTable"""
         _ogr.StyleTable_swiginit(self, _ogr.new_StyleTable(*args))
     __swig_destroy__ = _ogr.delete_StyleTable
 
     def AddStyle(self, *args):
-        r"""AddStyle(StyleTable self, char const * pszName, char const * pszStyleString) -> int"""
+        r"""AddStyle(self, pszName, pszStyleString) -> int"""
         return _ogr.StyleTable_AddStyle(self, *args)
 
     def LoadStyleTable(self, *args):
-        r"""LoadStyleTable(StyleTable self, char const * utf8_path) -> int"""
+        r"""LoadStyleTable(self, utf8_string) -> int"""
         return _ogr.StyleTable_LoadStyleTable(self, *args)
 
     def SaveStyleTable(self, *args):
-        r"""SaveStyleTable(StyleTable self, char const * utf8_path) -> int"""
+        r"""SaveStyleTable(self, utf8_string) -> int"""
         return _ogr.StyleTable_SaveStyleTable(self, *args)
 
     def Find(self, *args):
-        r"""Find(StyleTable self, char const * pszName) -> char const *"""
+        r"""Find(self, pszName) -> char const *"""
         return _ogr.StyleTable_Find(self, *args)
 
     def ResetStyleStringReading(self, *args):
-        r"""ResetStyleStringReading(StyleTable self)"""
+        r"""ResetStyleStringReading(self)"""
         return _ogr.StyleTable_ResetStyleStringReading(self, *args)
 
     def GetNextStyle(self, *args):
-        r"""GetNextStyle(StyleTable self) -> char const *"""
+        r"""GetNextStyle(self) -> char const *"""
         return _ogr.StyleTable_GetNextStyle(self, *args)
 
     def GetLastStyleName(self, *args):
-        r"""GetLastStyleName(StyleTable self) -> char const *"""
+        r"""GetLastStyleName(self) -> char const *"""
         return _ogr.StyleTable_GetLastStyleName(self, *args)
 
 # Register StyleTable in _ogr:
@@ -737,20 +743,20 @@ class ArrowArray(object):
     __repr__ = _swig_repr
 
     def __init__(self, *args):
-        r"""__init__(ArrowArray self) -> ArrowArray"""
+        r"""__init__(self) -> ArrowArray"""
         _ogr.ArrowArray_swiginit(self, _ogr.new_ArrowArray(*args))
     __swig_destroy__ = _ogr.delete_ArrowArray
 
     def _getPtr(self, *args):
-        r"""_getPtr(ArrowArray self) -> VoidPtrAsLong"""
+        r"""_getPtr(self) -> VoidPtrAsLong"""
         return _ogr.ArrowArray__getPtr(self, *args)
 
     def GetChildrenCount(self, *args):
-        r"""GetChildrenCount(ArrowArray self) -> GIntBig"""
+        r"""GetChildrenCount(self) -> GIntBig"""
         return _ogr.ArrowArray_GetChildrenCount(self, *args)
 
     def GetLength(self, *args):
-        r"""GetLength(ArrowArray self) -> GIntBig"""
+        r"""GetLength(self) -> GIntBig"""
         return _ogr.ArrowArray_GetLength(self, *args)
 
 # Register ArrowArray in _ogr:
@@ -762,24 +768,24 @@ class ArrowSchema(object):
     __repr__ = _swig_repr
 
     def __init__(self, *args):
-        r"""__init__(ArrowSchema self) -> ArrowSchema"""
+        r"""__init__(self) -> ArrowSchema"""
         _ogr.ArrowSchema_swiginit(self, _ogr.new_ArrowSchema(*args))
     __swig_destroy__ = _ogr.delete_ArrowSchema
 
     def _getPtr(self, *args):
-        r"""_getPtr(ArrowSchema self) -> VoidPtrAsLong"""
+        r"""_getPtr(self) -> VoidPtrAsLong"""
         return _ogr.ArrowSchema__getPtr(self, *args)
 
     def GetName(self, *args):
-        r"""GetName(ArrowSchema self) -> char const *"""
+        r"""GetName(self) -> char const *"""
         return _ogr.ArrowSchema_GetName(self, *args)
 
     def GetChildrenCount(self, *args):
-        r"""GetChildrenCount(ArrowSchema self) -> GIntBig"""
+        r"""GetChildrenCount(self) -> GIntBig"""
         return _ogr.ArrowSchema_GetChildrenCount(self, *args)
 
     def GetChild(self, *args):
-        r"""GetChild(ArrowSchema self, int iChild) -> ArrowSchema"""
+        r"""GetChild(self, iChild) -> ArrowSchema"""
         return _ogr.ArrowSchema_GetChild(self, *args)
 
 # Register ArrowSchema in _ogr:
@@ -795,11 +801,11 @@ class ArrowArrayStream(object):
     __swig_destroy__ = _ogr.delete_ArrowArrayStream
 
     def GetSchema(self, *args):
-        r"""GetSchema(ArrowArrayStream self) -> ArrowSchema"""
+        r"""GetSchema(self) -> ArrowSchema"""
         return _ogr.ArrowArrayStream_GetSchema(self, *args)
 
     def GetNextRecordBatch(self, *args):
-        r"""GetNextRecordBatch(ArrowArrayStream self, char ** options=None) -> ArrowArray"""
+        r"""GetNextRecordBatch(self, options=None) -> ArrowArray"""
         return _ogr.ArrowArrayStream_GetNextRecordBatch(self, *args)
 
 # Register ArrowArrayStream in _ogr:
@@ -815,7 +821,7 @@ class Layer(MajorObject):
 
     def GetDataset(self, *args):
         r"""
-        GetDataset(Layer self) -> GDALDatasetShadow *
+        GetDataset(self) -> GDALDatasetShadow *
 
         Return the dataset associated with this layer.
 
@@ -830,12 +836,12 @@ class Layer(MajorObject):
         return _ogr.Layer_GetDataset(self, *args)
 
     def Rename(self, *args):
-        r"""Rename(Layer self, char const * new_name) -> OGRErr"""
+        r"""Rename(self, new_name) -> OGRErr"""
         return _ogr.Layer_Rename(self, *args)
 
     def GetRefCount(self, *args):
         r"""
-        GetRefCount(Layer self) -> int
+        GetRefCount(self) -> int
 
         For more details: :cpp:func:`OGR_L_GetRefCount`
 
@@ -844,8 +850,8 @@ class Layer(MajorObject):
 
     def SetSpatialFilter(self, *args):
         r"""
-        SetSpatialFilter(Layer self, Geometry filter)
-        SetSpatialFilter(Layer self, int iGeomField, Geometry filter)
+        SetSpatialFilter(self, filter)
+        SetSpatialFilter(self, iGeomField, filter)
 
         Set a new spatial filter.
 
@@ -868,8 +874,8 @@ class Layer(MajorObject):
 
     def SetSpatialFilterRect(self, *args):
         r"""
-        SetSpatialFilterRect(Layer self, double minx, double miny, double maxx, double maxy)
-        SetSpatialFilterRect(Layer self, int iGeomField, double minx, double miny, double maxx, double maxy)
+        SetSpatialFilterRect(self, minx, miny, maxx, maxy)
+        SetSpatialFilterRect(self, iGeomField, minx, miny, maxx, maxy)
 
         Set a new rectangular spatial filter.
 
@@ -896,7 +902,7 @@ class Layer(MajorObject):
 
     def GetSpatialFilter(self, *args):
         r"""
-        GetSpatialFilter(Layer self) -> Geometry
+        GetSpatialFilter(self) -> Geometry
 
         This function returns the current spatial filter for this layer.
 
@@ -912,7 +918,7 @@ class Layer(MajorObject):
 
     def SetAttributeFilter(self, *args):
         r"""
-        SetAttributeFilter(Layer self, char * filter_string) -> OGRErr
+        SetAttributeFilter(self, filter_string) -> OGRErr
 
         Set a new attribute query.
 
@@ -934,9 +940,13 @@ class Layer(MajorObject):
         """
         return _ogr.Layer_SetAttributeFilter(self, *args)
 
+    def GetAttributeFilter(self, *args):
+        r"""GetAttributeFilter(self) -> char const *"""
+        return _ogr.Layer_GetAttributeFilter(self, *args)
+
     def ResetReading(self, *args):
         r"""
-        ResetReading(Layer self)
+        ResetReading(self)
 
         Reset feature reading to start on the first feature.
 
@@ -947,7 +957,7 @@ class Layer(MajorObject):
 
     def GetName(self, *args):
         r"""
-        GetName(Layer self) -> char const *
+        GetName(self) -> char const *
 
         Return the layer name.
 
@@ -963,7 +973,7 @@ class Layer(MajorObject):
 
     def GetGeomType(self, *args):
         r"""
-        GetGeomType(Layer self) -> OGRwkbGeometryType
+        GetGeomType(self) -> OGRwkbGeometryType
 
         Return the layer geometry type.
 
@@ -980,7 +990,7 @@ class Layer(MajorObject):
 
     def GetGeometryColumn(self, *args):
         r"""
-        GetGeometryColumn(Layer self) -> char const *
+        GetGeometryColumn(self) -> char const *
 
         This method returns the name of the underlying database column being
         used as the geometry column, or '' if not supported.
@@ -997,7 +1007,7 @@ class Layer(MajorObject):
 
     def GetFIDColumn(self, *args):
         r"""
-        GetFIDColumn(Layer self) -> char const *
+        GetFIDColumn(self) -> char const *
 
         This method returns the name of the underlying database column being
         used as the FID column, or '' if not supported.
@@ -1014,7 +1024,7 @@ class Layer(MajorObject):
 
     def GetFeature(self, *args):
         r"""
-        GetFeature(Layer self, GIntBig fid) -> Feature
+        GetFeature(self, fid) -> Feature
 
         Fetch a feature by its identifier.
 
@@ -1043,7 +1053,7 @@ class Layer(MajorObject):
 
     def GetNextFeature(self, *args):
         r"""
-        GetNextFeature(Layer self) -> Feature
+        GetNextFeature(self) -> Feature
 
         Fetch the next available feature from this layer.
 
@@ -1059,7 +1069,7 @@ class Layer(MajorObject):
 
     def SetNextByIndex(self, *args):
         r"""
-        SetNextByIndex(Layer self, GIntBig new_index) -> OGRErr
+        SetNextByIndex(self, new_index) -> OGRErr
 
         Move read cursor to the nIndex'th feature in the current resultset.
 
@@ -1080,7 +1090,7 @@ class Layer(MajorObject):
 
     def SetFeature(self, *args):
         r"""
-        SetFeature(Layer self, Feature feature) -> OGRErr
+        SetFeature(self, feature) -> OGRErr
 
         Rewrite an existing feature.
 
@@ -1106,7 +1116,7 @@ class Layer(MajorObject):
 
     def CreateFeature(self, *args):
         r"""
-        CreateFeature(Layer self, Feature feature) -> OGRErr
+        CreateFeature(self, feature) -> OGRErr
 
         Create and write a new feature within a layer.
 
@@ -1129,7 +1139,7 @@ class Layer(MajorObject):
 
     def UpsertFeature(self, *args):
         r"""
-        UpsertFeature(Layer self, Feature feature) -> OGRErr
+        UpsertFeature(self, feature) -> OGRErr
 
         Rewrite an existing feature or create a new feature within a layer.
 
@@ -1149,12 +1159,12 @@ class Layer(MajorObject):
         return _ogr.Layer_UpsertFeature(self, *args)
 
     def UpdateFeature(self, *args):
-        r"""UpdateFeature(Layer self, Feature feature, int nUpdatedFieldsCount, int nUpdatedGeomFieldsCount, bool bUpdateStyleString) -> OGRErr"""
+        r"""UpdateFeature(self, feature, nUpdatedFieldsCount, nUpdatedGeomFieldsCount, bUpdateStyleString) -> OGRErr"""
         return _ogr.Layer_UpdateFeature(self, *args)
 
     def DeleteFeature(self, *args):
         r"""
-        DeleteFeature(Layer self, GIntBig fid) -> OGRErr
+        DeleteFeature(self, fid) -> OGRErr
 
         Delete feature from layer.
 
@@ -1178,7 +1188,7 @@ class Layer(MajorObject):
 
     def SyncToDisk(self, *args):
         r"""
-        SyncToDisk(Layer self) -> OGRErr
+        SyncToDisk(self) -> OGRErr
 
         Flush pending changes to disk.
 
@@ -1195,7 +1205,7 @@ class Layer(MajorObject):
 
     def GetLayerDefn(self, *args):
         r"""
-        GetLayerDefn(Layer self) -> FeatureDefn
+        GetLayerDefn(self) -> FeatureDefn
 
         Fetch the schema information for this layer.
 
@@ -1211,7 +1221,7 @@ class Layer(MajorObject):
 
     def GetFeatureCount(self, *args, **kwargs):
         r"""
-        GetFeatureCount(Layer self, int force=1) -> GIntBig
+        GetFeatureCount(self, force=1) -> GIntBig
 
         Fetch the feature count in this layer.
 
@@ -1233,7 +1243,7 @@ class Layer(MajorObject):
 
     def GetExtent(self, *args, **kwargs):
         r"""
-        GetExtent(Layer self, int force=1, int can_return_null=0, int geom_field=0)
+        GetExtent(self, force=1, can_return_null=0, geom_field=0)
 
         Fetch the extent of this layer.
 
@@ -1264,12 +1274,12 @@ class Layer(MajorObject):
         return _ogr.Layer_GetExtent(self, *args, **kwargs)
 
     def GetExtent3D(self, *args, **kwargs):
-        r"""GetExtent3D(Layer self, int force=1, int can_return_null=0, int geom_field=0)"""
+        r"""GetExtent3D(self, force=1, can_return_null=0, geom_field=0)"""
         return _ogr.Layer_GetExtent3D(self, *args, **kwargs)
 
     def TestCapability(self, *args):
         r"""
-        TestCapability(Layer self, char const * cap) -> bool
+        TestCapability(self, cap) -> bool
 
         Test if this layer supported the named capability.
 
@@ -1293,7 +1303,7 @@ class Layer(MajorObject):
 
     def CreateField(self, *args, **kwargs):
         r"""
-        CreateField(Layer self, FieldDefn field_def, int approx_ok=1) -> OGRErr
+        CreateField(self, field_def, approx_ok=1) -> OGRErr
 
         Create a new field on a layer.
 
@@ -1317,7 +1327,7 @@ class Layer(MajorObject):
 
     def DeleteField(self, *args):
         r"""
-        DeleteField(Layer self, int iField) -> OGRErr
+        DeleteField(self, iField) -> OGRErr
 
         Delete an existing field on a layer.
 
@@ -1338,7 +1348,7 @@ class Layer(MajorObject):
 
     def ReorderField(self, *args):
         r"""
-        ReorderField(Layer self, int iOldFieldPos, int iNewFieldPos) -> OGRErr
+        ReorderField(self, iOldFieldPos, iNewFieldPos) -> OGRErr
 
         Reorder an existing field on a layer.
 
@@ -1363,7 +1373,7 @@ class Layer(MajorObject):
 
     def ReorderFields(self, *args):
         r"""
-        ReorderFields(Layer self, int nList) -> OGRErr
+        ReorderFields(self, nList) -> OGRErr
 
         Reorder all the fields of a layer.
 
@@ -1386,7 +1396,7 @@ class Layer(MajorObject):
 
     def AlterFieldDefn(self, *args):
         r"""
-        AlterFieldDefn(Layer self, int iField, FieldDefn field_def, int nFlags) -> OGRErr
+        AlterFieldDefn(self, iField, field_def, nFlags) -> OGRErr
 
         Alter the definition of an existing field on a layer.
 
@@ -1418,12 +1428,12 @@ class Layer(MajorObject):
         return _ogr.Layer_AlterFieldDefn(self, *args)
 
     def AlterGeomFieldDefn(self, *args):
-        r"""AlterGeomFieldDefn(Layer self, int iGeomField, GeomFieldDefn field_def, int nFlags) -> OGRErr"""
+        r"""AlterGeomFieldDefn(self, iGeomField, field_def, nFlags) -> OGRErr"""
         return _ogr.Layer_AlterGeomFieldDefn(self, *args)
 
     def CreateGeomField(self, *args, **kwargs):
         r"""
-        CreateGeomField(Layer self, GeomFieldDefn field_def, int approx_ok=1) -> OGRErr
+        CreateGeomField(self, field_def, approx_ok=1) -> OGRErr
 
         Create a new geometry field on a layer.
 
@@ -1447,7 +1457,7 @@ class Layer(MajorObject):
 
     def StartTransaction(self, *args):
         r"""
-        StartTransaction(Layer self) -> OGRErr
+        StartTransaction(self) -> OGRErr
 
         For datasources which support transactions, this creates a transaction.
 
@@ -1463,7 +1473,7 @@ class Layer(MajorObject):
 
     def CommitTransaction(self, *args):
         r"""
-        CommitTransaction(Layer self) -> OGRErr
+        CommitTransaction(self) -> OGRErr
 
         For datasources which support transactions, this commits a transaction.
 
@@ -1479,7 +1489,7 @@ class Layer(MajorObject):
 
     def RollbackTransaction(self, *args):
         r"""
-        RollbackTransaction(Layer self) -> OGRErr
+        RollbackTransaction(self) -> OGRErr
 
         Roll back a datasource to its state before the start of the current transaction.
 
@@ -1495,7 +1505,7 @@ class Layer(MajorObject):
 
     def FindFieldIndex(self, *args):
         r"""
-        FindFieldIndex(Layer self, char const * pszFieldName, int bExactMatch) -> int
+        FindFieldIndex(self, pszFieldName, bExactMatch) -> int
 
         Find the index of field in a layer.
 
@@ -1511,7 +1521,7 @@ class Layer(MajorObject):
 
     def GetSpatialRef(self, *args):
         r"""
-        GetSpatialRef(Layer self) -> SpatialReference
+        GetSpatialRef(self) -> SpatialReference
 
         Fetch the spatial reference system for this layer.
 
@@ -1527,7 +1537,7 @@ class Layer(MajorObject):
 
     def GetFeaturesRead(self, *args):
         r"""
-        GetFeaturesRead(Layer self) -> GIntBig
+        GetFeaturesRead(self) -> GIntBig
 
         For more details: :cpp:func:`OGR_L_GetFeaturesRead`
 
@@ -1536,7 +1546,7 @@ class Layer(MajorObject):
 
     def SetIgnoredFields(self, *args):
         r"""
-        SetIgnoredFields(Layer self, char const ** options) -> OGRErr
+        SetIgnoredFields(self, options) -> OGRErr
 
         Set which fields can be omitted when retrieving features from the
         layer.
@@ -1560,7 +1570,7 @@ class Layer(MajorObject):
 
     def Intersection(self, *args, **kwargs):
         r"""
-        Intersection(Layer self, Layer method_layer, Layer result_layer, char ** options=None, GDALProgressFunc callback=0, void * callback_data=None) -> OGRErr
+        Intersection(self, method_layer, result_layer, options=None, callback=0, callback_data=None) -> OGRErr
 
         Intersection of two layers.
 
@@ -1592,7 +1602,7 @@ class Layer(MajorObject):
 
     def Union(self, *args, **kwargs):
         r"""
-        Union(Layer self, Layer method_layer, Layer result_layer, char ** options=None, GDALProgressFunc callback=0, void * callback_data=None) -> OGRErr
+        Union(self, method_layer, result_layer, options=None, callback=0, callback_data=None) -> OGRErr
 
         Union of two layers.
 
@@ -1626,7 +1636,7 @@ class Layer(MajorObject):
 
     def SymDifference(self, *args, **kwargs):
         r"""
-        SymDifference(Layer self, Layer method_layer, Layer result_layer, char ** options=None, GDALProgressFunc callback=0, void * callback_data=None) -> OGRErr
+        SymDifference(self, method_layer, result_layer, options=None, callback=0, callback_data=None) -> OGRErr
 
         Symmetrical difference of two layers.
 
@@ -1658,7 +1668,7 @@ class Layer(MajorObject):
 
     def Identity(self, *args, **kwargs):
         r"""
-        Identity(Layer self, Layer method_layer, Layer result_layer, char ** options=None, GDALProgressFunc callback=0, void * callback_data=None) -> OGRErr
+        Identity(self, method_layer, result_layer, options=None, callback=0, callback_data=None) -> OGRErr
 
         Identify the features of this layer with the ones from the identity layer.
 
@@ -1690,7 +1700,7 @@ class Layer(MajorObject):
 
     def Update(self, *args, **kwargs):
         r"""
-        Update(Layer self, Layer method_layer, Layer result_layer, char ** options=None, GDALProgressFunc callback=0, void * callback_data=None) -> OGRErr
+        Update(self, method_layer, result_layer, options=None, callback=0, callback_data=None) -> OGRErr
 
         Update this layer with features from the update layer.
 
@@ -1722,7 +1732,7 @@ class Layer(MajorObject):
 
     def Clip(self, *args, **kwargs):
         r"""
-        Clip(Layer self, Layer method_layer, Layer result_layer, char ** options=None, GDALProgressFunc callback=0, void * callback_data=None) -> OGRErr
+        Clip(self, method_layer, result_layer, options=None, callback=0, callback_data=None) -> OGRErr
 
         Clip off areas that are not covered by the method layer.
 
@@ -1754,7 +1764,7 @@ class Layer(MajorObject):
 
     def Erase(self, *args, **kwargs):
         r"""
-        Erase(Layer self, Layer method_layer, Layer result_layer, char ** options=None, GDALProgressFunc callback=0, void * callback_data=None) -> OGRErr
+        Erase(self, method_layer, result_layer, options=None, callback=0, callback_data=None) -> OGRErr
 
         Remove areas that are covered by the method layer.
 
@@ -1786,7 +1796,7 @@ class Layer(MajorObject):
 
     def GetStyleTable(self, *args):
         r"""
-        GetStyleTable(Layer self) -> StyleTable
+        GetStyleTable(self) -> StyleTable
 
         Get style table.
 
@@ -1797,7 +1807,7 @@ class Layer(MajorObject):
 
     def SetStyleTable(self, *args):
         r"""
-        SetStyleTable(Layer self, StyleTable table)
+        SetStyleTable(self, table)
 
         Set style table.
 
@@ -1807,36 +1817,36 @@ class Layer(MajorObject):
         return _ogr.Layer_SetStyleTable(self, *args)
 
     def ExportArrowArrayStreamPyCapsule(self, *args):
-        r"""ExportArrowArrayStreamPyCapsule(Layer self, char ** options=None) -> PyObject *"""
+        r"""ExportArrowArrayStreamPyCapsule(self, options=None) -> PyObject *"""
         return _ogr.Layer_ExportArrowArrayStreamPyCapsule(self, *args)
 
     def GetArrowStream(self, *args):
-        r"""GetArrowStream(Layer self, char ** options=None) -> ArrowArrayStream"""
+        r"""GetArrowStream(self, options=None) -> ArrowArrayStream"""
         return _ogr.Layer_GetArrowStream(self, *args)
 
     def IsArrowSchemaSupported(self, *args):
-        r"""IsArrowSchemaSupported(Layer self, ArrowSchema schema, char ** options=None)"""
+        r"""IsArrowSchemaSupported(self, schema, options=None)"""
         return _ogr.Layer_IsArrowSchemaSupported(self, *args)
 
     def CreateFieldFromArrowSchema(self, *args):
-        r"""CreateFieldFromArrowSchema(Layer self, ArrowSchema schema, char ** options=None) -> OGRErr"""
+        r"""CreateFieldFromArrowSchema(self, schema, options=None) -> OGRErr"""
         return _ogr.Layer_CreateFieldFromArrowSchema(self, *args)
 
     def WriteArrowBatch(self, *args):
-        r"""WriteArrowBatch(Layer self, ArrowSchema schema, ArrowArray array, char ** options=None) -> OGRErr"""
+        r"""WriteArrowBatch(self, schema, array, options=None) -> OGRErr"""
         return _ogr.Layer_WriteArrowBatch(self, *args)
 
     def WriteArrowStreamCapsule(self, *args):
-        r"""WriteArrowStreamCapsule(Layer self, PyObject * capsule, int createFieldsFromSchema, char ** options=None) -> OGRErr"""
+        r"""WriteArrowStreamCapsule(self, capsule, createFieldsFromSchema, options=None) -> OGRErr"""
         return _ogr.Layer_WriteArrowStreamCapsule(self, *args)
 
     def WriteArrowSchemaAndArrowArrayCapsule(self, *args):
-        r"""WriteArrowSchemaAndArrowArrayCapsule(Layer self, PyObject * schemaCapsule, PyObject * arrayCapsule, int createFieldsFromSchema, char ** options=None) -> OGRErr"""
+        r"""WriteArrowSchemaAndArrowArrayCapsule(self, schemaCapsule, arrayCapsule, createFieldsFromSchema, options=None) -> OGRErr"""
         return _ogr.Layer_WriteArrowSchemaAndArrowArrayCapsule(self, *args)
 
     def GetGeometryTypes(self, *args, **kwargs):
         r"""
-        GetGeometryTypes(Layer self, int geom_field=0, int flags=0, GDALProgressFunc callback=0, void * callback_data=None)
+        GetGeometryTypes(self, geom_field=0, flags=0, callback=0, callback_data=None)
 
         Get actual geometry types found in features.
 
@@ -1866,11 +1876,11 @@ class Layer(MajorObject):
         return _ogr.Layer_GetGeometryTypes(self, *args, **kwargs)
 
     def GetSupportedSRSList(self, *args, **kwargs):
-        r"""GetSupportedSRSList(Layer self, int geom_field=0)"""
+        r"""GetSupportedSRSList(self, geom_field=0)"""
         return _ogr.Layer_GetSupportedSRSList(self, *args, **kwargs)
 
     def SetActiveSRS(self, *args):
-        r"""SetActiveSRS(Layer self, int geom_field, SpatialReference srs) -> OGRErr"""
+        r"""SetActiveSRS(self, geom_field, srs) -> OGRErr"""
         return _ogr.Layer_SetActiveSRS(self, *args)
 
     def Reference(self):
@@ -2284,7 +2294,7 @@ class Feature(object):
 
     def __init__(self, *args, **kwargs):
         r"""
-        __init__(Feature self, FeatureDefn feature_def) -> Feature
+        __init__(self, feature_def) -> Feature
 
 
         Parameters
@@ -2297,7 +2307,7 @@ class Feature(object):
 
     def GetDefnRef(self, *args):
         r"""
-        GetDefnRef(Feature self) -> FeatureDefn
+        GetDefnRef(self) -> FeatureDefn
 
 
         Fetch the :py:class:`FeatureDefn` associated with this Feature.
@@ -2313,7 +2323,7 @@ class Feature(object):
 
     def SetGeometry(self, *args):
         r"""
-        SetGeometry(Feature self, Geometry geom) -> OGRErr
+        SetGeometry(self, geom) -> OGRErr
 
 
         Set feature geometry.
@@ -2382,7 +2392,7 @@ class Feature(object):
 
     def GetGeometryRef(self, *args):
         r"""
-        GetGeometryRef(Feature self) -> Geometry
+        GetGeometryRef(self) -> Geometry
 
         Return the feature geometry
 
@@ -2409,8 +2419,8 @@ class Feature(object):
 
     def SetGeomField(self, *args):
         r"""
-        SetGeomField(Feature self, int iField, Geometry geom) -> OGRErr
-        SetGeomField(Feature self, char const * field_name, Geometry geom) -> OGRErr
+        SetGeomField(self, iField, geom) -> OGRErr
+        SetGeomField(self, field_name, geom) -> OGRErr
 
 
         Set feature geometry of a specified geometry field.
@@ -2475,8 +2485,8 @@ class Feature(object):
 
     def GetGeomFieldRef(self, *args):
         r"""
-        GetGeomFieldRef(Feature self, int iField) -> Geometry
-        GetGeomFieldRef(Feature self, char const * field_name) -> Geometry
+        GetGeomFieldRef(self, iField) -> Geometry
+        GetGeomFieldRef(self, field_name) -> Geometry
 
 
         Fetch a feature :py:class:`Geometry`.
@@ -2506,7 +2516,7 @@ class Feature(object):
 
     def Clone(self, *args):
         r"""
-        Clone(Feature self) -> Feature
+        Clone(self) -> Feature
 
         Duplicate a Feature.
         See :cpp:func:`OGRFeature::Clone`.
@@ -2520,7 +2530,7 @@ class Feature(object):
 
     def Equal(self, *args):
         r"""
-        Equal(Feature self, Feature feature) -> bool
+        Equal(self, feature) -> bool
 
 
         Test if two features are the same.
@@ -2545,7 +2555,7 @@ class Feature(object):
 
     def GetFieldCount(self, *args):
         r"""
-        GetFieldCount(Feature self) -> int
+        GetFieldCount(self) -> int
 
 
         Fetch number of fields on this feature This will always be the same as
@@ -2563,8 +2573,8 @@ class Feature(object):
 
     def GetFieldDefnRef(self, *args):
         r"""
-        GetFieldDefnRef(Feature self, int id) -> FieldDefn
-        GetFieldDefnRef(Feature self, char const * field_name) -> FieldDefn
+        GetFieldDefnRef(self, id) -> FieldDefn
+        GetFieldDefnRef(self, field_name) -> FieldDefn
 
 
         Fetch definition for this field.
@@ -2589,7 +2599,7 @@ class Feature(object):
 
     def GetGeomFieldCount(self, *args):
         r"""
-        GetGeomFieldCount(Feature self) -> int
+        GetGeomFieldCount(self) -> int
 
 
         Fetch number of geometry fields on this feature This will always be
@@ -2607,8 +2617,8 @@ class Feature(object):
 
     def GetGeomFieldDefnRef(self, *args):
         r"""
-        GetGeomFieldDefnRef(Feature self, int id) -> GeomFieldDefn
-        GetGeomFieldDefnRef(Feature self, char const * field_name) -> GeomFieldDefn
+        GetGeomFieldDefnRef(self, id) -> GeomFieldDefn
+        GetGeomFieldDefnRef(self, field_name) -> GeomFieldDefn
 
 
         Fetch definition for this geometry field.
@@ -2633,8 +2643,8 @@ class Feature(object):
 
     def GetFieldAsString(self, *args):
         r"""
-        GetFieldAsString(Feature self, int id) -> char const
-        GetFieldAsString(Feature self, char const * field_name) -> char const *
+        GetFieldAsString(self, id) -> char const
+        GetFieldAsString(self, field_name) -> char const *
 
 
         :py:const:`OFTReal` and :py:const:`OFTInteger` fields will be translated to string using
@@ -2660,8 +2670,8 @@ class Feature(object):
 
     def GetFieldAsISO8601DateTime(self, *args):
         r"""
-        GetFieldAsISO8601DateTime(Feature self, int id, char ** options=None) -> char const
-        GetFieldAsISO8601DateTime(Feature self, char const * field_name, char ** options=None) -> char const *
+        GetFieldAsISO8601DateTime(self, id, options=None) -> char const
+        GetFieldAsISO8601DateTime(self, field_name, options=None) -> char const *
 
 
         Fetch :py:const:`OFTDateTime` field value as a ISO8601 representation.
@@ -2688,8 +2698,8 @@ class Feature(object):
 
     def GetFieldAsInteger(self, *args):
         r"""
-        GetFieldAsInteger(Feature self, int id) -> int
-        GetFieldAsInteger(Feature self, char const * field_name) -> int
+        GetFieldAsInteger(self, id) -> int
+        GetFieldAsInteger(self, field_name) -> int
 
 
         Fetch field value as a 32-bit integer.
@@ -2731,8 +2741,8 @@ class Feature(object):
 
     def GetFieldAsInteger64(self, *args):
         r"""
-        GetFieldAsInteger64(Feature self, int id) -> GIntBig
-        GetFieldAsInteger64(Feature self, char const * field_name) -> GIntBig
+        GetFieldAsInteger64(self, id) -> GIntBig
+        GetFieldAsInteger64(self, field_name) -> GIntBig
 
 
         Fetch field value as integer 64 bit.
@@ -2761,8 +2771,8 @@ class Feature(object):
 
     def GetFieldAsDouble(self, *args):
         r"""
-        GetFieldAsDouble(Feature self, int id) -> double
-        GetFieldAsDouble(Feature self, char const * field_name) -> double
+        GetFieldAsDouble(self, id) -> double
+        GetFieldAsDouble(self, field_name) -> double
 
         Fetch field value as a double.
 
@@ -2789,8 +2799,8 @@ class Feature(object):
 
     def GetFieldAsDateTime(self, *args):
         r"""
-        GetFieldAsDateTime(Feature self, int id)
-        GetFieldAsDateTime(Feature self, char const * field_name)
+        GetFieldAsDateTime(self, id)
+        GetFieldAsDateTime(self, field_name)
 
 
         Fetch field value as date and time.
@@ -2840,8 +2850,8 @@ class Feature(object):
 
     def GetFieldAsIntegerList(self, *args):
         r"""
-        GetFieldAsIntegerList(Feature self, int id)
-        GetFieldAsIntegerList(Feature self, char const * field_name)
+        GetFieldAsIntegerList(self, id)
+        GetFieldAsIntegerList(self, field_name)
 
 
         Fetch field value as a list of integers.
@@ -2868,7 +2878,7 @@ class Feature(object):
 
     def GetFieldAsInteger64List(self, *args):
         r"""
-        GetFieldAsInteger64List(Feature self, int id)
+        GetFieldAsInteger64List(self, id)
 
         Fetch field value as a list of 64 bit integers.
 
@@ -2893,8 +2903,8 @@ class Feature(object):
 
     def GetFieldAsDoubleList(self, *args):
         r"""
-        GetFieldAsDoubleList(Feature self, int id)
-        GetFieldAsDoubleList(Feature self, char const * field_name)
+        GetFieldAsDoubleList(self, id)
+        GetFieldAsDoubleList(self, field_name)
 
 
         Fetch field value as a list of doubles.
@@ -2928,7 +2938,7 @@ class Feature(object):
 
     def GetFieldAsStringList(self, *args):
         r"""
-        GetFieldAsStringList(Feature self, int id) -> char **
+        GetFieldAsStringList(self, id) -> char **
 
 
         Fetch field value as a list of strings.
@@ -2954,8 +2964,8 @@ class Feature(object):
 
     def GetFieldAsBinary(self, *args):
         r"""
-        GetFieldAsBinary(Feature self, int id) -> OGRErr
-        GetFieldAsBinary(Feature self, char const * field_name) -> OGRErr
+        GetFieldAsBinary(self, id) -> OGRErr
+        GetFieldAsBinary(self, field_name) -> OGRErr
 
 
         Fetch field value as binary.
@@ -2980,8 +2990,8 @@ class Feature(object):
 
     def IsFieldSet(self, *args):
         r"""
-        IsFieldSet(Feature self, int id) -> bool
-        IsFieldSet(Feature self, char const * field_name) -> bool
+        IsFieldSet(self, id) -> bool
+        IsFieldSet(self, field_name) -> bool
 
 
         Test if a field has ever been assigned a value or not.
@@ -3005,8 +3015,8 @@ class Feature(object):
 
     def IsFieldNull(self, *args):
         r"""
-        IsFieldNull(Feature self, int id) -> bool
-        IsFieldNull(Feature self, char const * field_name) -> bool
+        IsFieldNull(self, id) -> bool
+        IsFieldNull(self, field_name) -> bool
 
 
         Test if a field is null.
@@ -3030,8 +3040,8 @@ class Feature(object):
 
     def IsFieldSetAndNotNull(self, *args):
         r"""
-        IsFieldSetAndNotNull(Feature self, int id) -> bool
-        IsFieldSetAndNotNull(Feature self, char const * field_name) -> bool
+        IsFieldSetAndNotNull(self, id) -> bool
+        IsFieldSetAndNotNull(self, field_name) -> bool
 
 
         Test if a field is set and not null.
@@ -3055,7 +3065,7 @@ class Feature(object):
 
     def GetFieldIndex(self, *args):
         r"""
-        GetFieldIndex(Feature self, char const * field_name) -> int
+        GetFieldIndex(self, field_name) -> int
 
 
         Fetch the field index given field name.
@@ -3077,7 +3087,7 @@ class Feature(object):
 
     def GetGeomFieldIndex(self, *args):
         r"""
-        GetGeomFieldIndex(Feature self, char const * field_name) -> int
+        GetGeomFieldIndex(self, field_name) -> int
 
 
         Fetch the geometry field index given geometry field name.
@@ -3099,7 +3109,7 @@ class Feature(object):
 
     def GetFID(self, *args):
         r"""
-        GetFID(Feature self) -> GIntBig
+        GetFID(self) -> GIntBig
 
 
         Get feature identifier.
@@ -3115,7 +3125,7 @@ class Feature(object):
 
     def SetFID(self, *args):
         r"""
-        SetFID(Feature self, GIntBig fid) -> OGRErr
+        SetFID(self, fid) -> OGRErr
 
 
         Set the feature identifier.
@@ -3142,7 +3152,7 @@ class Feature(object):
 
     def DumpReadable(self, *args):
         r"""
-        DumpReadable(Feature self)
+        DumpReadable(self)
 
 
         Print this feature in a human readable form.
@@ -3171,7 +3181,7 @@ class Feature(object):
 
     def DumpReadableAsString(self, *args):
         r"""
-        DumpReadableAsString(Feature self, char ** options=None) -> retStringAndCPLFree *
+        DumpReadableAsString(self, options=None) -> retStringAndCPLFree *
 
 
         Return feature information in a human-readable form.
@@ -3186,8 +3196,8 @@ class Feature(object):
 
     def UnsetField(self, *args):
         r"""
-        UnsetField(Feature self, int id)
-        UnsetField(Feature self, char const * field_name)
+        UnsetField(self, id)
+        UnsetField(self, field_name)
 
 
         Clear a field, marking it as unset.
@@ -3206,8 +3216,8 @@ class Feature(object):
 
     def SetFieldNull(self, *args):
         r"""
-        SetFieldNull(Feature self, int id)
-        SetFieldNull(Feature self, char const * field_name)
+        SetFieldNull(self, id)
+        SetFieldNull(self, field_name)
 
 
         Clear a field, marking it as null.
@@ -3226,7 +3236,7 @@ class Feature(object):
         return _ogr.Feature_SetFieldNull(self, *args)
 
     def SetFieldInteger64(self, *args):
-        r"""SetFieldInteger64(Feature self, int id, GIntBig value)"""
+        r"""SetFieldInteger64(self, id, value)"""
         return _ogr.Feature_SetFieldInteger64(self, *args)
 
         # With several override, SWIG cannot dispatch automatically unicode strings
@@ -3273,7 +3283,7 @@ class Feature(object):
 
     def SetFieldIntegerList(self, *args):
         r"""
-        SetFieldIntegerList(Feature self, int id, int nList)
+        SetFieldIntegerList(self, id, nList)
         void
 
         Set field to list of integer values.
@@ -3301,7 +3311,7 @@ class Feature(object):
 
     def SetFieldInteger64List(self, *args):
         r"""
-        SetFieldInteger64List(Feature self, int id, int nList)
+        SetFieldInteger64List(self, id, nList)
         void
 
         Set field to list of 64 bit integer values.
@@ -3329,7 +3339,7 @@ class Feature(object):
 
     def SetFieldDoubleList(self, *args):
         r"""
-        SetFieldDoubleList(Feature self, int id, int nList)
+        SetFieldDoubleList(self, id, nList)
 
 
         Set field to list of double values.
@@ -3357,7 +3367,7 @@ class Feature(object):
 
     def SetFieldStringList(self, *args):
         r"""
-        SetFieldStringList(Feature self, int id, char ** pList)
+        SetFieldStringList(self, id, pList)
 
 
         Set field to list of strings value.
@@ -3385,19 +3395,19 @@ class Feature(object):
         return _ogr.Feature_SetFieldStringList(self, *args)
 
     def _SetFieldBinary(self, *args):
-        r"""_SetFieldBinary(Feature self, int id, int nLen)"""
+        r"""_SetFieldBinary(self, id, nLen)"""
         return _ogr.Feature__SetFieldBinary(self, *args)
 
     def SetFieldBinaryFromHexString(self, *args):
         r"""
-        SetFieldBinaryFromHexString(Feature self, int id, char const * pszValue)
-        SetFieldBinaryFromHexString(Feature self, char const * field_name, char const * pszValue)
+        SetFieldBinaryFromHexString(self, id, pszValue)
+        SetFieldBinaryFromHexString(self, field_name, pszValue)
         """
         return _ogr.Feature_SetFieldBinaryFromHexString(self, *args)
 
     def SetFrom(self, *args, **kwargs):
         r"""
-        SetFrom(Feature self, Feature other, int forgiving=1) -> OGRErr
+        SetFrom(self, other, forgiving=1) -> OGRErr
 
         Set one feature from another.
 
@@ -3428,7 +3438,7 @@ class Feature(object):
 
     def SetFromWithMap(self, *args):
         r"""
-        SetFromWithMap(Feature self, Feature other, int forgiving, int nList) -> OGRErr
+        SetFromWithMap(self, other, forgiving, nList) -> OGRErr
 
 
         Set one feature from another.
@@ -3470,7 +3480,7 @@ class Feature(object):
 
     def GetStyleString(self, *args):
         r"""
-        GetStyleString(Feature self) -> char const *
+        GetStyleString(self) -> char const *
 
 
         Fetch style string for this feature.
@@ -3490,7 +3500,7 @@ class Feature(object):
 
     def SetStyleString(self, *args):
         r"""
-        SetStyleString(Feature self, char const * the_string)
+        SetStyleString(self, the_string)
 
 
         Set feature style string.
@@ -3507,8 +3517,8 @@ class Feature(object):
 
     def GetFieldType(self, *args):
         r"""
-        GetFieldType(Feature self, int id) -> OGRFieldType
-        GetFieldType(Feature self, char const * field_name) -> OGRFieldType
+        GetFieldType(self, id) -> OGRFieldType
+        GetFieldType(self, field_name) -> OGRFieldType
 
 
         Return the type of the given field.
@@ -3530,7 +3540,7 @@ class Feature(object):
 
     def Validate(self, *args):
         r"""
-        Validate(Feature self, int flags=OGR_F_VAL_ALL, int bEmitError=TRUE) -> int
+        Validate(self, flags=OGR_F_VAL_ALL, bEmitError=TRUE) -> int
 
 
         Validate that a feature meets constraints of its schema.
@@ -3564,7 +3574,7 @@ class Feature(object):
 
     def FillUnsetWithDefault(self, *args):
         r"""
-        FillUnsetWithDefault(Feature self, int bNotNullableOnly=FALSE, char ** options=None)
+        FillUnsetWithDefault(self, bNotNullableOnly=FALSE, options=None)
 
 
         Fill unset fields with default values that might be defined.
@@ -3584,7 +3594,7 @@ class Feature(object):
 
     def GetNativeData(self, *args):
         r"""
-        GetNativeData(Feature self) -> char const *
+        GetNativeData(self) -> char const *
 
 
         Returns the native data for the feature.
@@ -3616,7 +3626,7 @@ class Feature(object):
 
     def GetNativeMediaType(self, *args):
         r"""
-        GetNativeMediaType(Feature self) -> char const *
+        GetNativeMediaType(self) -> char const *
 
 
         Returns the native media type for the feature.
@@ -3638,7 +3648,7 @@ class Feature(object):
 
     def SetNativeData(self, *args):
         r"""
-        SetNativeData(Feature self, char const * nativeData)
+        SetNativeData(self, nativeData)
 
 
         Sets the native data for the feature.
@@ -3660,7 +3670,7 @@ class Feature(object):
 
     def SetNativeMediaType(self, *args):
         r"""
-        SetNativeMediaType(Feature self, char const * nativeMediaType)
+        SetNativeMediaType(self, nativeMediaType)
 
 
         Sets the native media type for the feature.
@@ -3682,7 +3692,7 @@ class Feature(object):
 
     def SetFieldString(self, *args):
         r"""
-        SetFieldString(Feature self, int id, char const * value)
+        SetFieldString(self, id, value)
 
 
         Set field to string value.
@@ -3934,6 +3944,10 @@ class Feature(object):
             self._SetFieldBinary(fld_index, value)
             return
 
+        if hasattr(value, 'tolist'):
+            self._SetField2(fld_index, value.tolist())
+            return
+
         try:
             self.SetField(fld_index, value)
         except:
@@ -4070,7 +4084,7 @@ class FeatureDefn(object):
 
     def __init__(self, *args, **kwargs):
         r"""
-        __init__(FeatureDefn self, char const * name_null_ok=None) -> FeatureDefn
+        __init__(self, name_null_ok=None) -> FeatureDefn
 
 
         Create a new feature definition object to hold the field definitions.
@@ -4085,7 +4099,7 @@ class FeatureDefn(object):
 
     def GetName(self, *args):
         r"""
-        GetName(FeatureDefn self) -> char const *
+        GetName(self) -> char const *
 
 
         Get name of the :py:class:`FeatureDefn`.
@@ -4102,7 +4116,7 @@ class FeatureDefn(object):
 
     def GetFieldCount(self, *args):
         r"""
-        GetFieldCount(FeatureDefn self) -> int
+        GetFieldCount(self) -> int
 
 
         Fetch number of fields on the passed feature definition.
@@ -4119,7 +4133,7 @@ class FeatureDefn(object):
 
     def GetFieldDefn(self, *args):
         r"""
-        GetFieldDefn(FeatureDefn self, int i) -> FieldDefn
+        GetFieldDefn(self, i) -> FieldDefn
 
 
         Fetch field definition of the passed feature definition.
@@ -4150,7 +4164,7 @@ class FeatureDefn(object):
 
     def GetFieldIndex(self, *args):
         r"""
-        GetFieldIndex(FeatureDefn self, char const * field_name) -> int
+        GetFieldIndex(self, field_name) -> int
 
 
         Find field by name.
@@ -4175,7 +4189,7 @@ class FeatureDefn(object):
 
     def AddFieldDefn(self, *args):
         r"""
-        AddFieldDefn(FeatureDefn self, FieldDefn defn)
+        AddFieldDefn(self, defn)
 
 
         Add a new field definition.
@@ -4199,7 +4213,7 @@ class FeatureDefn(object):
 
     def GetGeomFieldCount(self, *args):
         r"""
-        GetGeomFieldCount(FeatureDefn self) -> int
+        GetGeomFieldCount(self) -> int
 
 
         Fetch number of geometry fields on the passed feature definition.
@@ -4216,7 +4230,7 @@ class FeatureDefn(object):
 
     def GetGeomFieldDefn(self, *args):
         r"""
-        GetGeomFieldDefn(FeatureDefn self, int i) -> GeomFieldDefn
+        GetGeomFieldDefn(self, i) -> GeomFieldDefn
 
 
         Fetch geometry field definition of the passed feature definition.
@@ -4239,7 +4253,7 @@ class FeatureDefn(object):
 
     def GetGeomFieldIndex(self, *args):
         r"""
-        GetGeomFieldIndex(FeatureDefn self, char const * field_name) -> int
+        GetGeomFieldIndex(self, field_name) -> int
 
 
         Find geometry field by name.
@@ -4264,7 +4278,7 @@ class FeatureDefn(object):
 
     def AddGeomFieldDefn(self, *args):
         r"""
-        AddGeomFieldDefn(FeatureDefn self, GeomFieldDefn defn)
+        AddGeomFieldDefn(self, defn)
 
 
         Add a new geometry field definition.
@@ -4288,7 +4302,7 @@ class FeatureDefn(object):
 
     def DeleteGeomFieldDefn(self, *args):
         r"""
-        DeleteGeomFieldDefn(FeatureDefn self, int idx) -> OGRErr
+        DeleteGeomFieldDefn(self, idx) -> OGRErr
 
 
         Delete an existing geometry field definition.
@@ -4317,7 +4331,7 @@ class FeatureDefn(object):
 
     def GetGeomType(self, *args):
         r"""
-        GetGeomType(FeatureDefn self) -> OGRwkbGeometryType
+        GetGeomType(self) -> OGRwkbGeometryType
 
 
         Fetch the geometry base type of the passed feature definition.
@@ -4336,7 +4350,7 @@ class FeatureDefn(object):
 
     def SetGeomType(self, *args):
         r"""
-        SetGeomType(FeatureDefn self, OGRwkbGeometryType geom_type)
+        SetGeomType(self, geom_type)
 
 
         Assign the base geometry type for the passed layer (the same as the
@@ -4361,7 +4375,7 @@ class FeatureDefn(object):
 
     def GetReferenceCount(self, *args):
         r"""
-        GetReferenceCount(FeatureDefn self) -> int
+        GetReferenceCount(self) -> int
 
 
         Fetch current reference count.
@@ -4378,7 +4392,7 @@ class FeatureDefn(object):
 
     def IsGeometryIgnored(self, *args):
         r"""
-        IsGeometryIgnored(FeatureDefn self) -> int
+        IsGeometryIgnored(self) -> int
 
 
         Determine whether the geometry can be omitted when fetching features.
@@ -4397,7 +4411,7 @@ class FeatureDefn(object):
 
     def SetGeometryIgnored(self, *args):
         r"""
-        SetGeometryIgnored(FeatureDefn self, int bIgnored)
+        SetGeometryIgnored(self, bIgnored)
 
 
         Set whether the geometry can be omitted when fetching features.
@@ -4416,7 +4430,7 @@ class FeatureDefn(object):
 
     def IsStyleIgnored(self, *args):
         r"""
-        IsStyleIgnored(FeatureDefn self) -> int
+        IsStyleIgnored(self) -> int
 
 
         Determine whether the style can be omitted when fetching features.
@@ -4433,7 +4447,7 @@ class FeatureDefn(object):
 
     def SetStyleIgnored(self, *args):
         r"""
-        SetStyleIgnored(FeatureDefn self, int bIgnored)
+        SetStyleIgnored(self, bIgnored)
 
 
         Set whether the style can be omitted when fetching features.
@@ -4450,7 +4464,7 @@ class FeatureDefn(object):
 
     def IsSame(self, *args):
         r"""
-        IsSame(FeatureDefn self, FeatureDefn other_defn) -> int
+        IsSame(self, other_defn) -> int
 
 
         Test if the feature definition is identical to the other one.
@@ -4490,7 +4504,7 @@ class FieldDefn(object):
 
     def __init__(self, *args, **kwargs):
         r"""
-        __init__(FieldDefn self, char const * name_null_ok="unnamed", OGRFieldType field_type=OFTString) -> FieldDefn
+        __init__(self, name_null_ok="unnamed", field_type=OFTString) -> FieldDefn
 
         Python proxy of an :cpp:class:`OGRFieldDefn`.
 
@@ -4498,12 +4512,12 @@ class FieldDefn(object):
         _ogr.FieldDefn_swiginit(self, _ogr.new_FieldDefn(*args, **kwargs))
 
     def GetName(self, *args):
-        r"""GetName(FieldDefn self) -> char const *"""
+        r"""GetName(self) -> char const *"""
         return _ogr.FieldDefn_GetName(self, *args)
 
     def GetNameRef(self, *args):
         r"""
-        GetNameRef(FieldDefn self) -> char const *
+        GetNameRef(self) -> char const *
 
 
         Fetch name of this field.
@@ -4520,7 +4534,7 @@ class FieldDefn(object):
 
     def SetName(self, *args):
         r"""
-        SetName(FieldDefn self, char const * name)
+        SetName(self, name)
 
 
         Reset the name of this field.
@@ -4536,12 +4550,12 @@ class FieldDefn(object):
         return _ogr.FieldDefn_SetName(self, *args)
 
     def GetAlternativeName(self, *args):
-        r"""GetAlternativeName(FieldDefn self) -> char const *"""
+        r"""GetAlternativeName(self) -> char const *"""
         return _ogr.FieldDefn_GetAlternativeName(self, *args)
 
     def GetAlternativeNameRef(self, *args):
         r"""
-        GetAlternativeNameRef(FieldDefn self) -> char const *
+        GetAlternativeNameRef(self) -> char const *
 
 
         Fetch the alternative name (or "alias") for this field.
@@ -4568,7 +4582,7 @@ class FieldDefn(object):
 
     def SetAlternativeName(self, *args):
         r"""
-        SetAlternativeName(FieldDefn self, char const * alternativeName)
+        SetAlternativeName(self, alternativeName)
 
 
         Reset the alternative name (or "alias") for this field.
@@ -4595,7 +4609,7 @@ class FieldDefn(object):
 
     def GetType(self, *args):
         r"""
-        GetType(FieldDefn self) -> OGRFieldType
+        GetType(self) -> OGRFieldType
 
 
         Fetch type of this field.
@@ -4612,7 +4626,7 @@ class FieldDefn(object):
 
     def SetType(self, *args):
         r"""
-        SetType(FieldDefn self, OGRFieldType type)
+        SetType(self, type)
 
 
         Set the type of this field.
@@ -4637,7 +4651,7 @@ class FieldDefn(object):
 
     def GetSubType(self, *args):
         r"""
-        GetSubType(FieldDefn self) -> OGRFieldSubType
+        GetSubType(self) -> OGRFieldSubType
 
 
         Fetch subtype of this field.
@@ -4654,7 +4668,7 @@ class FieldDefn(object):
 
     def SetSubType(self, *args):
         r"""
-        SetSubType(FieldDefn self, OGRFieldSubType type)
+        SetSubType(self, type)
 
 
         Set the subtype of this field.
@@ -4682,7 +4696,7 @@ class FieldDefn(object):
 
     def GetJustify(self, *args):
         r"""
-        GetJustify(FieldDefn self) -> OGRJustification
+        GetJustify(self) -> OGRJustification
 
 
         Get the justification for this field.
@@ -4701,7 +4715,7 @@ class FieldDefn(object):
 
     def SetJustify(self, *args):
         r"""
-        SetJustify(FieldDefn self, OGRJustification justify)
+        SetJustify(self, justify)
 
 
         Set the justification for this field.
@@ -4725,7 +4739,7 @@ class FieldDefn(object):
 
     def GetWidth(self, *args):
         r"""
-        GetWidth(FieldDefn self) -> int
+        GetWidth(self) -> int
 
 
         Get the formatting width for this field.
@@ -4742,7 +4756,7 @@ class FieldDefn(object):
 
     def SetWidth(self, *args):
         r"""
-        SetWidth(FieldDefn self, int width)
+        SetWidth(self, width)
 
 
         Set the formatting width for this field in characters.
@@ -4759,7 +4773,7 @@ class FieldDefn(object):
 
     def GetPrecision(self, *args):
         r"""
-        GetPrecision(FieldDefn self) -> int
+        GetPrecision(self) -> int
 
 
         Get the formatting precision for this field.
@@ -4778,7 +4792,7 @@ class FieldDefn(object):
 
     def SetPrecision(self, *args):
         r"""
-        SetPrecision(FieldDefn self, int precision)
+        SetPrecision(self, precision)
 
 
         Set the formatting precision for this field in characters.
@@ -4796,24 +4810,24 @@ class FieldDefn(object):
         return _ogr.FieldDefn_SetPrecision(self, *args)
 
     def GetTZFlag(self, *args):
-        r"""GetTZFlag(FieldDefn self) -> int"""
+        r"""GetTZFlag(self) -> int"""
         return _ogr.FieldDefn_GetTZFlag(self, *args)
 
     def SetTZFlag(self, *args):
-        r"""SetTZFlag(FieldDefn self, int tzflag)"""
+        r"""SetTZFlag(self, tzflag)"""
         return _ogr.FieldDefn_SetTZFlag(self, *args)
 
     def GetTypeName(self, *args):
-        r"""GetTypeName(FieldDefn self) -> char const *"""
+        r"""GetTypeName(self) -> char const *"""
         return _ogr.FieldDefn_GetTypeName(self, *args)
 
     def GetFieldTypeName(self, *args):
-        r"""GetFieldTypeName(FieldDefn self, OGRFieldType type) -> char const *"""
+        r"""GetFieldTypeName(self, type) -> char const *"""
         return _ogr.FieldDefn_GetFieldTypeName(self, *args)
 
     def IsIgnored(self, *args):
         r"""
-        IsIgnored(FieldDefn self) -> int
+        IsIgnored(self) -> int
 
 
         Return whether this field should be omitted when fetching features.
@@ -4830,7 +4844,7 @@ class FieldDefn(object):
 
     def SetIgnored(self, *args):
         r"""
-        SetIgnored(FieldDefn self, int bIgnored)
+        SetIgnored(self, bIgnored)
 
 
         Set whether this field should be omitted when fetching features.
@@ -4847,7 +4861,7 @@ class FieldDefn(object):
 
     def IsNullable(self, *args):
         r"""
-        IsNullable(FieldDefn self) -> int
+        IsNullable(self) -> int
 
 
         Return whether this field can receive null values.
@@ -4871,7 +4885,7 @@ class FieldDefn(object):
 
     def SetNullable(self, *args):
         r"""
-        SetNullable(FieldDefn self, int bNullable)
+        SetNullable(self, bNullable)
 
 
         Set whether this field can receive null values.
@@ -4894,7 +4908,7 @@ class FieldDefn(object):
 
     def IsUnique(self, *args):
         r"""
-        IsUnique(FieldDefn self) -> int
+        IsUnique(self) -> int
 
 
         Return whether this field has a unique constraint.
@@ -4915,7 +4929,7 @@ class FieldDefn(object):
 
     def SetUnique(self, *args):
         r"""
-        SetUnique(FieldDefn self, int bUnique)
+        SetUnique(self, bUnique)
 
 
         Set whether this field has a unique constraint.
@@ -4945,16 +4959,16 @@ class FieldDefn(object):
         return _ogr.FieldDefn_SetUnique(self, *args)
 
     def IsGenerated(self, *args):
-        r"""IsGenerated(FieldDefn self) -> int"""
+        r"""IsGenerated(self) -> int"""
         return _ogr.FieldDefn_IsGenerated(self, *args)
 
     def SetGenerated(self, *args):
-        r"""SetGenerated(FieldDefn self, int bGenerated)"""
+        r"""SetGenerated(self, bGenerated)"""
         return _ogr.FieldDefn_SetGenerated(self, *args)
 
     def GetDefault(self, *args):
         r"""
-        GetDefault(FieldDefn self) -> char const *
+        GetDefault(self) -> char const *
 
 
         Get default field value.
@@ -4971,7 +4985,7 @@ class FieldDefn(object):
 
     def SetDefault(self, *args):
         r"""
-        SetDefault(FieldDefn self, char const * pszValue)
+        SetDefault(self, pszValue)
 
 
         Set default field value.
@@ -5006,7 +5020,7 @@ class FieldDefn(object):
 
     def IsDefaultDriverSpecific(self, *args):
         r"""
-        IsDefaultDriverSpecific(FieldDefn self) -> int
+        IsDefaultDriverSpecific(self) -> int
 
 
         Returns whether the default value is driver specific.
@@ -5028,7 +5042,7 @@ class FieldDefn(object):
 
     def GetDomainName(self, *args):
         r"""
-        GetDomainName(FieldDefn self) -> char const *
+        GetDomainName(self) -> char const *
 
 
         Return the name of the field domain for this field.
@@ -5051,7 +5065,7 @@ class FieldDefn(object):
 
     def SetDomainName(self, *args):
         r"""
-        SetDomainName(FieldDefn self, char const * name)
+        SetDomainName(self, name)
 
 
         Set the name of the field domain for this field.
@@ -5071,11 +5085,11 @@ class FieldDefn(object):
         return _ogr.FieldDefn_SetDomainName(self, *args)
 
     def GetComment(self, *args):
-        r"""GetComment(FieldDefn self) -> char const *"""
+        r"""GetComment(self) -> char const *"""
         return _ogr.FieldDefn_GetComment(self, *args)
 
     def SetComment(self, *args):
-        r"""SetComment(FieldDefn self, char const * comment)"""
+        r"""SetComment(self, comment)"""
         return _ogr.FieldDefn_SetComment(self, *args)
 
     width = property(GetWidth, SetWidth)
@@ -5101,59 +5115,59 @@ class GeomFieldDefn(object):
     __swig_destroy__ = _ogr.delete_GeomFieldDefn
 
     def __init__(self, *args, **kwargs):
-        r"""__init__(GeomFieldDefn self, char const * name_null_ok="", OGRwkbGeometryType field_type=wkbUnknown) -> GeomFieldDefn"""
+        r"""__init__(self, name_null_ok="", field_type=wkbUnknown) -> GeomFieldDefn"""
         _ogr.GeomFieldDefn_swiginit(self, _ogr.new_GeomFieldDefn(*args, **kwargs))
 
     def GetName(self, *args):
-        r"""GetName(GeomFieldDefn self) -> char const *"""
+        r"""GetName(self) -> char const *"""
         return _ogr.GeomFieldDefn_GetName(self, *args)
 
     def GetNameRef(self, *args):
-        r"""GetNameRef(GeomFieldDefn self) -> char const *"""
+        r"""GetNameRef(self) -> char const *"""
         return _ogr.GeomFieldDefn_GetNameRef(self, *args)
 
     def SetName(self, *args):
-        r"""SetName(GeomFieldDefn self, char const * name)"""
+        r"""SetName(self, name)"""
         return _ogr.GeomFieldDefn_SetName(self, *args)
 
     def GetType(self, *args):
-        r"""GetType(GeomFieldDefn self) -> OGRwkbGeometryType"""
+        r"""GetType(self) -> OGRwkbGeometryType"""
         return _ogr.GeomFieldDefn_GetType(self, *args)
 
     def SetType(self, *args):
-        r"""SetType(GeomFieldDefn self, OGRwkbGeometryType type)"""
+        r"""SetType(self, type)"""
         return _ogr.GeomFieldDefn_SetType(self, *args)
 
     def GetSpatialRef(self, *args):
-        r"""GetSpatialRef(GeomFieldDefn self) -> SpatialReference"""
+        r"""GetSpatialRef(self) -> SpatialReference"""
         return _ogr.GeomFieldDefn_GetSpatialRef(self, *args)
 
     def SetSpatialRef(self, *args):
-        r"""SetSpatialRef(GeomFieldDefn self, SpatialReference srs)"""
+        r"""SetSpatialRef(self, srs)"""
         return _ogr.GeomFieldDefn_SetSpatialRef(self, *args)
 
     def IsIgnored(self, *args):
-        r"""IsIgnored(GeomFieldDefn self) -> int"""
+        r"""IsIgnored(self) -> int"""
         return _ogr.GeomFieldDefn_IsIgnored(self, *args)
 
     def SetIgnored(self, *args):
-        r"""SetIgnored(GeomFieldDefn self, int bIgnored)"""
+        r"""SetIgnored(self, bIgnored)"""
         return _ogr.GeomFieldDefn_SetIgnored(self, *args)
 
     def IsNullable(self, *args):
-        r"""IsNullable(GeomFieldDefn self) -> int"""
+        r"""IsNullable(self) -> int"""
         return _ogr.GeomFieldDefn_IsNullable(self, *args)
 
     def SetNullable(self, *args):
-        r"""SetNullable(GeomFieldDefn self, int bNullable)"""
+        r"""SetNullable(self, bNullable)"""
         return _ogr.GeomFieldDefn_SetNullable(self, *args)
 
     def GetCoordinatePrecision(self, *args):
-        r"""GetCoordinatePrecision(GeomFieldDefn self) -> GeomCoordinatePrecision"""
+        r"""GetCoordinatePrecision(self) -> GeomCoordinatePrecision"""
         return _ogr.GeomFieldDefn_GetCoordinatePrecision(self, *args)
 
     def SetCoordinatePrecision(self, *args):
-        r"""SetCoordinatePrecision(GeomFieldDefn self, GeomCoordinatePrecision coordPrec)"""
+        r"""SetCoordinatePrecision(self, coordPrec)"""
         return _ogr.GeomFieldDefn_SetCoordinatePrecision(self, *args)
 
     type = property(GetType, SetType)
@@ -5165,28 +5179,28 @@ class GeomFieldDefn(object):
 _ogr.GeomFieldDefn_swigregister(GeomFieldDefn)
 
 def CreateGeometryFromWkb(*args, **kwargs):
-    r"""CreateGeometryFromWkb(size_t len, SpatialReference reference=None) -> Geometry"""
+    r"""CreateGeometryFromWkb(len, reference=None) -> Geometry"""
     return _ogr.CreateGeometryFromWkb(*args, **kwargs)
 
 def CreateGeometryFromWkt(*args, **kwargs):
-    r"""CreateGeometryFromWkt(char ** val, SpatialReference reference=None) -> Geometry"""
+    r"""CreateGeometryFromWkt(val, reference=None) -> Geometry"""
     return _ogr.CreateGeometryFromWkt(*args, **kwargs)
 
 def CreateGeometryFromGML(*args):
-    r"""CreateGeometryFromGML(char const * input_string) -> Geometry"""
+    r"""CreateGeometryFromGML(input_string) -> Geometry"""
     return _ogr.CreateGeometryFromGML(*args)
 
 def CreateGeometryFromJson(*args):
-    r"""CreateGeometryFromJson(char const * input_string) -> Geometry"""
+    r"""CreateGeometryFromJson(input_string) -> Geometry"""
     return _ogr.CreateGeometryFromJson(*args)
 
 def CreateGeometryFromEsriJson(*args):
-    r"""CreateGeometryFromEsriJson(char const * input_string) -> Geometry"""
+    r"""CreateGeometryFromEsriJson(input_string) -> Geometry"""
     return _ogr.CreateGeometryFromEsriJson(*args)
 
 def CreateGeometryFromEnvelope(*args):
     r"""
-    CreateGeometryFromEnvelope(double xmin, double ymin, double xmax, double ymax, SpatialReference reference=None) -> Geometry
+    CreateGeometryFromEnvelope(xmin, ymin, xmax, ymax, reference=None) -> Geometry
 
 
     Creates a rectangular, axis-aligned Polygon geometry.
@@ -5220,35 +5234,35 @@ def CreateGeometryFromEnvelope(*args):
     return _ogr.CreateGeometryFromEnvelope(*args)
 
 def BuildPolygonFromEdges(*args, **kwargs):
-    r"""BuildPolygonFromEdges(Geometry hLineCollection, int bBestEffort=0, int bAutoClose=0, double dfTolerance=0) -> Geometry"""
+    r"""BuildPolygonFromEdges(hLineCollection, bBestEffort=0, bAutoClose=0, dfTolerance=0) -> Geometry"""
     return _ogr.BuildPolygonFromEdges(*args, **kwargs)
 
 def ApproximateArcAngles(*args, **kwargs):
-    r"""ApproximateArcAngles(double dfCenterX, double dfCenterY, double dfZ, double dfPrimaryRadius, double dfSecondaryAxis, double dfRotation, double dfStartAngle, double dfEndAngle, double dfMaxAngleStepSizeDegrees) -> Geometry"""
+    r"""ApproximateArcAngles(dfCenterX, dfCenterY, dfZ, dfPrimaryRadius, dfSecondaryAxis, dfRotation, dfStartAngle, dfEndAngle, dfMaxAngleStepSizeDegrees) -> Geometry"""
     return _ogr.ApproximateArcAngles(*args, **kwargs)
 
 def ForceToPolygon(*args):
-    r"""ForceToPolygon(Geometry geom_in) -> Geometry"""
+    r"""ForceToPolygon(geom_in) -> Geometry"""
     return _ogr.ForceToPolygon(*args)
 
 def ForceToLineString(*args):
-    r"""ForceToLineString(Geometry geom_in) -> Geometry"""
+    r"""ForceToLineString(geom_in) -> Geometry"""
     return _ogr.ForceToLineString(*args)
 
 def ForceToMultiPolygon(*args):
-    r"""ForceToMultiPolygon(Geometry geom_in) -> Geometry"""
+    r"""ForceToMultiPolygon(geom_in) -> Geometry"""
     return _ogr.ForceToMultiPolygon(*args)
 
 def ForceToMultiPoint(*args):
-    r"""ForceToMultiPoint(Geometry geom_in) -> Geometry"""
+    r"""ForceToMultiPoint(geom_in) -> Geometry"""
     return _ogr.ForceToMultiPoint(*args)
 
 def ForceToMultiLineString(*args):
-    r"""ForceToMultiLineString(Geometry geom_in) -> Geometry"""
+    r"""ForceToMultiLineString(geom_in) -> Geometry"""
     return _ogr.ForceToMultiLineString(*args)
 
 def ForceTo(*args):
-    r"""ForceTo(Geometry geom_in, OGRwkbGeometryType eTargetType, char ** options=None) -> Geometry"""
+    r"""ForceTo(geom_in, eTargetType, options=None) -> Geometry"""
     return _ogr.ForceTo(*args)
 class Geometry(object):
     r"""Proxy of C++ OGRGeometryShadow class."""
@@ -5258,12 +5272,12 @@ class Geometry(object):
     __swig_destroy__ = _ogr.delete_Geometry
 
     def __init__(self, *args, **kwargs):
-        r"""__init__(Geometry self, OGRwkbGeometryType type=wkbUnknown, char * wkt=None, int wkb=0, char * gml=None) -> Geometry"""
+        r"""__init__(self, type=wkbUnknown, wkt=None, wkb=0, gml=None) -> Geometry"""
         _ogr.Geometry_swiginit(self, _ogr.new_Geometry(*args, **kwargs))
 
     def ExportToWkt(self, *args):
         r"""
-        ExportToWkt(Geometry self) -> OGRErr
+        ExportToWkt(self) -> OGRErr
 
         Convert a geometry into well known text format.
 
@@ -5278,7 +5292,7 @@ class Geometry(object):
 
     def ExportToIsoWkt(self, *args):
         r"""
-        ExportToIsoWkt(Geometry self) -> OGRErr
+        ExportToIsoWkt(self) -> OGRErr
 
         Convert a geometry into SFSQL 1.2 / ISO SQL/MM Part 3 well known text
         format.
@@ -5296,7 +5310,7 @@ class Geometry(object):
 
     def ExportToWkb(self, *args, **kwargs):
         r"""
-        ExportToWkb(Geometry self, OGRwkbByteOrder byte_order=wkbNDR) -> OGRErr
+        ExportToWkb(self, byte_order=wkbNDR) -> OGRErr
 
         Convert a geometry well known binary format.
 
@@ -5318,7 +5332,7 @@ class Geometry(object):
 
     def ExportToIsoWkb(self, *args, **kwargs):
         r"""
-        ExportToIsoWkb(Geometry self, OGRwkbByteOrder byte_order=wkbNDR) -> OGRErr
+        ExportToIsoWkb(self, byte_order=wkbNDR) -> OGRErr
 
         Convert a geometry into SFSQL 1.2 / ISO SQL/MM Part 3 well known
         binary format.
@@ -5342,20 +5356,20 @@ class Geometry(object):
         return _ogr.Geometry_ExportToIsoWkb(self, *args, **kwargs)
 
     def ExportToGML(self, *args, **kwargs):
-        r"""ExportToGML(Geometry self, char ** options=None) -> retStringAndCPLFree *"""
+        r"""ExportToGML(self, options=None) -> retStringAndCPLFree *"""
         return _ogr.Geometry_ExportToGML(self, *args, **kwargs)
 
     def ExportToKML(self, *args):
-        r"""ExportToKML(Geometry self, char const * altitude_mode=None) -> retStringAndCPLFree *"""
+        r"""ExportToKML(self, altitude_mode=None) -> retStringAndCPLFree *"""
         return _ogr.Geometry_ExportToKML(self, *args)
 
     def ExportToJson(self, *args, **kwargs):
-        r"""ExportToJson(Geometry self, char ** options=None) -> retStringAndCPLFree *"""
+        r"""ExportToJson(self, options=None) -> retStringAndCPLFree *"""
         return _ogr.Geometry_ExportToJson(self, *args, **kwargs)
 
     def AddPoint(self, *args, **kwargs):
         r"""
-        AddPoint(Geometry self, double x, double y, double z=0)
+        AddPoint(self, x, y, z=0) -> OGRErr
 
         Add a point to a geometry (line string or point).
 
@@ -5383,6 +5397,7 @@ class Geometry(object):
         >>> ogr.GeometryTypeToName(pt.GetGeometryType())
         'Point'
         >>> pt.AddPoint(3, 7)
+        0
         >>> ogr.GeometryTypeToName(pt.GetGeometryType())
         '3D Point'
 
@@ -5390,16 +5405,16 @@ class Geometry(object):
         return _ogr.Geometry_AddPoint(self, *args, **kwargs)
 
     def AddPointM(self, *args, **kwargs):
-        r"""AddPointM(Geometry self, double x, double y, double m)"""
+        r"""AddPointM(self, x, y, m) -> OGRErr"""
         return _ogr.Geometry_AddPointM(self, *args, **kwargs)
 
     def AddPointZM(self, *args, **kwargs):
-        r"""AddPointZM(Geometry self, double x, double y, double z, double m)"""
+        r"""AddPointZM(self, x, y, z, m) -> OGRErr"""
         return _ogr.Geometry_AddPointZM(self, *args, **kwargs)
 
     def AddPoint_2D(self, *args):
         r"""
-        AddPoint_2D(Geometry self, double x, double y)
+        AddPoint_2D(self, x, y) -> OGRErr
 
         Add a point to a geometry (line string or point).
 
@@ -5424,6 +5439,7 @@ class Geometry(object):
         >>> ogr.GeometryTypeToName(pt.GetGeometryType())
         'Point'
         >>> pt.AddPoint_2D(3, 7)
+        0
         >>> ogr.GeometryTypeToName(pt.GetGeometryType())
         'Point'
 
@@ -5431,20 +5447,20 @@ class Geometry(object):
         return _ogr.Geometry_AddPoint_2D(self, *args)
 
     def AddGeometryDirectly(self, *args):
-        r"""AddGeometryDirectly(Geometry self, Geometry other_disown) -> OGRErr"""
+        r"""AddGeometryDirectly(self, other_disown) -> OGRErr"""
         return _ogr.Geometry_AddGeometryDirectly(self, *args)
 
     def AddGeometry(self, *args):
-        r"""AddGeometry(Geometry self, Geometry other) -> OGRErr"""
+        r"""AddGeometry(self, other) -> OGRErr"""
         return _ogr.Geometry_AddGeometry(self, *args)
 
     def RemoveGeometry(self, *args):
-        r"""RemoveGeometry(Geometry self, int iSubGeom) -> OGRErr"""
+        r"""RemoveGeometry(self, iSubGeom) -> OGRErr"""
         return _ogr.Geometry_RemoveGeometry(self, *args)
 
     def Clone(self, *args):
         r"""
-        Clone(Geometry self) -> Geometry
+        Clone(self) -> Geometry
 
         Make a copy of this object.
 
@@ -5461,7 +5477,7 @@ class Geometry(object):
 
     def GetGeometryType(self, *args):
         r"""
-        GetGeometryType(Geometry self) -> OGRwkbGeometryType
+        GetGeometryType(self) -> OGRwkbGeometryType
 
         Fetch geometry type.
 
@@ -5478,7 +5494,7 @@ class Geometry(object):
 
     def GetGeometryName(self, *args):
         r"""
-        GetGeometryName(Geometry self) -> char const *
+        GetGeometryName(self) -> char const *
 
         Fetch WKT name for geometry type.
 
@@ -5495,7 +5511,7 @@ class Geometry(object):
 
     def Length(self, *args):
         r"""
-        Length(Geometry self) -> double
+        Length(self) -> double
 
         Compute geometry length.
 
@@ -5517,7 +5533,7 @@ class Geometry(object):
 
     def Area(self, *args):
         r"""
-        Area(Geometry self) -> double
+        Area(self) -> double
 
         Compute geometry area.
 
@@ -5539,7 +5555,7 @@ class Geometry(object):
 
     def GeodesicLength(self, *args):
         r"""
-        GeodesicLength(Geometry self) -> double
+        GeodesicLength(self) -> double
 
         Compute geometry length, considered as a curve on the underlying
         ellipsoid of the SRS attached to the geometry.
@@ -5557,7 +5573,7 @@ class Geometry(object):
 
     def GeodesicArea(self, *args):
         r"""
-        GeodesicArea(Geometry self) -> double
+        GeodesicArea(self) -> double
 
         Compute geometry area, considered as a surface on the underlying
         ellipsoid of the SRS attached to the geometry.
@@ -5574,72 +5590,72 @@ class Geometry(object):
         return _ogr.Geometry_GeodesicArea(self, *args)
 
     def IsClockwise(self, *args):
-        r"""IsClockwise(Geometry self) -> bool"""
+        r"""IsClockwise(self) -> bool"""
         return _ogr.Geometry_IsClockwise(self, *args)
 
     def GetArea(self, *args):
-        r"""GetArea(Geometry self) -> double"""
+        r"""GetArea(self) -> double"""
         return _ogr.Geometry_GetArea(self, *args)
 
     def GetPointCount(self, *args):
-        r"""GetPointCount(Geometry self) -> int"""
+        r"""GetPointCount(self) -> int"""
         return _ogr.Geometry_GetPointCount(self, *args)
 
     def GetPoints(self, *args, **kwargs):
-        r"""GetPoints(Geometry self, int nCoordDimension=0)"""
+        r"""GetPoints(self, nCoordDimension=0)"""
         return _ogr.Geometry_GetPoints(self, *args, **kwargs)
 
     def GetX(self, *args, **kwargs):
-        r"""GetX(Geometry self, int point=0) -> double"""
+        r"""GetX(self, point=0) -> double"""
         return _ogr.Geometry_GetX(self, *args, **kwargs)
 
     def GetY(self, *args, **kwargs):
-        r"""GetY(Geometry self, int point=0) -> double"""
+        r"""GetY(self, point=0) -> double"""
         return _ogr.Geometry_GetY(self, *args, **kwargs)
 
     def GetZ(self, *args, **kwargs):
-        r"""GetZ(Geometry self, int point=0) -> double"""
+        r"""GetZ(self, point=0) -> double"""
         return _ogr.Geometry_GetZ(self, *args, **kwargs)
 
     def GetM(self, *args, **kwargs):
-        r"""GetM(Geometry self, int point=0) -> double"""
+        r"""GetM(self, point=0) -> double"""
         return _ogr.Geometry_GetM(self, *args, **kwargs)
 
     def GetPoint(self, *args):
-        r"""GetPoint(Geometry self, int iPoint=0)"""
+        r"""GetPoint(self, iPoint=0)"""
         return _ogr.Geometry_GetPoint(self, *args)
 
     def GetPointZM(self, *args):
-        r"""GetPointZM(Geometry self, int iPoint=0)"""
+        r"""GetPointZM(self, iPoint=0)"""
         return _ogr.Geometry_GetPointZM(self, *args)
 
     def GetPoint_2D(self, *args):
-        r"""GetPoint_2D(Geometry self, int iPoint=0)"""
+        r"""GetPoint_2D(self, iPoint=0)"""
         return _ogr.Geometry_GetPoint_2D(self, *args)
 
     def GetGeometryCount(self, *args):
-        r"""GetGeometryCount(Geometry self) -> int"""
+        r"""GetGeometryCount(self) -> int"""
         return _ogr.Geometry_GetGeometryCount(self, *args)
 
     def SetPoint(self, *args, **kwargs):
-        r"""SetPoint(Geometry self, int point, double x, double y, double z=0)"""
+        r"""SetPoint(self, point, x, y, z=0) -> OGRErr"""
         return _ogr.Geometry_SetPoint(self, *args, **kwargs)
 
     def SetPointM(self, *args, **kwargs):
-        r"""SetPointM(Geometry self, int point, double x, double y, double m)"""
+        r"""SetPointM(self, point, x, y, m) -> OGRErr"""
         return _ogr.Geometry_SetPointM(self, *args, **kwargs)
 
     def SetPointZM(self, *args, **kwargs):
-        r"""SetPointZM(Geometry self, int point, double x, double y, double z, double m)"""
+        r"""SetPointZM(self, point, x, y, z, m) -> OGRErr"""
         return _ogr.Geometry_SetPointZM(self, *args, **kwargs)
 
     def SetPoint_2D(self, *args, **kwargs):
-        r"""SetPoint_2D(Geometry self, int point, double x, double y)"""
+        r"""SetPoint_2D(self, point, x, y) -> OGRErr"""
         return _ogr.Geometry_SetPoint_2D(self, *args, **kwargs)
 
     def SwapXY(self, *args):
         r"""
-        SwapXY(Geometry self)
+        SwapXY(self)
 
         Swap x and y coordinates.
 
@@ -5652,7 +5668,7 @@ class Geometry(object):
         return _ogr.Geometry_SwapXY(self, *args)
 
     def GetGeometryRef(self, *args):
-        r"""GetGeometryRef(Geometry self, int geom) -> Geometry"""
+        r"""GetGeometryRef(self, geom) -> Geometry"""
         val = _ogr.Geometry_GetGeometryRef(self, *args)
 
         if val is not None:
@@ -5664,7 +5680,7 @@ class Geometry(object):
 
     def Simplify(self, *args):
         r"""
-        Simplify(Geometry self, double tolerance) -> Geometry
+        Simplify(self, tolerance) -> Geometry
 
         Compute a simplified geometry.
 
@@ -5685,7 +5701,7 @@ class Geometry(object):
 
     def SimplifyPreserveTopology(self, *args):
         r"""
-        SimplifyPreserveTopology(Geometry self, double tolerance) -> Geometry
+        SimplifyPreserveTopology(self, tolerance) -> Geometry
 
         Simplify the geometry while preserving topology.
 
@@ -5706,7 +5722,7 @@ class Geometry(object):
 
     def DelaunayTriangulation(self, *args, **kwargs):
         r"""
-        DelaunayTriangulation(Geometry self, double dfTolerance=0.0, int bOnlyEdges=FALSE) -> Geometry
+        DelaunayTriangulation(self, dfTolerance=0.0, bOnlyEdges=FALSE) -> Geometry
 
         Return a Delaunay triangulation of the vertices of the geometry.
 
@@ -5733,7 +5749,7 @@ class Geometry(object):
 
     def ConstrainedDelaunayTriangulation(self, *args):
         r"""
-        ConstrainedDelaunayTriangulation(Geometry self) -> Geometry
+        ConstrainedDelaunayTriangulation(self) -> Geometry
 
         Return a constrained Delaunay triangulation of the vertices of the given
         polygon(s). For non-polygonal inputs, silently returns an empty geometry
@@ -5754,7 +5770,7 @@ class Geometry(object):
 
     def Polygonize(self, *args):
         r"""
-        Polygonize(Geometry self) -> Geometry
+        Polygonize(self) -> Geometry
 
         Polygonizes a set of sparse edges.
 
@@ -5770,7 +5786,7 @@ class Geometry(object):
 
     def BuildArea(self, *args):
         r"""
-        BuildArea(Geometry self) -> Geometry
+        BuildArea(self) -> Geometry
 
         Polygonize a linework assuming inner polygons are holes.
 
@@ -5786,7 +5802,7 @@ class Geometry(object):
 
     def Boundary(self, *args):
         r"""
-        Boundary(Geometry self) -> Geometry
+        Boundary(self) -> Geometry
 
         Compute boundary.
 
@@ -5802,7 +5818,7 @@ class Geometry(object):
 
     def GetBoundary(self, *args):
         r"""
-        GetBoundary(Geometry self) -> Geometry
+        GetBoundary(self) -> Geometry
 
         Compute boundary (deprecated)
 
@@ -5817,7 +5833,7 @@ class Geometry(object):
 
     def ConvexHull(self, *args):
         r"""
-        ConvexHull(Geometry self) -> Geometry
+        ConvexHull(self) -> Geometry
 
         Compute convex hull.
 
@@ -5833,12 +5849,63 @@ class Geometry(object):
         return _ogr.Geometry_ConvexHull(self, *args)
 
     def ConcaveHull(self, *args):
-        r"""ConcaveHull(Geometry self, double ratio, bool allowHoles) -> Geometry"""
+        r"""
+        ConcaveHull(self, ratio, allowHoles) -> Geometry
+
+        Compute the concave hull of a geometry.
+
+        For more details: :cpp:func:`OGR_G_ConcaveHull`
+
+        See also :py:meth:`ConcaveHullOfPolygons`
+
+        Parameters
+        ----------
+        ratio : float
+            Ratio of the area of the convex hull and the concave hull.
+        allowHoles : bool
+            Whether the concave hull is allowed to contain holes.
+
+        Returns
+        -------
+        Geometry
+            The concave hull geometry or None if an error occurs.
+
+        """
         return _ogr.Geometry_ConcaveHull(self, *args)
+
+    def ConcaveHullOfPolygons(self, *args):
+        r"""
+        ConcaveHullOfPolygons(self, lengthRatio, isTight, allowHoles) -> Geometry
+
+        Compute the concave hull of a set of polygons, respecting the polygons as constraints.
+
+        For more details: :cpp:func:`OGR_G_ConcaveHullOfPolygons`
+
+        Parameters
+        ----------
+        lengthRatio : float
+            Specifies the Maximum Edge Length as a fraction of the
+            difference between the longest and shortest edge lengths
+            between the polygons.
+            This normalizes the Maximum Edge Length to be scale-free.
+            A value of 1 produces the convex hull; a value of 0 produces
+            the original polygons.
+        isTight : bool
+            Whether the hull must follow the outer boundaries of the input polygons.
+        allowHoles : bool
+            Whether the concave hull is allowed to contain holes.
+
+        Returns
+        -------
+        Geometry
+            The concave hull geometry or None if an error occurs.
+
+        """
+        return _ogr.Geometry_ConcaveHullOfPolygons(self, *args)
 
     def MakeValid(self, *args):
         r"""
-        MakeValid(Geometry self, char ** options=None) -> Geometry
+        MakeValid(self, options=None) -> Geometry
 
         Attempts to make an invalid geometry valid without losing vertices.
 
@@ -5862,12 +5929,12 @@ class Geometry(object):
         return _ogr.Geometry_MakeValid(self, *args)
 
     def SetPrecision(self, *args):
-        r"""SetPrecision(Geometry self, double gridSize, int flags=0) -> Geometry"""
+        r"""SetPrecision(self, gridSize, flags=0) -> Geometry"""
         return _ogr.Geometry_SetPrecision(self, *args)
 
     def Normalize(self, *args):
         r"""
-        Normalize(Geometry self) -> Geometry
+        Normalize(self) -> Geometry
 
         Attempts to bring geometry into normalized/canonical form.
 
@@ -5885,13 +5952,13 @@ class Geometry(object):
         return _ogr.Geometry_Normalize(self, *args)
 
     def RemoveLowerDimensionSubGeoms(self, *args):
-        r"""RemoveLowerDimensionSubGeoms(Geometry self) -> Geometry"""
+        r"""RemoveLowerDimensionSubGeoms(self) -> Geometry"""
         return _ogr.Geometry_RemoveLowerDimensionSubGeoms(self, *args)
 
     def Buffer(self, *args):
         r"""
-        Buffer(Geometry self, double distance, int quadsecs=30) -> Geometry
-        Buffer(Geometry self, double distance, char ** options) -> Geometry
+        Buffer(self, distance, quadsecs=30) -> Geometry
+        Buffer(self, distance, options) -> Geometry
 
         Compute buffer of geometry.
 
@@ -5919,7 +5986,7 @@ class Geometry(object):
 
     def Intersection(self, *args):
         r"""
-        Intersection(Geometry self, Geometry other) -> Geometry
+        Intersection(self, other) -> Geometry
 
         Compute intersection.
 
@@ -5941,7 +6008,7 @@ class Geometry(object):
 
     def Union(self, *args):
         r"""
-        Union(Geometry self, Geometry other) -> Geometry
+        Union(self, other) -> Geometry
 
         Compute union.
 
@@ -5962,7 +6029,7 @@ class Geometry(object):
 
     def UnionCascaded(self, *args):
         r"""
-        UnionCascaded(Geometry self) -> Geometry
+        UnionCascaded(self) -> Geometry
 
         Compute union using cascading.
 
@@ -5977,12 +6044,12 @@ class Geometry(object):
         return _ogr.Geometry_UnionCascaded(self, *args)
 
     def UnaryUnion(self, *args):
-        r"""UnaryUnion(Geometry self) -> Geometry"""
+        r"""UnaryUnion(self) -> Geometry"""
         return _ogr.Geometry_UnaryUnion(self, *args)
 
     def Difference(self, *args):
         r"""
-        Difference(Geometry self, Geometry other) -> Geometry
+        Difference(self, other) -> Geometry
 
         Compute difference.
 
@@ -6004,7 +6071,7 @@ class Geometry(object):
 
     def SymDifference(self, *args):
         r"""
-        SymDifference(Geometry self, Geometry other) -> Geometry
+        SymDifference(self, other) -> Geometry
 
         Compute symmetric difference.
 
@@ -6026,7 +6093,7 @@ class Geometry(object):
 
     def SymmetricDifference(self, *args):
         r"""
-        SymmetricDifference(Geometry self, Geometry other) -> Geometry
+        SymmetricDifference(self, other) -> Geometry
 
         Compute symmetric difference (deprecated)
 
@@ -6040,7 +6107,7 @@ class Geometry(object):
 
     def Distance(self, *args):
         r"""
-        Distance(Geometry self, Geometry other) -> double
+        Distance(self, other) -> double
 
         Compute distance between two geometries.
 
@@ -6061,7 +6128,7 @@ class Geometry(object):
 
     def Distance3D(self, *args):
         r"""
-        Distance3D(Geometry self, Geometry other) -> double
+        Distance3D(self, other) -> double
 
         Returns the 3D distance between two geometries.
 
@@ -6084,7 +6151,7 @@ class Geometry(object):
 
     def Empty(self, *args):
         r"""
-        Empty(Geometry self)
+        Empty(self)
 
         Clear geometry information.
 
@@ -6095,7 +6162,7 @@ class Geometry(object):
 
     def IsEmpty(self, *args):
         r"""
-        IsEmpty(Geometry self) -> bool
+        IsEmpty(self) -> bool
 
         Test if the geometry is empty.
 
@@ -6111,7 +6178,7 @@ class Geometry(object):
 
     def IsValid(self, *args):
         r"""
-        IsValid(Geometry self) -> bool
+        IsValid(self) -> bool
 
         Test if the geometry is valid.
 
@@ -6120,14 +6187,30 @@ class Geometry(object):
         Returns
         -------
         int
-            True if the geometry has no points, otherwise False.
+            True if the geometry is invalid, otherwise False.
 
         """
         return _ogr.Geometry_IsValid(self, *args)
 
+    def GetInvalidityReason(self, *args):
+        r"""
+        GetInvalidityReason(self) -> retStringAndCPLFree *
+
+        Test if the geometry is valid and, if not, return the invalidity reason.
+
+        For more details: :cpp:func:`OGR_G_GetInvalidityReason`
+
+        Returns
+        -------
+        str
+            a string with the invalidity reason, or None if it is valid
+
+        """
+        return _ogr.Geometry_GetInvalidityReason(self, *args)
+
     def IsSimple(self, *args):
         r"""
-        IsSimple(Geometry self) -> bool
+        IsSimple(self) -> bool
 
         Returns True if the geometry is simple.
 
@@ -6143,7 +6226,7 @@ class Geometry(object):
 
     def IsRing(self, *args):
         r"""
-        IsRing(Geometry self) -> bool
+        IsRing(self) -> bool
 
         Test if the geometry is a ring.
 
@@ -6160,7 +6243,7 @@ class Geometry(object):
 
     def Intersects(self, *args):
         r"""
-        Intersects(Geometry self, Geometry other) -> bool
+        Intersects(self, other) -> bool
 
         Determines whether two geometries intersect.
 
@@ -6180,12 +6263,12 @@ class Geometry(object):
         return _ogr.Geometry_Intersects(self, *args)
 
     def Intersect(self, *args):
-        r"""Intersect(Geometry self, Geometry other) -> bool"""
+        r"""Intersect(self, other) -> bool"""
         return _ogr.Geometry_Intersect(self, *args)
 
     def Equals(self, *args):
         r"""
-        Equals(Geometry self, Geometry other) -> bool
+        Equals(self, other) -> bool
 
         Returns True if two geometries are equivalent.
 
@@ -6205,12 +6288,12 @@ class Geometry(object):
         return _ogr.Geometry_Equals(self, *args)
 
     def Equal(self, *args):
-        r"""Equal(Geometry self, Geometry other) -> bool"""
+        r"""Equal(self, other) -> bool"""
         return _ogr.Geometry_Equal(self, *args)
 
     def Disjoint(self, *args):
         r"""
-        Disjoint(Geometry self, Geometry other) -> bool
+        Disjoint(self, other) -> bool
 
         Test for disjointness.
 
@@ -6231,7 +6314,7 @@ class Geometry(object):
 
     def Touches(self, *args):
         r"""
-        Touches(Geometry self, Geometry other) -> bool
+        Touches(self, other) -> bool
 
         Test for touching.
 
@@ -6252,7 +6335,7 @@ class Geometry(object):
 
     def Crosses(self, *args):
         r"""
-        Crosses(Geometry self, Geometry other) -> bool
+        Crosses(self, other) -> bool
 
         Test for crossing.
 
@@ -6273,7 +6356,7 @@ class Geometry(object):
 
     def Within(self, *args):
         r"""
-        Within(Geometry self, Geometry other) -> bool
+        Within(self, other) -> bool
 
         Test for containment.
 
@@ -6294,7 +6377,7 @@ class Geometry(object):
 
     def Contains(self, *args):
         r"""
-        Contains(Geometry self, Geometry other) -> bool
+        Contains(self, other) -> bool
 
         Test for containment.
 
@@ -6315,7 +6398,7 @@ class Geometry(object):
 
     def Overlaps(self, *args):
         r"""
-        Overlaps(Geometry self, Geometry other) -> bool
+        Overlaps(self, other) -> bool
 
         Test for overlap.
 
@@ -6336,7 +6419,7 @@ class Geometry(object):
 
     def TransformTo(self, *args):
         r"""
-        TransformTo(Geometry self, SpatialReference reference) -> OGRErr
+        TransformTo(self, reference) -> OGRErr
 
         Transform geometry to new spatial reference system.
 
@@ -6357,7 +6440,7 @@ class Geometry(object):
 
     def GetSpatialReference(self, *args):
         r"""
-        GetSpatialReference(Geometry self) -> SpatialReference
+        GetSpatialReference(self) -> SpatialReference
 
         For more details: :cpp:func:`OGR_G_GetSpatialReference`
 
@@ -6372,7 +6455,7 @@ class Geometry(object):
 
     def AssignSpatialReference(self, *args):
         r"""
-        AssignSpatialReference(Geometry self, SpatialReference reference)
+        AssignSpatialReference(self, reference)
 
         Assign spatial reference to this object.
 
@@ -6388,7 +6471,7 @@ class Geometry(object):
 
     def CloseRings(self, *args):
         r"""
-        CloseRings(Geometry self)
+        CloseRings(self)
 
         Force rings to be closed.
 
@@ -6399,7 +6482,7 @@ class Geometry(object):
 
     def FlattenTo2D(self, *args):
         r"""
-        FlattenTo2D(Geometry self)
+        FlattenTo2D(self)
 
         Convert geometry to strictly 2D.
 
@@ -6410,7 +6493,7 @@ class Geometry(object):
 
     def Segmentize(self, *args):
         r"""
-        Segmentize(Geometry self, double dfMaxLength)
+        Segmentize(self, dfMaxLength)
 
         Modify the geometry such it has no segment longer then the given
         distance.
@@ -6427,7 +6510,7 @@ class Geometry(object):
 
     def GetEnvelope(self, *args):
         r"""
-        GetEnvelope(Geometry self)
+        GetEnvelope(self)
 
         Computes and returns the bounding envelope for this geometry in the
         passed psEnvelope structure.
@@ -6446,7 +6529,7 @@ class Geometry(object):
 
     def GetEnvelope3D(self, *args):
         r"""
-        GetEnvelope3D(Geometry self)
+        GetEnvelope3D(self)
 
         Computes and returns the bounding envelope (3D) for this geometry in
         the passed psEnvelope structure.
@@ -6465,7 +6548,7 @@ class Geometry(object):
 
     def Centroid(self, *args):
         r"""
-        Centroid(Geometry self) -> Geometry
+        Centroid(self) -> Geometry
 
         Compute the geometry centroid.
 
@@ -6480,7 +6563,7 @@ class Geometry(object):
 
     def PointOnSurface(self, *args):
         r"""
-        PointOnSurface(Geometry self) -> Geometry
+        PointOnSurface(self) -> Geometry
 
         Returns a point guaranteed to lie on the surface.
 
@@ -6496,7 +6579,7 @@ class Geometry(object):
 
     def WkbSize(self, *args):
         r"""
-        WkbSize(Geometry self) -> size_t
+        WkbSize(self) -> size_t
 
         Returns size of related binary representation.
 
@@ -6511,7 +6594,7 @@ class Geometry(object):
 
     def GetCoordinateDimension(self, *args):
         r"""
-        GetCoordinateDimension(Geometry self) -> int
+        GetCoordinateDimension(self) -> int
 
         Get the dimension of the coordinates in this geometry.
 
@@ -6530,7 +6613,7 @@ class Geometry(object):
 
     def CoordinateDimension(self, *args):
         r"""
-        CoordinateDimension(Geometry self) -> int
+        CoordinateDimension(self) -> int
 
         Get the dimension of the coordinates in this geometry.
 
@@ -6548,7 +6631,7 @@ class Geometry(object):
 
     def Is3D(self, *args):
         r"""
-        Is3D(Geometry self) -> int
+        Is3D(self) -> int
 
         See whether this geometry has Z coordinates.
 
@@ -6566,7 +6649,7 @@ class Geometry(object):
 
     def IsMeasured(self, *args):
         r"""
-        IsMeasured(Geometry self) -> int
+        IsMeasured(self) -> int
 
         See whether this geometry is measured.
 
@@ -6584,7 +6667,7 @@ class Geometry(object):
 
     def SetCoordinateDimension(self, *args):
         r"""
-        SetCoordinateDimension(Geometry self, int dimension)
+        SetCoordinateDimension(self, dimension)
 
         Set the coordinate dimension.
 
@@ -6602,7 +6685,7 @@ class Geometry(object):
 
     def Set3D(self, *args):
         r"""
-        Set3D(Geometry self, int b3D)
+        Set3D(self, b3D)
 
         Add or remove the Z coordinate dimension.
 
@@ -6620,7 +6703,7 @@ class Geometry(object):
 
     def SetMeasured(self, *args):
         r"""
-        SetMeasured(Geometry self, int bMeasured)
+        SetMeasured(self, bMeasured)
 
         Add or remove the M coordinate dimension.
 
@@ -6638,7 +6721,7 @@ class Geometry(object):
 
     def GetDimension(self, *args):
         r"""
-        GetDimension(Geometry self) -> int
+        GetDimension(self) -> int
 
         Get the dimension of this geometry.
 
@@ -6653,25 +6736,25 @@ class Geometry(object):
         return _ogr.Geometry_GetDimension(self, *args)
 
     def HasCurveGeometry(self, *args):
-        r"""HasCurveGeometry(Geometry self, int bLookForCircular=FALSE) -> int"""
+        r"""HasCurveGeometry(self, bLookForCircular=FALSE) -> int"""
         return _ogr.Geometry_HasCurveGeometry(self, *args)
 
     def GetLinearGeometry(self, *args, **kwargs):
-        r"""GetLinearGeometry(Geometry self, double dfMaxAngleStepSizeDegrees=0.0, char ** options=None) -> Geometry"""
+        r"""GetLinearGeometry(self, dfMaxAngleStepSizeDegrees=0.0, options=None) -> Geometry"""
         return _ogr.Geometry_GetLinearGeometry(self, *args, **kwargs)
 
     def GetCurveGeometry(self, *args, **kwargs):
-        r"""GetCurveGeometry(Geometry self, char ** options=None) -> Geometry"""
+        r"""GetCurveGeometry(self, options=None) -> Geometry"""
         return _ogr.Geometry_GetCurveGeometry(self, *args, **kwargs)
 
     def Value(self, *args):
-        r"""Value(Geometry self, double dfDistance) -> Geometry"""
+        r"""Value(self, dfDistance) -> Geometry"""
         return _ogr.Geometry_Value(self, *args)
 
     def Transform(self, *args):
         r"""
-        Transform(Geometry self, CoordinateTransformation trans) -> OGRErr
-        Transform(Geometry self, GeomTransformer transformer) -> Geometry
+        Transform(self, trans) -> OGRErr
+        Transform(self, transformer) -> Geometry
 
         Apply a coordinate transformation to the geometry.
 
@@ -6704,6 +6787,7 @@ class Geometry(object):
         >>> xform = osr.CoordinateTransformation(wgs84, albers)
         >>> vt = ogr.Geometry(ogr.wkbPoint)
         >>> vt.AddPoint_2D(145.195, -37.836)
+        0
         >>> vt.Transform(xform)
         0
         >>> vt.GetPoint_2D()
@@ -6722,7 +6806,7 @@ class Geometry(object):
         return _ogr.Geometry_Transform(self, *args)
 
     def CreatePreparedGeometry(self, *args):
-        r"""CreatePreparedGeometry(Geometry self) -> PreparedGeometry"""
+        r"""CreatePreparedGeometry(self) -> PreparedGeometry"""
         return _ogr.Geometry_CreatePreparedGeometry(self, *args)
 
     def Destroy(self):
@@ -6767,11 +6851,11 @@ class PreparedGeometry(object):
     __swig_destroy__ = _ogr.delete_PreparedGeometry
 
     def Intersects(self, *args):
-        r"""Intersects(PreparedGeometry self, Geometry otherGeom) -> bool"""
+        r"""Intersects(self, otherGeom) -> bool"""
         return _ogr.PreparedGeometry_Intersects(self, *args)
 
     def Contains(self, *args):
-        r"""Contains(PreparedGeometry self, Geometry otherGeom) -> bool"""
+        r"""Contains(self, otherGeom) -> bool"""
         return _ogr.PreparedGeometry_Contains(self, *args)
 
 # Register PreparedGeometry in _ogr:
@@ -6783,12 +6867,12 @@ class GeomTransformer(object):
     __repr__ = _swig_repr
 
     def __init__(self, *args):
-        r"""__init__(GeomTransformer self, CoordinateTransformation ct, char ** options=None) -> GeomTransformer"""
+        r"""__init__(self, ct, options=None) -> GeomTransformer"""
         _ogr.GeomTransformer_swiginit(self, _ogr.new_GeomTransformer(*args))
     __swig_destroy__ = _ogr.delete_GeomTransformer
 
     def Transform(self, *args):
-        r"""Transform(GeomTransformer self, Geometry src_geom) -> Geometry"""
+        r"""Transform(self, src_geom) -> Geometry"""
         return _ogr.GeomTransformer_Transform(self, *args)
 
 # Register GeomTransformer in _ogr:
@@ -6816,7 +6900,7 @@ class FieldDomain(object):
 
     def GetName(self, *args):
         r"""
-        GetName(FieldDomain self) -> char const *
+        GetName(self) -> char const *
 
 
         Get the name of the field domain.
@@ -6835,7 +6919,7 @@ class FieldDomain(object):
 
     def GetDescription(self, *args):
         r"""
-        GetDescription(FieldDomain self) -> char const *
+        GetDescription(self) -> char const *
 
 
         Get the description of the field domain.
@@ -6854,7 +6938,7 @@ class FieldDomain(object):
 
     def GetFieldType(self, *args):
         r"""
-        GetFieldType(FieldDomain self) -> OGRFieldType
+        GetFieldType(self) -> OGRFieldType
 
 
         Get the field type of the field domain.
@@ -6873,7 +6957,7 @@ class FieldDomain(object):
 
     def GetFieldSubType(self, *args):
         r"""
-        GetFieldSubType(FieldDomain self) -> OGRFieldSubType
+        GetFieldSubType(self) -> OGRFieldSubType
 
 
         Get the field subtype of the field domain.
@@ -6892,7 +6976,7 @@ class FieldDomain(object):
 
     def GetDomainType(self, *args):
         r"""
-        GetDomainType(FieldDomain self) -> OGRFieldDomainType
+        GetDomainType(self) -> OGRFieldDomainType
 
 
         Get the type of the field domain.
@@ -6918,7 +7002,7 @@ class FieldDomain(object):
 
     def GetSplitPolicy(self, *args):
         r"""
-        GetSplitPolicy(FieldDomain self) -> OGRFieldDomainSplitPolicy
+        GetSplitPolicy(self) -> OGRFieldDomainSplitPolicy
 
 
         Get the split policy of the field domain.
@@ -6937,7 +7021,7 @@ class FieldDomain(object):
 
     def SetSplitPolicy(self, *args):
         r"""
-        SetSplitPolicy(FieldDomain self, OGRFieldDomainSplitPolicy policy)
+        SetSplitPolicy(self, policy)
 
 
         Set the split policy of the field domain.
@@ -6954,7 +7038,7 @@ class FieldDomain(object):
 
     def GetMergePolicy(self, *args):
         r"""
-        GetMergePolicy(FieldDomain self) -> OGRFieldDomainMergePolicy
+        GetMergePolicy(self) -> OGRFieldDomainMergePolicy
 
 
         Get the merge policy of the field domain.
@@ -6973,7 +7057,7 @@ class FieldDomain(object):
 
     def SetMergePolicy(self, *args):
         r"""
-        SetMergePolicy(FieldDomain self, OGRFieldDomainMergePolicy policy)
+        SetMergePolicy(self, policy)
 
 
         Set the merge policy of the field domain.
@@ -6992,7 +7076,7 @@ class FieldDomain(object):
 
     def GetEnumeration(self, *args):
         r"""
-        GetEnumeration(FieldDomain self) -> OGRCodedValue const *
+        GetEnumeration(self) -> OGRCodedValue const *
 
 
         Get the enumeration as a mapping of codes to values.
@@ -7017,7 +7101,7 @@ class FieldDomain(object):
 
     def GetMinAsDouble(self, *args):
         r"""
-        GetMinAsDouble(FieldDomain self) -> double
+        GetMinAsDouble(self) -> double
 
 
         Get the minimum value of a range domain.
@@ -7036,7 +7120,7 @@ class FieldDomain(object):
 
     def GetMinAsString(self, *args):
         r"""
-        GetMinAsString(FieldDomain self) -> char const *
+        GetMinAsString(self) -> char const *
 
 
         Get the minimum value of a range domain.
@@ -7054,12 +7138,12 @@ class FieldDomain(object):
         return _ogr.FieldDomain_GetMinAsString(self, *args)
 
     def IsMinInclusive(self, *args):
-        r"""IsMinInclusive(FieldDomain self) -> bool"""
+        r"""IsMinInclusive(self) -> bool"""
         return _ogr.FieldDomain_IsMinInclusive(self, *args)
 
     def GetMaxAsDouble(self, *args):
         r"""
-        GetMaxAsDouble(FieldDomain self) -> double
+        GetMaxAsDouble(self) -> double
 
 
         Get the maximum value of a range domain.
@@ -7078,7 +7162,7 @@ class FieldDomain(object):
 
     def GetMaxAsString(self, *args):
         r"""
-        GetMaxAsString(FieldDomain self) -> char const *
+        GetMaxAsString(self) -> char const *
 
 
         Get the maximum value of a range domain.
@@ -7096,12 +7180,12 @@ class FieldDomain(object):
         return _ogr.FieldDomain_GetMaxAsString(self, *args)
 
     def IsMaxInclusive(self, *args):
-        r"""IsMaxInclusive(FieldDomain self) -> bool"""
+        r"""IsMaxInclusive(self) -> bool"""
         return _ogr.FieldDomain_IsMaxInclusive(self, *args)
 
     def GetGlob(self, *args):
         r"""
-        GetGlob(FieldDomain self) -> char const *
+        GetGlob(self) -> char const *
 
 
         Get the glob expression.
@@ -7123,7 +7207,7 @@ _ogr.FieldDomain_swigregister(FieldDomain)
 
 def CreateCodedFieldDomain(*args):
     r"""
-    CreateCodedFieldDomain(char const * name, char const * description, OGRFieldType type, OGRFieldSubType subtype, OGRCodedValue const * enumeration) -> FieldDomain
+    CreateCodedFieldDomain(name, description, type, subtype, enumeration) -> FieldDomain
 
 
     Creates a new coded field domain.
@@ -7154,7 +7238,7 @@ def CreateCodedFieldDomain(*args):
 
 def CreateRangeFieldDomain(*args):
     r"""
-    CreateRangeFieldDomain(char const * name, char const * description, OGRFieldType type, OGRFieldSubType subtype, double * min, bool minIsInclusive, double * max, bool maxIsInclusive) -> FieldDomain
+    CreateRangeFieldDomain(name, description, type, subtype, min, minIsInclusive, max, maxIsInclusive) -> FieldDomain
 
     Creates a new range field domain.
 
@@ -7189,12 +7273,12 @@ def CreateRangeFieldDomain(*args):
     return _ogr.CreateRangeFieldDomain(*args)
 
 def CreateRangeFieldDomainDateTime(*args):
-    r"""CreateRangeFieldDomainDateTime(char const * name, char const * description, char const * min, bool minIsInclusive, char const * max, double maxIsInclusive) -> FieldDomain"""
+    r"""CreateRangeFieldDomainDateTime(name, description, min, minIsInclusive, max, maxIsInclusive) -> FieldDomain"""
     return _ogr.CreateRangeFieldDomainDateTime(*args)
 
 def CreateGlobFieldDomain(*args):
     r"""
-    CreateGlobFieldDomain(char const * name, char const * description, OGRFieldType type, OGRFieldSubType subtype, char const * glob) -> FieldDomain
+    CreateGlobFieldDomain(name, description, type, subtype, glob) -> FieldDomain
 
 
     Creates a new glob field domain.
@@ -7233,35 +7317,35 @@ class GeomCoordinatePrecision(object):
     __swig_destroy__ = _ogr.delete_GeomCoordinatePrecision
 
     def Set(self, *args):
-        r"""Set(GeomCoordinatePrecision self, double xyResolution, double zResolution, double mResolution)"""
+        r"""Set(self, xyResolution, zResolution, mResolution)"""
         return _ogr.GeomCoordinatePrecision_Set(self, *args)
 
     def SetFromMeter(self, *args):
-        r"""SetFromMeter(GeomCoordinatePrecision self, SpatialReference srs, double xyMeterResolution, double zMeterResolution, double mResolution)"""
+        r"""SetFromMeter(self, srs, xyMeterResolution, zMeterResolution, mResolution)"""
         return _ogr.GeomCoordinatePrecision_SetFromMeter(self, *args)
 
     def GetXYResolution(self, *args):
-        r"""GetXYResolution(GeomCoordinatePrecision self) -> double"""
+        r"""GetXYResolution(self) -> double"""
         return _ogr.GeomCoordinatePrecision_GetXYResolution(self, *args)
 
     def GetZResolution(self, *args):
-        r"""GetZResolution(GeomCoordinatePrecision self) -> double"""
+        r"""GetZResolution(self) -> double"""
         return _ogr.GeomCoordinatePrecision_GetZResolution(self, *args)
 
     def GetMResolution(self, *args):
-        r"""GetMResolution(GeomCoordinatePrecision self) -> double"""
+        r"""GetMResolution(self) -> double"""
         return _ogr.GeomCoordinatePrecision_GetMResolution(self, *args)
 
     def GetFormats(self, *args):
-        r"""GetFormats(GeomCoordinatePrecision self) -> char **"""
+        r"""GetFormats(self) -> char **"""
         return _ogr.GeomCoordinatePrecision_GetFormats(self, *args)
 
     def GetFormatSpecificOptions(self, *args):
-        r"""GetFormatSpecificOptions(GeomCoordinatePrecision self, char const * formatName) -> char **"""
+        r"""GetFormatSpecificOptions(self, formatName) -> char **"""
         return _ogr.GeomCoordinatePrecision_GetFormatSpecificOptions(self, *args)
 
     def SetFormatSpecificOptions(self, *args):
-        r"""SetFormatSpecificOptions(GeomCoordinatePrecision self, char const * formatName, char ** formatSpecificOptions)"""
+        r"""SetFormatSpecificOptions(self, formatName, formatSpecificOptions)"""
         return _ogr.GeomCoordinatePrecision_SetFormatSpecificOptions(self, *args)
 
 # Register GeomCoordinatePrecision in _ogr:
@@ -7280,7 +7364,7 @@ def GetOpenDSCount(*args):
     return _ogr.GetOpenDSCount(*args)
 
 def SetGenerate_DB2_V72_BYTE_ORDER(*args):
-    r"""SetGenerate_DB2_V72_BYTE_ORDER(int bGenerate_DB2_V72_BYTE_ORDER) -> OGRErr"""
+    r"""SetGenerate_DB2_V72_BYTE_ORDER(bGenerate_DB2_V72_BYTE_ORDER) -> OGRErr"""
     return _ogr.SetGenerate_DB2_V72_BYTE_ORDER(*args)
 
 def RegisterAll(*args):
@@ -7288,12 +7372,12 @@ def RegisterAll(*args):
     return _ogr.RegisterAll(*args)
 
 def GeometryTypeToName(*args):
-    r"""GeometryTypeToName(OGRwkbGeometryType eType) -> char const *"""
+    r"""GeometryTypeToName(eType) -> char const *"""
     return _ogr.GeometryTypeToName(*args)
 
 def GetFieldTypeName(*args):
     r"""
-    GetFieldTypeName(OGRFieldType type) -> char const *
+    GetFieldTypeName(type) -> char const *
 
     Fetch human readable name for a field type.
 
@@ -7322,7 +7406,7 @@ def GetFieldTypeName(*args):
 
 def GetFieldSubTypeName(*args):
     r"""
-    GetFieldSubTypeName(OGRFieldSubType type) -> char const *
+    GetFieldSubTypeName(type) -> char const *
 
 
     Fetch human readable name for a field subtype.
@@ -7352,63 +7436,63 @@ def GetFieldSubTypeName(*args):
     return _ogr.GetFieldSubTypeName(*args)
 
 def GT_Flatten(*args):
-    r"""GT_Flatten(OGRwkbGeometryType eType) -> OGRwkbGeometryType"""
+    r"""GT_Flatten(eType) -> OGRwkbGeometryType"""
     return _ogr.GT_Flatten(*args)
 
 def GT_SetZ(*args):
-    r"""GT_SetZ(OGRwkbGeometryType eType) -> OGRwkbGeometryType"""
+    r"""GT_SetZ(eType) -> OGRwkbGeometryType"""
     return _ogr.GT_SetZ(*args)
 
 def GT_SetM(*args):
-    r"""GT_SetM(OGRwkbGeometryType eType) -> OGRwkbGeometryType"""
+    r"""GT_SetM(eType) -> OGRwkbGeometryType"""
     return _ogr.GT_SetM(*args)
 
 def GT_SetModifier(*args):
-    r"""GT_SetModifier(OGRwkbGeometryType eType, int bSetZ, int bSetM=FALSE) -> OGRwkbGeometryType"""
+    r"""GT_SetModifier(eType, bSetZ, bSetM=FALSE) -> OGRwkbGeometryType"""
     return _ogr.GT_SetModifier(*args)
 
 def GT_HasZ(*args):
-    r"""GT_HasZ(OGRwkbGeometryType eType) -> int"""
+    r"""GT_HasZ(eType) -> int"""
     return _ogr.GT_HasZ(*args)
 
 def GT_HasM(*args):
-    r"""GT_HasM(OGRwkbGeometryType eType) -> int"""
+    r"""GT_HasM(eType) -> int"""
     return _ogr.GT_HasM(*args)
 
 def GT_IsSubClassOf(*args):
-    r"""GT_IsSubClassOf(OGRwkbGeometryType eType, OGRwkbGeometryType eSuperType) -> int"""
+    r"""GT_IsSubClassOf(eType, eSuperType) -> int"""
     return _ogr.GT_IsSubClassOf(*args)
 
 def GT_IsCurve(*args):
-    r"""GT_IsCurve(OGRwkbGeometryType arg1) -> int"""
+    r"""GT_IsCurve(arg1) -> int"""
     return _ogr.GT_IsCurve(*args)
 
 def GT_IsSurface(*args):
-    r"""GT_IsSurface(OGRwkbGeometryType arg1) -> int"""
+    r"""GT_IsSurface(arg1) -> int"""
     return _ogr.GT_IsSurface(*args)
 
 def GT_IsNonLinear(*args):
-    r"""GT_IsNonLinear(OGRwkbGeometryType arg1) -> int"""
+    r"""GT_IsNonLinear(arg1) -> int"""
     return _ogr.GT_IsNonLinear(*args)
 
 def GT_GetCollection(*args):
-    r"""GT_GetCollection(OGRwkbGeometryType eType) -> OGRwkbGeometryType"""
+    r"""GT_GetCollection(eType) -> OGRwkbGeometryType"""
     return _ogr.GT_GetCollection(*args)
 
 def GT_GetSingle(*args):
-    r"""GT_GetSingle(OGRwkbGeometryType eType) -> OGRwkbGeometryType"""
+    r"""GT_GetSingle(eType) -> OGRwkbGeometryType"""
     return _ogr.GT_GetSingle(*args)
 
 def GT_GetCurve(*args):
-    r"""GT_GetCurve(OGRwkbGeometryType eType) -> OGRwkbGeometryType"""
+    r"""GT_GetCurve(eType) -> OGRwkbGeometryType"""
     return _ogr.GT_GetCurve(*args)
 
 def GT_GetLinear(*args):
-    r"""GT_GetLinear(OGRwkbGeometryType eType) -> OGRwkbGeometryType"""
+    r"""GT_GetLinear(eType) -> OGRwkbGeometryType"""
     return _ogr.GT_GetLinear(*args)
 
 def SetNonLinearGeometriesEnabledFlag(*args):
-    r"""SetNonLinearGeometriesEnabledFlag(int bFlag)"""
+    r"""SetNonLinearGeometriesEnabledFlag(bFlag)"""
     return _ogr.SetNonLinearGeometriesEnabledFlag(*args)
 
 def GetNonLinearGeometriesEnabledFlag(*args):
@@ -7416,12 +7500,12 @@ def GetNonLinearGeometriesEnabledFlag(*args):
     return _ogr.GetNonLinearGeometriesEnabledFlag(*args)
 
 def GetOpenDS(*args):
-    r"""GetOpenDS(int ds_number) -> OGRDataSourceShadow *"""
+    r"""GetOpenDS(ds_number) -> OGRDataSourceShadow *"""
     return _ogr.GetOpenDS(*args)
 
 def Open(*args, **kwargs):
     r"""
-    Open(char const * utf8_path, int update=0) -> OGRDataSourceShadow *
+    Open(utf8_string, update=0) -> OGRDataSourceShadow *
 
 
     Open a vector file as a :py:class:`gdal.Dataset`.
@@ -7430,7 +7514,7 @@ def Open(*args, **kwargs):
 
     Parameters
     ----------
-    utf8_path : str
+    path : str
         name of the file to open
 
     Returns
@@ -7456,7 +7540,7 @@ def Open(*args, **kwargs):
 
 def OpenShared(*args, **kwargs):
     r"""
-    OpenShared(char const * utf8_path, int update=0) -> OGRDataSourceShadow *
+    OpenShared(utf8_string, update=0) -> OGRDataSourceShadow *
 
 
     Open a vector file as a :py:class:`gdal.Dataset`. If the file has already been
@@ -7466,7 +7550,7 @@ def OpenShared(*args, **kwargs):
 
     Parameters
     ----------
-    utf8_path : str
+    path : str
         name of the file to open
 
     Returns
@@ -7484,7 +7568,7 @@ def OpenShared(*args, **kwargs):
 
 def GetDriverByName(*args):
     r"""
-    GetDriverByName(char const * name) -> OGRDriverShadow *
+    GetDriverByName(name) -> OGRDriverShadow *
 
 
     Get a vector driver. Like :py:func:`gdal.GetDriverByName`, but
@@ -7515,7 +7599,7 @@ def GetDriverByName(*args):
     return _ogr.GetDriverByName(*args)
 
 def GetDriver(*args):
-    r"""GetDriver(int driver_number) -> OGRDriverShadow *"""
+    r"""GetDriver(driver_number) -> OGRDriverShadow *"""
 
     from . import gdal
 
@@ -7523,7 +7607,7 @@ def GetDriver(*args):
     return _ogr.GetDriver(*args)
 
 def GeneralCmdLineProcessor(*args):
-    r"""GeneralCmdLineProcessor(char ** papszArgv, int nOptions=0) -> char **"""
+    r"""GeneralCmdLineProcessor(papszArgv, nOptions=0) -> char **"""
 
     import os
     for i in range(len(args[0])):
@@ -7534,7 +7618,7 @@ def GeneralCmdLineProcessor(*args):
     return _ogr.GeneralCmdLineProcessor(*args)
 
 def TermProgress_nocb(*args, **kwargs):
-    r"""TermProgress_nocb(double dfProgress, char const * pszMessage=None, void * pData=None) -> int"""
+    r"""TermProgress_nocb(dfProgress, pszMessage=None, pData=None) -> int"""
     return _ogr.TermProgress_nocb(*args, **kwargs)
 TermProgress = _ogr.TermProgress
 

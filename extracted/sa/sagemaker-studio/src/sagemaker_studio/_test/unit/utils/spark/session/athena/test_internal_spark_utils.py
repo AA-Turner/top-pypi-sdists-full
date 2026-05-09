@@ -47,7 +47,7 @@ with patch("sagemaker_studio.Project"):
     mock_interceptors.CustomChannelBuilder = Mock()
     sys.modules["sagemaker_studio.utils.spark.session.athena.interceptors"] = mock_interceptors
 
-    from sagemaker_studio.utils.spark.session.athena import internal_spark_utils
+    from sagemaker_studio.utils.spark import internal_spark_utils
 
 
 @pytest.fixture(autouse=True)
@@ -61,9 +61,7 @@ def mock_utils_and_project(monkeypatch):
     monkeypatch.setattr(internal_spark_utils, "stage", "prod")
 
     mock_proj = MagicMock()
-    monkeypatch.setattr(
-        "sagemaker_studio.utils.spark.session.athena.internal_spark_utils.Project", mock_proj
-    )
+    monkeypatch.setattr("sagemaker_studio.utils.spark.internal_spark_utils.Project", mock_proj)
     return mock_proj.return_value
 
 
@@ -129,11 +127,11 @@ def test_generate_s3tables_spark_configs_ignores_non_federated(mock_utils_and_pr
 # Tests for generate_spark_configs (integration)
 # -------------------------------------------------------------------
 @patch(
-    "sagemaker_studio.utils.spark.session.athena.internal_spark_utils._generate_spark_catalog_spark_configs",
+    "sagemaker_studio.utils.spark.internal_spark_utils._generate_spark_catalog_spark_configs",
     return_value={"a": "b"},
 )
 @patch(
-    "sagemaker_studio.utils.spark.session.athena.internal_spark_utils._generate_s3tables_spark_configs",
+    "sagemaker_studio.utils.spark.internal_spark_utils._generate_s3tables_spark_configs",
     return_value={"c": "d"},
 )
 def test_generate_spark_configs_combines_all(mock_s3, mock_catalog):

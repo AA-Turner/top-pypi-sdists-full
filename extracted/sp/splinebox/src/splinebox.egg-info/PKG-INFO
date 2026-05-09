@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: splinebox
-Version: 0.5.1
+Version: 1.0.0
 Summary: A python package for fitting splines.
 Author-email: Florian Aymanns <florian.aymanns@epfl.ch>, Virginie Uhlmann <uhlmann@ebi.ac.uk>, Edward Andò <edward.ando@epfl.ch>
 Maintainer-email: Florian Aymanns <flroian.aymanns@epfl.ch>
@@ -42,11 +42,11 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
@@ -63,13 +63,15 @@ Requires-Dist: matplotlib; extra == "examples"
 Requires-Dist: scikit-image; extra == "examples"
 Requires-Dist: pandas; extra == "examples"
 Requires-Dist: seaborn; extra == "examples"
+Requires-Dist: skan; extra == "examples"
 Provides-Extra: docs
 Requires-Dist: splinebox[examples]; extra == "docs"
 Requires-Dist: sphinx-gallery; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
 Requires-Dist: pydata-sphinx-theme; extra == "docs"
 Requires-Dist: sphinx-design; extra == "docs"
 Requires-Dist: pyvista[jupyter]; extra == "docs"
-Requires-Dist: skan; extra == "docs"
+Requires-Dist: numpydoc; extra == "docs"
 Provides-Extra: all
 Requires-Dist: splinebox[docs,examples,test]; extra == "all"
 Dynamic: license-file
@@ -92,7 +94,7 @@ Developed by the [EPFL Center for Imaging](https://imaging.epfl.ch/) as part of 
 * Flexible spline fitting for various applications.
 * Support for many spline types in any dimesnionality.
 * High-perfomance implementation in Python
-* Extensive [documentation](https://splinebox.readthedocs.io/en/latest/?badge=latest) with [examples](https://splinebox.readthedocs.io/en/latest/auto_examples/index.html)
+* Extensive [documentation](https://splinebox.readthedocs.io/en/latest/?badge=latest) with [examples](https://splinebox.readthedocs.io/en/latest/_auto_examples/index.html)
 
 ## Installation
 

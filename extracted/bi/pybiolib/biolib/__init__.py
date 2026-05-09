@@ -12,7 +12,7 @@ from biolib.biolib_errors import BioLibError, WaitTimeoutError
 from biolib.biolib_logging import logger as _logger, logger_no_user_data as _logger_no_user_data
 from biolib.experiments.experiment import Experiment
 from biolib.biolib_api_client import BiolibApiClient as _BioLibApiClient, App
-from biolib.jobs.job import Result as _Result
+from biolib._result.result import Result as _Result
 from biolib import user as _user
 from biolib.typing_utils import List, Optional, cast as _cast
 from biolib._data_record.data_record import DataRecord as _DataRecord
@@ -23,6 +23,7 @@ import biolib.app
 import biolib.cli
 import biolib.sdk
 import biolib.utils
+import biolib.jobs  # Note: deprecated, but still imported for backward compatibility
 
 # ------------------------------------ Function definitions for public Python API ------------------------------------
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 import torch
-from cortex.cores.core import AxonLayer
+from cortex.cells.core import AxonLayer
 from tensordict import TensorDict
 
 
@@ -37,13 +37,13 @@ def test_axon_layer_state_auto_parent_and_reset() -> None:
     # First call creates state under state["axon"]["proj"]
     y = layer(x, state=state, resets=None)
     assert y.shape == (B, T, Hout)
-    assert "axon" in state
+    assert "axon" in state.keys()
     axon_group = state.get("axon")
     assert axon_group is not None and "proj" in axon_group.keys()
 
     sub = axon_group.get("proj")
     assert sub is not None
-    # Expect AxonCore base keys present.
+    # Expect AxonsCell base keys present
     assert "hc1" in sub.keys() and "hc2" in sub.keys()
     assert sub["hc1"].shape == (B, Hin)
 

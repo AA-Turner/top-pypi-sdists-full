@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 import dataclasses
 import functools
+import inspect
 import itertools
 import multiprocessing
 import os
@@ -136,9 +137,18 @@ def _write_shard(
   def get_serialized_examples_iter():
     nonlocal num_bytes
     nonlocal num_exceptions
-    dataset = hf_builder.as_dataset(
-        split=shard_spec.shard_split, run_post_process=False
-    )
+    as_dataset_kwargs = dict(split=shard_spec.shard_split)
+    # We dynamically construct the arguments because the 'run_post_process'
+    # parameter was only added in Hugging Face 'datasets' 2.9.1. In some
+    # environments, such as GitHub CI, an older version of the library
+    # may be installed due to dependency resolution conflicts with
+    # apache-beam.
+    if (
+        'run_post_process'
+        in inspect.signature(hf_builder.as_dataset).parameters
+    ):
+      as_dataset_kwargs['run_post_process'] = False
+    dataset = hf_builder.as_dataset(**as_dataset_kwargs)
     for i in range(shard_spec.num_examples):
       try:
         hf_value = dataset[i]

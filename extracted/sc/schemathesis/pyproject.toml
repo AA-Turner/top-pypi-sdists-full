@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.17.0"
-description = "Property-based testing framework for Open API and GraphQL based apps"
-keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing"]
+version = "4.18.0"
+description = "Adaptive API testing for OpenAPI and GraphQL"
+keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing", "fuzzing", "adaptive"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
 maintainers = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
 requires-python = ">=3.10"
@@ -38,8 +38,7 @@ dependencies = [
   "hypothesis>=6.108.0,<7",
   "hypothesis_graphql>=0.12.0,<1",
   "hypothesis_jsonschema>=0.23.1,<0.24",
-  "jsonschema>=4.18.0,<5.0",
-  "jsonschema_rs>=0.46.3",
+  "jsonschema_rs>=0.46.4",
   "junit-xml>=1.9,<2.0",
   "pyrate-limiter>=4.0,<5.0",
   "pytest>=9,<10",
@@ -54,7 +53,6 @@ dependencies = [
 ]
 [project.optional-dependencies]
 tests = [
-  "aiohttp>=3.9.1,<4.0",
   "coverage>=6",
   "fastapi>=0.86.0",
   "Flask>=2.1.1,<4.0",
@@ -70,10 +68,11 @@ tests = [
   "tomli-w>=1.2.0",
   "allure-python-commons>=2.13.0",
   "trustme>=0.9.0,<2.0",
+  "uvicorn>=0.20,<1.0",
 ]
 allure = ["allure-python-commons>=2.13.0"]
 cov = ["coverage-enable-subprocess", "coverage[toml]>=5.3"]
-bench = ["pytest-codspeed==4.4.0", "pytest-test-groups==1.2.1"]
+bench = ["pytest-codspeed==4.5.0", "pytest-test-groups==1.2.1"]
 docs = ["mkdocs-material", "mkdocstrings[python]"]
 profiling = ["pyinstrument>=5.1"]
 dev = ["schemathesis[tests,cov,bench,docs]"]
@@ -97,6 +96,7 @@ exclude = [
   "/corpus",
   "/test-corpus",
   "/scripts",
+  "/tools",
   "/img",
   "/benches",
 ]
@@ -110,18 +110,19 @@ testpaths = "tests"
 norecursedirs = ".hypothesis .idea .git src docs .pytest_cache .mypy_cache .tox"
 filterwarnings = [
     "error::pytest.PytestUnraisableExceptionWarning",
-    # anyio streams not closed during aiohttp test server teardown (flaky on Python 3.13+)
+    # anyio streams not closed during async test teardown (flaky on Python 3.13+)
     "ignore:Unclosed <MemoryObject.*:ResourceWarning",
     "ignore:.*Unclosed <MemoryObject.*:pytest.PytestUnraisableExceptionWarning",
     # urllib3/http.client response finalizer raises ValueError on Python 3.14t free-threading GC
     "ignore:Exception ignored while finalizing file <urllib3.response.HTTPResponse.*:pytest.PytestUnraisableExceptionWarning",
     "ignore:Exception ignored while finalizing file <http.client.HTTPResponse.*:pytest.PytestUnraisableExceptionWarning",
-    # aiohttp event loop / anyio stream deallocators raise on Python 3.14t free-threading GC
+    # asyncio event loop / anyio stream deallocators raise on Python 3.14t free-threading GC
     "ignore:Exception ignored while calling deallocator <function BaseEventLoop.__del__.*:pytest.PytestUnraisableExceptionWarning",
     "ignore:Exception ignored while calling deallocator <function MemoryObject.*.__del__.*:pytest.PytestUnraisableExceptionWarning",
     "ignore:Exception ignored in.*<function MemoryObject.*.__del__.*:pytest.PytestUnraisableExceptionWarning",
     # unclosed socket from test server teardown (flaky on Python 3.12+)
     "ignore:Exception ignored in.*<socket.socket.*:pytest.PytestUnraisableExceptionWarning",
+    "ignore:Exception ignored while finalizing socket <socket.socket.*:pytest.PytestUnraisableExceptionWarning",
     "ignore:unclosed <socket.socket.*:ResourceWarning",
 ]
 
@@ -131,7 +132,15 @@ branch = true
 source_pkgs = ["schemathesis"]
 
 [tool.coverage.paths]
-source = ["src", ".tox/*/site-packages"]
+source = [
+  "src",
+  ".tox/*/site-packages",
+  ".tox/*/Lib/site-packages",
+  ".tox/*/lib/*/site-packages",
+  "*/.tox/*/site-packages",
+  "*/.tox/*/Lib/site-packages",
+  "*/.tox/*/lib/*/site-packages",
+]
 
 [tool.coverage.report]
 show_missing = true
@@ -179,11 +188,13 @@ ignore = [
   "SIM910", # delete default arguments in .get() in some cases
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"test/apps/__main__.py" = ["T201"]  # CLI launcher prints to stdout
+
 [tool.ruff.lint.isort]
-known-first-party = ["schemathesis"]
+known-first-party = ["schemathesis", "tools"]
 known-third-party = [
   "_pytest",
-  "aiohttp",
   "click",
   "fastapi",
   "flask",

@@ -20,6 +20,7 @@ from .postgresql_transformer import PostgreSQLTransformer
 from .redshift_transformer import RedshiftTransformer
 from .resource_fetching_definition import FetchMode, SQLAlchemyMetadataAction
 from .snowflake_transformer import SnowflakeTransformer
+from .vertica_transformer import VerticaTransformer
 
 
 class ErrorStrategy(Enum):
@@ -71,6 +72,7 @@ class SqlExecutor:
             "SQLSERVER": MSSQLTransformer,
             "POSTGRESQL": PostgreSQLTransformer,
             "OPENSEARCH": OpenSearchTransformer,
+            "VERTICA": VerticaTransformer,
         }
 
     @staticmethod

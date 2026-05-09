@@ -244,11 +244,18 @@ def init_tracing(
         # asyncio loop on the OTLP HTTP call (SimpleSpanProcessor would).
         # schedule_delay_millis bumped 2000 -> 5000 to halve request rate
         # against chronos when many spans are queued.
+        # max_export_batch_size dropped 512 -> 64: BSP serializes the whole
+        # batch in one shot on its export thread and holds the GIL for the
+        # duration. With large span attributes (e.g. atif.step screenshots
+        # ~50KB each), a 512-span batch is ~25MB of JSON which stalls the
+        # asyncio loop for seconds AND trips ALB idle-timeout / ClickHouse
+        # 503s on the chronos OTLP endpoint. 64 spans/batch keeps payloads
+        # ~3MB and GIL holds sub-second.
         _tracer_provider.add_span_processor(
             BatchSpanProcessor(
                 otlp_exporter,
                 max_queue_size=10000,
-                max_export_batch_size=512,
+                max_export_batch_size=64,
                 schedule_delay_millis=5000,
             )
         )

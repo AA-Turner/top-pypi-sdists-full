@@ -100314,6 +100314,7 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "monitor_fields",
         "monitor_time_axis_field_name",
         "monitor_time_axis_field_type",
+        "monitor_time_axis_timezone",
         "created_time",
         "last_update_time",
         "schedule_type",
@@ -100426,6 +100427,8 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
     monitor_time_axis_field_type = sgqlc.types.Field(
         String, graphql_name="monitorTimeAxisFieldType"
     )
+
+    monitor_time_axis_timezone = sgqlc.types.Field(String, graphql_name="monitorTimeAxisTimezone")
 
     created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
 

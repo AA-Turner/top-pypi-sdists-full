@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -176,7 +176,7 @@ def read_binary_matrix(filename):
     int32_dtype = np.dtype("int32").newbyteorder("<")
 
     # The first 4 bytes contain a magic code that specifies the data type.
-    magic = int(np.frombuffer(s, dtype=int32_dtype, count=1))
+    magic = np.frombuffer(s, dtype=int32_dtype, count=1).item()
     if magic == 507333717:
       data_dtype = np.dtype("uint8")  # uint8 does not have a byte order.
     elif magic == 507333716:
@@ -186,7 +186,7 @@ def read_binary_matrix(filename):
 
     # The second 4 bytes contain an int32 with the number of dimensions of the
     # stored array.
-    ndim = int(np.frombuffer(s, dtype=int32_dtype, count=1, offset=4))
+    ndim = np.frombuffer(s, dtype=int32_dtype, count=1, offset=4).item()
 
     # The next ndim x 4 bytes contain the shape of the array in int32.
     dims = np.frombuffer(s, dtype=int32_dtype, count=ndim, offset=8)

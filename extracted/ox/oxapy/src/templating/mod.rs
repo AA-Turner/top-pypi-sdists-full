@@ -1,16 +1,17 @@
+use hyper::{HeaderMap, header::CONTENT_TYPE};
+use pyo3::{
+    Bound, PyResult,
+    exceptions::{PyException, PyValueError},
+    prelude::*,
+    types::{PyDict, PyModule, PyModuleMethods},
+};
+use pyo3_stub_gen::derive::*;
+
 use crate::{
     request::Request,
     response::{Response, ResponseBody},
     status::Status,
 };
-use hyper::{header::CONTENT_TYPE, HeaderMap};
-use pyo3::{
-    exceptions::{PyException, PyValueError},
-    prelude::*,
-    types::{PyDict, PyModule, PyModuleMethods},
-    Bound, PyResult,
-};
-use pyo3_stub_gen::derive::*;
 
 mod minijinja;
 mod tera;
@@ -43,7 +44,7 @@ mod tera;
 /// app.template(templating.Template("./views/**/*.html", "tera"))
 /// ```
 #[gen_stub_pyclass_enum]
-#[pyclass(module = "oxapy.templating")]
+#[pyclass(from_py_object, module = "oxapy.templating")]
 #[derive(Clone, Debug)]
 pub enum Template {
     Jinja(minijinja::Jinja),

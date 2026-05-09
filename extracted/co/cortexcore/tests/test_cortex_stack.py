@@ -3,10 +3,10 @@
 import torch
 from cortex import (
     CortexStackConfig,
-    LSTMCoreConfig,
-    PassThroughScaffoldConfig,
-    PostUpScaffoldConfig,
-    PreUpScaffoldConfig,
+    LSTMCellConfig,
+    PassThroughBlockConfig,
+    PostUpBlockConfig,
+    PreUpBlockConfig,
     build_cortex,
 )
 
@@ -25,23 +25,23 @@ def test_cortex_stack():
     # Create a recipe with mixed block types
     recipe = CortexStackConfig(
         d_hidden=d_hidden,
-        scaffolds=[
-            PreUpScaffoldConfig(
-                core=LSTMCoreConfig(
+        blocks=[
+            PreUpBlockConfig(
+                cell=LSTMCellConfig(
                     hidden_size=None,  # Inferred as d_inner = proj_factor * d_hidden
                     num_layers=1,
                     dropout=0.1,
                 ),
                 proj_factor=2.0,
             ),
-            PassThroughScaffoldConfig(
-                core=LSTMCoreConfig(
+            PassThroughBlockConfig(
+                cell=LSTMCellConfig(
                     hidden_size=256,  # Must match d_hidden
                     num_layers=1,
                 ),
             ),
-            PostUpScaffoldConfig(
-                core=LSTMCoreConfig(
+            PostUpBlockConfig(
+                cell=LSTMCellConfig(
                     hidden_size=None,  # Inferred as d_hidden
                     num_layers=1,
                 ),
@@ -53,16 +53,16 @@ def test_cortex_stack():
 
     print("Recipe Configuration:")
     print(f"  d_hidden: {recipe.d_hidden}")
-    print(f"  num_scaffolds: {len(recipe.scaffolds)}")
-    for i, scaffold in enumerate(recipe.scaffolds):
-        scaffold_type = type(scaffold).__name__.replace("ScaffoldConfig", "")
-        proj_str = f" (proj_factor={scaffold.proj_factor})" if hasattr(scaffold, "proj_factor") else ""
-        print(f"  Scaffold {i}: {scaffold_type}{proj_str}")
+    print(f"  num_blocks: {len(recipe.blocks)}")
+    for i, block in enumerate(recipe.blocks):
+        block_type = type(block).__name__.replace("BlockConfig", "")
+        proj_str = f" (proj_factor={block.proj_factor})" if hasattr(block, "proj_factor") else ""
+        print(f"  Block {i}: {block_type}{proj_str}")
     print()
 
     # Build the cortex stack
     cortex = build_cortex(recipe)
-    print(f"Built CortexStack with {len(cortex.scaffolds)} scaffolds")
+    print(f"Built CortexStack with {len(cortex.blocks)} blocks")
 
     # Count parameters
     num_params = sum(p.numel() for p in cortex.parameters())
@@ -116,20 +116,23 @@ def test_cortex_stack():
     # Apply reset
     reset_state = cortex.reset_state(new_state, reset_mask)
 
-    # Verify reset was applied.
-    for scaffold_key in reset_state.keys():
-        scaffold_state = reset_state[scaffold_key]
-        core_key = next(iter(scaffold_state.keys()), None)
-        if core_key is None:
-            continue
-        core_state = scaffold_state[core_key]
-        if "h" in core_state:
-            h_state = core_state["h"]  # [B, L, H]
-            for i, should_reset in enumerate(reset_mask):
-                if should_reset:
-                    assert torch.allclose(h_state[i, :, :], torch.zeros_like(h_state[i, :, :])), (
-                        f"State not properly reset for batch {i}"
-                    )
+    # Verify reset was applied
+    for block_key in reset_state.keys():
+        if "block_" in block_key:
+            block_state = reset_state[block_key]
+            if "cell" in block_state:
+                cell_state = block_state["cell"]
+            else:
+                cell_state = block_state
+
+            if "h" in cell_state:
+                h_state = cell_state["h"]  # Now [B, L, H] format
+                # Check that reset positions are zeroed
+                for i, should_reset in enumerate(reset_mask):
+                    if should_reset:
+                        assert torch.allclose(h_state[i, :, :], torch.zeros_like(h_state[i, :, :])), (
+                            f"State not properly reset for batch {i}"
+                        )
     print("✓ Reset mask test passed\n")
 
     # Test 5: Per-timestep resets
@@ -143,16 +146,16 @@ def test_cortex_stack():
     assert output_with_resets.shape == x_seq.shape, "Output shape mismatch!"
     print("✓ Per-timestep resets test passed\n")
 
-    # Test 6: Different scaffold configurations.
-    print("Test 6: Different Scaffold Configurations")
+    # Test 6: Different block configurations
+    print("Test 6: Different Block Configurations")
     print("-" * 40)
 
     # Test passthrough-only stack
     passthrough_recipe = CortexStackConfig(
         d_hidden=128,
-        scaffolds=[
-            PassThroughScaffoldConfig(
-                core=LSTMCoreConfig(hidden_size=128, num_layers=1),
+        blocks=[
+            PassThroughBlockConfig(
+                cell=LSTMCellConfig(hidden_size=128, num_layers=1),
             )
             for _ in range(3)
         ],
@@ -167,9 +170,9 @@ def test_cortex_stack():
     # Test preup-only stack
     preup_recipe = CortexStackConfig(
         d_hidden=64,
-        scaffolds=[
-            PreUpScaffoldConfig(
-                core=LSTMCoreConfig(hidden_size=None, num_layers=1),
+        blocks=[
+            PreUpBlockConfig(
+                cell=LSTMCellConfig(hidden_size=None, num_layers=1),
                 proj_factor=2.0,
             )
         ],

@@ -27,6 +27,8 @@ _EXIT_ATTR = "_cpsl_exit"
 _MESSAGE_ATTR = "_cpsl_message"
 _MESSAGE_NAME_ATTR = "_cpsl_message_name"
 _MESSAGE_LABEL_ATTR = "_cpsl_message_label"
+_ACTION_ATTR = "_cpsl_action"
+_ACTION_NAME_ATTR = "_cpsl_action_name"
 _SCHEDULE_ATTR = "_cpsl_schedule"
 _ENDPOINT_ATTR = "_cpsl_endpoint"
 _ASGI_ATTR = "_cpsl_asgi"
@@ -66,6 +68,15 @@ def message(name: str | None = None, *, label: str | None = None) -> Callable[[F
         setattr(fn, _MESSAGE_ATTR, True)
         setattr(fn, _MESSAGE_NAME_ATTR, name or "")
         setattr(fn, _MESSAGE_LABEL_ATTR, label or name or "")
+        return fn
+    return decorator
+
+
+def action(name: str | None = None) -> Callable[[F], F]:
+    """Handle a structured UI component event."""
+    def decorator(fn: F) -> F:
+        setattr(fn, _ACTION_ATTR, True)
+        setattr(fn, _ACTION_NAME_ATTR, name or fn.__name__)
         return fn
     return decorator
 

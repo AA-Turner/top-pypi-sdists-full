@@ -40,7 +40,7 @@ class TestUser(unittest.TestCase):
                 email = 'user@example.com',
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 status = 'active',
-                role = 'admin',
+                role = None,
                 is_developer = True
             )
         else:
@@ -50,7 +50,7 @@ class TestUser(unittest.TestCase):
                 email = 'user@example.com',
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 status = 'active',
-                role = 'admin',
+                role = None,
                 is_developer = True,
         )
         """

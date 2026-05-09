@@ -2,18 +2,16 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from schemathesis.core.jsonschema import ALL_KEYWORDS
-from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, bundle
+from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, bundle_for_generation
+from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, get_type
 from schemathesis.core.transforms import encode_pointer
 from schemathesis.specs.openapi.adapter.parameters import resource_name_from_ref
-from schemathesis.specs.openapi.adapter.references import maybe_resolve
+from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
 from schemathesis.specs.openapi.stateful.dependencies import naming
-
-if TYPE_CHECKING:
-    from schemathesis.core.compat import RefResolver
 
 ROOT_POINTER = "/"
 SCHEMA_KEYS = frozenset(
@@ -95,7 +93,7 @@ def resolve_all_refs_inner(schema: JsonSchema, *, resolve: Callable[[str], dict[
 
 def canonicalize(
     schema: dict[str, Any],
-    resolver: RefResolver,
+    resolver: Resolver,
     *,
     nullable_keyword: str = "nullable",
     upgrade_legacy_exclusive_bounds: bool = False,
@@ -107,7 +105,7 @@ def canonicalize(
 
     # Canonicalisation in `hypothesis_jsonschema` requires all references to be resovable and non-recursive
     # On the Schemathesis side bundling solves this problem
-    bundled = bundle(schema, resolver, inline_recursive=True).schema
+    bundled = bundle_for_generation(schema, resolver).schema
     # Translate PCRE patterns (e.g., \p{L}) to Python-compatible equivalents before hypothesis_jsonschema processes them
     bundled = to_json_schema(
         bundled,
@@ -123,7 +121,7 @@ def canonicalize(
     return resolved
 
 
-def try_unwrap_composition(schema: Mapping[str, Any], resolver: RefResolver) -> Mapping[str, Any]:
+def try_unwrap_composition(schema: Mapping[str, Any], resolver: Resolver) -> Mapping[str, Any]:
     """Unwrap oneOf/anyOf if we can safely extract a single schema."""
     keys = ("anyOf", "oneOf")
     composition_key = None
@@ -172,12 +170,12 @@ def try_unwrap_all_of(schema: Mapping[str, Any]) -> Mapping[str, Any]:
     return schema
 
 
-def _filter_composition_alternatives(alternatives: list[dict], resolver: RefResolver) -> list[dict]:
+def _filter_composition_alternatives(alternatives: list[dict], resolver: Resolver) -> list[dict]:
     """Filter oneOf/anyOf alternatives to keep only interesting schemas."""
     interesting = []
 
     for alt_schema in alternatives:
-        _, resolved = maybe_resolve(alt_schema, resolver, "")
+        _, resolved = maybe_resolve_with_resolver(alt_schema, resolver)
 
         if _is_interesting_schema(resolved):
             # Keep original (with $ref)
@@ -225,9 +223,7 @@ class UnwrappedSchema:
     __slots__ = ("pointer", "schema", "ref")
 
 
-def unwrap_schema(
-    schema: Mapping[str, Any], path: str, parent_ref: str | None, resolver: RefResolver
-) -> UnwrappedSchema:
+def unwrap_schema(schema: Mapping[str, Any], path: str, parent_ref: str | None, resolver: Resolver) -> UnwrappedSchema:
     # Array at root
     if schema.get("type") == "array":
         return UnwrappedSchema(pointer="/", schema=schema, ref=None)
@@ -238,9 +234,9 @@ def unwrap_schema(
     hal_field = _detect_hal_embedded(schema)
     if hal_field:
         embedded_schema = properties["_embedded"]
-        _, resolved_embedded = maybe_resolve(embedded_schema, resolver, "")
+        _, resolved_embedded = maybe_resolve_with_resolver(embedded_schema, resolver)
         resource_schema = resolved_embedded.get("properties", {}).get(hal_field, {})
-        _, resolved_resource = maybe_resolve(resource_schema, resolver, "")
+        _, resolved_resource = maybe_resolve_with_resolver(resource_schema, resolver)
 
         return UnwrappedSchema(
             pointer=f"/_embedded/{encode_pointer(hal_field)}", schema=resolved_resource, ref=resource_schema.get("$ref")
@@ -250,7 +246,7 @@ def unwrap_schema(
     array_field = _is_pagination_wrapper(schema=schema, path=path, parent_ref=parent_ref, resolver=resolver)
     if array_field:
         array_schema = properties[array_field]
-        _, resolved = maybe_resolve(array_schema, resolver, "")
+        _, resolved = maybe_resolve_with_resolver(array_schema, resolver)
         pointer = f"/{encode_pointer(array_field)}"
 
         uses_parent_ref = False
@@ -258,12 +254,12 @@ def unwrap_schema(
         if resolved.get("type") == "array" or "items" in resolved:
             nested_items = resolved.get("items")
             if isinstance(nested_items, dict):
-                _, resolved_items = maybe_resolve(nested_items, resolver, "")
+                _, resolved_items = maybe_resolve_with_resolver(nested_items, resolver)
                 external_tag = _detect_externally_tagged_pattern(resolved_items, path, parent_ref)
                 if external_tag:
                     external_tag_, uses_parent_ref = external_tag
                     nested_properties = resolved_items["properties"][external_tag_]
-                    _, resolved = maybe_resolve(nested_properties, resolver, "")
+                    _, resolved = maybe_resolve_with_resolver(nested_properties, resolver)
                     pointer += f"/{encode_pointer(external_tag_)}"
 
         ref = parent_ref if uses_parent_ref else array_schema.get("$ref")
@@ -274,7 +270,7 @@ def unwrap_schema(
     if external_tag:
         external_tag_, uses_parent_ref = external_tag
         tagged_schema = properties[external_tag_]
-        _, resolved_tagged = maybe_resolve(tagged_schema, resolver, "")
+        _, resolved_tagged = maybe_resolve_with_resolver(tagged_schema, resolver)
 
         resolved = try_unwrap_all_of(resolved_tagged)
         ref = (
@@ -283,7 +279,7 @@ def unwrap_schema(
             else resolved.get("$ref") or resolved_tagged.get("$ref") or tagged_schema.get("$ref")
         )
 
-        _, resolved = maybe_resolve(resolved, resolver, "")
+        _, resolved = maybe_resolve_with_resolver(resolved, resolver)
         return UnwrappedSchema(pointer=f"/{encode_pointer(external_tag_)}", schema=resolved, ref=ref)
 
     # No wrapper - single object at root
@@ -315,7 +311,7 @@ def _detect_hal_embedded(schema: Mapping[str, Any]) -> str | None:
 
 
 def _is_pagination_wrapper(
-    schema: Mapping[str, Any], path: str, parent_ref: str | None, resolver: RefResolver
+    schema: Mapping[str, Any], path: str, parent_ref: str | None, resolver: Resolver
 ) -> str | None:
     """Detect if schema is a pagination wrapper."""
     properties = schema.get("properties")
@@ -324,14 +320,18 @@ def _is_pagination_wrapper(
 
     metadata_fields = frozenset(["links", "errors"])
 
-    # Find array properties
+    # Find array-of-objects properties; arrays of primitive items act as metadata
+    # (e.g. Docker `/volumes` returns `{Volumes: [Volume], Warnings: [string]}`).
     arrays = []
     for name, subschema in properties.items():
         if name in metadata_fields:
             continue
         if isinstance(subschema, dict):
-            _, subschema = maybe_resolve(subschema, resolver, "")
+            _, subschema = maybe_resolve_with_resolver(subschema, resolver)
             if subschema.get("type") == "array":
+                items = subschema.get("items")
+                if isinstance(items, dict) and items.get("type") in ("string", "integer", "number", "boolean"):
+                    continue
                 arrays.append(name)
 
     # Must have exactly one array property
@@ -341,23 +341,41 @@ def _is_pagination_wrapper(
     array_field = arrays[0]
 
     # Check if array field name matches common patterns
-    common_data_fields = {"data", "items", "results", "value", "content", "elements", "records", "list"}
+    common_data_fields = {
+        "data",
+        "items",
+        "results",
+        "value",
+        "content",
+        "elements",
+        "records",
+        "list",
+        "rows",
+        "entries",
+    }
 
     if parent_ref:
         resource_name = resource_name_from_ref(parent_ref)
         resource_name = naming.strip_affixes(resource_name, ["get", "create", "list", "delete"], ["response"])
         common_data_fields.add(resource_name.lower())
 
-    if array_field.lower() not in common_data_fields:
+    matched_via_known_wrapper = array_field.lower() in common_data_fields
+
+    if not matched_via_known_wrapper:
         # Check if field name matches resource-specific pattern
         # Example: path="/items/runner-groups" -> resource="RunnerGroup" -> "runner_groups"
         resource_name_from_path = naming.from_path(path)
         if resource_name_from_path is None:
             return None
 
-        candidate = naming.to_plural(naming.to_snake_case(resource_name_from_path))
-        if array_field.lower() != candidate:
-            # Field name doesn't match resource pattern
+        plural = naming.to_plural(naming.to_snake_case(resource_name_from_path))
+        singular = naming.to_snake_case(resource_name_from_path).lower()
+        af = array_field.lower()
+        # Exact match (plural or singular) handles `compliance` for Compliance (uncountable / domain noun);
+        # suffix match handles compound keys like `source_fields` for the `Field` resource on `/.../fields`.
+        if af not in {plural, singular} and not any(
+            af.endswith(f"_{candidate}") or af.endswith(f"-{candidate}") for candidate in (plural, singular)
+        ):
             return None
 
     # Check for pagination metadata indicators
@@ -370,6 +388,11 @@ def _is_pagination_wrapper(
         "total_count",
         "totalelements",
         "total_elements",
+        "totalsize",
+        "total_size",
+        "done",
+        "kind",
+        "metadata",
         "page",
         "pagenumber",
         "page_number",
@@ -414,8 +437,10 @@ def _is_pagination_wrapper(
         prop.lower().replace("_", "").replace("-", "") in pagination_indicators for prop in others
     )
 
-    # Either there is pagination metadata or the wrapper has just items + some other field which is likely an unrecognized metadata
-    if has_pagination_metadata or len(properties) <= 2:
+    # Accept directly when the array field is an unambiguous wrapper word (`data`, `records`, `items`, ...).
+    # Otherwise require pagination metadata signal or a near-trivial shape, to avoid treating a
+    # single-resource response as a wrapper just because one of its fields happens to be an array.
+    if matched_via_known_wrapper or has_pagination_metadata or len(properties) <= 2:
         return array_field
 
     return None

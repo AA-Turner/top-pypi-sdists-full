@@ -5,16 +5,15 @@ import enum
 from collections import defaultdict
 from collections.abc import Iterator, Mapping
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, TypeAlias
+from typing import Any, TypeAlias
 
+from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import encode_pointer, get_template_fields
 from schemathesis.resources.descriptors import Cardinality
+from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
 from schemathesis.specs.openapi.stateful.dependencies.naming import from_path, strip_version_prefix, to_pascal_case
 from schemathesis.specs.openapi.stateful.links import SCHEMATHESIS_LINK_EXTENSION
-
-if TYPE_CHECKING:
-    from schemathesis.core.compat import RefResolver
 
 
 @dataclass
@@ -139,7 +138,7 @@ class DependencyGraph:
                             # or an array of identifier strings from GET /collection).
                             pointer = output_slot.pointer
                             if output_slot.cardinality == Cardinality.MANY:
-                                pointer = pointer.rstrip("/") + "/0"
+                                pointer = pointer.rstrip("/") + "/*"
                             value_expr = f"$response.body#{pointer}"
                         elif input_slot.resource_field is not None:
                             body_pointer = extend_pointer(
@@ -255,11 +254,11 @@ class DependencyGraph:
 
                             # Build the body pointer to the FK field
                             if fk_field.is_array:
-                                # For array FK, reference first element: /data/0/site_ids/0
+                                # For array FK, fan out across every element: /data/*/site_ids/*
                                 body_pointer = extend_pointer(
                                     output_slot.pointer, fk_field.field_name, output_slot.cardinality
                                 )
-                                body_pointer += "/0"  # Access first element of the FK array
+                                body_pointer += "/*"  # Fan out across every element of the FK array
                             else:
                                 body_pointer = extend_pointer(
                                     output_slot.pointer, fk_field.field_name, output_slot.cardinality
@@ -302,12 +301,12 @@ class DependencyGraph:
 
                             # Build pointer: output_slot.pointer + nested_fk.pointer
                             if output_slot.cardinality == Cardinality.MANY:
-                                base = output_slot.pointer.rstrip("/") + "/0"
+                                base = output_slot.pointer.rstrip("/") + "/*"
                             else:
                                 base = output_slot.pointer.rstrip("/")
                             body_pointer = base + nested_fk.pointer
                             if nested_fk.is_array:
-                                body_pointer += "/0"
+                                body_pointer += "/*"
 
                             link_name = f"{consumer.method.capitalize()}{nested_fk.target_resource}"
                             if link_name in fk_links:
@@ -378,6 +377,19 @@ FK_SUFFIX_MAP: dict[str, tuple[str, bool]] = {
     "_guid": ("guid", False),
 }
 
+# camelCase boundaries; longest plural suffix first so `Ids` matches before `Id`.
+_CAMEL_FK_SUFFIXES: tuple[tuple[str, str, bool], ...] = (
+    ("Ids", "id", True),
+    ("Uuids", "uuid", True),
+    ("Guids", "guid", True),
+    ("Id", "id", False),
+    ("Uuid", "uuid", False),
+    ("Guid", "guid", False),
+)
+# Floor below which the leading lowercase run is unlikely to name a real resource;
+# blocks `bId`/`fId`/`lId` style fragments while still permitting names like `Order`.
+_CAMEL_FK_MIN_BASE_LEN = 3
+
 
 def infer_fk_target(field: str) -> tuple[str, str, bool] | None:
     """Extract target resource name and field from a FK field name.
@@ -389,11 +401,13 @@ def infer_fk_target(field: str) -> tuple[str, str, bool] | None:
         site_ids -> ("Site", "id", True)
         user_uuid -> ("User", "uuid", False)
         session_guids -> ("Session", "guid", True)
+        locationId -> ("Location", "id", False)
+        orderGuids -> ("Order", "guid", True)
 
     """
     field_lower = field.lower()
 
-    # Check suffixes (longer ones first to match _ids before _id)
+    # snake_case path. Check suffixes (longer ones first to match _ids before _id).
     for suffix, (target_field, is_array) in FK_SUFFIX_MAP.items():
         # Skip bare identifier fields (not FKs, they're primary identifiers)
         if field_lower == suffix.lstrip("_"):
@@ -402,6 +416,17 @@ def infer_fk_target(field: str) -> tuple[str, str, bool] | None:
             base_name = field[: -len(suffix)]
             if base_name:
                 return to_pascal_case(base_name), target_field, is_array
+
+    # camelCase path. Base must start with an ASCII lowercase letter; rules out
+    # PascalCase types and prevents the bare `Id` from matching as a FK.
+    if not field or not ("a" <= field[0] <= "z"):
+        return None
+    for suffix, target_field, is_array in _CAMEL_FK_SUFFIXES:
+        if not field.endswith(suffix):
+            continue
+        base_name = field[: -len(suffix)]
+        if len(base_name) >= _CAMEL_FK_MIN_BASE_LEN and base_name.isascii() and base_name.isalnum():
+            return to_pascal_case(base_name), target_field, is_array
 
     return None
 
@@ -430,7 +455,7 @@ def extract_fk_fields(fields: list[str]) -> list[FKField]:
 
 def extract_nested_fk_fields(
     schema: Mapping[str, Any],
-    resolver: RefResolver,
+    resolver: Resolver,
     pointer: str = "",
     max_depth: int = 5,
 ) -> list[NestedFKField]:
@@ -451,8 +476,6 @@ def extract_nested_fk_fields(
     """
     if max_depth <= 0:
         return []
-
-    from schemathesis.specs.openapi.adapter.references import maybe_resolve
 
     result: list[NestedFKField] = []
     properties = schema.get("properties")
@@ -482,7 +505,7 @@ def extract_nested_fk_fields(
             continue  # Don't recurse into FK fields
 
         # Resolve nested schema
-        _, resolved_field = maybe_resolve(field_schema, resolver, "")
+        _, resolved_field = maybe_resolve_with_resolver(field_schema, resolver)
         field_type = resolved_field.get("type")
 
         # Recurse into nested objects
@@ -493,10 +516,10 @@ def extract_nested_fk_fields(
         elif field_type == "array":
             items = resolved_field.get("items")
             if isinstance(items, dict):
-                _, resolved_items = maybe_resolve(items, resolver, "")
+                _, resolved_items = maybe_resolve_with_resolver(items, resolver)
                 if isinstance(resolved_items, dict):
-                    # Use /0 to indicate first array element
-                    items_pointer = f"{field_pointer}/0"
+                    # Use /* to fan out across every array element
+                    items_pointer = f"{field_pointer}/*"
                     result.extend(extract_nested_fk_fields(resolved_items, resolver, items_pointer, max_depth - 1))
 
     return result
@@ -551,12 +574,12 @@ def _merge_nested_body(target: dict[str, Any], source: dict[str, Any]) -> None:
             target[key] = value
 
 
-def extend_pointer(base: str, field: str, cardinality: Cardinality) -> str:
+def extend_pointer(base: str, field: str, parent_cardinality: Cardinality) -> str:
     if not base.endswith("/"):
         base += "/"
-    if cardinality == Cardinality.MANY:
-        # For arrays, reference first element: /data -> /data/0
-        base += "0/"
+    if parent_cardinality == Cardinality.MANY:
+        # Wildcard sentinel: pool extraction and link substitution fan out across every element.
+        base += "*/"
     base += encode_pointer(field)
     return base
 
@@ -691,6 +714,9 @@ class OutputSlot:
     # the response body (POST `/sessions {sessionId: ...}` confirms the session
     # exists once the response is 2xx).
     body_field: str | None = None
+    # True when the response body is a map keyed by identifier; capture every map key
+    # as a resource instance (e.g. `{<teamKey>: {...}, ...}` from `GET /teams/statuses`).
+    extract_object_keys: bool = False
 
 
 @dataclass(slots=True)

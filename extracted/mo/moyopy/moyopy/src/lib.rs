@@ -11,13 +11,18 @@ use crate::base::{
     PyOperations, PyStructure, PyUnimodularTransformation,
 };
 use crate::data::{
-    PyArithmeticCrystalClass, PyCentering, PyHallSymbolEntry, PyMagneticSpaceGroupType, PySetting,
-    PySpaceGroupType, magnetic_operations_from_uni_number, operations_from_number,
+    PyArithmeticCrystalClass, PyCentering, PyHallSymbolEntry, PyLayerArithmeticCrystalClass,
+    PyLayerCentering, PyLayerGroupType, PyLayerHallSymbolEntry, PyLayerSetting,
+    PyMagneticSpaceGroupType, PySetting, PySpaceGroupType, magnetic_operations_from_uni_number,
+    operations_from_layer_number, operations_from_number,
 };
 use crate::dataset::{
-    PyMoyoCollinearMagneticDataset, PyMoyoDataset, PyMoyoNonCollinearMagneticDataset,
+    PyMoyoCollinearMagneticDataset, PyMoyoDataset, PyMoyoLayerDataset,
+    PyMoyoNonCollinearMagneticDataset,
 };
-use crate::identify::{PyMagneticSpaceGroup, PyPointGroup, PySpaceGroup, integral_normalizer};
+use crate::identify::{
+    PyLayerGroup, PyMagneticSpaceGroup, PyPointGroup, PySpaceGroup, integral_normalizer,
+};
 
 // https://github.com/pydantic/pydantic-core/blob/main/src/lib.rs
 fn moyopy_version() -> &'static str {
@@ -45,6 +50,7 @@ fn moyopy(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // dataset
     m.add_class::<PyMoyoDataset>()?;
+    m.add_class::<PyMoyoLayerDataset>()?;
     m.add_class::<PyMoyoCollinearMagneticDataset>()?;
     m.add_class::<PyMoyoNonCollinearMagneticDataset>()?;
 
@@ -59,19 +65,26 @@ fn moyopy(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // data: Hall symbol data
     m.add_class::<PySetting>()?;
+    m.add_class::<PyLayerSetting>()?;
     m.add_class::<PyCentering>()?;
+    m.add_class::<PyLayerCentering>()?;
     m.add_class::<PyHallSymbolEntry>()?;
+    m.add_class::<PyLayerHallSymbolEntry>()?;
     // data: Group data
     m.add_class::<PySpaceGroupType>()?;
+    m.add_class::<PyLayerGroupType>()?;
     m.add_class::<PyMagneticSpaceGroupType>()?;
     m.add_class::<PyArithmeticCrystalClass>()?;
+    m.add_class::<PyLayerArithmeticCrystalClass>()?;
     // data: Misc
     m.add_wrapped(wrap_pyfunction!(operations_from_number))?;
+    m.add_wrapped(wrap_pyfunction!(operations_from_layer_number))?;
     m.add_wrapped(wrap_pyfunction!(magnetic_operations_from_uni_number))?;
 
     // identify
     m.add_class::<PyPointGroup>()?;
     m.add_class::<PySpaceGroup>()?;
+    m.add_class::<PyLayerGroup>()?;
     m.add_class::<PyMagneticSpaceGroup>()?;
     m.add_wrapped(wrap_pyfunction!(integral_normalizer))?;
 

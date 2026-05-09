@@ -622,6 +622,41 @@ class ActionCard(_Widget):
         return d
 
 
+class Button(_Widget):
+    """Design-system button that can invoke an app action."""
+
+    _type = "button"
+
+    def __init__(
+        self,
+        label: str,
+        *,
+        on_click: Any | None = None,
+        payload: dict[str, Any] | None = None,
+        primary: bool = False,
+    ) -> None:
+        self.label = label
+        self.on_click = on_click
+        self.payload = payload or {}
+        self.primary = primary
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {"type": self._type, "label": self.label}
+        if self.on_click is not None:
+            action_name = getattr(self.on_click, "_cpsl_action_name", None)
+            if not action_name and isinstance(self.on_click, str):
+                action_name = self.on_click
+            if not action_name:
+                raise ValueError("Button on_click must be an @app.action handler or action name")
+            d["target"] = "action"
+            d["value"] = action_name
+        if self.payload:
+            d["payload"] = dict(self.payload)
+        if self.primary:
+            d["primary"] = True
+        return d
+
+
 class GalleryCard(ActionCard):
     """Alias for image-forward home cards."""
 

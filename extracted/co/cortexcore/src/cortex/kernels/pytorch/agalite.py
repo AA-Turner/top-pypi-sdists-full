@@ -2,14 +2,8 @@
 
 from __future__ import annotations
 
-import os
-
 import torch
 import torch.jit
-
-_DDTRACE_PYTEST = os.environ.get("DD_CIVISIBILITY_ENABLED") == "true" or "--ddtrace" in os.environ.get(
-    "PYTEST_ADDOPTS", ""
-)
 
 
 def _jit_discounted_sum(start_state: torch.Tensor, x: torch.Tensor, discounts: torch.Tensor) -> torch.Tensor:
@@ -38,8 +32,7 @@ def _jit_discounted_sum(start_state: torch.Tensor, x: torch.Tensor, discounts: t
     return out_acc.to(x.dtype)
 
 
-if not _DDTRACE_PYTEST:
-    _jit_discounted_sum = torch.compile(_jit_discounted_sum)
+_jit_discounted_sum = torch.compile(_jit_discounted_sum)
 
 
 def discounted_sum_pytorch(start_state: torch.Tensor, x: torch.Tensor, discounts: torch.Tensor) -> torch.Tensor:

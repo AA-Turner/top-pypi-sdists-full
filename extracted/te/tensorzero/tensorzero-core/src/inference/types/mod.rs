@@ -865,9 +865,8 @@ impl RateLimitedInputContent for ContentBlock {
 
 /// The version of `ContentBlock` that is stored in ClickHouse.
 /// This is almost identical to `ContentBlock`, but without `File` data.
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, PartialEq, Serialize, TensorZeroDeserialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[derive(ts_rs::TS, Clone, Debug, PartialEq, Serialize, TensorZeroDeserialize)]
+#[ts(export)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum StoredContentBlock {
@@ -882,9 +881,8 @@ pub enum StoredContentBlock {
 
 /// Like `ContentBlock`, but stores an in-memory `ObjectStorageFile` instead of a `LazyFile`
 /// As a result, it can implement both `Serialize` and `Deserialize`
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, PartialEq, Serialize, TensorZeroDeserialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[derive(ts_rs::TS, Clone, Debug, PartialEq, Serialize, TensorZeroDeserialize)]
+#[ts(export)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum ResolvedContentBlock {
@@ -1057,10 +1055,9 @@ impl RateLimitedRequest for ModelInferenceRequest<'_> {
 }
 
 /// For use in rendering for optimization purposes
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(ts_rs::TS, Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(any(feature = "e2e_tests", test), derive(PartialEq))]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[ts(export)]
 #[cfg_attr(feature = "pyo3", pyclass(get_all, str))]
 pub struct ModelInput {
     pub system: Option<String>,
@@ -1698,8 +1695,8 @@ impl ChatInferenceResult {
         json_mode: Option<JsonMode>,
     ) -> Self {
         let created = current_timestamp();
-        let content = parse_chat_output(raw_content, tool_config, json_mode).await;
         let finish_reason = get_finish_reason(&model_inference_results);
+        let content = parse_chat_output(raw_content, tool_config, json_mode, finish_reason).await;
         Self {
             inference_id,
             created,
@@ -1728,10 +1725,19 @@ pub async fn parse_chat_output(
     content: Vec<ContentBlockOutput>,
     tool_config: Option<&ToolCallConfig>,
     json_mode: Option<JsonMode>,
+    finish_reason: Option<FinishReason>,
 ) -> Vec<ContentBlockChatOutput> {
     if content.is_empty() {
+        // Surface `finish_reason` so we can tell apart safety filters,
+        // `max_tokens` truncation, and tool-call serialization issues that
+        // all manifest as zero content blocks.
+        let finish_reason_str = finish_reason
+            .map(|r| format!("{r:?}"))
+            .unwrap_or_else(|| "None".to_string());
         Error::new(ErrorDetails::Inference {
-            message: "No content blocks in inference result".to_string(),
+            message: format!(
+                "No content blocks in inference result (finish_reason: {finish_reason_str})"
+            ),
         });
     }
 

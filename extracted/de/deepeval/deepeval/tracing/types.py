@@ -102,6 +102,7 @@ class BaseSpan(BaseModel):
     llm_test_case: Optional[LLMTestCase] = None
     metrics: Optional[List[BaseMetric]] = None
     metric_collection: Optional[str] = None
+    integration: Optional[str] = None
 
     # Don't serialize these
     progress: Optional[Progress] = Field(None, exclude=True)
@@ -133,6 +134,7 @@ class AgentSpan(BaseSpan):
 class LlmSpan(BaseSpan):
 
     model: Optional[str] = None
+    provider: Optional[str] = None
     prompt: Optional[Prompt] = None
     input_token_count: Optional[float] = Field(
         None, serialization_alias="inputTokenCount"
@@ -201,6 +203,14 @@ class Trace(BaseModel):
     confident_api_key: Optional[str] = Field(None, exclude=True)
     environment: str = Field(None, exclude=True)
     drop: bool = Field(False, exclude=True)
+    # Internal marker: True when this Trace was pushed implicitly by an
+    # OTel-mode integration's SpanInterceptor (so that
+    # ``update_current_trace(...)`` works without an enclosing ``@observe``
+    # / ``with trace(...)``). Used by ``ContextAwareSpanProcessor`` to
+    # decide REST vs OTLP routing — implicit placeholders DON'T count as
+    # "user opted into REST". See ``deepeval/integrations/pydantic_ai/
+    # instrumentator.py`` for the push/pop logic.
+    is_otel_implicit: bool = Field(False, exclude=True)
 
     # additional test case parameters
     retrieval_context: Optional[List[str]] = Field(

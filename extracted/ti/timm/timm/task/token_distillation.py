@@ -86,6 +86,16 @@ class TokenDistillationTeacher(nn.Module):
         self.register_buffer('mean_kd', mean_kd, persistent=False)
         self.register_buffer('std_kd', std_kd, persistent=False)
 
+    def compile(
+            self,
+            backend: str = 'inductor',
+            mode: Optional[str] = None,
+            **compile_kwargs,
+    ) -> 'TokenDistillationTeacher':
+        """Compile teacher logit inference."""
+        self.model = torch.compile(self.model, backend=backend, mode=mode, **compile_kwargs)
+        return self
+
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """Forward pass through teacher model.
 
@@ -214,7 +224,7 @@ class TokenDistillationTask(TrainingTask):
                 f"got {type(teacher_model).__name__}"
             )
 
-        self.student = student_model
+        self.trainable_module = student_model
         self.teacher = teacher
         self.criterion = criterion if criterion is not None else nn.CrossEntropyLoss()
         self.distill_type = distill_type
@@ -293,8 +303,21 @@ class TokenDistillationTask(TrainingTask):
         for param in self.teacher.parameters():
             param.requires_grad = False
 
-        self.student = DDP(self.student, device_ids=device_ids, **ddp_kwargs)
+        self.trainable_module = DDP(self.trainable_module, device_ids=device_ids, **ddp_kwargs)
         return self
+
+    def compile(
+            self,
+            backend: str = 'inductor',
+            mode: Optional[str] = None,
+            **compile_kwargs,
+    ) -> nn.Module:
+        """Compile student eval/train forward and teacher logit forward."""
+        self.trainable_module = torch.compile(self.trainable_module, backend=backend, mode=mode, **compile_kwargs)
+        # Token distillation keeps the student as the eval-facing model.
+        self.eval_model = self.trainable_module
+        self.teacher.compile(backend=backend, mode=mode, **compile_kwargs)
+        return self.trainable_module
 
     def forward(
             self,
@@ -315,7 +338,7 @@ class TokenDistillationTask(TrainingTask):
                 - 'distill_loss': Distillation loss component
         """
         # Student forward pass - returns tuple (main_logits, dist_logits)
-        student_output = self.student(input)
+        student_output = self.trainable_module(input)
         main_logits, dist_logits = student_output
 
         # Compute task loss on main head

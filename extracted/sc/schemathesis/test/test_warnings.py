@@ -1,13 +1,13 @@
 import pytest
 
 
-@pytest.mark.operations("basic")
-def test_warning_on_unauthorized(cli, openapi3_schema_url, snapshot_cli):
+def test_warning_on_unauthorized(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.basic()
     # When endpoint returns only 401
     # Then the output should contain a warning about it
     assert (
         cli.run(
-            openapi3_schema_url,
+            api.schema_url,
             "-c not_a_server_error",
             "--mode=positive",
             "--phases=fuzzing",
@@ -18,13 +18,13 @@ def test_warning_on_unauthorized(cli, openapi3_schema_url, snapshot_cli):
     )
 
 
-@pytest.mark.operations("always_incorrect")
-def test_warning_on_no_2xx(cli, openapi3_schema_url, snapshot_cli):
+def test_warning_on_no_2xx(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.always_incorrect()
     # When endpoint does not return 2xx at all
     # Then the output should contain a warning about it
     assert (
         cli.run(
-            openapi3_schema_url,
+            api.schema_url,
             "-c not_a_server_error",
             "--phases=fuzzing",
             "--mode=positive",
@@ -34,11 +34,11 @@ def test_warning_on_no_2xx(cli, openapi3_schema_url, snapshot_cli):
     )
 
 
-@pytest.mark.operations("always_incorrect")
-def test_warning_on_no_2xx_options_only(cli, openapi3_schema_url, snapshot_cli):
+def test_warning_on_no_2xx_options_only(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.always_incorrect()
     assert (
         cli.run(
-            openapi3_schema_url,
+            api.schema_url,
             "--mode=all",
             "--phases=coverage",
             "-c not_a_server_error",
@@ -61,7 +61,7 @@ def test_warning_on_no_2xx_options_only(cli, openapi3_schema_url, snapshot_cli):
             {
                 "config": {
                     "operations": [
-                        {"include-name": "GET /failure", "warnings": False},
+                        {"include-name": "GET /api/failure", "warnings": False},
                     ],
                 }
             },
@@ -69,14 +69,14 @@ def test_warning_on_no_2xx_options_only(cli, openapi3_schema_url, snapshot_cli):
     ],
     ids=["default", "selected", "disabled-all", "disabled-operation"],
 )
-@pytest.mark.operations("success", "failure")
-def test_warning_on_all_not_found(cli, openapi3_schema_url, openapi3_base_url, snapshot_cli, args, kwargs):
+def test_warning_on_all_not_found(ctx, cli, snapshot_cli, args, kwargs):
+    api = ctx.openapi.apps.success_and_failure()
     # When all endpoints return 404
     # Then the output should contain a warning about it
     assert (
         cli.run(
-            openapi3_schema_url,
-            f"--url={openapi3_base_url}/v4/",
+            api.schema_url,
+            f"--url={api.base_url}/v4/",
             "-c not_a_server_error",
             "--phases=fuzzing",
             "--mode=positive",
@@ -88,12 +88,12 @@ def test_warning_on_all_not_found(cli, openapi3_schema_url, openapi3_base_url, s
     )
 
 
-@pytest.mark.operations("success", "failure", "multiple_failures", "custom_format")
-def test_warning_on_many_operations(cli, openapi3_schema_url, openapi3_base_url, snapshot_cli):
+def test_warning_on_many_operations(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success_failure_multiple_failures_custom_format()
     assert (
         cli.run(
-            openapi3_schema_url,
-            f"--url={openapi3_base_url}/v4/",
+            api.schema_url,
+            f"--url={api.base_url}/v4/",
             "-c not_a_server_error",
             "--phases=fuzzing",
             "--mode=positive",

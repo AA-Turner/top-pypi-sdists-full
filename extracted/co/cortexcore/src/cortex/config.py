@@ -1,24 +1,24 @@
-"""Configuration classes for Cortex cores, scaffolds, and stacks."""
+"""Configuration classes for Cortex cells, blocks, and stacks with type tags for JSON serialization."""
 
 from __future__ import annotations
 
 from typing import Any, Mapping
 
-from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, field_validator
 
 
-class CoreConfig(BaseModel):
-    """Base configuration for memory cores with optional hidden size inference."""
+class CellConfig(BaseModel):
+    """Base configuration for memory cells with optional hidden size inference."""
 
     model_config = ConfigDict(extra="allow")
 
     hidden_size: int | None = Field(default=None)
 
 
-class LSTMCoreConfig(CoreConfig):
-    """Configuration for standard LSTM core (batch-first, single layer default)."""
+class LSTMCellConfig(CellConfig):
+    """Configuration for standard LSTM cell (batch-first, single layer default)."""
 
-    core_type: str = "lstm"
+    cell_type: str = "lstm"
     hidden_size: int | None = Field(default=None)
     num_layers: int = Field(default=1, ge=1)
     bias: bool = Field(default=True)
@@ -26,45 +26,50 @@ class LSTMCoreConfig(CoreConfig):
     proj_size: int = Field(default=0, ge=0)
 
 
-class CausalConv1dCoreConfig(CoreConfig):
+class CausalConv1dConfig(CellConfig):
     """Configuration for causal 1D convolution with optional channel mixing."""
 
-    core_type: str = "cconv"
+    cell_type: str = "cconv"
     kernel_size: int = Field(default=4, ge=0)
     causal_conv_bias: bool = Field(default=True)
     channel_mixing: bool = Field(default=False)
 
+    @property
+    def feature_dim(self) -> int:
+        """Alias for hidden_size for compatibility."""
+        return self.hidden_size
 
-class mLSTMCoreConfig(CoreConfig):
-    """Configuration for Matrix LSTM core with parallel chunk processing."""
 
-    core_type: str = "mlstm"
+class mLSTMCellConfig(CellConfig):
+    """Configuration for Matrix LSTM cell with parallel chunk processing."""
+
+    cell_type: str = "mlstm"
     hidden_size: int | None = Field(default=None)
     num_heads: int = Field(default=4, ge=1)
     chunk_size: int = Field(default=64, ge=1)
     conv1d_kernel_size: int = Field(default=4, ge=1)
     use_axon_layer: bool = Field(default=False)
     use_axon_qkv: bool = Field(default=False)
-    axon_layer_config: AxonCoreConfig | None = Field(default=None)
-    axon_qkv_config: AxonCoreConfig | None = Field(default=None)
+    axon_layer_config: AxonConfig | None = Field(default=None)
+    axon_qkv_config: AxonConfig | None = Field(default=None)
 
 
-class sLSTMCoreConfig(CoreConfig):
-    """Configuration for Structured LSTM core with per-head recurrence."""
+class sLSTMCellConfig(CellConfig):
+    """Configuration for Structured LSTM cell with per-head recurrence."""
 
-    core_type: str = "slstm"
+    cell_type: str = "slstm"
     hidden_size: int | None = Field(default=None)
     num_heads: int = Field(default=4, ge=1)
     conv1d_kernel_size: int = Field(default=4, ge=0)
     dropout: float = Field(default=0.0, ge=0.0)
     use_axon_layer: bool = Field(default=False)
-    axon_layer_config: AxonCoreConfig | None = Field(default=None)
+    axon_layer_config: AxonConfig | None = Field(default=None)
 
 
-class XLCoreConfig(CoreConfig):
-    """Configuration for Transformer-XL style attention core."""
+class XLCellConfig(CellConfig):
+    """Configuration for Transformer-XL style attention cell."""
 
-    core_type: str = "xl"
+    cell_type: str = "xl"
     hidden_size: int | None = Field(default=None)
     n_heads: int = Field(default=4, ge=1)
     head_dim: int | None = Field(default=None, ge=1)
@@ -73,13 +78,13 @@ class XLCoreConfig(CoreConfig):
     out_dropout: float = Field(default=0.0, ge=0.0, le=1.0)
     use_bias: bool = Field(default=True)
     use_axon_qkv: bool = Field(default=False)
-    axon_qkv_config: AxonCoreConfig | None = Field(default=None)
+    axon_qkv_config: AxonConfig | None = Field(default=None)
 
 
-class AGaLiTeCoreConfig(CoreConfig):
-    """Configuration for AGaLiTe attention core with recurrent discounted state."""
+class AGaLiTeCellConfig(CellConfig):
+    """Configuration for AGaLiTe attention cell with recurrent discounted state."""
 
-    core_type: str = "agalite"
+    cell_type: str = "agalite"
     hidden_size: int | None = Field(default=None)
     n_heads: int = Field(default=8, ge=1)
     head_dim: int | None = Field(default=None, ge=1)
@@ -89,10 +94,10 @@ class AGaLiTeCoreConfig(CoreConfig):
     dropout: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
-class AxonCoreConfig(CoreConfig):
-    """Configuration for Axon core with streaming RTU and diagonal input weights."""
+class AxonConfig(CellConfig):
+    """Configuration for Axon cell with streaming RTU and diagonal input weights."""
 
-    core_type: str = "axon"
+    cell_type: str = "axon"
     hidden_size: int | None = Field(default=None)
     activation: str = Field(default="identity")
     r_max: float = Field(default=1.0)
@@ -106,111 +111,111 @@ class AxonCoreConfig(CoreConfig):
     use_untraced_linear: bool = Field(default=True)
 
 
-class ScaffoldConfig(BaseModel):
-    """Base configuration for cortex scaffolds."""
+class BlockConfig(BaseModel):
+    """Base configuration for cortex blocks."""
 
     model_config = ConfigDict(extra="allow")
 
-    core: SerializeAsAny[CoreConfig | None] = Field(default=None)
+    cell: SerializeAsAny[CellConfig | None] = Field(default=None)
 
-    def get_core_hidden_size(self, d_hidden: int) -> int:
-        """Compute core hidden size from the stack's external dimension."""
+    def get_cell_hidden_size(self, d_hidden: int) -> int:
+        """Compute cell hidden size from stack's external dimension."""
         return d_hidden
 
-    @field_validator("core", mode="before")
+    @field_validator("cell", mode="before")
     @classmethod
-    def _coerce_core(cls, value: Any) -> Any:
-        if value is None or isinstance(value, CoreConfig):
+    def _coerce_cell(cls, value: Any) -> Any:
+        if value is None or isinstance(value, CellConfig):
             return value
         if isinstance(value, Mapping):
-            tag = value.get("core_type")
+            tag = value.get("cell_type")
             if not isinstance(tag, str) or not tag:
                 return value
-            from cortex.cores.registry import get_core_config_class  # noqa: PLC0415
+            from cortex.cells.registry import get_cell_config_class  # noqa: PLC0415
 
-            config_class = get_core_config_class(tag)
-            return config_class.model_validate(value)
+            cfg_cls = get_cell_config_class(tag)
+            return cfg_cls.model_validate(value)
         return value
 
 
-class PassThroughScaffoldConfig(ScaffoldConfig):
-    """Configuration for a passthrough scaffold (no projections)."""
+class PassThroughBlockConfig(BlockConfig):
+    """Configuration for a passthrough block (no projections)."""
 
-    scaffold_type: str = "passthrough"
+    block_type: str = "passthrough"
 
 
-class PreUpScaffoldConfig(ScaffoldConfig):
-    """Configuration for pre-upsampling scaffolds (projects before the core)."""
+class PreUpBlockConfig(BlockConfig):
+    """Configuration for pre-upsampling blocks (projects before cell)."""
 
-    scaffold_type: str = "preup"
+    block_type: str = "preup"
     proj_factor: float = Field(default=2.0, gt=0.0)
-    activate_core_input: bool = Field(default=True)
+    activate_cell_input: bool = Field(default=True)
     dropout: float = Field(default=0.0, ge=0.0, le=1.0, description="Consistent dropout probability")
 
-    def get_core_hidden_size(self, d_hidden: int) -> int:
-        """Core operates on the expanded inner dimension."""
+    def get_cell_hidden_size(self, d_hidden: int) -> int:
+        """Cell operates on expanded inner dimension."""
         return int(self.proj_factor * d_hidden)
 
 
-class PreUpGatedScaffoldConfig(ScaffoldConfig):
-    """Configuration for GRU-gated pre-upsampling scaffolds (projects before the core)."""
+class PreUpGatedBlockConfig(BlockConfig):
+    """Configuration for GRU‑gated pre-upsampling blocks (projects before cell)."""
 
-    scaffold_type: str = "preup_gated"
+    block_type: str = "preup_gated"
     proj_factor: float = Field(default=2.0, gt=0.0)
     gru_bias: float = Field(default=2.0)
-    activate_core_input: bool = Field(default=True)
+    activate_cell_input: bool = Field(default=True)
     dropout: float = Field(default=0.0, ge=0.0, le=1.0, description="Consistent dropout probability")
 
-    def get_core_hidden_size(self, d_hidden: int) -> int:
-        """Core operates on the expanded inner dimension."""
+    def get_cell_hidden_size(self, d_hidden: int) -> int:
+        """Cell operates on expanded inner dimension."""
         return int(self.proj_factor * d_hidden)
 
 
-class PostUpScaffoldConfig(ScaffoldConfig):
-    """Configuration for post-processing scaffolds (core then FFN)."""
+class PostUpBlockConfig(BlockConfig):
+    """Configuration for post-processing blocks (cell then FFN)."""
 
-    scaffold_type: str = "postup"
+    block_type: str = "postup"
     proj_factor: float = Field(default=1.5, gt=0.0)
     dropout: float = Field(default=0.0, ge=0.0, le=1.0, description="Consistent dropout probability for FFN")
 
 
-class PostUpGatedScaffoldConfig(ScaffoldConfig):
-    """Configuration for GRU-gated post scaffolds (GTrXL-style gating)."""
+class PostUpGatedBlockConfig(BlockConfig):
+    """Configuration for GRU‑gated post blocks (GTrXL‑style gating)."""
 
-    scaffold_type: str = "postup_gated"
+    block_type: str = "postup_gated"
     proj_factor: float = Field(default=1.5, gt=0.0)
     gru_bias: float = Field(default=2.0)
     dropout: float = Field(default=0.0, ge=0.0, le=1.0, description="Consistent dropout probability for FFN")
 
 
-class AdapterScaffoldConfig(ScaffoldConfig):
-    """Configuration for adapter scaffolds with identity-initialized residual paths."""
+class AdapterBlockConfig(BlockConfig):
+    """Configuration for adapter blocks with identity-initialized residual paths."""
 
-    scaffold_type: str = "adapter"
-    base_scaffold: SerializeAsAny[ScaffoldConfig]
-    core: CoreConfig | None = None
+    block_type: str = "adapter"
+    base_block: SerializeAsAny[BlockConfig]
+    cell: CellConfig | None = None
     bottleneck: int = Field(default=64, ge=1)
     dropout: float = Field(default=0.0, ge=0.0, le=1.0)
     per_channel_gate: bool = Field(default=False)
     activation: str = Field(default="gelu")
 
-    def get_core_hidden_size(self, d_hidden: int) -> int:
-        """Delegate to the wrapped scaffold."""
-        return self.base_scaffold.get_core_hidden_size(d_hidden)
+    def get_cell_hidden_size(self, d_hidden: int) -> int:
+        """Delegate to wrapped block."""
+        return self.base_block.get_cell_hidden_size(d_hidden)
 
-    @field_validator("base_scaffold", mode="before")
+    @field_validator("base_block", mode="before")
     @classmethod
-    def _coerce_base_scaffold(cls, value: Any) -> Any:
-        if isinstance(value, ScaffoldConfig):
+    def _coerce_base_block(cls, value: Any) -> Any:
+        if isinstance(value, BlockConfig):
             return value
         if isinstance(value, Mapping):
-            tag = value.get("scaffold_type")
+            tag = value.get("block_type")
             if not isinstance(tag, str) or not tag:
                 return value
-            from cortex.scaffolds.registry import get_scaffold_config_class  # noqa: PLC0415
+            from cortex.blocks.registry import get_block_config_class  # noqa: PLC0415
 
-            config_class = get_scaffold_config_class(tag)
-            return config_class.model_validate(value)
+            cfg_cls = get_block_config_class(tag)
+            return cfg_cls.model_validate(value)
         return value
 
 
@@ -235,100 +240,34 @@ class RoutedAdapterConfig(BaseModel):
 
 
 class CortexStackConfig(BaseModel):
-    """Configuration for a sequential stack of scaffolds."""
+    """Configuration for a sequential stack of blocks."""
 
-    scaffolds: list[SerializeAsAny[ScaffoldConfig]]
+    blocks: list[SerializeAsAny[BlockConfig]]
     d_hidden: int = Field(ge=1)
-    post_norm: bool = Field(default=False)
-    compile_scaffolds: bool = Field(default=True)
+    post_norm: bool = Field(default=True)
+    compile_blocks: bool = Field(default=True)
     routed_adapter: RoutedAdapterConfig | None = Field(default=None)
 
-    @field_validator("scaffolds", mode="before")
+    @field_validator("blocks", mode="before")
     @classmethod
-    def _coerce_scaffolds(cls, value: Any) -> Any:
+    def _coerce_blocks(cls, value: Any) -> Any:
         if not isinstance(value, list):
             return value
         out: list[Any] = []
         for item in value:
-            if isinstance(item, ScaffoldConfig):
+            if isinstance(item, BlockConfig):
                 out.append(item)
                 continue
             if isinstance(item, Mapping):
-                tag = item.get("scaffold_type")
+                tag = item.get("block_type")
                 if isinstance(tag, str) and tag:
-                    from cortex.scaffolds.registry import get_scaffold_config_class  # noqa: PLC0415
+                    from cortex.blocks.registry import get_block_config_class  # noqa: PLC0415
 
-                    config_class = get_scaffold_config_class(tag)
-                    out.append(config_class.model_validate(item))
+                    cfg_cls = get_block_config_class(tag)
+                    out.append(cfg_cls.model_validate(item))
                     continue
             out.append(item)
         return out
-
-
-class MultiScaleLayerConfig(BaseModel):
-    period: int = Field(ge=1)
-    scaffold: SerializeAsAny[ScaffoldConfig]
-
-    @field_validator("scaffold", mode="before")
-    @classmethod
-    def _coerce_scaffold(cls, value: Any) -> Any:
-        if isinstance(value, ScaffoldConfig):
-            return value
-        if isinstance(value, Mapping):
-            tag = value.get("scaffold_type")
-            if isinstance(tag, str) and tag:
-                from cortex.scaffolds.registry import get_scaffold_config_class  # noqa: PLC0415
-
-                config_class = get_scaffold_config_class(tag)
-                return config_class.model_validate(value)
-        return value
-
-
-class MultiScaleStackConfig(BaseModel):
-    layers: list[SerializeAsAny[MultiScaleLayerConfig]]
-    d_hidden: int = Field(ge=1)
-    num_inner_steps: int = Field(ge=1)
-    splits: list[str] = Field(min_length=1)
-    split_start_layer: int = Field(
-        ge=1,
-        description="Index of the first split-specific layer; all prior layers are shared.",
-    )
-    post_norm: bool = Field(default=False)
-    compile_scaffolds: bool = Field(default=True)
-
-    @field_validator("splits")
-    @classmethod
-    def _validate_splits(cls, value: list[str]) -> list[str]:
-        normalized = [split.strip() for split in value]
-        if any(not split for split in normalized):
-            raise ValueError("splits must be non-empty")
-        if len(set(normalized)) != len(normalized):
-            raise ValueError(f"splits must be unique, got {normalized}")
-        return normalized
-
-    @model_validator(mode="after")
-    def _validate_schedule(self) -> "MultiScaleStackConfig":
-        if not self.layers:
-            raise ValueError("MultiScaleStackConfig requires at least one layer")
-
-        previous_period: int | None = None
-        for idx, layer in enumerate(self.layers):
-            if self.num_inner_steps % layer.period != 0:
-                raise ValueError(
-                    f"Layer {idx} period {layer.period} must divide num_inner_steps={self.num_inner_steps}"
-                )
-            if previous_period is not None and layer.period < previous_period:
-                raise ValueError("Layer periods must be monotone nondecreasing")
-            if previous_period is not None and layer.period % previous_period != 0:
-                raise ValueError(
-                    f"Layer {idx} period {layer.period} must divide cleanly by prior period {previous_period}"
-                )
-            previous_period = layer.period
-
-        if self.split_start_layer >= len(self.layers):
-            raise ValueError("split_start_layer must leave at least one split-specific layer")
-
-        return self
 
 
 class RouterConfig(BaseModel):
@@ -338,86 +277,79 @@ class RouterConfig(BaseModel):
 
     d_key: int | None = Field(default=None, ge=1, description="Key/query dim for global prior; defaults to d_hidden.")
     temperature: float = Field(default=1.0, gt=0.0, description="Softmax temperature for the global gate.")
-    top_k: int | None = Field(default=None, ge=1, description="If set, keep only top-k experts in the global prior.")
-    use_sqrt_scale: bool = Field(default=True, description="Use 1/sqrt(d_key) (vs 1/d_key) dot-product scaling.")
-    init_scale_wq: float = Field(default=0.0, description="Uniform init scale for Wq; 0 -> near-uniform prior.")
-    init_scale_wk: float = Field(default=0.0, description="Uniform init scale for Wk; 0 -> near-uniform prior.")
+    top_k: int | None = Field(default=None, ge=1, description="If set, keep only top‑k experts in the global prior.")
+    use_sqrt_scale: bool = Field(default=True, description="Use 1/sqrt(d_key) (vs 1/d_key) dot‑product scaling.")
+    init_scale_wq: float = Field(default=0.0, description="Uniform init scale for Wq; 0 → near‑uniform prior.")
+    init_scale_wk: float = Field(default=0.0, description="Uniform init scale for Wk; 0 → near‑uniform prior.")
 
-    d_key_local: int | None = Field(default=None, ge=1, description="Key dim for per-token refiner; defaults to d_key.")
-    local_temperature: float = Field(default=1.0, gt=0.0, description="Temperature for token-refiner logits.")
-    whisper_lambda: float = Field(
-        default=0.1,
-        ge=0.0,
-        description="Strength lambda of per-token refinement (0 disables).",
-    )
+    d_key_local: int | None = Field(default=None, ge=1, description="Key dim for per‑token refiner; defaults to d_key.")
+    local_temperature: float = Field(default=1.0, gt=0.0, description="Temperature for token‑refiner logits.")
+    whisper_lambda: float = Field(default=0.1, ge=0.0, description="Strength λ of per-token refinement (0 disables).")
     center_refine: bool = Field(default=True, description="Center token logits over experts to redistribute mass only.")
-    restrict_to_topk: bool = Field(default=True, description="Limit refinement to the global top-k support if set.")
+    restrict_to_topk: bool = Field(default=True, description="Limit refinement to the global top‑k support if set.")
 
 
-class ColumnScaffoldConfig(ScaffoldConfig):
+class ColumnBlockConfig(BlockConfig):
     """Column of experts with a shared router."""
 
     model_config = ConfigDict(extra="allow")
 
-    scaffold_type: str = "column"
-    experts: list[SerializeAsAny[ScaffoldConfig]]
+    block_type: str = "column"
+    experts: list[SerializeAsAny[BlockConfig]]
     router: RouterConfig = Field(default_factory=RouterConfig, description="Router hyperparameters for this column.")
     alpha_init: float = Field(
         default=1.0,
         ge=0.0,
         description=(
-            "Initial scale for the shared ReZero gate alpha applied to BOTH the main MoE residual r_t "
-            "and the correction head rho(r_t): out = x + alpha·r_t + alpha·rho(r_t). "
-            "Smaller values keep the scaffold near-identity at init; "
+            "Initial scale for the shared ReZero gate α applied to BOTH the main MoE residual r_t "
+            "and the correction head ρ(r_t): out = x + α·r_t + α·ρ(r_t). "
+            "Smaller values keep the block near-identity at init; "
             "larger values engage both paths more strongly. Also scales gradient flow through both paths."
         ),
     )
 
-    def get_core_hidden_size(self, d_hidden: int) -> int:  # type: ignore[override]
+    def get_cell_hidden_size(self, d_hidden: int) -> int:  # type: ignore[override]
         return d_hidden
 
     @field_validator("experts", mode="before")
     @classmethod
-    def _coerce_experts(cls, value: Any) -> Any:
+    def _coerce_experts(cls, value):
         if not isinstance(value, list):
             return value
-        out: list[ScaffoldConfig] = []
+        out: list[BlockConfig] = []
         for item in value:
-            if isinstance(item, ScaffoldConfig):
+            if isinstance(item, BlockConfig):
                 out.append(item)
                 continue
             if isinstance(item, Mapping):
-                tag = item.get("scaffold_type")
+                tag = item.get("block_type")
                 if isinstance(tag, str) and tag:
-                    from cortex.scaffolds.registry import get_scaffold_config_class  # noqa: PLC0415
+                    from cortex.blocks.registry import get_block_config_class  # noqa: PLC0415
 
-                    config_class = get_scaffold_config_class(tag)
-                    out.append(config_class.model_validate(item))
+                    cfg_cls = get_block_config_class(tag)
+                    out.append(cfg_cls.model_validate(item))
                     continue
             out.append(item)
         return out
 
 
 __all__ = [
-    "CoreConfig",
-    "CausalConv1dCoreConfig",
-    "LSTMCoreConfig",
-    "mLSTMCoreConfig",
-    "sLSTMCoreConfig",
-    "XLCoreConfig",
-    "AGaLiTeCoreConfig",
-    "AxonCoreConfig",
-    "ScaffoldConfig",
-    "PassThroughScaffoldConfig",
-    "PreUpScaffoldConfig",
-    "PreUpGatedScaffoldConfig",
-    "PostUpScaffoldConfig",
-    "PostUpGatedScaffoldConfig",
-    "AdapterScaffoldConfig",
+    "CellConfig",
+    "CausalConv1dConfig",
+    "LSTMCellConfig",
+    "mLSTMCellConfig",
+    "sLSTMCellConfig",
+    "XLCellConfig",
+    "AxonConfig",
+    "BlockConfig",
+    "PassThroughBlockConfig",
+    "PreUpBlockConfig",
+    "PreUpGatedBlockConfig",
+    "PostUpBlockConfig",
+    "PostUpGatedBlockConfig",
+    "AdapterBlockConfig",
     "RoutedAdapterConfig",
     "CortexStackConfig",
-    "MultiScaleLayerConfig",
-    "MultiScaleStackConfig",
     "RouterConfig",
-    "ColumnScaffoldConfig",
+    "ColumnBlockConfig",
 ]

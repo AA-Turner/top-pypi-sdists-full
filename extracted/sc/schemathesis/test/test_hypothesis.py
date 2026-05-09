@@ -8,6 +8,7 @@ from hypothesis import strategies as st
 from hypothesis.database import InMemoryExampleDatabase
 from hypothesis.internal.observability import with_observability_callback
 from hypothesis_jsonschema import _canonicalise as canonicalise
+from hypothesis_jsonschema import from_schema
 
 import schemathesis
 from schemathesis.core import NOT_SET
@@ -18,7 +19,7 @@ from schemathesis.generation.hypothesis import examples, setup
 from schemathesis.generation.meta import CaseMetadata, FuzzingPhaseData, GenerationInfo, PhaseInfo, TestPhase
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.schemas import APIOperation, OperationDefinition, PayloadAlternatives
-from schemathesis.specs.openapi._hypothesis import jsonify_python_specific_types, quote_all
+from schemathesis.specs.openapi._hypothesis import jsonify_python_specific_types
 from schemathesis.specs.openapi.adapter import v2
 from schemathesis.specs.openapi.adapter.parameters import (
     OpenApiBody,
@@ -26,7 +27,7 @@ from schemathesis.specs.openapi.adapter.parameters import (
     OpenApiParameterSet,
     form_data_to_json_schema,
 )
-from schemathesis.transport.serialization import Binary
+from schemathesis.transport.serialization import Binary, quote_all
 from test.utils import assert_requests_call
 
 
@@ -53,6 +54,20 @@ def test_canonicalish_keeps_bundle_when_bundled_ref_present():
     }
 
     assert canonicalise.canonicalish(schema) == {"const": 1, BUNDLE_STORAGE_KEY: schema[BUNDLE_STORAGE_KEY]}
+
+
+def test_from_schema_reflects_bundle_mutations():
+    setup()
+    schema = {
+        "$ref": f"#/{BUNDLE_STORAGE_KEY}/schema1",
+        BUNDLE_STORAGE_KEY: {"schema1": {"type": "integer"}},
+    }
+
+    assert isinstance(find(from_schema(schema), lambda _: True), int)
+
+    schema[BUNDLE_STORAGE_KEY]["schema1"] = {"type": "string"}
+
+    assert isinstance(find(from_schema(schema), lambda _: True), str)
 
 
 @pytest.mark.parametrize(
@@ -131,7 +146,7 @@ def test_ref_with_sibling_anyof_against_anyof_target(ctx):
             }
         }
     }
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -145,7 +160,6 @@ def test_ref_with_sibling_anyof_against_anyof_target(ctx):
         },
         components=components,
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
     validator = jsonschema_rs.validator_for({**body, "components": components})
 
     @given(schema["/data"]["POST"].as_strategy())
@@ -202,7 +216,7 @@ def test_draft_03_raises_invalid_schema(ctx):
         "type": "object",
         "properties": {"name": {"type": "string"}},
     }
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -215,7 +229,6 @@ def test_draft_03_raises_invalid_schema(ctx):
             },
         },
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
 
     @given(schema["/data"]["POST"].as_strategy())
     @settings(max_examples=1, deadline=None, database=InMemoryExampleDatabase())
@@ -230,7 +243,7 @@ def test_canonicalise_constants_restored_after_polluting_schema(ctx):
     # hypothesis-jsonschema's FALSEY/TRUTHY are shared mutable globals that get
     # clobbered during generation; schemathesis must restore them.
     setup()
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/probe": {
                 "post": {
@@ -266,7 +279,6 @@ def test_canonicalise_constants_restored_after_polluting_schema(ctx):
             }
         },
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
 
     @given(schema["/probe"]["POST"].as_strategy())
     @settings(max_examples=1, deadline=None, database=InMemoryExampleDatabase())
@@ -430,7 +442,7 @@ def test_default_strategies_binary(swagger_20):
 
 
 def test_merge_length_into_pattern(ctx):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -454,7 +466,6 @@ def test_merge_length_into_pattern(ctx):
         }
     )
 
-    schema = schemathesis.openapi.from_dict(schema)
     operation = schema["/data"]["POST"]
 
     @given(operation.as_strategy())
@@ -466,7 +477,7 @@ def test_merge_length_into_pattern(ctx):
 
 
 def test_required_without_properties(ctx):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -488,7 +499,6 @@ def test_required_without_properties(ctx):
         }
     )
 
-    schema = schemathesis.openapi.from_dict(schema)
     operation = schema["/data"]["POST"]
 
     @given(operation.as_strategy())
@@ -500,7 +510,7 @@ def test_required_without_properties(ctx):
 
 
 def test_non_schema_property_value(ctx):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -524,7 +534,6 @@ def test_non_schema_property_value(ctx):
         }
     )
 
-    schema = schemathesis.openapi.from_dict(schema)
     operation = schema["/data"]["POST"]
 
     @given(operation.as_strategy())
@@ -595,7 +604,7 @@ def test_as_strategy_example_resolves_bundled_refs(tmp_path):
 
 def test_invalid_schema_for_malformed_subschema(ctx):
     # `description: null` violates JSON Schema; surface it as InvalidSchema rather than a raw validator error.
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/probe": {
                 "post": {
@@ -617,7 +626,6 @@ def test_invalid_schema_for_malformed_subschema(ctx):
         },
         components={"schemas": {"Bad": {"type": "string", "description": None}}},
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
 
     with pytest.raises(InvalidSchema, match="description"):
         examples.generate_one(schema["/probe"]["POST"].as_strategy())
@@ -626,7 +634,7 @@ def test_invalid_schema_for_malformed_subschema(ctx):
 def test_array_with_allof_of_multiple_contains(ctx):
     # `allOf` of multiple `contains` schemas can't be merged; without help, generation
     # falls back to filtering and exhausts before satisfying both consts.
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/probe": {
                 "post": {
@@ -658,7 +666,6 @@ def test_array_with_allof_of_multiple_contains(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
 
     case = examples.generate_one(schema["/probe"]["POST"].as_strategy())
 
@@ -668,7 +675,7 @@ def test_array_with_allof_of_multiple_contains(ctx):
 
 @pytest.mark.parametrize("media_type", ["application/json", "text/yaml"])
 def test_binary_is_serializable(ctx, media_type):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -682,7 +689,6 @@ def test_binary_is_serializable(ctx, media_type):
         }
     )
 
-    schema = schemathesis.openapi.from_dict(schema)
     operation = schema["/data"]["POST"]
 
     @given(operation.as_strategy())
@@ -738,7 +744,8 @@ def test_invalid_custom_strategy(values, error):
 @pytest.mark.parametrize(
     "definition", [{"name": "api_key", "in": "header", "type": "string"}, {"name": "api_key", "in": "header"}]
 )
-def test_valid_headers(openapi2_base_url, swagger_20, definition):
+def test_valid_headers(ctx, swagger_20, definition):
+    api = ctx.openapi.apps.success()
     operation = APIOperation(
         "/api/success",
         "GET",
@@ -746,7 +753,7 @@ def test_valid_headers(openapi2_base_url, swagger_20, definition):
         schema=swagger_20,
         responses=swagger_20._parse_responses({}, ""),
         security=swagger_20._parse_security({}),
-        base_url=openapi2_base_url,
+        base_url=api.base_url,
         headers=OpenApiParameterSet(
             ParameterLocation.HEADER,
             [OpenApiParameter.from_definition(definition=definition, name_to_uri={}, adapter=v2)],
@@ -823,15 +830,12 @@ def make_swagger(*parameters):
     ],
 )
 @pytest.mark.hypothesis_nested
-def test_valid_form_data(request, raw_schema):
-    if "swagger" in raw_schema:
-        base_url = request.getfixturevalue("openapi2_base_url")
-    else:
-        base_url = request.getfixturevalue("openapi3_base_url")
+def test_valid_form_data(ctx, raw_schema):
+    api = ctx.openapi.apps.success()
     # When the request definition contains a schema, matching values of which cannot be encoded to multipart
     # straightforwardly
-    schema = schemathesis.openapi.from_dict(raw_schema)
-    schema.config.update(base_url=base_url)
+    schema = ctx.openapi.from_full_schema(raw_schema)
+    schema.config.update(base_url=f"{api.base_url}/api")
 
     @given(case=schema["/form"]["POST"].as_strategy())
     @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow], max_examples=10)
@@ -843,8 +847,9 @@ def test_valid_form_data(request, raw_schema):
 
 
 @pytest.mark.hypothesis_nested
-def test_optional_form_data(ctx, openapi3_base_url):
-    schema = ctx.openapi.build_schema(
+def test_optional_form_data(ctx):
+    api = ctx.openapi.apps.success()
+    schema = ctx.openapi.load_schema(
         {
             "/form": {
                 "post": {
@@ -865,8 +870,7 @@ def test_optional_form_data(ctx, openapi3_base_url):
     # When the multipart form is optional
     # Note, this test is similar to the one above, but has a simplified schema & conditions
     # It is done mostly due to performance reasons
-    schema = schemathesis.openapi.from_dict(schema)
-    schema.config.update(base_url=openapi3_base_url)
+    schema.config.update(base_url=f"{api.base_url}/api")
 
     @given(case=schema["/form"]["POST"].as_strategy())
     @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much], max_examples=1)
@@ -899,7 +903,7 @@ def test_path_parameters_quotation(value, expected):
 def test_parameters_jsonified(ctx, expected):
     # See GH-1166
     # When `None` or `True` / `False` are generated in path or query
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/foo/{param_path}": {
                 "get": {
@@ -918,8 +922,6 @@ def test_parameters_jsonified(ctx, expected):
         }
     )
 
-    schema = schemathesis.openapi.from_dict(schema)
-
     strategy = schema["/foo/{param_path}"]["GET"].as_strategy()
 
     @given(case=strategy)
@@ -935,25 +937,12 @@ def test_parameters_jsonified(ctx, expected):
 @pytest.mark.parametrize("version", ["2.0", "3.0.2"])
 def test_optional_payload(ctx, version):
     # When body are not required
-    raw_schema = ctx.openapi.build_schema(
-        {
-            "/users": {
-                "post": {
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        },
-        version=version,
-    )
+    paths = {"/users": {"post": {"responses": {"200": {"description": "OK"}}}}}
     if version == "2.0":
-        raw_schema["paths"]["/users"]["post"]["parameters"] = [
-            {"in": "body", "name": "body", "schema": {"type": "string"}}
-        ]
+        paths["/users"]["post"]["parameters"] = [{"in": "body", "name": "body", "schema": {"type": "string"}}]
     else:
-        raw_schema["paths"]["/users"]["post"]["requestBody"] = {
-            "content": {"application/json": {"schema": {"type": "string"}}}
-        }
-    schema = schemathesis.openapi.from_dict(raw_schema)
+        paths["/users"]["post"]["requestBody"] = {"content": {"application/json": {"schema": {"type": "string"}}}}
+    schema = ctx.openapi.load_schema(paths, version=version)
     strategy = schema["/users"]["post"].as_strategy()
     # Then `None` could be generated by Schemathesis
     assert find(strategy, lambda x: x.body is NOT_SET).body is NOT_SET
@@ -1004,7 +993,8 @@ def test_jsonify_python_specific_types(value, expected):
     assert jsonify_python_specific_types(value) == expected
 
 
-def test_health_check_failed_large_base_example(ctx, cli, snapshot_cli, openapi3_base_url):
+def test_health_check_failed_large_base_example(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
     schema_path = ctx.openapi.write_schema(
         {
             "/data": {
@@ -1025,7 +1015,7 @@ def test_health_check_failed_large_base_example(ctx, cli, snapshot_cli, openapi3
     # Then it should be able to generate requests
     assert (
         cli.run(
-            str(schema_path), "--max-examples=1", f"--url={openapi3_base_url}", "--phases=fuzzing", "--mode=positive"
+            str(schema_path), "--max-examples=1", f"--url={api.base_url}/api", "--phases=fuzzing", "--mode=positive"
         )
         == snapshot_cli
     )
@@ -1046,7 +1036,7 @@ def test_health_check_failed_large_base_example(ctx, cli, snapshot_cli, openapi3
     ids=["implicit", "explicit"],
 )
 def test_discriminator_property_pinned_in_generation(ctx, discriminator, valid_values):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/pets": {
                 "post": {
@@ -1075,7 +1065,6 @@ def test_discriminator_property_pinned_in_generation(ctx, discriminator, valid_v
             }
         },
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
 
     @given(case=schema["/pets"]["POST"].as_strategy())
     @settings(max_examples=10, database=None, phases=[Phase.generate])
@@ -1087,8 +1076,7 @@ def test_discriminator_property_pinned_in_generation(ctx, discriminator, valid_v
 
 def test_hypothesis_observability_serialization(ctx):
     # Hypothesis observability serializes all dataclass fields on generated values
-    schema = ctx.openapi.build_schema({"/test": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    schema = schemathesis.openapi.from_dict(schema)
+    schema = ctx.openapi.load_schema({"/test": {"get": {"responses": {"200": {"description": "OK"}}}}})
 
     @given(case=schema["/test"]["GET"].as_strategy())
     @settings(max_examples=1, database=None, phases=[Phase.generate])
@@ -1097,3 +1085,39 @@ def test_hypothesis_observability_serialization(ctx):
 
     with with_observability_callback(lambda _: None):
         test()
+
+
+@pytest.mark.parametrize("location", [ParameterLocation.QUERY, ParameterLocation.HEADER])
+def test_apply_exclusions_drops_empty_required_when_all_filtered(location):
+    # Empty `required` violates the OpenAPI meta-schema and crashes Hypothesis draws.
+    pset = OpenApiParameterSet(location, items=[], adapter=v2)
+    pset._schema = {
+        "type": "object",
+        "properties": {"key": {"type": "string"}},
+        "required": ["key"],
+        "additionalProperties": False,
+    }
+    out = pset.get_schema_with_exclusions(exclude=["key"])
+    assert "required" not in out
+
+
+def test_apply_exclusions_reachable_via_auth_supplied_required_header():
+    pset = OpenApiParameterSet(
+        ParameterLocation.HEADER,
+        [
+            OpenApiParameter.from_definition(
+                definition={
+                    "in": "header",
+                    "name": "Authorization",
+                    "required": True,
+                    "type": "string",
+                },
+                name_to_uri={},
+                adapter=v2,
+            )
+        ],
+        adapter=v2,
+    )
+    out = pset.get_schema_with_exclusions(exclude=["Authorization"])
+    assert "required" not in out
+    assert out["properties"] == {}

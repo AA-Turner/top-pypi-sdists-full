@@ -293,18 +293,6 @@ def _prompt_sdk(sdk: Optional[str]) -> str:
     if sdk:
         return sdk.lower()
 
-    click.echo(FeedbackManager.highlight(message="\n? Select project type:"))
-    click.echo("  [1] typescript - Tinybird TypeScript SDK")
-    click.echo("  [2] python - Tinybird Python SDK")
-    click.echo("  [3] cli - Tinybird CLI datafiles project")
-    choice = click.prompt("\nSelect option", default=3, type=int)
-    if choice == 1:
-        return "typescript"
-    if choice == 2:
-        return "python"
-    if choice == 3:
-        return "cli"
-    click.echo(FeedbackManager.warning(message=f"Invalid option '{choice}'. Defaulting to {DEFAULT_SDK}."))
     return DEFAULT_SDK
 
 

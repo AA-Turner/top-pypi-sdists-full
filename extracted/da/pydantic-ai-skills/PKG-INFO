@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-skills
-Version: 0.9.0
+Version: 0.10.0
 Summary: A lightweight agent skill implementation for Pydantic AI
 Project-URL: Homepage, https://github.com/dougtrajano/pydantic-ai-skills
 Project-URL: Source, https://github.com/dougtrajano/pydantic-ai-skills

@@ -45,6 +45,7 @@ def get_tinybird_service_datasources() -> List[Dict[str, Any]]:
                 {"name": "method", "type": "String"},
                 {"name": "release", "type": "String"},
                 {"name": "user_agent", "type": "Nullable(String)"},
+                {"name": "client_ip", "type": "Nullable(String)"},
                 {"name": "resource_tags", "type": "Array(String)"},
                 {"name": "memory_usage", "type": "UInt64"},
             ],

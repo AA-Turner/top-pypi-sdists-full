@@ -91,7 +91,8 @@ def test_namespace_from_backend_typing(backend: _EagerAllowed) -> None:
     if TYPE_CHECKING:
         assert_type(
             namespace,
-            "Namespace[PolarsNamespace] | Namespace[PandasLikeNamespace] | Namespace[ArrowNamespace]",
+            # pyrefly: `PolarsNamespace` is not assignable to upper bound `CompliantNamespace` of type variable `CompliantNamespaceT_co`
+            "Namespace[PolarsNamespace] | Namespace[PandasLikeNamespace] | Namespace[ArrowNamespace]",  # pyrefly: ignore[bad-specialization]
         )
     assert repr(namespace) in {
         "Namespace[PolarsNamespace]",
@@ -210,7 +211,7 @@ def test_namespace_is_native() -> None:
             # NOTE: We can't spell intersections *yet* (https://github.com/python/typing/issues/213)
             # Would be:
             # `<subclass of list[int] and DataFrame> | <subclass of list[int] and LazyFrame> | <subclass of list[int] and Series>``
-            assert_type(unrelated, "Never")  # pyright: ignore[reportAssertTypeFailure]
+            assert_type(unrelated, "Never")  # pyright: ignore[reportAssertTypeFailure] # pyrefly: ignore[assert-type]
         else:
             assert_type(unrelated, "list[int]")
 

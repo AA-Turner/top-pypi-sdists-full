@@ -21,6 +21,7 @@ from .integration import (
     KNOWN_SECRET_INTEGRATIONS,
     integration_type as normalize_integration_type,
 )
+from .clients.capsule import CompleteOnboardingRequest
 from .msg import Message
 
 
@@ -28,6 +29,10 @@ def _now_ms() -> int:
     import time
 
     return int(time.time() * 1000)
+
+
+async def _run_blocking(fn: Callable[[], Any]) -> Any:
+    return await asyncio.get_running_loop().run_in_executor(None, fn)
 
 
 def _is_remote_url(value: str) -> bool:
@@ -896,6 +901,20 @@ class Session:
         """
         await self._require_kv().delete_one(self._kv_filter(key, scope))
 
+    async def complete_onboarding(self) -> None:
+        """Mark this app user's onboarding flow complete."""
+        stub = self._session_stub
+        if stub is None:
+            runner = _get_runner_for_session(self)
+            if runner is not None:
+                stub = runner._session_stub
+        if stub is None:
+            raise RuntimeError("complete_onboarding requires an active session")
+        await _run_blocking(
+            lambda: stub.complete_onboarding(CompleteOnboardingRequest(session_id=self.id))
+        )
+        await self.show(Block(type="onboarding_complete", payload={"completed": True}))
+
     # -- messaging -----------------------------------------------------------
 
     async def reply(self, text: str) -> None:
@@ -1286,10 +1305,7 @@ class Session:
             timeout_seconds=int(timeout),
         )
 
-        def _call():
-            return stub.wait_for_approval(req)
-
-        resp = await asyncio.get_running_loop().run_in_executor(None, _call)
+        resp = await _run_blocking(lambda: stub.wait_for_approval(req))
         approved = bool(resp.approved) and not bool(resp.timed_out)
 
         await self.show(
@@ -1412,10 +1428,7 @@ class Session:
             timeout_seconds=int(timeout),
         )
 
-        def _call():
-            return stub.wait_for_file_upload(req)
-
-        resp = await asyncio.get_running_loop().run_in_executor(None, _call)
+        resp = await _run_blocking(lambda: stub.wait_for_file_upload(req))
 
         if resp.timed_out:
             raise FileUploadTimeout("timed out waiting for file upload")

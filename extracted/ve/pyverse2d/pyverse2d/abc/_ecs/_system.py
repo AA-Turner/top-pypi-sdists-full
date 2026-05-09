@@ -13,6 +13,8 @@ class System(ABC):
     __slots__ = tuple()
     order: int = 0
     exclusive: bool = False
+    renderable: bool = False
+
     requires: tuple[type, ...] = ()
     conflicts: tuple[type, ...] = ()
 

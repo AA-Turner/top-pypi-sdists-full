@@ -6,7 +6,6 @@ from .._rendering import Pipeline
 from ._world_layer import WorldLayer
 from ._tile_layer import TileLayer
 from ._gui_layer import GuiLayer
-from ._video_layer import VideoLayer
 from ._light_layer import LightLayer
 from ._particle_layer import ParticleLayer
 from ._scene import Scene
@@ -99,7 +98,6 @@ __all__ = [
     "WorldLayer",
     "TileLayer",
     "GuiLayer",
-    "VideoLayer",
     "LightLayer",
     "ParticleLayer",
     "Scene",

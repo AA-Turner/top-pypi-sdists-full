@@ -154,16 +154,23 @@ def get_join_type(
     if not left_complete and not right_complete:
         return JoinType.FULL
     elif not left_complete and right_complete:
+        # Differentiate "partial" (left's row set is a subset of expected) from
+        # "nullable" (left has all its rows but the join key can be NULL).
+        # - partial-only: preserve the complete right (RIGHT_OUTER).
+        # - nullable-only: preserve left's NULL-key rows (LEFT_OUTER). RIGHT_OUTER
+        #   would drop them since NULL doesn't match anything on the right.
+        # - both: FULL preserves the complete right AND left's NULL-key rows.
+        if left_is_nullable and left_is_partial:
+            return JoinType.FULL
+        if left_is_nullable:
+            return JoinType.LEFT_OUTER
         return JoinType.RIGHT_OUTER
     elif not right_complete and left_complete:
         # LEFT_OUTER would preserve the complete left and drop the right's
         # unmatched rows. With null-aware equality NULL only matches NULL, so
         # if the right has nulls on the join key the non-nullable left has
         # nothing to match them against — they'd land on the dropped side.
-        # Upgrade to FULL so they survive. (RIGHT_OUTER above intentionally
-        # stays unchanged: it's already preserving the side with the data
-        # most queries want to keep, and switching it would be a much larger
-        # behavioural change.)
+        # Upgrade to FULL so they survive.
         if right_is_nullable:
             return JoinType.FULL
         return JoinType.LEFT_OUTER
@@ -243,7 +250,10 @@ def _score_join_candidate(
         # single partial: lower weight as before
         base -= 1
     if root in nullables.get(x, []):
-        base -= 1
+        # Prefer the nullable side as LEFT so a LEFT_OUTER JOIN preserves its
+        # NULL-key rows. Flipping it to RIGHT would force FULL (per
+        # ``get_join_type``) just to keep them.
+        base += 1
     return (base, len(x), x)
 
 
@@ -648,6 +658,26 @@ def get_node_joins(
                     graph.add_edge(ds_node, pseudo_name)
                     if pseudo_name not in partials[ds_node]:
                         partials[ds_node].append(pseudo_name)
+    # Propagate nullability across merge pseudonyms. ``store_sales.date.id``
+    # carries the NULLABLE modifier; after ``MERGE store_sales.date.* into
+    # ~date.*`` the join key is ``c~date.id``, but ``nullable_concepts`` still
+    # references the pre-merge address. Without this, the join scorer treats
+    # the merged key as non-nullable and emits ``date_dim LEFT JOIN fact``,
+    # dropping fact rows with NULL FK.
+    for datasource in datasources:
+        ds_node = f"ds~{datasource.identifier}"
+        nullable_addrs = {c.address for c in datasource.nullable_concepts}
+        if not nullable_addrs:
+            continue
+        for concept in datasource.output_concepts:
+            if concept.address in datasource.hidden_concepts:
+                continue
+            if concept.address not in nullable_addrs:
+                continue
+            for pseudo_addr in concept.pseudonyms:
+                pseudo_name = f"c~{pseudo_addr}"
+                if pseudo_name in graph.nodes and pseudo_name not in nullables[ds_node]:
+                    nullables[ds_node].append(pseudo_name)
 
     joins = resolve_join_order_v2(graph, partials=partials, nullables=nullables)
     return [

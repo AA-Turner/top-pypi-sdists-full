@@ -3725,6 +3725,7 @@ SWIG_init(void) {
   
   SWIG_Python_SetConstant(d, "GDT_Unknown",SWIG_From_int((int)(GDT_Unknown)));
   SWIG_Python_SetConstant(d, "GDT_Byte",SWIG_From_int((int)(GDT_Byte)));
+  SWIG_Python_SetConstant(d, "GDT_UInt8",SWIG_From_int((int)(GDT_UInt8)));
   SWIG_Python_SetConstant(d, "GDT_Int8",SWIG_From_int((int)(GDT_Int8)));
   SWIG_Python_SetConstant(d, "GDT_UInt16",SWIG_From_int((int)(GDT_UInt16)));
   SWIG_Python_SetConstant(d, "GDT_Int16",SWIG_From_int((int)(GDT_Int16)));
@@ -3916,6 +3917,7 @@ SWIG_init(void) {
   SWIG_Python_SetConstant(d, "DCAP_FEATURE_STYLES_WRITE",SWIG_FromCharPtr(GDAL_DCAP_FEATURE_STYLES_WRITE));
   SWIG_Python_SetConstant(d, "DCAP_COORDINATE_EPOCH",SWIG_FromCharPtr(GDAL_DCAP_COORDINATE_EPOCH));
   SWIG_Python_SetConstant(d, "DCAP_MULTIPLE_VECTOR_LAYERS",SWIG_FromCharPtr(GDAL_DCAP_MULTIPLE_VECTOR_LAYERS));
+  SWIG_Python_SetConstant(d, "DCAP_MULTIPLE_VECTOR_LAYERS_IN_DIRECTORY",SWIG_FromCharPtr(GDAL_DCAP_MULTIPLE_VECTOR_LAYERS_IN_DIRECTORY));
   SWIG_Python_SetConstant(d, "DCAP_FIELD_DOMAINS",SWIG_FromCharPtr(GDAL_DCAP_FIELD_DOMAINS));
   SWIG_Python_SetConstant(d, "DCAP_RELATIONSHIPS",SWIG_FromCharPtr(GDAL_DCAP_RELATIONSHIPS));
   SWIG_Python_SetConstant(d, "GDAL_DCAP_CREATE_RELATIONSHIP",SWIG_FromCharPtr(GDAL_DCAP_CREATE_RELATIONSHIP));

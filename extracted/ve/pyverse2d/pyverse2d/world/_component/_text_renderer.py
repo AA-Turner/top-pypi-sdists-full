@@ -28,6 +28,7 @@ class TextRenderer(Component):
         visible(bool, optional): visibilité
     """
     __slots__ = ("_text", "_offset", "_color", "_opacity", "_bold", "_italic", "_multiline", "_align", "_width", "_z", "_visible")
+    
     requires = ("Transform",)
 
     def __init__(

@@ -20,10 +20,6 @@ from ibm_watsonx_ai.data_loaders.text_loader import (
 )
 from ibm_watsonx_ai.helpers import (
     AssetLocation,
-    ContainerLocation,
-    NFSLocation,
-    RemoteFileStorageLocation,
-    S3Location,
 )
 from ibm_watsonx_ai.helpers.connections import DataConnection
 from ibm_watsonx_ai.helpers.remote_document import RemoteDocument
@@ -150,38 +146,14 @@ class BaseDocumentsIterableDataset(IterableDataset):
         data_asset_id_name_mapping: dict[str, str],
     ) -> list[RemoteDocument]:
         """Build list of remote documents from connections."""
-        remote_documents = []
-
-        for connection in connections:
-            if isinstance(
-                connection.location,
-                (S3Location, ContainerLocation, NFSLocation, RemoteFileStorageLocation),
-            ):
-                document_connections = connection._get_connections_from_folder(
-                    recursive=include_subfolders
-                )
-                remote_documents.extend(
-                    [
-                        RemoteDocument(
-                            connection=c,
-                            document_id=self._resolve_document_id(
-                                c, data_asset_id_name_mapping
-                            ),
-                        )
-                        for c in document_connections
-                    ]
-                )
-            else:
-                remote_documents.append(
-                    RemoteDocument(
-                        connection=connection,
-                        document_id=self._resolve_document_id(
-                            connection, data_asset_id_name_mapping
-                        ),
-                    )
-                )
-
-        return remote_documents
+        return [
+            RemoteDocument(
+                connection=c,
+                document_id=self._resolve_document_id(c, data_asset_id_name_mapping),
+            )
+            for connection in connections
+            for c in connection._get_all_connections(recursive=include_subfolders)
+        ]
 
     @staticmethod
     def _validate_unique_document_ids(remote_documents: list[RemoteDocument]) -> None:

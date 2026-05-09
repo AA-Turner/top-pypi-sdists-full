@@ -27,9 +27,9 @@ test:
 	export DEBUG=True; unset MCD_USER_ID_HEADER; coverage run -m pytest ./tests
 
 lint:
-	. $(ENVIRONMENT_NAME)/bin/activate; \
-	python -m ruff format; \
-	python -m ruff check --fix --exit-non-zero-on-fix; \
+	. $(ENVIRONMENT_NAME)/bin/activate && \
+	python -m ruff format && \
+	python -m ruff check --fix --exit-non-zero-on-fix && \
 	env PYRIGHT_PYTHON_FORCE_VERSION="latest" python -m pyright
 
 

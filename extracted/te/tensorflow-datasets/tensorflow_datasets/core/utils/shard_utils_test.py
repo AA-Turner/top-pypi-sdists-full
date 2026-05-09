@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -154,6 +154,31 @@ class GetReadInstructionsTest(testing.TestCase, parameterized.TestCase):
         5, 5, ['f1', 'f2', 'f3', 'f4'], [0, 3, 0, 2]
     )
     self.assertEqual(res, [])
+
+  def test_get_file_instructions_with_subset_and_skip(self):
+    logical_length = 412
+    physical_length = 449
+    from_index = 156
+    to_index = 412
+
+    res = shard_utils.get_file_instructions(
+        from_=from_index,
+        to=to_index,
+        filenames=['shard_0.tfrecord'],
+        shard_lengths=[logical_length],
+        examples_in_shards=[physical_length],
+    )
+    self.assertEqual(
+        res,
+        [
+            shard_utils.FileInstruction(
+                filename='shard_0.tfrecord',
+                skip=from_index,
+                take=logical_length - from_index,
+                examples_in_shard=physical_length,
+            )
+        ],
+    )
 
   def test_split_file_instruction(self):
     filename = 'data.tfrecord'

@@ -19,7 +19,7 @@ from biolib.biolib_binary_format import ModuleInput
 from biolib.biolib_errors import BioLibError, JobResultNonZeroExitCodeError
 from biolib.biolib_logging import logger
 from biolib.experiments.experiment import Experiment
-from biolib.jobs.job import Result
+from biolib._result.result import Result
 from biolib.typing_utils import Dict, Optional
 
 

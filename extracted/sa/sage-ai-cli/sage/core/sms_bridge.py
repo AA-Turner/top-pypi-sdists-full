@@ -451,6 +451,49 @@ def _strip_ansi(text: str) -> str:
     return re.sub(r'\x1b\][^\x07]*\x07', '', text).strip()
 
 
+# Tool-call / prompt / footer noise that streams from `sage ask --raw`.
+# We strip these before SMS so the user gets the FINAL ANSWER, not the work log.
+_TOOL_LINE_RE = re.compile(
+    r'^\s*(READ|WRITE|EDIT|RUN|BASH|GREP|GLOB|LS|FIND|FETCH|SEARCH|TASK|TODO|'
+    r'PATCH|APPLY|DIFF|CREATE|DELETE|MOVE|COPY|VIEW|OPEN|TOOL|CALL)\s*:.*$',
+    re.IGNORECASE,
+)
+_PROMPT_LINE_RE = re.compile(r'^\s*\[SAGE[^\]]*\]\s*sage>.*$', re.IGNORECASE)
+_FOOTER_LINE_RE = re.compile(r'^\s*[─\-]\s*\d+\s*tokens?\b.*$')
+_THINK_BLOCK_RE = re.compile(r'<thinking>.*?</thinking>', re.DOTALL | re.IGNORECASE)
+
+
+def _extract_final_answer(raw: str) -> str:
+    """Pull the model's actual reply out of `sage ask --raw` output.
+
+    The raw stream interleaves three things we don't want over SMS:
+      1. `<thinking>...</thinking>` blocks — internal reasoning.
+      2. Tool-call trace lines (`READ: foo.py`, `EDIT: bar.ts`, etc.) — the
+         work log, not the answer.
+      3. The `[SAGE — host] sage>` prompt prefix and the trailing
+         `─ 124 tokens · 10s · …` token footer.
+
+    Strip all of that and return only the real prose. If nothing is left
+    (model produced only tool calls, e.g. it ran out of budget mid-research),
+    we fall back to the original text so the summarizer still has something
+    to work with rather than empty string.
+    """
+    text = _THINK_BLOCK_RE.sub('', raw)
+    cleaned_lines: list[str] = []
+    for line in text.splitlines():
+        if _TOOL_LINE_RE.match(line):
+            continue
+        if _PROMPT_LINE_RE.match(line):
+            continue
+        if _FOOTER_LINE_RE.match(line):
+            continue
+        cleaned_lines.append(line)
+    cleaned = '\n'.join(cleaned_lines).strip()
+    # Collapse 3+ blank lines that the strips can leave behind.
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+    return cleaned or raw.strip()
+
+
 # ── Core WebSocket bridge ──────────────────────────────────────────────────────
 
 class SAGEMessageBridge:
@@ -930,24 +973,53 @@ class SAGEMessageBridge:
             self._stop.wait(5)
         self._log("iMessage inbound poller stopped")
 
-    def _run_sage_task(self, task: str, timeout: int = 180) -> str:
+    def _run_sage_task(
+        self,
+        task: str,
+        timeout: int | None = None,
+        mode: str = "agent",
+    ) -> str:
+        """Execute a sage task as a subprocess.
+
+        Two dispatch modes:
+        - mode="agent" (default, used for real SMS tasks): runs `sage run --prompt`
+          which fires the full agent loop — shell, file edits, RUN: blocks, test
+          loops, retries. This is what makes texted requests like "create a
+          project at ~/foo" or "run the tests" actually execute. Without this,
+          the model just chats back ("I cannot run commands").
+        - mode="chat" (used for the SMS reply summarizer): runs `sage ask --raw`
+          which is a fast one-shot text completion with no tool use. Right for
+          pure compression tasks where we don't want the agent reasoning loop.
+
+        No deadline by default — real coding work routinely runs longer than
+        any timeout we'd pick, and dropping the reply mid-run is the worst
+        possible UX. Callers that genuinely want a deadline pass `timeout`.
+        """
         model_flags = ["--model", self.cfg.model] if self.cfg.model else []
-        for cmd in (
-            [sys.executable, "-m", "sage", "ask"] + model_flags + ["--raw", task],
-            ["sage", "ask"] + model_flags + ["--raw", task],
-        ):
+        if mode == "agent":
+            cmd_variants = (
+                [sys.executable, "-m", "sage", "run"] + model_flags + ["--prompt", task],
+                ["sage", "run"] + model_flags + ["--prompt", task],
+            )
+        else:
+            cmd_variants = (
+                [sys.executable, "-m", "sage", "ask"] + model_flags + ["--raw", task],
+                ["sage", "ask"] + model_flags + ["--raw", task],
+            )
+        for cmd in cmd_variants:
             try:
                 result = subprocess.run(
                     cmd, cwd=str(self.working_dir),
                     capture_output=True, text=True, timeout=timeout,
                     env={**os.environ, "NO_COLOR": "1", "TERM": "dumb"},
                 )
-                out = _strip_ansi((result.stdout or "") + (result.stderr or "")).strip()
+                raw = _strip_ansi((result.stdout or "") + (result.stderr or "")).strip()
+                out = _extract_final_answer(raw)
                 return out or "Task completed."
             except FileNotFoundError:
                 continue
             except subprocess.TimeoutExpired:
-                return "⏱ Timed out (>3 min). Check your terminal."
+                return "⏱ Timed out — check your terminal for progress."
             except Exception as exc:
                 return f"Error: {exc}"
         return "Error: sage command not found"
@@ -955,21 +1027,34 @@ class SAGEMessageBridge:
     def _summarize_for_sms(self, full_response: str, original_task: str) -> str:
         """Use the model to compress a long SAGE response into a phone-friendly reply.
 
-        Falls back to the full text if the model is unavailable or the response
-        is already short enough.
+        Falls back to the cleaned full text if the model is unavailable or the
+        response is already short enough.
         """
-        if len(full_response) <= 280:
-            return full_response
+        # _run_sage_task already strips tool-call traces, but if a caller hands
+        # us raw output (or a future code path forgets), clean again here so
+        # the summarizer never sees `READ: foo` / `[SAGE] sage>` noise.
+        cleaned = _extract_final_answer(full_response)
+        if len(cleaned) <= 280:
+            return cleaned
         prompt = (
-            "Summarize the following SAGE response in under 280 characters for an SMS reply. "
-            "Preserve the key facts and any direct answer to the user's question. "
-            "No greetings or filler. Plain text only.\n\n"
-            f"User asked: {original_task[:200]}\n\nSAGE response:\n{full_response[:4000]}"
+            "You are summarizing the FINAL ANSWER of a SAGE coding-assistant run "
+            "for delivery as a single SMS reply (max 280 characters).\n\n"
+            "Rules:\n"
+            "- Summarize the conclusion / final answer ONLY. Do NOT describe what "
+            "files were read, edited, or executed — the user does not want a work log.\n"
+            "- If the answer contains a recommendation, decision, or finding, lead with it.\n"
+            "- No preamble, no greetings, no 'I did X then Y' narration.\n"
+            "- Plain text. Under 280 characters. One short paragraph or 2–3 short bullets.\n\n"
+            f"User asked: {original_task[:200]}\n\n"
+            f"SAGE final answer (already stripped of tool-call traces):\n{cleaned[:4000]}"
         )
-        summary = self._run_sage_task(prompt, timeout=60).strip()
+        summary = self._run_sage_task(prompt, timeout=60, mode="chat").strip()
+        # Run the cleaner over the summary too — if the summarizer itself
+        # leaked any process-log lines, drop them before sending.
+        summary = _extract_final_answer(summary)
         # Guard against empty / overly long summaries
         if not summary or len(summary) > 320:
-            return full_response  # backend will hard-truncate
+            return cleaned  # backend will hard-truncate
         return summary
 
     @staticmethod
@@ -1045,13 +1130,9 @@ class SAGEMessageBridge:
                 output = self._summarize_for_sms(output, task)
 
         # If the backend asked us to deliver natively (carrier-gateway sender +
-        # known device_type), do that NOW from this machine. Threading-wise:
-        # the BACKEND decides whether native preserves threading and only sets
-        # deliver_natively=True when it does (Apple iMessage, where the same
-        # thread covers both Apple ID + phone). For Android, the backend now
-        # leaves deliver_natively=False so that SMTP-back through the email
-        # bridge keeps the reply in the same email-bridge thread the user
-        # originally messaged in.
+        # known device_type), do that NOW from this machine. SMTP through
+        # carrier email-to-SMS bridges is unreliable — most drop without
+        # bouncing, so the user never sees the reply if we trust SMTP alone.
         delivered_locally = False
         if deliver_natively:
             delivered_locally = self._deliver_native(sender, output, device_type)

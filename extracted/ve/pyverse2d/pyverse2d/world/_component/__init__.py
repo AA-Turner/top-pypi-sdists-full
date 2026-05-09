@@ -12,6 +12,7 @@ from ._text_renderer import TextRenderer
 from ._animator import Animator
 
 from ._sound_emitter import SoundEmitter
+from ._video_player import VideoPlayer
 
 # ======================================== EXPORTS ========================================
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "Animator",
 
     "SoundEmitter",
+    "VideoPlayer",
 ]

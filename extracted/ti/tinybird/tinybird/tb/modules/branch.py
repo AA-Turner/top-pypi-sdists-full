@@ -27,7 +27,6 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 @cli.group()
 def branch() -> None:
     """Branch commands. Custom branches is an experimental feature in beta."""
-    pass
 
 
 @branch.command(name="ls")

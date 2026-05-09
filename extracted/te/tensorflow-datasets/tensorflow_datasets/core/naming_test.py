@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -459,7 +459,7 @@ def test_sharded_file_template_shard_index():
   )
   assert (
       os.fspath(template.sharded_filepaths_pattern())
-      == '/my/path/data/mnist-train.tfrecord*'
+      == '/my/path/data/mnist-train.tfrecord-[0-9][0-9][0-9][0-9][0-9]-of-[0-9][0-9][0-9][0-9][0-9]'
   )
   assert (
       os.fspath(template.sharded_filepaths_pattern(num_shards=100))
@@ -474,7 +474,10 @@ def test_glob_pattern():
       filetype_suffix='tfrecord',
       data_dir=epath.Path('/data'),
   )
-  assert '/data/ds-train.tfrecord*' == template.glob_pattern()
+  assert (
+      '/data/ds-train.tfrecord-[0-9][0-9][0-9][0-9][0-9]-of-[0-9][0-9][0-9][0-9][0-9]'
+      == template.glob_pattern()
+  )
   assert '/data/ds-train.tfrecord-*-of-00042' == template.glob_pattern(
       num_shards=42
   )

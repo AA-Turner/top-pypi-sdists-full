@@ -123,25 +123,29 @@ class TestConnections(unittest.TestCase):
         )
 
     def test_get_connection_by_type_spark_connect_with_default_connection(self):
+        """Prefers the Athena connection (identified by athenaProperties) when multiple SPARK_CONNECT exist."""
         self.mock_datazone_api.list_connections.return_value = {
             "items": [
                 {
                     "connectionId": "12345",
-                    "secret": "my_secret",
-                    "name": "test_connection",
+                    "name": "emr-s.spark",
                     "type": "SPARK_CONNECT",
+                    "props": {
+                        "sparkEmrProperties": {
+                            "computeArn": "arn:aws:emr-serverless:us-west-2:123456789012:/applications/app1"
+                        }
+                    },
                 },
                 {
                     "connectionId": "54321",
-                    "secret": "my_secret2",
-                    "name": "default.athena.spark",
+                    "name": "serverless.spark",
                     "type": "SPARK_CONNECT",
+                    "props": {"athenaProperties": {"workgroupName": "test-workgroup"}},
                 },
             ]
         }
         self.mock_datazone_api.get_connection.return_value = {
             "connectionId": "54321",
-            "secret": "my_secret2",
             "name": "serverless.spark",
             "type": "SPARK_CONNECT",
         }
@@ -152,26 +156,30 @@ class TestConnections(unittest.TestCase):
         )
 
     def test_get_connection_by_type_spark_connect_without_default_connection(self):
+        """Falls back to first connection when no athenaProperties found."""
         self.mock_datazone_api.list_connections.return_value = {
             "items": [
                 {
                     "connectionId": "12345",
-                    "secret": "my_secret",
-                    "name": "test_connection",
+                    "name": "emr-s.spark",
                     "type": "SPARK_CONNECT",
+                    "props": {
+                        "sparkEmrProperties": {
+                            "computeArn": "arn:aws:emr-serverless:us-west-2:123456789012:/applications/app1"
+                        }
+                    },
                 },
                 {
                     "connectionId": "54321",
-                    "secret": "my_secret2",
-                    "name": "test_connection2",
+                    "name": "glue.spark",
                     "type": "SPARK_CONNECT",
+                    "props": {"sparkGlueProperties": {"glueVersion": "5.0"}},
                 },
             ]
         }
         self.mock_datazone_api.get_connection.return_value = {
             "connectionId": "12345",
-            "secret": "my_secret",
-            "name": "test_connection",
+            "name": "emr-s.spark",
             "type": "SPARK_CONNECT",
         }
         connection = self.connections.get_connection_by_type("SPARK_CONNECT")

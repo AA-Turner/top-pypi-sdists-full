@@ -15,12 +15,15 @@ from typing import (
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 
 from schemathesis import transport
-from schemathesis.config import ProjectConfig
+from schemathesis.config import GenerationConfig, ProjectConfig
 from schemathesis.core import NOT_SET, NotSet, media_types
 from schemathesis.core.adapter import OperationParameter, ResponsesContainer
 from schemathesis.core.errors import IncorrectUsage, InvalidSchema
 from schemathesis.core.failures import FailureGroup
+from schemathesis.core.parameters import LOCATION_TO_CONTAINER
 from schemathesis.core.result import Ok, Result
+from schemathesis.core.spec import CoverageCapabilities
+from schemathesis.core.statistic import ApiStatistic
 from schemathesis.core.transport import Response
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
@@ -28,6 +31,7 @@ from schemathesis.generation.hypothesis.given import GivenInput, given_proxy
 from schemathesis.generation.hypothesis.reporting import FilterCaseTracker
 from schemathesis.generation.meta import CaseMetadata
 from schemathesis.hooks import HookDispatcherMark, _should_skip_hook
+from schemathesis.transport.prepare import prepare_path
 
 from .auths import AuthStorage
 from .filters import (
@@ -37,17 +41,24 @@ from .filters import (
     RegexValue,
     is_deprecated,
 )
-from .hooks import GLOBAL_HOOK_DISPATCHER, HookContext, HookDispatcher, HookScope, dispatch, to_filterable_hook
+from .hooks import GLOBAL_HOOK_DISPATCHER, HookContext, HookDispatcher, HookScope, defines, dispatch, to_filterable_hook
 
 if TYPE_CHECKING:
     import httpx
     import requests
     from hypothesis.strategies import SearchStrategy
     from requests.structures import CaseInsensitiveDict
+    from typing_extensions import Self
     from werkzeug.test import TestResponse
 
     from schemathesis.auths import AuthContext
     from schemathesis.core import Specification
+    from schemathesis.core.error_feedback import ErrorFeedbackStore
+    from schemathesis.core.schema_analysis import SchemaWarning
+    from schemathesis.engine.context import EngineContext
+    from schemathesis.engine.run import Phase
+    from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
+    from schemathesis.engine.run.unit._pool import DefaultScheduler
     from schemathesis.generation.stateful.state_machine import APIStateMachine
     from schemathesis.resources import ExtraDataSource
 
@@ -55,48 +66,6 @@ if TYPE_CHECKING:
 @lru_cache
 def get_full_path(base_path: str, path: str) -> str:
     return unquote(urljoin(base_path, quote(path.lstrip("/"))))
-
-
-@dataclass
-class FilteredCount:
-    """Count of total items and those passing filters."""
-
-    total: int
-    selected: int
-
-    __slots__ = ("total", "selected")
-
-    def __init__(self) -> None:
-        self.total = 0
-        self.selected = 0
-
-
-@dataclass
-class ApiStatistic:
-    """Statistics about API operations and links."""
-
-    operations: FilteredCount
-    links: FilteredCount
-
-    __slots__ = ("operations", "links")
-
-    def __init__(self) -> None:
-        self.operations = FilteredCount()
-        self.links = FilteredCount()
-
-
-@dataclass
-class ApiOperationsCount:
-    """Statistics about API operations."""
-
-    total: int
-    selected: int
-
-    __slots__ = ("total", "selected")
-
-    def __init__(self) -> None:
-        self.total = 0
-        self.selected = 0
 
 
 @dataclass(eq=False)
@@ -114,6 +83,10 @@ class BaseSchema(Mapping):
         self.hook = to_filterable_hook(self.hooks)  # type: ignore[method-assign]
         # Path-level dedup of undeclared-method coverage probes; cleared per coverage phase.
         self.coverage_unexpected_methods_seen: set[tuple[str, str]] = set()
+        # Runtime auth-inference overlays keyed by operation label. Populated when the server enforces
+        # auth on an operation the spec declares public; subsequent generations consult it instead of
+        # mutating the parsed spec. Empty for schemas whose adapter doesn't run inference.
+        self._inferred_security: dict[str, list[Mapping[str, list[str]]]] = {}
 
     @property
     def specification(self) -> Specification:
@@ -380,9 +353,7 @@ class BaseSchema(Mapping):
         """
         return given_proxy(*args, **kwargs)
 
-    def clone(
-        self, *, test_function: Callable | NotSet = NOT_SET, filter_set: FilterSet | NotSet = NOT_SET
-    ) -> BaseSchema:
+    def clone(self, *, test_function: Callable | NotSet = NOT_SET, filter_set: FilterSet | NotSet = NOT_SET) -> Self:
         if isinstance(test_function, NotSet):
             _test_function = self.test_function
         else:
@@ -411,10 +382,13 @@ class BaseSchema(Mapping):
         return None
 
     def dispatch_hook(self, name: str, context: HookContext, *args: Any, **kwargs: Any) -> None:
-        dispatch(name, context, *args, **kwargs)
-        self.hooks.dispatch(name, context, *args, **kwargs)
+        # Fast path: skip the per-dispatcher loop overhead when nothing is registered.
+        if defines(name):
+            dispatch(name, context, *args, **kwargs)
+        if self.hooks.defines(name):
+            self.hooks.dispatch(name, context, *args, **kwargs)
         local_dispatcher = self.get_local_hook_dispatcher()
-        if local_dispatcher is not None:
+        if local_dispatcher is not None and local_dispatcher.defines(name):
             local_dispatcher.dispatch(name, context, *args, **kwargs)
 
     def prepare_multipart(
@@ -452,7 +426,7 @@ class BaseSchema(Mapping):
     ) -> SearchStrategy:
         raise NotImplementedError
 
-    def as_state_machine(self) -> type[APIStateMachine]:
+    def as_state_machine(self, *, error_feedback: ErrorFeedbackStore | None = None) -> type[APIStateMachine]:
         """Create a state machine class for stateful testing of linked API operations.
 
         Returns:
@@ -481,6 +455,74 @@ class BaseSchema(Mapping):
         case: Case | None = None,
     ) -> bool | None:
         raise NotImplementedError
+
+    def get_coverage_capabilities(self) -> CoverageCapabilities:
+        """Return spec-specific data the coverage phase asks of a schema."""
+        return CoverageCapabilities(format_strategies={}, update_pattern=None, validator_cls=None)
+
+    def revalidate_case_metadata(self, case: Case) -> None:
+        """Refresh case metadata after a container was modified; default just clears the dirty markers."""
+        meta = case._meta
+        if meta is None or not meta.is_dirty():
+            return
+        for location in list(meta._dirty):
+            meta.clear_dirty(location)
+
+    def get_unit_scheduler(
+        self,
+        operations: list[Result[APIOperation, InvalidSchema]],
+        phase: Phase,
+    ) -> DefaultScheduler | LayeredScheduler:
+        """Return the scheduler that decides operation execution order in the unit phase."""
+        from schemathesis.engine.run.unit._pool import DefaultScheduler
+
+        return DefaultScheduler(operations=operations)
+
+    def apply_stateful_inference(self, ctx: EngineContext) -> int:
+        """Discover spec-specific stateful transitions; return the number available."""
+        return 0
+
+    def compute_fuzz_operation_weights(self, operations: list[APIOperation]) -> dict[str, int]:
+        """Return per-operation sampling weights for the fuzz phase; default is uniform."""
+        return {op.label: 1 for op in operations}
+
+    def iter_link_candidates(
+        self,
+        *,
+        operation: APIOperation,
+        case: Case,
+        response: Response,
+        operations_by_label: dict[str, APIOperation],
+        excluded_labels: set[str],
+    ) -> list[tuple[APIOperation, dict[str, Any]]]:
+        """Return resolvable (target, overrides) link candidates from a response; empty for specs without links."""
+        return []
+
+    def iter_schema_warnings(self) -> list[SchemaWarning]:
+        """Return spec-level static-analysis warnings collected from the schema."""
+        return []
+
+    def build_request_url(self, case: Case, base_url: str) -> str:
+        """Construct the request URL by templating the case path onto `base_url`."""
+        path = prepare_path(case.path, case.path_parameters).lstrip("/")
+        if not base_url.endswith("/"):
+            base_url += "/"
+        return unquote(urljoin(base_url, quote(path)))
+
+    def prepare_request_body(
+        self, body: list | dict[str, Any] | str | int | float | bool | bytes | NotSet
+    ) -> list | dict[str, Any] | str | int | float | bool | bytes | NotSet:
+        """Apply spec-specific transformations to a generated body before sending."""
+        return body
+
+    def adapt_to_null_byte_in_header_failure(self) -> None:
+        """React to the engine probe finding that null bytes in headers crash the app under test."""
+
+    def get_custom_format_strategies(
+        self, generation_config: GenerationConfig, mode: GenerationMode
+    ) -> dict[str, SearchStrategy]:
+        """Return spec-specific format strategies (mode-aware) for hypothesis-jsonschema generation."""
+        return {}
 
     def as_strategy(
         self,
@@ -670,14 +712,18 @@ class APIOperation(Generic[P, R, S]):
         return chain(self.path_parameters, self.headers, self.cookies, self.query)
 
     def _lookup_container(self, location: str) -> ParameterSet[P] | PayloadAlternatives[P] | None:
-        return {
-            "path": self.path_parameters,
-            "header": self.headers,
-            "cookie": self.cookies,
-            "query": self.query,
-            "querystring": self.query,
-            "body": self.body,
-        }.get(location)
+        # Hand-rolled chain — the function is hot and is called per parameter on every operation.
+        if location == "query" or location == "querystring":
+            return self.query
+        if location == "path":
+            return self.path_parameters
+        if location == "header":
+            return self.headers
+        if location == "cookie":
+            return self.cookies
+        if location == "body":
+            return self.body
+        return None
 
     def add_parameter(self, parameter: P) -> None:
         # If the parameter has a typo, then by default, there will be an error from `jsonschema` earlier.
@@ -769,6 +815,15 @@ class APIOperation(Generic[P, R, S]):
 
     def get_parameter_serializer(self, location: str) -> Callable | None:
         return self.schema.get_parameter_serializer(self, location)
+
+    def get_parameter_serializers(self) -> dict[str, Callable]:
+        """Return all per-container parameter serializers defined on this operation."""
+        serializers: dict[str, Callable] = {}
+        for location, container in LOCATION_TO_CONTAINER.items():
+            serializer = self.get_parameter_serializer(location)
+            if serializer is not None:
+                serializers[container] = serializer
+        return serializers
 
     def prepare_multipart(
         self, form_data: dict[str, Any], selected_content_types: dict[str, str] | None = None

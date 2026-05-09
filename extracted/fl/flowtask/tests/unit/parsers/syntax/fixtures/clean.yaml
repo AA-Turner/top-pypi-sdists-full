@@ -1,4 +1,0 @@
-name: clean
-steps:
-  - AddDataset:
-      dataset: example

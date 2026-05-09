@@ -255,8 +255,8 @@ class OptimizerRegistry:
             fallback_list: Collection of parameter name patterns to use fallback optimizer for hybrid optimizers
             fallback_no_weight_decay: If True, params in no_weight_decay list will use fallback optimizer (e.g., AdamW for Muon)
             layer_decay: Layer-wise learning rate decay
-            layer_scale_min_scale: Minimum layer scale factor clamp value
-            layer_scale_no_opt_scale: Layer scale below which optimization is disabled
+            layer_decay_min_scale: Minimum layer scale factor clamp value
+            layer_decay_no_opt_scale: Layer scale below which optimization is disabled
             param_group_fn: Optional custom parameter grouping function
             **kwargs: Additional optimizer-specific arguments
 
@@ -288,17 +288,16 @@ class OptimizerRegistry:
                     no_opt_scale=layer_decay_no_opt_scale,
                 )
                 weight_decay = 0.
-            elif weight_decay and weight_decay_exclude_1d:
+            else:
                 params = param_groups_weight_decay(
                     model_or_params,
                     weight_decay=weight_decay,
+                    weight_decay_exclude_1d=weight_decay_exclude_1d,
                     no_weight_decay_list=no_weight_decay,
                     fallback_list=fallback_list,
                     fallback_no_weight_decay=fallback_no_weight_decay,
                 )
                 weight_decay = 0.
-            else:
-                params = model_or_params.parameters()
         else:
             # pass parameters / parameter groups through to optimizer
             params = model_or_params

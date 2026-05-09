@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,7 +76,6 @@ class Builder(tfds.core.GeneratorBasedBuilder):
     zarr_array = zarr.open_array(
         store=gcsfs_store(f'{self.GCS_URL}/{self.GCS_FILENAME}'),
         mode='r',
-        synchronizer=zarr.ThreadSynchronizer(),
     )
 
     # During normal execution we don't expect `self.builder_config.num_fields`

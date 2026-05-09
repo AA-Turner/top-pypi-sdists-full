@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import List
 
@@ -8,7 +9,12 @@ from sagemaker_studio.connections.connection import Connection
 from sagemaker_studio.data_models import ClientConfig
 from sagemaker_studio.exceptions import AWSClientException
 
-_DEFAULT_SPARK_CONNECT_CONNECTION_NAME = "default.athena.spark"
+logger = logging.getLogger(__name__)
+
+_DEFAULT_SPARK_CONNECT_CONNECTION_NAMES = [
+    "default.athena.spark",
+    "serverless.spark",
+]
 
 
 @dataclass
@@ -128,16 +134,19 @@ class ConnectionService:
 
     def get_connection_by_type(self, type: str) -> Connection:
         """
-        Retrieves a connection by its name.
+        Retrieves a connection by its type.
+
+        For SPARK_CONNECT, prefers the Athena connection (identified by athenaProperties in props)
+        as the default fallback. Falls back to the first connection if no Athena connection is found.
 
         Args:
-            name (str): The name of the connection.
+            type (str): The type of the connection.
 
         Returns:
             Connection: The connection object.
 
         Raises:
-            AttributeError: If no connection is found with the specified name.
+            AttributeError: If no connection is found with the specified type.
             RuntimeError: If the user does not have access to the connection.
         """
         connection_list_response = self.datazone_api.list_connections(  # type: ignore
@@ -146,13 +155,28 @@ class ConnectionService:
         connections = connection_list_response.get("items", [])
         if connections:
             connection_id = connections[0].get("connectionId")
-            for connection in connections:
-                if (
-                    type == "SPARK_CONNECT"
-                    and connection.get("name") == _DEFAULT_SPARK_CONNECT_CONNECTION_NAME
-                ):
-                    connection_id = connection.get("connectionId")
-                    break
+            if type == "SPARK_CONNECT":
+                athena_candidates = [
+                    c for c in connections if "athenaProperties" in c.get("props", {})
+                ]
+                if athena_candidates:
+                    # Tiebreaker: prefer the well-known default name if present among candidates
+                    default = next(
+                        (
+                            c
+                            for c in athena_candidates
+                            if c.get("name") in _DEFAULT_SPARK_CONNECT_CONNECTION_NAMES
+                        ),
+                        athena_candidates[0],
+                    )
+                    connection_id = default.get("connectionId")
+                    logger.info(
+                        f"Resolved default Athena Spark Connect connection: id={connection_id}, name={default.get('name')}"
+                    )
+                else:
+                    logger.info(
+                        f"No Athena connection (athenaProperties) found among {len(connections)} SPARK_CONNECT connections, using first: id={connection_id}"
+                    )
             try:
                 connection_response = self.datazone_api.get_connection(  # type: ignore
                     domainIdentifier=self.domain_id,

@@ -702,7 +702,7 @@ def process(
         if (
             fork_downstream
             and r.get("resource", "") == "pipes"
-            and any(["engine" in x.get("params", {}) for x in r.get("nodes", [])])
+            and any("engine" in x.get("params", {}) for x in r.get("nodes", []))
         ):
             raise click.ClickException(FeedbackManager.error_forkdownstream_pipes_with_engine(pipe=resource_name))
 
@@ -1239,7 +1239,7 @@ def process_file(
         deps = []
         nodes: List[Dict[str, Any]] = []
 
-        is_copy = any([node for node in doc.nodes if node.get("type", "standard").lower() == PipeNodeTypes.COPY])
+        is_copy = any(node for node in doc.nodes if node.get("type", "standard").lower() == PipeNodeTypes.COPY)
         for node in doc.nodes:
             sql = node["sql"]
             node_type = node.get("type", "standard").lower()

@@ -4,12 +4,36 @@ import re
 from io import StringIO
 from typing import TYPE_CHECKING, Any
 from unicodedata import normalize
+from urllib.parse import quote_plus, unquote
 
 from schemathesis.core.errors import UnboundPrefix
+from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
 from schemathesis.core.transforms import transform
 
+
+def quote_all(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Apply URL quotation for all values in a dictionary."""
+    # Even though, "." is an unreserved character, it has a special meaning in "." and ".." strings.
+    # It will change the path:
+    #   - http://localhost/foo/./ -> http://localhost/foo/
+    #   - http://localhost/foo/../ -> http://localhost/
+    # Which is not desired as we need to test precisely the original path structure.
+
+    for key, value in parameters.items():
+        if isinstance(value, str):
+            # Unquote first to keep quoting idempotent for already-escaped inputs.
+            # E.g. "%2E" should stay escaped and not become a raw "."
+            decoded = unquote(value)
+            if decoded == ".":
+                parameters[key] = "%2E"
+            elif decoded == "..":
+                parameters[key] = "%2E%2E"
+            else:
+                parameters[key] = quote_plus(decoded)
+    return parameters
+
+
 if TYPE_CHECKING:
-    from schemathesis.core.compat import RefResolver
     from schemathesis.generation.case import Case
 
 
@@ -121,13 +145,11 @@ def _serialize_xml(value: Any, schema: dict[str, Any], resource_name: str | None
 
     Schemas may contain additional information for fine-tuned XML serialization.
     """
-    from schemathesis.core.compat import RefResolver
-
     if isinstance(value, (bytes | str)):
         return {"data": value}
-    resolver = RefResolver.from_schema(schema)
+    resolver = make_root_resolver(schema)
     if "$ref" in schema:
-        _, schema = resolver.resolve(schema["$ref"])
+        resolver, schema = resolve_reference(resolver, schema["$ref"])
     tag = _get_xml_tag(schema, resource_name)
     buffer = StringIO()
     # Collect all namespaces to ensure that all child nodes with prefixes have proper namespaces in their parent nodes
@@ -154,7 +176,7 @@ def _write_xml(
     tag: str,
     schema: dict[str, Any] | None,
     namespace_stack: list[str],
-    resolver: RefResolver,
+    resolver: Resolver,
 ) -> None:
     if isinstance(value, dict):
         _write_object(buffer, value, tag, schema, namespace_stack, resolver)
@@ -189,7 +211,7 @@ def _write_object(
     tag: str,
     schema: dict[str, Any] | None,
     stack: list[str],
-    resolver: RefResolver,
+    resolver: Resolver,
 ) -> None:
     options = (schema or {}).get("xml", {})
     push_namespace_if_any(stack, options)
@@ -206,8 +228,9 @@ def _write_object(
     properties = (schema or {}).get("properties", {})
     for child_name, value in obj.items():
         property_schema = properties.get(child_name, {})
+        child_resolver = resolver
         if "$ref" in property_schema:
-            _, property_schema = resolver.resolve(property_schema["$ref"])
+            child_resolver, property_schema = resolve_reference(resolver, property_schema["$ref"])
         child_options = property_schema.get("xml", {})
         push_namespace_if_any(stack, child_options)
         child_tag = child_options.get("name", child_name)
@@ -231,7 +254,7 @@ def _write_object(
             _validate_prefix(child_options, stack)
             prefix = child_options["prefix"]
             child_tag = f"{prefix}:{child_tag}"
-        _write_xml(children_buffer, value, child_tag, property_schema, stack, resolver)
+        _write_xml(children_buffer, value, child_tag, property_schema, stack, child_resolver)
         pop_namespace_if_any(stack, child_options)
 
     # Write namespace declarations for attributes
@@ -247,7 +270,12 @@ def _write_object(
 
 
 def _write_array(
-    buffer: StringIO, obj: list[JSON], tag: str, schema: dict[str, Any] | None, stack: list[str], resolver: RefResolver
+    buffer: StringIO,
+    obj: list[JSON],
+    tag: str,
+    schema: dict[str, Any] | None,
+    stack: list[str],
+    resolver: Resolver,
 ) -> None:
     options = (schema or {}).get("xml", {})
     push_namespace_if_any(stack, options)
@@ -266,8 +294,9 @@ def _write_array(
         items = dict(schema.get("items", {}))
     else:
         items = {}
+    items_resolver = resolver
     if "$ref" in items:
-        _, items = resolver.resolve(items["$ref"])
+        items_resolver, items = resolve_reference(resolver, items["$ref"])
     child_options = items.get("xml", {})
     child_tag = child_options.get("name", tag)
     if not is_namespace_specified and "namespace" in options:
@@ -277,7 +306,7 @@ def _write_array(
     items["xml"] = child_options
     _validate_prefix(child_options, stack)
     for item in obj:
-        _write_xml(buffer, item, child_tag, items, stack, resolver)
+        _write_xml(buffer, item, child_tag, items, stack, items_resolver)
     if wrapped:
         buffer.write(f"</{tag}>")
     pop_namespace_if_any(stack, options)

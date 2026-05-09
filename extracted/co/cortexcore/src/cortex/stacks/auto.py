@@ -1,15 +1,13 @@
-"""Auto builder: stacks of Column layers built from explicit cell lists."""
+"""Auto builder: stacks of Column layers built from AXMS patterns."""
 
 from __future__ import annotations
 
-from typing import Iterable, Sequence, cast
+from typing import Iterable, List, cast
 
 from pydantic import BaseModel
 
-from cortex.cells import CellConfig as PublicCellConfig
-from cortex.cells import default_cells
-from cortex.config import CortexStackConfig, RoutedAdapterConfig, RouterConfig, ScaffoldConfig
-from cortex.scaffolds.column.auto import build_column_auto_config
+from cortex.blocks.column.auto import build_column_auto_config
+from cortex.config import BlockConfig, CortexStackConfig, RoutedAdapterConfig, RouterConfig
 from cortex.stacks.base import CortexStack
 
 
@@ -17,31 +15,39 @@ def build_cortex_auto_config(
     *,
     d_hidden: int,
     num_layers: int = 2,
-    layers: Sequence[Sequence[PublicCellConfig | ScaffoldConfig]] | None = None,
+    pattern: str | list[str] | None = "AXMS",
+    custom_map: dict[str, BlockConfig] | None = None,
     router: RouterConfig | None = None,
-    post_norm: bool = False,
-    compile_scaffolds: bool = True,
+    post_norm: bool = True,
+    compile_blocks: bool = True,
     override_global_configs: Iterable[BaseModel] | None = None,
     routed_adapter: RoutedAdapterConfig | None = None,
 ) -> CortexStackConfig:
-    """Build a CortexStackConfig with Column layers from explicit cell lists."""
+    """Build a CortexStackConfig with Column layers from AXMS patterns."""
 
-    configured_layers = _resolve_layers(num_layers=num_layers, layers=layers)
+    if pattern is None:
+        patterns: list[str] = ["AXMS"] * num_layers
+    elif isinstance(pattern, str):
+        patterns = [pattern] * num_layers
+    else:
+        if len(pattern) != num_layers:
+            raise ValueError(f"pattern list length {len(pattern)} != num_layers {num_layers}")
+        patterns = list(pattern)
 
-    scaffolds: list[ScaffoldConfig] = []
-    for layer_cells in configured_layers:
-        col_cfg = build_column_auto_config(d_hidden=d_hidden, cells=layer_cells, router=router)
-        scaffolds.append(col_cfg)
+    blocks: list[BlockConfig] = []
+    for pat in patterns:
+        col_cfg = build_column_auto_config(d_hidden=d_hidden, pattern=pat, router=router, custom_map=custom_map)
+        blocks.append(col_cfg)
 
-    global_configs = tuple(override_global_configs or ())
-    if global_configs:
-        scaffolds = [cast(ScaffoldConfig, _apply_overrides_model(scaffold, global_configs)) for scaffold in scaffolds]
+    # Optionally apply global overrides by type (e.g., XLCellConfig(mem_len=64)).
+    if override_global_configs:
+        blocks = [cast(BlockConfig, _apply_overrides_model(b, override_global_configs)) for b in blocks]
 
     return CortexStackConfig(
-        scaffolds=scaffolds,
+        blocks=blocks,
         d_hidden=d_hidden,
         post_norm=post_norm,
-        compile_scaffolds=bool(compile_scaffolds),
+        compile_blocks=bool(compile_blocks),
         routed_adapter=routed_adapter,
     )
 
@@ -50,55 +56,73 @@ def build_cortex_auto_stack(
     *,
     d_hidden: int,
     num_layers: int = 4,
-    layers: Sequence[Sequence[PublicCellConfig | ScaffoldConfig]] | None = None,
+    pattern: str | list[str] | None = "AXMS",
+    custom_map: dict[str, BlockConfig] | None = None,
     router: RouterConfig | None = None,
-    post_norm: bool = False,
-    compile_scaffolds: bool = True,
+    post_norm: bool = True,
+    compile_blocks: bool = True,
     override_global_configs: Iterable[BaseModel] | None = None,
     routed_adapter: RoutedAdapterConfig | None = None,
 ) -> CortexStack:
-    """Build a Column-based CortexStack with per-layer cells."""
-
+    """Build a Column-based CortexStack with per-layer patterns."""
     cfg = build_cortex_auto_config(
         d_hidden=d_hidden,
         num_layers=num_layers,
-        layers=layers,
+        pattern=pattern,
+        custom_map=custom_map,
         router=router,
         post_norm=post_norm,
-        compile_scaffolds=compile_scaffolds,
+        compile_blocks=compile_blocks,
         override_global_configs=override_global_configs,
         routed_adapter=routed_adapter,
     )
     return CortexStack(cfg)
 
 
-def _resolve_layers(
-    *,
-    num_layers: int,
-    layers: Sequence[Sequence[PublicCellConfig | ScaffoldConfig]] | None,
-) -> list[list[PublicCellConfig | ScaffoldConfig]]:
-    if layers is not None:
-        configured_layers = [list(layer) for layer in layers]
-        if not configured_layers:
-            raise ValueError("layers produced no Column scaffolds")
-        return configured_layers
-    return [[cast(PublicCellConfig, cell.model_copy(deep=True)) for cell in default_cells()] for _ in range(num_layers)]
+def _clone_model(model: BaseModel) -> BaseModel:
+    if hasattr(model, "model_copy"):
+        return model.model_copy(deep=True)  # pydantic v2
+    return model.copy(deep=True)  # pydantic v1
 
 
-def _apply_overrides_model(model: BaseModel, overrides: Sequence[BaseModel]) -> BaseModel:
-    for override in overrides:
-        if isinstance(model, type(override)):
-            fields_set = override.model_fields_set
-            update = override.model_dump()
-            if fields_set:
-                update = {key: update[key] for key in fields_set if key in update}
-            else:
-                update = override.model_dump(exclude_unset=True)
-            return model.model_copy(update=update)
+def _merge_model(model: BaseModel, update: BaseModel) -> BaseModel:
+    """Return a new model with explicitly set fields from update overriding model."""
+    fields_set = getattr(update, "model_fields_set", None) or getattr(update, "__fields_set__", None)
+    # Pydantic v2 path
+    if hasattr(model, "model_copy") and hasattr(update, "model_dump"):
+        if fields_set:
+            dump_all = update.model_dump()
+            upd = {k: dump_all[k] for k in fields_set if k in dump_all}
+        else:
+            upd = update.model_dump(exclude_unset=True)
+        return model.model_copy(update=upd)  # type: ignore[attr-defined]
+    # Pydantic v1 fallback (no try/except)
+    upd_data = update.dict()
+    if fields_set:
+        upd = {k: upd_data[k] for k in fields_set if k in upd_data}
+    else:
+        upd = update.dict(exclude_unset=True)
+    data = model.dict()
+    data.update(upd)
+    return type(model)(**data)
 
-    cloned = model.model_copy(deep=True)
-    fields = type(cloned).model_fields
-    for name in fields:
+
+def _apply_overrides_model(model: BaseModel, overrides: Iterable[BaseModel]) -> BaseModel:
+    """Recursively apply overrides by matching model types.
+
+    Any submodel whose type matches one of the override models' types is
+    reconstructed with the override's fields merged on top of the original.
+    """
+    # Direct match: merge and return
+    for ov in overrides:
+        if isinstance(model, type(ov)):
+            return _merge_model(model, ov)
+
+    # Otherwise, recurse into fields
+    # Build a shallow clone to avoid mutating the input instance
+    cloned = _clone_model(model)
+    fields = getattr(cloned, "model_fields", None) or getattr(cloned, "__fields__", {})
+    for name in fields.keys():
         value = getattr(cloned, name, None)
         new_value = _apply_overrides_value(value, overrides)
         if new_value is not value:
@@ -106,12 +130,12 @@ def _apply_overrides_model(model: BaseModel, overrides: Sequence[BaseModel]) -> 
     return cloned
 
 
-def _apply_overrides_value(value, overrides: Sequence[BaseModel]):
+def _apply_overrides_value(value, overrides: Iterable[BaseModel]):
     if isinstance(value, BaseModel):
         return _apply_overrides_model(value, overrides)
     if isinstance(value, list):
         changed = False
-        out = []
+        out: List = []
         for item in value:
             new_item = _apply_overrides_value(item, overrides)
             changed = changed or (new_item is not item)

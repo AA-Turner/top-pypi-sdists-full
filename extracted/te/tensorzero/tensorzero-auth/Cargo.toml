@@ -21,7 +21,11 @@ axum = { workspace = true }
 moka = { workspace = true }
 tracing = { workspace = true }
 serde_json = { workspace = true }
-ts-rs = { workspace = true, optional = true }
+ts-rs.workspace = true
+
+[dev-dependencies]
+googletest = { workspace = true }
+http = { workspace = true }
 
 [lints]
 workspace = true
@@ -33,4 +37,3 @@ required-features = ["e2e_tests"]
 
 [features]
 e2e_tests = []
-ts-bindings = ["dep:ts-rs"]

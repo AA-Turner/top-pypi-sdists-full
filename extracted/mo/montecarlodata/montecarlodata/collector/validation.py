@@ -217,12 +217,12 @@ class CollectorValidationService:
         def _is_active_integration(integration: dict) -> bool:
             if integration.get("isDeleted") or integration.get("is_deleted"):
                 return False
-            if integration.get("isDisabled") or integration.get("is_disabled"):
-                return False
             return True
 
         def _is_active_connection(connection: dict) -> bool:
             if connection.get("isActive") is False or connection.get("is_active") is False:
+                return False
+            if connection.get("disabledOn") or connection.get("disabled_on"):
                 return False
             return True
 

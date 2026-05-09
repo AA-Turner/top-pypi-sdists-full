@@ -34,7 +34,9 @@ Exposes 27 tools:
 from __future__ import annotations
 
 # Re-export names that external code may patch via "code_review_graph.tools.*"
+from ..changes import parse_diff_ranges as parse_diff_ranges
 from ..changes import parse_git_diff_ranges as parse_git_diff_ranges
+from ..changes import parse_svn_diff_ranges as parse_svn_diff_ranges
 from ..incremental import (
     get_changed_files as get_changed_files,
 )
@@ -47,6 +49,15 @@ from ._common import (
     _BUILTIN_CALL_NAMES,
     _get_store,
     _validate_repo_root,
+)
+
+# -- analysis_tools ---------------------------------------------------------
+from .analysis_tools import (
+    get_bridge_nodes_func,
+    get_hub_nodes_func,
+    get_knowledge_gaps_func,
+    get_suggested_questions_func,
+    get_surprising_connections_func,
 )
 
 # -- build ------------------------------------------------------------------
@@ -83,15 +94,6 @@ from .refactor_tools import apply_refactor_func, refactor_func
 
 # -- registry_tools ---------------------------------------------------------
 from .registry_tools import cross_repo_search_func, list_repos_func
-
-# -- analysis_tools ---------------------------------------------------------
-from .analysis_tools import (
-    get_bridge_nodes_func,
-    get_hub_nodes_func,
-    get_knowledge_gaps_func,
-    get_suggested_questions_func,
-    get_surprising_connections_func,
-)
 
 # -- review -----------------------------------------------------------------
 from .review import (
@@ -149,4 +151,6 @@ __all__ = [
     "get_changed_files",
     "get_staged_and_unstaged",
     "parse_git_diff_ranges",
+    "parse_svn_diff_ranges",
+    "parse_diff_ranges",
 ]

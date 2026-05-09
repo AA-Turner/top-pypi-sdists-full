@@ -330,11 +330,12 @@ def test(case):
 
 
 @pytest.mark.parametrize("settings", ["", "@settings(deadline=None)"])
-def test_parametrized_fixture(testdir, openapi3_base_url, settings):
+def test_parametrized_fixture(ctx, testdir, settings):
+    api = ctx.openapi.apps.success()
     # When the used pytest fixture is parametrized via `params`
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 
 @pytest.fixture(params=["a", "b"])
 def parametrized_lazy_schema(request):
@@ -511,14 +512,14 @@ def test_(case):
     assert "def run_subtest" not in stdout
 
 
-@pytest.mark.operations("multiple_failures")
-def test_multiple_failures(testdir, openapi3_schema_url):
+def test_multiple_failures(ctx, testdir):
+    api = ctx.openapi.apps.multiple_failures()
     # When multiple failures are discovered within the same test
     testdir.make_test(
         f"""
 @pytest.fixture
 def api_schema():
-    schema = schemathesis.openapi.from_url('{openapi3_schema_url}')
+    schema = schemathesis.openapi.from_url('{api.schema_url}')
     schema.config.generation.update(modes=[GenerationMode.POSITIVE])
     return schema
 
@@ -539,14 +540,14 @@ def test_(case):
     assert "def run_subtest" not in stdout
 
 
-@pytest.mark.operations("flaky")
-def test_flaky(testdir, openapi3_schema_url):
+def test_flaky(ctx, testdir):
+    api = ctx.openapi.apps.flaky()
     # When failure is flaky
     testdir.make_test(
         f"""
 @pytest.fixture
 def api_schema():
-    return schemathesis.openapi.from_url('{openapi3_schema_url}')
+    return schemathesis.openapi.from_url('{api.schema_url}')
 
 lazy_schema = schemathesis.pytest.from_fixture("api_schema")
 
@@ -565,15 +566,15 @@ def test_(case):
     assert "def __flaky" not in stdout
 
 
-@pytest.mark.operations("failure")
 @pytest.mark.parametrize("value", [True, False])
-def test_output_sanitization(testdir, openapi3_schema_url, openapi3_base_url, value):
+def test_output_sanitization(ctx, testdir, value):
+    api = ctx.openapi.apps.failure()
     auth = "secret-auth"
     testdir.make_test(
         f"""
 @pytest.fixture
 def api_schema():
-    schema = schemathesis.openapi.from_url('{openapi3_schema_url}')
+    schema = schemathesis.openapi.from_url('{api.schema_url}')
     schema.config.output.sanitization.enabled = {value}
     return schema
 
@@ -584,22 +585,21 @@ def test_(case):
     case.call_and_validate(headers={{'Authorization': '{auth}'}})""",
     )
     result = testdir.runpytest()
-    # We should skip checking for a server error
     result.assert_outcomes(passed=1, failed=1)
     if value:
-        expected = rf"curl -X GET -H 'Authorization: [Filtered]' {openapi3_base_url}/failure"
+        expected = rf"curl -X GET -H 'Authorization: [Filtered]' {api.base_url}/api/failure"
     else:
-        expected = rf"curl -X GET -H 'Authorization: {auth}' {openapi3_base_url}/failure"
+        expected = rf"curl -X GET -H 'Authorization: {auth}' {api.base_url}/api/failure"
     assert expected in result.stdout.str()
 
 
-@pytest.mark.operations("success")
-def test_rate_limit(testdir, openapi3_schema_url):
+def test_rate_limit(ctx, testdir):
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
 @pytest.fixture
 def api_schema():
-    schema = schemathesis.openapi.from_url('{openapi3_schema_url}')
+    schema = schemathesis.openapi.from_url('{api.schema_url}')
     schema.config.update(rate_limit="1/s")
     return schema
 
@@ -616,13 +616,13 @@ def test_(case):
     result.assert_outcomes(passed=1)
 
 
-@pytest.mark.operations("path_variable", "custom_format")
-def test_override(testdir, openapi3_schema_url):
+def test_override(ctx, testdir):
+    api = ctx.openapi.apps.path_variable_and_custom_format()
     testdir.make_test(
         f"""
 @pytest.fixture
 def api_schema():
-    schema = schemathesis.openapi.from_url('{openapi3_schema_url}')
+    schema = schemathesis.openapi.from_url('{api.schema_url}')
     schema.config.update(parameters={{"key": "foo", "id": "bar"}})
     return schema
 
@@ -643,7 +643,8 @@ def test(case):
     result.assert_outcomes(passed=1)
 
 
-def test_async_fixture(testdir, openapi3_schema_url):
+def test_async_fixture(ctx, testdir):
+    api = ctx.openapi.apps.success_and_failure()
     testdir.make_test(
         f"""
 import pytest_asyncio
@@ -652,7 +653,7 @@ import schemathesis
 
 @pytest_asyncio.fixture
 async def lazy_schema():
-    return schemathesis.openapi.from_url('{openapi3_schema_url}')
+    return schemathesis.openapi.from_url('{api.schema_url}')
 
 
 schema = schemathesis.pytest.from_fixture("lazy_schema")

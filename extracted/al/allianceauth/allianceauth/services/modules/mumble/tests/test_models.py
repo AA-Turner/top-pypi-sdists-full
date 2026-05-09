@@ -1,16 +1,10 @@
-import unittest
 from allianceauth.authentication.admin import Permission
 from allianceauth.tests.auth_utils import AuthUtils
 from django.test import TestCase
-from django.utils import timezone
 from django.contrib.auth.models import User, Group
-from unittest.mock import patch
-from datetime import timedelta
 
 from ..models import (
     MumbleUser,
-    TempLink,
-    TempUser,
     IdlerHandler,
     MumbleServerServer
 )

@@ -36,17 +36,6 @@ _DELETED_WAREHOUSE = {
     ],
     "dataCollector": {"uuid": _DC_UUID, "customerAwsRegion": "us-east-1"},
 }
-_DISABLED_WAREHOUSE = {
-    "uuid": str(uuid.uuid4()),
-    "name": "disabled-warehouse",
-    "connectionType": "snowflake",
-    "isDeleted": False,
-    "isDisabled": True,
-    "connections": [
-        {"uuid": str(uuid.uuid4()), "type": "snowflake", "createdOn": None, "jobTypes": []}
-    ],
-    "dataCollector": {"uuid": _DC_UUID, "customerAwsRegion": "us-east-1"},
-}
 _WAREHOUSE_SNAKE_CASE_DELETED = {
     "uuid": str(uuid.uuid4()),
     "name": "snake-deleted-warehouse",
@@ -104,26 +93,6 @@ class CollectorValidationServiceTest(TestCase):
         "_run_validations_for_integration",
         return_value=(0, []),
     )
-    def test_run_validations_excludes_disabled_warehouses(
-        self, mock_run_integration: Mock, mock_storage: Mock
-    ) -> None:
-        """Disabled warehouses (isDisabled=True) are excluded from validations."""
-        self._user_service_mock.warehouses = [_ACTIVE_WAREHOUSE, _DISABLED_WAREHOUSE]
-        self._user_service_mock.bi_containers = []
-        self._user_service_mock.etl_containers = []
-
-        self._service.run_validations(dc_id=_DC_UUID)
-
-        mock_run_integration.assert_called_once()
-        called_integration = mock_run_integration.call_args[0][1]
-        self.assertEqual(called_integration["name"], "active-warehouse")
-
-    @patch.object(CollectorValidationService, "_run_storage_access_validation", return_value=0)
-    @patch.object(
-        CollectorValidationService,
-        "_run_validations_for_integration",
-        return_value=(0, []),
-    )
     def test_run_validations_excludes_snake_case_deleted(
         self, mock_run_integration: Mock, mock_storage: Mock
     ) -> None:
@@ -150,7 +119,8 @@ class CollectorValidationServiceTest(TestCase):
     def test_run_validations_includes_active_integrations(
         self, mock_run_integration: Mock, mock_storage: Mock
     ) -> None:
-        """Active warehouses, BI containers, and ETL containers with active connections are included."""
+        """Active warehouses, BI containers, and ETL containers with active connections are
+        included."""
         active_bi = {
             "uuid": str(uuid.uuid4()),
             "name": "active-bi",
@@ -330,11 +300,62 @@ class CollectorValidationServiceTest(TestCase):
         "_run_validations_for_integration",
         return_value=(0, []),
     )
-    def test_run_validations_no_integrations_when_all_deleted_or_disabled(
+    def test_run_validations_excludes_connections_with_disabled_on(
         self, mock_run_integration: Mock, mock_storage: Mock
     ) -> None:
-        """When all integrations are deleted or disabled, no integration validations run."""
-        self._user_service_mock.warehouses = [_DELETED_WAREHOUSE, _DISABLED_WAREHOUSE]
+        """Connections with disabledOn set are excluded even if isActive=True. Monolith
+        treats a connection as active only when is_active=True AND disabled_on IS NULL."""
+        warehouse_with_disabled_on_connection = {
+            **_ACTIVE_WAREHOUSE,
+            "connections": [
+                {
+                    "uuid": str(uuid.uuid4()),
+                    "type": "snowflake",
+                    "createdOn": None,
+                    "jobTypes": [],
+                    "isActive": True,
+                    "disabledOn": None,
+                },
+                {
+                    "uuid": str(uuid.uuid4()),
+                    "type": "snowflake",
+                    "createdOn": None,
+                    "jobTypes": [],
+                    "isActive": True,
+                    "disabledOn": "2026-05-01T00:00:00+00:00",
+                },
+                {
+                    "uuid": str(uuid.uuid4()),
+                    "type": "snowflake",
+                    "createdOn": None,
+                    "jobTypes": [],
+                    "is_active": True,
+                    "disabled_on": "2026-05-01T00:00:00+00:00",
+                },
+            ],
+        }
+        self._user_service_mock.warehouses = [warehouse_with_disabled_on_connection]
+        self._user_service_mock.bi_containers = []
+        self._user_service_mock.etl_containers = []
+
+        self._service.run_validations(dc_id=_DC_UUID)
+
+        mock_run_integration.assert_called_once()
+        called_integration = mock_run_integration.call_args[0][1]
+        self.assertEqual(len(called_integration["connections"]), 1)
+        self.assertIsNone(called_integration["connections"][0].get("disabledOn"))
+
+    @patch.object(CollectorValidationService, "_run_storage_access_validation", return_value=0)
+    @patch.object(
+        CollectorValidationService,
+        "_run_validations_for_integration",
+        return_value=(0, []),
+    )
+    def test_run_validations_no_integrations_when_all_deleted(
+        self, mock_run_integration: Mock, mock_storage: Mock
+    ) -> None:
+        """When all integrations are deleted, no integration validations run."""
+        self._user_service_mock.warehouses = [_DELETED_WAREHOUSE, _WAREHOUSE_SNAKE_CASE_DELETED]
         self._user_service_mock.bi_containers = []
         self._user_service_mock.etl_containers = []
 

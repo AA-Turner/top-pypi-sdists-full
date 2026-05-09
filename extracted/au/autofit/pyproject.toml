@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "autofit"
 dynamic = ["version"]
 description = "Classy Probabilistic Programming"
-readme = { file = "README.rst", content-type = "text/x-rst" }
+readme = { file = "README.md", content-type = "text/markdown" }
 license = { text = "MIT" }
 requires-python = ">=3.9"
 authors = [
@@ -26,7 +26,7 @@ classifiers = [
 ]
 keywords = ["cli"]
 dependencies = [
-    "autoconf==2026.5.1.4",
+    "autoconf==2026.5.8.2",
     "array_api_compat",
     "anesthetic==2.8.14; python_version < '3.13'",
     "anesthetic>=2.9.0; python_version >= '3.13'",
@@ -71,6 +71,7 @@ jax = ["autoconf[jax]"]
 optional = [
     "autofit[jax]",
     "astropy>=5.0",
+    "blackjax>=1.2.0",
     "getdist==1.4",
     "nautilus-sampler==1.0.5",
     "zeus-mcmc==2.5.4",

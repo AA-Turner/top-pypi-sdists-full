@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -184,6 +184,7 @@ class SplitBuilder:
     serializer = example_serializer.ExampleSerializer(serialized_info)
 
     shard_writer = writer_lib.ShardWriter(
+        features=self._features,
         serializer=serializer,
         example_writer=self._example_writer,
     )

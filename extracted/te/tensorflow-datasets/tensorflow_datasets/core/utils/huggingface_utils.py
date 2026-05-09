@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -119,6 +119,8 @@ def convert_hf_features(hf_features) -> feature_lib.FeatureConnector:
           sample_rate=hf_features.sampling_rate,
           dtype=np.int32,
       )
+    case hf_datasets.Video():
+      return feature_lib.Video()
 
   raise TypeError(f'Type {type(hf_features)} is not supported.')
 

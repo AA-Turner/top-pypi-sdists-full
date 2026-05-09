@@ -858,14 +858,16 @@ class NonLinearSearch(AbstractFactorOptimiser, ABC):
         # (grid search log_evidences, subhalo Bayesian model comparison,
         # scrape aggregator assertions) doesn't crash on None. SamplesPDF
         # reads log_evidence from samples_info.
+        samples_info = {
+            "total_iterations": 1,
+            "time": 0.0,
+            "log_evidence": log_likelihood,
+        }
+        samples_info.update(self._test_mode_samples_info())
         samples = SamplesPDF(
             model=model,
             sample_list=sample_list,
-            samples_info={
-                "total_iterations": 1,
-                "time": 0.0,
-                "log_evidence": log_likelihood,
-            },
+            samples_info=samples_info,
         )
 
         samples_summary = samples.summary()
@@ -887,6 +889,19 @@ class NonLinearSearch(AbstractFactorOptimiser, ABC):
         model.unfreeze()
 
         return result
+
+    def _test_mode_samples_info(self) -> dict:
+        """
+        Sampler-specific keys to merge into ``samples_info`` when the
+        sampler is bypassed via ``PYAUTO_TEST_MODE=2`` or ``=3``.
+
+        Override in subclasses to add the diagnostic keys that the real
+        run would populate (e.g. NUTS ESS, MCMC autocorrelations) so that
+        tutorial scripts and downstream code can access those keys
+        without ``KeyError``. Use NaN/0 placeholders — the bypass did not
+        actually sample.
+        """
+        return {}
 
     @staticmethod
     def _build_fake_samples(model, parameter_vector, log_likelihood):
@@ -936,7 +951,21 @@ class NonLinearSearch(AbstractFactorOptimiser, ABC):
 
     @property
     def _updater(self):
-        if not hasattr(self, "_search_updater") or self._search_updater is None:
+        # The cached ``SearchUpdater`` must be invalidated whenever
+        # ``self.paths`` is reassigned to a new object — otherwise the
+        # updater holds a stale reference to the old paths and writes
+        # output (samples, visualizations, profiles) under the wrong
+        # directory. This happens routinely when a single search
+        # instance is reused across factor optimisations in the EP
+        # loop: ``AbstractSearch.optimise(factor_approx)`` mutates
+        # ``self.paths = SubDirectoryPaths(...)`` per factor and per EP
+        # iteration, but the updater would otherwise stay pinned to
+        # whichever paths were live the first time ``_updater`` was
+        # accessed. Identity comparison (``is not``) is the right test:
+        # the search instance receives a freshly-constructed
+        # ``SubDirectoryPaths`` each time, never an in-place mutation.
+        cached = getattr(self, "_search_updater", None)
+        if cached is None or cached._paths is not self.paths:
             from autofit.non_linear.search.updater import SearchUpdater
 
             self._search_updater = SearchUpdater(

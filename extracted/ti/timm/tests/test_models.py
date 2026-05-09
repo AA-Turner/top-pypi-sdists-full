@@ -66,6 +66,7 @@ NON_STD_FILTERS = [
     'convit_*', 'levit*', 'visformer*', 'deit*', 'xcit_*', 'crossvit_*', 'beit*', 'aimv2*', 'swiftformer_*',
     'poolformer_*', 'volo_*', 'sequencer2d_*', 'mvitv2*', 'gcvit*', 'efficientformer*', 'sam_hiera*',
     'eva_*', 'flexivit*', 'eva02*', 'samvit_*', 'efficientvit_m*', 'tiny_vit_*', 'hiera_*', 'vitamin*', 'test_vit*',
+    'gemma4_vit*',
 ]
 NUM_NON_STD = len(NON_STD_FILTERS)
 
@@ -82,7 +83,12 @@ else:
     EXCLUDE_FILTERS = ['*enormous*', '*_7b_*']
     NON_STD_EXCLUDE_FILTERS = ['*gigantic*', '*enormous*', '*_3b_*', '*_7b_*']
 
-EXCLUDE_JIT_FILTERS = ['hiera_*', '*naflex*', '*_7b_*', 'hrnet*', 'dpn*', 'densenet*', 'selecsls*']
+EXCLUDE_JIT_FILTERS = [
+    'hiera_*', '*naflex*', '*_7b_*', 'hrnet*', 'dpn*', 'densenet*', 'selecsls*',
+    # gemma4_vit shares NaFlex's ``Union[Tensor, Dict[str, Tensor]]`` forward signature,
+    # which TorchScript cannot narrow (``Unknown type name 'dict'``).
+    'gemma4_vit*',
+]
 
 TARGET_FWD_SIZE = MAX_FWD_SIZE = 384
 TARGET_BWD_SIZE = 128
@@ -595,7 +601,12 @@ def _create_fx_model(model, train=False):
     return fx_model
 
 
-EXCLUDE_FX_FILTERS = ['vit_gi*', 'hiera*']
+EXCLUDE_FX_FILTERS = [
+    'vit_gi*', 'hiera*',
+    # gemma4_vit mixes raw-image / NaFlex dispatch on runtime-``ndim`` / dict
+    # shape, which ``torch.fx`` cannot narrow (matching how naflexvit handles it).
+    'gemma4_vit*',
+]
 # not enough memory to run fx on more models than other tests
 if 'GITHUB_ACTIONS' in os.environ:
     EXCLUDE_FX_FILTERS += [

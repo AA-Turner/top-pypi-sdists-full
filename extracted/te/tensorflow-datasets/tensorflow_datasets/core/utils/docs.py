@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,9 +29,7 @@ class A:
 ```
 
 The functions exposed below are dummy decorators. This allows not having to load
-TensorFlow. The functions are monkey patched when needed in
-scripts/documentation/build_api_docs.py with actual TensorFlow documentation
-decorators.
+TensorFlow.
 """
 
 from typing import Any, TypeVar

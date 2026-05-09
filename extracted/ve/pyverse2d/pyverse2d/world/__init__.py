@@ -13,6 +13,7 @@ from ._component import (
     TextRenderer,
     Animator,
     SoundEmitter,
+    VideoPlayer,
 )
 
 from ._system import (
@@ -23,6 +24,7 @@ from ._system import (
     RenderSystem,
     AnimationSystem,
     SoundSystem,
+    VideoSystem,
 )
 
 # ======================================== EXPORTS ========================================
@@ -39,7 +41,8 @@ __all__ = [
     "SpriteRenderer",
     "TextRenderer",
     "Animator",
-    "SoundEmitter"
+    "SoundEmitter",
+    "VideoPlayer",
 
     "PhysicsSystem",
     "GravitySystem",
@@ -48,4 +51,5 @@ __all__ = [
     "RenderSystem",
     "AnimationSystem",
     "SoundSystem",
+    "VideoSystem",
 ]

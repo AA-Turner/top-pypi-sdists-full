@@ -32,8 +32,6 @@ use url::Url;
 
 pub use client_inference_params::{ClientInferenceParams, ClientSecretString};
 pub use input_handling::resolved_input_to_client_input;
-mod tool_context;
-pub use tool_context::{ToolContextHelper, checkpointed_inference};
 
 pub use crate::cache::CacheParamsOptions;
 pub use crate::endpoints::feedback::FeedbackResponse;
@@ -968,6 +966,7 @@ impl ClientBuilder {
             TensorzeroHttpClient::new(
                 // The timeout may be overridden in `send_and_parse_http_response`
                 DEFAULT_HTTP_CLIENT_TIMEOUT,
+                None,
             )
             .map_err(|e| {
                 ClientBuilderError::HTTPClientBuild(TensorZeroError::Other {

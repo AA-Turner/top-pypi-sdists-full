@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reflex-enterprise
-Version: 0.7.3
+Version: 0.8.0
 Summary: Package containing the paid features for Reflex. [Pro/Team/Enterprise]
 Project-URL: homepage, https://reflex.dev/
 Project-URL: documentation, https://enterprise.reflex.dev
@@ -14,7 +14,7 @@ Requires-Dist: asgiproxy>=0.2.0
 Requires-Dist: httpx
 Requires-Dist: joserfc
 Requires-Dist: psutil
-Requires-Dist: reflex[db]>=0.8.23
+Requires-Dist: reflex[db]>=0.9.2
 Description-Content-Type: text/markdown
 
 # How to install reflex_enterprise.   

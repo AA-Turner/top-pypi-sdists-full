@@ -15,6 +15,10 @@ __all__ = [
     "Gen4Image",
     "Gen4ImageContentModeration",
     "Gen4ImageReferenceImage",
+    "GptImage2",
+    "GptImage2ReferenceImage",
+    "GeminiImage3Pro",
+    "GeminiImage3ProReferenceImage",
     "Gemini2_5Flash",
     "Gemini2_5FlashReferenceImage",
 ]
@@ -160,6 +164,166 @@ class Gen4ImageReferenceImage(TypedDict, total=False):
     """
 
 
+class GptImage2(TypedDict, total=False):
+    model: Required[Literal["gpt_image_2"]]
+
+    prompt_text: Required[Annotated[str, PropertyInfo(alias="promptText")]]
+    """A non-empty string up to 32,000 characters describing the desired image."""
+
+    ratio: Required[
+        Literal[
+            "2048:880",
+            "1920:1088",
+            "1920:1280",
+            "1920:1440",
+            "1920:1536",
+            "1920:1920",
+            "1536:1920",
+            "1440:1920",
+            "1280:1920",
+            "1088:1920",
+            "2912:1248",
+            "2560:1440",
+            "2560:1712",
+            "2560:1920",
+            "2560:2048",
+            "2560:2560",
+            "2048:2560",
+            "1920:2560",
+            "1712:2560",
+            "1440:2560",
+            "3840:1648",
+            "3840:2160",
+            "3504:2336",
+            "3264:2448",
+            "3200:2560",
+            "2880:2880",
+            "2560:3200",
+            "2448:3264",
+            "2336:3504",
+            "2160:3840",
+            "auto",
+        ]
+    ]
+    """The resolution of the output image, expressed as `<width>:<height>`.
+
+    Use `auto` to let the model choose.
+    """
+
+    background: Literal["opaque", "auto"]
+    """Background treatment.
+
+    Defaults to `auto`, which lets the model pick. `transparent` is not supported by
+    this model.
+    """
+
+    output_count: Annotated[int, PropertyInfo(alias="outputCount")]
+    """The number of images to generate (1-10).
+
+    Increasing this number will affect the number of credits consumed by the
+    generation.
+    """
+
+    quality: Literal["low", "medium", "high", "auto"]
+    """Rendering quality. Higher qualities consume more credits. Defaults to `high`."""
+
+    reference_images: Annotated[Iterable[GptImage2ReferenceImage], PropertyInfo(alias="referenceImages")]
+    """
+    An array of up to 16 images to be used as references for the generated image
+    output.
+    """
+
+
+class GptImage2ReferenceImage(TypedDict, total=False):
+    uri: Required[str]
+    """A HTTPS URL."""
+
+    tag: str
+    """A tag to identify the reference image.
+
+    This may be used to reference the image in prompt text.
+    """
+
+
+class GeminiImage3Pro(TypedDict, total=False):
+    model: Required[Literal["gemini_image3_pro"]]
+
+    prompt_text: Required[Annotated[str, PropertyInfo(alias="promptText")]]
+    """A non-empty string up to 5,500 characters (measured in UTF-16 code units).
+
+    This should describe in detail what should appear in the output.
+    """
+
+    ratio: Required[
+        Literal[
+            "1344:768",
+            "768:1344",
+            "1024:1024",
+            "1184:864",
+            "864:1184",
+            "1536:672",
+            "832:1248",
+            "1248:832",
+            "896:1152",
+            "1152:896",
+            "2048:2048",
+            "1696:2528",
+            "2528:1696",
+            "1792:2400",
+            "2400:1792",
+            "1856:2304",
+            "2304:1856",
+            "1536:2752",
+            "2752:1536",
+            "3168:1344",
+            "4096:4096",
+            "3392:5056",
+            "5056:3392",
+            "3584:4800",
+            "4800:3584",
+            "3712:4608",
+            "4608:3712",
+            "3072:5504",
+            "5504:3072",
+            "6336:2688",
+        ]
+    ]
+    """The resolution of the output image."""
+
+    output_count: Annotated[Literal[1, 4], PropertyInfo(alias="outputCount")]
+    """The number of images to generate.
+
+    Increasing this number will affect the number of credits consumed by the
+    generation. Up to four images can be generated at once.
+    """
+
+    reference_images: Annotated[Iterable[GeminiImage3ProReferenceImage], PropertyInfo(alias="referenceImages")]
+    """
+    An array of up to 14 images to be used as references for the generated image
+    output. Up to five of those images can pass `subject: "human"` to maintain
+    character consistency, and up to nine of those images can pass
+    `subject: "object"` with high-fidelity images of objects to include in the
+    output.
+    """
+
+
+class GeminiImage3ProReferenceImage(TypedDict, total=False):
+    uri: Required[str]
+    """A HTTPS URL."""
+
+    subject: Literal["object", "human"]
+    """
+    Whether this is a reference of a human subject (for character consistency) or an
+    object that appears in the output.
+    """
+
+    tag: str
+    """A tag to identify the reference image.
+
+    This is used to reference the image in prompt text.
+    """
+
+
 class Gemini2_5Flash(TypedDict, total=False):
     model: Required[Literal["gemini_2.5_flash"]]
 
@@ -203,4 +367,4 @@ class Gemini2_5FlashReferenceImage(TypedDict, total=False):
     """
 
 
-TextToImageCreateParams: TypeAlias = Union[Gen4ImageTurbo, Gen4Image, Gemini2_5Flash]
+TextToImageCreateParams: TypeAlias = Union[Gen4ImageTurbo, Gen4Image, GptImage2, GeminiImage3Pro, Gemini2_5Flash]

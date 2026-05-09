@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ from tensorflow_datasets import testing
 from tensorflow_datasets.core import features
 
 
+
 class VideoFeatureTest(testing.FeatureExpectationsTestCase):
 
   @property
@@ -34,10 +35,27 @@ class VideoFeatureTest(testing.FeatureExpectationsTestCase):
 
   def test_video_numpy(self):
     np_video = np.random.randint(256, size=(128, 64, 64, 3), dtype=np.uint8)
+    doc = 'This is a test video.'
+    feature = features.Video(shape=(None, 64, 64, 3), doc=doc)
+    self.assertFeature(
+        feature=feature,
+        shape=(None, 64, 64, 3),
+        dtype=tf.uint8,
+        tests=[
+            testing.FeatureExpectationItem(
+                value=np_video,
+                expected=np_video,
+            ),
+        ],
+        test_attributes=dict(_encoding_format='png', _extra_ffmpeg_args=[]),
+    )
+
+  def test_video_with_none_shape(self):
+    np_video = np.random.randint(256, size=(128, 64, 64, 3), dtype=np.uint8)
 
     self.assertFeature(
-        feature=features.Video(shape=(None, 64, 64, 3)),
-        shape=(None, 64, 64, 3),
+        feature=features.Video(shape=None),
+        shape=(None, None, None, 3),
         dtype=tf.uint8,
         tests=[
             testing.FeatureExpectationItem(

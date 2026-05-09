@@ -1,12 +1,14 @@
 # ======================================== IMPORTS ========================================
 from __future__ import annotations
 
-from .._internal import expect, profile_section
+from .._internal import expect, profile_section, over
 from .._rendering import Pipeline, Camera
 from ..abc import Layer, ParticleEmitter, ParticleModifier
 from ..fx import ParticleRenderer
 
 from typing import Type
+from numbers import Real
+from contextlib import nullcontext
 
 # ======================================== LAYER ========================================
 class ParticleLayer(Layer):
@@ -14,10 +16,11 @@ class ParticleLayer(Layer):
 
     Args:
         additive: blending additif ou alpha classique
+        scissor: rect de limitation du rendu ``(x, y, width, height)``
         camera: caméra locale
     """
     __slots__ = (
-        "_additive",
+        "_additive", "_scissor",
         "_emitters", "_modifiers",
         "_renderer",
     )
@@ -31,6 +34,7 @@ class ParticleLayer(Layer):
 
         # Attributs publiques
         self._additive: bool = bool(additive)
+        self._scissor: tuple[float, float, float, float] = None
 
         # Attributs internes
         self._emitters: set[ParticleEmitter] = []
@@ -118,6 +122,33 @@ class ParticleLayer(Layer):
             if type(modifier) is modifier_type:
                 return True
         return False
+    
+    # ======================================== SCISSOR ========================================
+    def set_scissor(self, x: Real, y: Real, width: Real, height: Real) -> None:
+        """Fixe le rect de rendu
+
+        Args:
+            x: position horizontale
+            y: position verticale
+            width: largeur
+            height: hauteur
+        """
+        # Transtypage et vérifications
+        x = float(x)
+        y = float(y)
+        width = float(width)
+        height = float(height)
+
+        if __debug__:
+            over(width, 0, include=False)
+            over(height, 0, include=False)
+
+        # Application
+        self._scissor = (x, y, width, height)
+
+    def clear_scissor(self) -> None:
+        """Retire la limitation du rendu"""
+        self._scissor = None
 
     # ======================================== HOOKS ========================================
     def on_start(self):
@@ -149,4 +180,6 @@ class ParticleLayer(Layer):
         Args:
             pipeline: ``Pipeline`` de rendu courante
         """
-        self._renderer.render(pipeline, self._emitters, self._additive)
+        ctx = pipeline.scissor_world(*self._scissor) if self._scissor else nullcontext()
+        with ctx:
+            self._renderer.render(pipeline, self._emitters, self._additive)

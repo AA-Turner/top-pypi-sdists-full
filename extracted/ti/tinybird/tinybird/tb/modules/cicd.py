@@ -51,9 +51,9 @@ jobs:
       - name: Install Tinybird CLI
         run: curl https://tinybird.co | sh
       - name: Build project
-        run: tb build
+        run: tb --local build
       - name: Test project
-        run: tb test run
+        run: tb --local test run
       - name: Deployment check
         run: tb --cloud --host ${{! env.TINYBIRD_HOST }} --token ${{! env.TINYBIRD_TOKEN }} deploy --check
 """
@@ -115,8 +115,8 @@ tinybird_ci_workflow:
   script:
     - export PATH="$HOME/.local/bin:$PATH"
     - cd $CI_PROJECT_DIR/{{ data_project_dir }}
-    - tb build
-    - tb test run
+    - tb --local build
+    - tb --local test run
     - tb --cloud --host "$TINYBIRD_HOST" --token "$TINYBIRD_TOKEN" deploy --check
   services:
     - name: tinybirdco/tinybird-local:latest

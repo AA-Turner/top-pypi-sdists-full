@@ -14,6 +14,7 @@ from schemathesis.checks import CheckContext, CheckFunction
 from schemathesis.core import media_types, string_to_boolean
 from schemathesis.core.failures import AcceptedNegativeData, Failure
 from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, get_type
+from schemathesis.core.mutations import OperatorKind
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import Response
 from schemathesis.generation.case import Case
@@ -32,12 +33,17 @@ from schemathesis.openapi.checks import (
     UnsupportedMethodResponse,
     UseAfterFree,
 )
+from schemathesis.specs.openapi._auth_retry import (
+    build_retry_transport_kwargs,
+    get_security_parameters,
+    remove_auth,
+    set_auth_for_case,
+)
 from schemathesis.specs.openapi.utils import expand_status_code, expand_status_codes
 from schemathesis.transport.prepare import prepare_path
 
 if TYPE_CHECKING:
     from schemathesis.engine.recorder import ScenarioRecorder
-    from schemathesis.schemas import APIOperation
     from schemathesis.specs.openapi.adapter.parameters import OpenApiParameterSet
     from schemathesis.specs.openapi.schemas import OpenApiSchema
 
@@ -211,7 +217,15 @@ def response_headers_conformance(ctx: CheckContext, response: Response, case: Ca
     return _maybe_raise_one_or_more(errors)  # type: ignore[func-returns-value]
 
 
-def _coerce_header_value(value: str, schema: dict[str, Any]) -> str | int | float | None | bool:
+_COLLECTION_FORMAT_DELIMITERS = {
+    "csv": ",",
+    "ssv": " ",
+    "tsv": "\t",
+    "pipes": "|",
+}
+
+
+def _coerce_header_value(value: str, schema: dict[str, Any]) -> Any:
     schema_type = schema.get("type")
 
     if schema_type == "string":
@@ -230,6 +244,16 @@ def _coerce_header_value(value: str, schema: dict[str, Any]) -> str | int | floa
         return None
     if schema_type == "boolean":
         return string_to_boolean(value)
+    if schema_type == "array":
+        # Swagger 2.0: array headers use `collectionFormat` (default `csv`) to define
+        # how items are joined into a single header value. Split the wire form into
+        # items, then coerce each one against `items` so non-string element types validate.
+        collection_format = schema.get("collectionFormat", "csv")
+        delimiter = _COLLECTION_FORMAT_DELIMITERS.get(collection_format)
+        if delimiter is None:
+            return value
+        items_schema = schema.get("items") or {}
+        return [_coerce_header_value(item, items_schema) for item in value.split(delimiter)]
     return value
 
 
@@ -290,6 +314,26 @@ def _body_negation_becomes_valid_after_serialization(case: Case) -> bool:
 
     # Only the body is negative and it's a stringifying media type
     return True
+
+
+def _coerce_string_to_numeric(value: str, expected_types: list[str]) -> int | float | None:
+    """Try to coerce `value` to one of the numeric types in `expected_types`.
+
+    Returns the coerced value, or `None` if the string is not parseable as any expected type.
+    Used to bridge wire-level string transmission (query/header/cookie/path) and
+    the JSON-typed schema constraints those parameters declare.
+    """
+    if "integer" in expected_types:
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            pass
+    if "number" in expected_types:
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            pass
+    return None
 
 
 def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
@@ -366,8 +410,16 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
                 validator = param.adapter.jsonschema_validator_cls(schema, pattern_options=FANCY_REGEX_OPTIONS)
             except Exception:
                 return True
-            if any(validator.is_valid(element) for element in param_value):
-                return True
+            for element in param_value:
+                if validator.is_valid(element):
+                    return True
+                # Query/header/cookie values are transmitted as strings, so a string element
+                # like "44" produces the same wire form as int 44. Frameworks that coerce the
+                # raw query value to integer/number will accept it.
+                if isinstance(element, str):
+                    coerced = _coerce_string_to_numeric(element, expected_types)
+                    if coerced is not None and validator.is_valid(coerced):
+                        return True
 
     return False
 
@@ -409,12 +461,10 @@ def _string_type_mutation_becomes_valid_after_serialization(case: Case, location
             return False
 
     phase_data = meta.phase.data
-    if (
-        not isinstance(phase_data, FuzzingPhaseData)
-        or phase_data.parameter_location != location
-        or not phase_data.description
-        or not phase_data.description.startswith("Invalid type")
-    ):
+    if not isinstance(phase_data, FuzzingPhaseData) or phase_data.parameter_location != location:
+        return False
+    # Multi-site mutations are conservatively skipped — can't pin one keyword expectation.
+    if len(phase_data.mutations) != 1 or phase_data.mutations[0].operator != OperatorKind.CHANGE_TYPE:
         return False
 
     container_name = location.container_name
@@ -437,49 +487,24 @@ def _string_type_mutation_becomes_valid_after_serialization(case: Case, location
         if isinstance(value, str):
             # Path parameters are URL-encoded; decode before parsing.
             parsed_value = unquote(value) if location == ParameterLocation.PATH else value
-            if "integer" in expected_types:
-                try:
-                    int(parsed_value)
-                    return True
-                except ValueError:
-                    continue
-            if "number" in expected_types:
-                try:
-                    float(parsed_value)
-                    return True
-                except ValueError:
-                    continue
+            if _coerce_string_to_numeric(parsed_value, expected_types) is not None:
+                return True
         elif location == ParameterLocation.QUERY and isinstance(value, dict):
             # urlencode(doseq=True) iterates over dict keys, producing one query value per key.
             # e.g. {"5": "x"} becomes ?page_size=5, which is integer-parseable.
-            for key in value:
-                key_str = str(key)
-                if "integer" in expected_types:
-                    try:
-                        int(key_str)
-                        return True
-                    except (ValueError, TypeError):
-                        pass
-                if "number" in expected_types:
-                    try:
-                        float(key_str)
-                        return True
-                    except (ValueError, TypeError):
-                        pass
+            if any(_coerce_string_to_numeric(str(key), expected_types) is not None for key in value):
+                return True
 
     return False
 
 
 def _has_unverifiable_mutations(case: Case) -> bool:
-    """Check if mutations cannot be verified as actually producing invalid data.
+    """Skip the check when the case applied multiple mutations on disjoint sites.
 
-    When multiple mutations are applied, they can conflict (e.g., one mutates a property's type,
-    another removes that property entirely). In such cases, metadata.description is cleared
-    because we can't accurately describe what was mutated. More importantly, we can't verify
-    that the mutation actually resulted in invalid data being sent - the removed property
-    won't be in the request at all, making the request potentially valid.
-
-    To avoid false positives, skip the check when we can't verify the mutation.
+    With multiple structured mutations, the synthesis of a single human-readable
+    description is ambiguous, so MutationMetadata.description returns None. We can't
+    pin a single-keyword expectation when the case violates several at once, so we
+    conservatively skip rather than risk false positives.
     """
     meta = case.meta
     if meta is None:
@@ -778,10 +803,7 @@ def _has_serialization_sensitive_types(schema: dict, container: OpenApiParameter
 
     Validation of string against array schema fails incorrectly.
     A better approach would be to apply serialization later on in the process.
-
     """
-    from schemathesis.core.jsonschema import get_type
-
     properties = schema.get("properties", {})
     for prop_name, prop_schema in properties.items():
         if prop_name in container:
@@ -843,6 +865,10 @@ def use_after_free(ctx: CheckContext, response: Response, case: Case) -> bool | 
     if not (200 <= response.status_code < 400):
         return None
 
+    # DELETE is idempotent (RFC 7231 §4.2.2 / §4.3.5): a repeated DELETE may return 200/204, not 404.
+    if case.operation.method.lower() == "delete":
+        return None
+
     for related_case in ctx._find_related(case_id=case.id):
         parent = ctx._find_parent(case_id=related_case.id)
         if not parent:
@@ -854,7 +880,11 @@ def use_after_free(ctx: CheckContext, response: Response, case: Case) -> bool | 
             related_case.operation.method.lower() == "delete"
             and parent_response is not None
             and 200 <= parent_response.status_code < 300
+            and related_case.path_parameters
         ):
+            # A DELETE without path parameters targets a collection, not a specific
+            # resource — a follow-up read on the same path is a list read, not
+            # use-after-free.
             delete_path = ResourcePath(related_case.path, related_case.path_parameters or {})
             if _is_prefix_operation(
                 delete_path,
@@ -879,6 +909,7 @@ def use_after_free(ctx: CheckContext, response: Response, case: Case) -> bool | 
                     ),
                     free=free,
                     usage=usage,
+                    deleted_case_id=related_case.id,
                 )
 
     return None
@@ -965,12 +996,12 @@ class AuthKind(str, enum.Enum):
 @skips_on_unexpected_http_status
 def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | None:
     """Check if an operation declares authentication as a requirement but does not actually enforce it."""
-    from schemathesis.specs.openapi.adapter.security import has_optional_auth
+    from schemathesis.specs.openapi.adapter.security import has_effective_optional_auth
 
     operation = case.operation
-    if has_optional_auth(operation.schema.raw_schema, operation.definition.raw):
+    if has_effective_optional_auth(operation, operation.schema.raw_schema):
         return True
-    security_parameters = _get_security_parameters(case.operation)
+    security_parameters = get_security_parameters(case.operation)
     # Authentication is required for this API operation and response is successful
     if security_parameters and 200 <= response.status_code < 300:
         auth = _contains_auth(ctx, case, response, security_parameters)
@@ -978,22 +1009,7 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
             # Auth is explicitly set, it is expected to be valid
             # Check if invalid auth will give an error
             no_auth_case = remove_auth(case, security_parameters)
-            kwargs = (ctx._transport_kwargs or {}).copy()
-            for location, container_name in (
-                ("header", "headers"),
-                ("cookie", "cookies"),
-                ("query", "query"),
-                # `params` is the requests-style kwarg for query parameters passed directly via call_and_validate
-                ("query", "params"),
-            ):
-                if container_name in kwargs:
-                    container = kwargs[container_name]
-                    if isinstance(container, dict):
-                        container = container.copy()
-                        _remove_auth_from_container(container, security_parameters, location=location)
-                        kwargs[container_name] = container
-            kwargs.pop("session", None)
-            kwargs.pop("auth", None)
+            kwargs = build_retry_transport_kwargs(ctx._transport_kwargs, security_parameters)
             if case.operation.app is not None:
                 kwargs.setdefault("app", case.operation.app)
             ctx._record_case(parent_id=case.id, case=no_auth_case)
@@ -1004,7 +1020,7 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
             # Try to set invalid auth and check if it succeeds
             for parameter in security_parameters:
                 invalid_auth_case = remove_auth(case, security_parameters)
-                _set_auth_for_case(invalid_auth_case, parameter)
+                set_auth_for_case(invalid_auth_case, parameter)
                 ctx._record_case(parent_id=case.id, case=invalid_auth_case)
                 invalid_auth_response = case.operation.schema.transport.send(invalid_auth_case, **kwargs)
                 ctx._record_response(case_id=invalid_auth_case.id, response=invalid_auth_response)
@@ -1043,17 +1059,6 @@ def _raise_no_auth_error(response: Response, case: Case, auth: AuthScenario) -> 
         title=title,
         case_id=case.id,
     )
-
-
-def _get_security_parameters(operation: APIOperation) -> list[Mapping[str, Any]]:
-    """Extract security definitions that are active for the given operation and convert them into parameters."""
-    from schemathesis.specs.openapi.adapter.security import ORIGINAL_SECURITY_TYPE_KEY
-
-    return [
-        param
-        for param in operation.security.iter_parameters()
-        if param[ORIGINAL_SECURITY_TYPE_KEY] in ["apiKey", "basic", "http"]
-    ]
 
 
 def _contains_auth(
@@ -1123,60 +1128,6 @@ def _contains_auth(
             return AuthKind.GENERATED
 
     return None
-
-
-def remove_auth(case: Case, security_parameters: list[Mapping[str, Any]]) -> Case:
-    """Remove security parameters from a generated case.
-
-    It mutates `case` in place.
-    """
-    headers = case.headers.copy()
-    query = case.query.copy()
-    cookies = case.cookies.copy()
-    for parameter in security_parameters:
-        name = parameter["name"]
-        if parameter["in"] == "header" and headers:
-            headers.pop(name, None)
-        if parameter["in"] == "query" and query:
-            query.pop(name, None)
-        if parameter["in"] == "cookie" and cookies:
-            cookies.pop(name, None)
-    return Case(
-        operation=case.operation,
-        method=case.method,
-        path=case.path,
-        path_parameters=case.path_parameters.copy(),
-        headers=headers,
-        cookies=cookies,
-        query=query,
-        body=case.body.copy() if isinstance(case.body, (list | dict)) else case.body,
-        media_type=case.media_type,
-        multipart_content_types=case.multipart_content_types,
-        meta=case.meta,
-    )
-
-
-def _remove_auth_from_container(container: dict, security_parameters: list[Mapping[str, Any]], location: str) -> None:
-    for parameter in security_parameters:
-        name = parameter["name"]
-        if parameter["in"] == location:
-            container.pop(name, None)
-
-
-def _set_auth_for_case(case: Case, parameter: Mapping[str, Any]) -> None:
-    name = parameter["name"]
-    for location, attr_name in (
-        ("header", "headers"),
-        ("query", "query"),
-        ("cookie", "cookies"),
-    ):
-        if parameter["in"] == location:
-            container = getattr(case, attr_name, {})
-            # Could happen in the negative testing mode
-            if not isinstance(container, dict):
-                container = {}
-            container[name] = "SCHEMATHESIS-INVALID-VALUE"
-            setattr(case, attr_name, container)
 
 
 @dataclass

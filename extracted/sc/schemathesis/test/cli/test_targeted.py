@@ -25,11 +25,11 @@ def new_metric(ctx) -> float:
 
 
 @pytest.mark.usefixtures("new_metric")
-@pytest.mark.operations("success")
-def test_custom_metric(cli, new_metric, openapi3_schema_url):
+def test_custom_metric(ctx, cli, new_metric):
+    api = ctx.openapi.apps.success()
     # When hooks are passed to the CLI call
     # And it contains registering a new metric
-    result = cli.main("run", "--generation-maximize", "new_metric", openapi3_schema_url, hooks=new_metric)
+    result = cli.main("run", "--generation-maximize", "new_metric", api.schema_url, hooks=new_metric)
     # Then the test run should be successful
     assert result.exit_code == ExitCode.OK, result.stdout
     # And the specified metric is called
@@ -37,15 +37,15 @@ def test_custom_metric(cli, new_metric, openapi3_schema_url):
 
 
 @pytest.mark.usefixtures("new_metric")
-@pytest.mark.operations("success")
-def test_custom_metric_graphql(cli, new_metric, graphql_url):
+def test_custom_metric_graphql(ctx, cli, new_metric):
     # When hooks are passed to the CLI call
     # And it contains registering a new metric
+    api = ctx.graphql.apps.books()
     result = cli.main(
         "run",
         "--generation-maximize",
         "new_metric",
-        graphql_url,
+        api.schema_url,
         "--suppress-health-check=too_slow,filter_too_much",
         "--max-examples=1",
         "--mode=positive",

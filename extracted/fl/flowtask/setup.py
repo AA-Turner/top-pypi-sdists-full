@@ -29,20 +29,15 @@ def readme():
         return file.read()
 
 
-# Try to get version from setuptools_scm first, fall back to manual parsing
-try:
-    from setuptools_scm import get_version
-    __version__ = get_version()
-except:
-    version = get_path('flowtask/version.py')
-    with open(version, 'r', encoding='utf-8') as meta:
-        t = compile(meta.read(), version, 'exec', ast.PyCF_ONLY_AST)
-        for node in (n for n in t.body if isinstance(n, ast.Assign)):
-            if len(node.targets) == 1:
-                name = node.targets[0]
-                if isinstance(name, ast.Name) and name.id == '__version__':
-                    __version__ = node.value.s
-                    break
+version = get_path('flowtask/version.py')
+with open(version, 'r', encoding='utf-8') as meta:
+    t = compile(meta.read(), version, 'exec', ast.PyCF_ONLY_AST)
+    for node in (n for n in t.body if isinstance(n, ast.Assign)):
+        if len(node.targets) == 1:
+            name = node.targets[0]
+            if isinstance(name, ast.Name) and name.id == '__version__':
+                __version__ = node.value.s
+                break
 
 
 COMPILE_ARGS = ["-O2"]

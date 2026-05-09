@@ -4296,10 +4296,10 @@ SWIGINTERN char const *OSRSpatialReferenceShadow_GetLinearUnitsName(OSRSpatialRe
     OSRGetLinearUnits( self, &name );
     return (const char*)name;
   }
-SWIGINTERN char const *OSRSpatialReferenceShadow_GetAuthorityCode(OSRSpatialReferenceShadow *self,char const *target_key){
+SWIGINTERN char const *OSRSpatialReferenceShadow_GetAuthorityCode(OSRSpatialReferenceShadow *self,char const *target_key=NULL){
     return OSRGetAuthorityCode( self, target_key );
   }
-SWIGINTERN char const *OSRSpatialReferenceShadow_GetAuthorityName(OSRSpatialReferenceShadow *self,char const *target_key){
+SWIGINTERN char const *OSRSpatialReferenceShadow_GetAuthorityName(OSRSpatialReferenceShadow *self,char const *target_key=NULL){
     return OSRGetAuthorityName( self, target_key );
   }
 SWIGINTERN OSRAreaOfUse *OSRSpatialReferenceShadow_GetAreaOfUse(OSRSpatialReferenceShadow *self){
@@ -4391,7 +4391,7 @@ SWIGINTERN int OSRSpatialReferenceShadow_GetUTMZone(OSRSpatialReferenceShadow *s
     int bNorth = FALSE;
     int nZone = OSRGetUTMZone( self, &bNorth );
     if( !bNorth )
-        nZone = -1 * ABS(nZone);
+        nZone = -nZone;
     return nZone;
   }
 SWIGINTERN OGRErr OSRSpatialReferenceShadow_SetStatePlane(OSRSpatialReferenceShadow *self,int zone,int is_nad83=1,char const *unitsname="",double units=0.0){
@@ -5134,9 +5134,9 @@ void GetCRSInfoListFromDatabase( const char *authName,
 }
 
 
-void SetPROJSearchPath( const char *utf8_path )
+void SetPROJSearchPath( const char *utf8_string )
 {
-    const char* const apszPaths[2] = { utf8_path, NULL };
+    const char* const apszPaths[2] = { utf8_string, NULL };
     OSRSetPROJSearchPaths(apszPaths);
 }
 
@@ -5185,9 +5185,9 @@ void SetPROJEnableNetwork(bool enabled)
 }
 
 
-void SetPROJAuxDbPath( const char *utf8_path )
+void SetPROJAuxDbPath( const char *utf8_string )
 {
-    const char* const apszPaths[2] = { utf8_path, NULL };
+    const char* const apszPaths[2] = { utf8_string, NULL };
     OSRSetPROJAuxDbPaths(apszPaths);
 }
 
@@ -7913,7 +7913,7 @@ fail:
 SWIGINTERN PyObject *_wrap_SpatialReference_GetAuthorityCode(PyObject *self, PyObject *args) {
   PyObject *resultobj = 0; int bLocalUseExceptionsCode = GetUseExceptions();
   OSRSpatialReferenceShadow *arg1 = (OSRSpatialReferenceShadow *) 0 ;
-  char *arg2 = (char *) 0 ;
+  char *arg2 = (char *) NULL ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   int res2 ;
@@ -7923,17 +7923,19 @@ SWIGINTERN PyObject *_wrap_SpatialReference_GetAuthorityCode(PyObject *self, PyO
   char *result = 0 ;
   
   (void)self;
-  if (!SWIG_Python_UnpackTuple(args, "SpatialReference_GetAuthorityCode", 2, 2, swig_obj)) SWIG_fail;
+  if (!SWIG_Python_UnpackTuple(args, "SpatialReference_GetAuthorityCode", 1, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_OSRSpatialReferenceShadow, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
     SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "SpatialReference_GetAuthorityCode" "', argument " "1"" of type '" "OSRSpatialReferenceShadow *""'"); 
   }
   arg1 = reinterpret_cast< OSRSpatialReferenceShadow * >(argp1);
-  res2 = SWIG_AsCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
-  if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "SpatialReference_GetAuthorityCode" "', argument " "2"" of type '" "char const *""'");
+  if (swig_obj[1]) {
+    res2 = SWIG_AsCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
+    if (!SWIG_IsOK(res2)) {
+      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "SpatialReference_GetAuthorityCode" "', argument " "2"" of type '" "char const *""'");
+    }
+    arg2 = reinterpret_cast< char * >(buf2);
   }
-  arg2 = reinterpret_cast< char * >(buf2);
   {
     const int bLocalUseExceptions = GetUseExceptions();
     if ( bLocalUseExceptions ) {
@@ -7965,7 +7967,7 @@ fail:
 SWIGINTERN PyObject *_wrap_SpatialReference_GetAuthorityName(PyObject *self, PyObject *args) {
   PyObject *resultobj = 0; int bLocalUseExceptionsCode = GetUseExceptions();
   OSRSpatialReferenceShadow *arg1 = (OSRSpatialReferenceShadow *) 0 ;
-  char *arg2 = (char *) 0 ;
+  char *arg2 = (char *) NULL ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   int res2 ;
@@ -7975,17 +7977,19 @@ SWIGINTERN PyObject *_wrap_SpatialReference_GetAuthorityName(PyObject *self, PyO
   char *result = 0 ;
   
   (void)self;
-  if (!SWIG_Python_UnpackTuple(args, "SpatialReference_GetAuthorityName", 2, 2, swig_obj)) SWIG_fail;
+  if (!SWIG_Python_UnpackTuple(args, "SpatialReference_GetAuthorityName", 1, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_OSRSpatialReferenceShadow, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
     SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "SpatialReference_GetAuthorityName" "', argument " "1"" of type '" "OSRSpatialReferenceShadow *""'"); 
   }
   arg1 = reinterpret_cast< OSRSpatialReferenceShadow * >(argp1);
-  res2 = SWIG_AsCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
-  if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "SpatialReference_GetAuthorityName" "', argument " "2"" of type '" "char const *""'");
+  if (swig_obj[1]) {
+    res2 = SWIG_AsCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
+    if (!SWIG_IsOK(res2)) {
+      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "SpatialReference_GetAuthorityName" "', argument " "2"" of type '" "char const *""'");
+    }
+    arg2 = reinterpret_cast< char * >(buf2);
   }
-  arg2 = reinterpret_cast< char * >(buf2);
   {
     const int bLocalUseExceptions = GetUseExceptions();
     if ( bLocalUseExceptions ) {
@@ -20371,20 +20375,27 @@ SWIGINTERN PyObject *_wrap_SetPROJSearchPath(PyObject *self, PyObject *args) {
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   {
-    /* %typemap(in) (const char *utf8_path) */
-    if (PyUnicode_Check(swig_obj[0]) || PyBytes_Check(swig_obj[0]))
+    /* %typemap(in) (const char *utf8_string) */
+    if( swig_obj[0] == Py_None )
     {
-      arg1 = GDALPythonObjectToCStr( swig_obj[0], &bToFree1 );
+      arg1 = NULL;
     }
     else
     {
-      arg1 = GDALPythonPathToCStr(swig_obj[0], &bToFree1);
-      
-    }
-    if (arg1 == NULL)
-    {
-      PyErr_SetString( PyExc_RuntimeError, "not a string or os.PathLike" );
-      SWIG_fail;
+      if (PyUnicode_Check(swig_obj[0]) || PyBytes_Check(swig_obj[0]))
+      {
+        arg1 = GDALPythonObjectToCStr( swig_obj[0], &bToFree1 );
+      }
+      else
+      {
+        arg1 = GDALPythonPathToCStr(swig_obj[0], &bToFree1);
+        
+      }
+      if (arg1 == NULL)
+      {
+        PyErr_SetString( PyExc_RuntimeError, "not a string or os.PathLike" );
+        SWIG_fail;
+      }
     }
   }
   {
@@ -20407,14 +20418,16 @@ SWIGINTERN PyObject *_wrap_SetPROJSearchPath(PyObject *self, PyObject *args) {
   }
   resultobj = SWIG_Py_Void();
   {
-    /* %typemap(freearg) (const char *utf8_path) */
+    /* %typemap(freearg) (const char *utf8_string) */
+    if( arg1 != NULL )
     GDALPythonFreeCStr(arg1, bToFree1);
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
   return resultobj;
 fail:
   {
-    /* %typemap(freearg) (const char *utf8_path) */
+    /* %typemap(freearg) (const char *utf8_string) */
+    if( arg1 != NULL )
     GDALPythonFreeCStr(arg1, bToFree1);
   }
   return NULL;
@@ -20706,20 +20719,27 @@ SWIGINTERN PyObject *_wrap_SetPROJAuxDbPath(PyObject *self, PyObject *args) {
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   {
-    /* %typemap(in) (const char *utf8_path) */
-    if (PyUnicode_Check(swig_obj[0]) || PyBytes_Check(swig_obj[0]))
+    /* %typemap(in) (const char *utf8_string) */
+    if( swig_obj[0] == Py_None )
     {
-      arg1 = GDALPythonObjectToCStr( swig_obj[0], &bToFree1 );
+      arg1 = NULL;
     }
     else
     {
-      arg1 = GDALPythonPathToCStr(swig_obj[0], &bToFree1);
-      
-    }
-    if (arg1 == NULL)
-    {
-      PyErr_SetString( PyExc_RuntimeError, "not a string or os.PathLike" );
-      SWIG_fail;
+      if (PyUnicode_Check(swig_obj[0]) || PyBytes_Check(swig_obj[0]))
+      {
+        arg1 = GDALPythonObjectToCStr( swig_obj[0], &bToFree1 );
+      }
+      else
+      {
+        arg1 = GDALPythonPathToCStr(swig_obj[0], &bToFree1);
+        
+      }
+      if (arg1 == NULL)
+      {
+        PyErr_SetString( PyExc_RuntimeError, "not a string or os.PathLike" );
+        SWIG_fail;
+      }
     }
   }
   {
@@ -20742,14 +20762,16 @@ SWIGINTERN PyObject *_wrap_SetPROJAuxDbPath(PyObject *self, PyObject *args) {
   }
   resultobj = SWIG_Py_Void();
   {
-    /* %typemap(freearg) (const char *utf8_path) */
+    /* %typemap(freearg) (const char *utf8_string) */
+    if( arg1 != NULL )
     GDALPythonFreeCStr(arg1, bToFree1);
   }
   if ( ReturnSame(bLocalUseExceptionsCode) ) { CPLErr eclass = CPLGetLastErrorType(); if ( eclass == CE_Failure || eclass == CE_Fatal ) { std::string osMsg = CPLGetLastErrorMsg(); Py_XDECREF(resultobj); SWIG_Error( SWIG_RuntimeError, osMsg.c_str() ); return NULL; } }
   return resultobj;
 fail:
   {
-    /* %typemap(freearg) (const char *utf8_path) */
+    /* %typemap(freearg) (const char *utf8_string) */
+    if( arg1 != NULL )
     GDALPythonFreeCStr(arg1, bToFree1);
   }
   return NULL;
@@ -20865,28 +20887,28 @@ fail:
 static PyMethodDef SwigMethods[] = {
 	 { "GetUseExceptions", _wrap_GetUseExceptions, METH_NOARGS, "GetUseExceptions() -> int"},
 	 { "_GetExceptionsLocal", _wrap__GetExceptionsLocal, METH_NOARGS, "_GetExceptionsLocal() -> int"},
-	 { "_SetExceptionsLocal", _wrap__SetExceptionsLocal, METH_O, "_SetExceptionsLocal(int bVal)"},
+	 { "_SetExceptionsLocal", _wrap__SetExceptionsLocal, METH_O, "_SetExceptionsLocal(bVal)"},
 	 { "_UseExceptions", _wrap__UseExceptions, METH_NOARGS, "_UseExceptions()"},
 	 { "_DontUseExceptions", _wrap__DontUseExceptions, METH_NOARGS, "_DontUseExceptions()"},
 	 { "_UserHasSpecifiedIfUsingExceptions", _wrap__UserHasSpecifiedIfUsingExceptions, METH_NOARGS, "_UserHasSpecifiedIfUsingExceptions() -> int"},
-	 { "GetWellKnownGeogCSAsWKT", _wrap_GetWellKnownGeogCSAsWKT, METH_O, "GetWellKnownGeogCSAsWKT(char const * name) -> OGRErr"},
-	 { "GetUserInputAsWKT", _wrap_GetUserInputAsWKT, METH_O, "GetUserInputAsWKT(char const * name) -> OGRErr"},
-	 { "AreaOfUse_west_lon_degree_get", _wrap_AreaOfUse_west_lon_degree_get, METH_O, "AreaOfUse_west_lon_degree_get(AreaOfUse self) -> double"},
-	 { "AreaOfUse_south_lat_degree_get", _wrap_AreaOfUse_south_lat_degree_get, METH_O, "AreaOfUse_south_lat_degree_get(AreaOfUse self) -> double"},
-	 { "AreaOfUse_east_lon_degree_get", _wrap_AreaOfUse_east_lon_degree_get, METH_O, "AreaOfUse_east_lon_degree_get(AreaOfUse self) -> double"},
-	 { "AreaOfUse_north_lat_degree_get", _wrap_AreaOfUse_north_lat_degree_get, METH_O, "AreaOfUse_north_lat_degree_get(AreaOfUse self) -> double"},
-	 { "AreaOfUse_name_get", _wrap_AreaOfUse_name_get, METH_O, "AreaOfUse_name_get(AreaOfUse self) -> char *"},
-	 { "new_AreaOfUse", _wrap_new_AreaOfUse, METH_VARARGS, "new_AreaOfUse(double west_lon_degree, double south_lat_degree, double east_lon_degree, double north_lat_degree, char * name) -> AreaOfUse"},
-	 { "delete_AreaOfUse", _wrap_delete_AreaOfUse, METH_O, "delete_AreaOfUse(AreaOfUse self)"},
+	 { "GetWellKnownGeogCSAsWKT", _wrap_GetWellKnownGeogCSAsWKT, METH_O, "GetWellKnownGeogCSAsWKT(name) -> OGRErr"},
+	 { "GetUserInputAsWKT", _wrap_GetUserInputAsWKT, METH_O, "GetUserInputAsWKT(name) -> OGRErr"},
+	 { "AreaOfUse_west_lon_degree_get", _wrap_AreaOfUse_west_lon_degree_get, METH_O, "AreaOfUse_west_lon_degree_get(self) -> double"},
+	 { "AreaOfUse_south_lat_degree_get", _wrap_AreaOfUse_south_lat_degree_get, METH_O, "AreaOfUse_south_lat_degree_get(self) -> double"},
+	 { "AreaOfUse_east_lon_degree_get", _wrap_AreaOfUse_east_lon_degree_get, METH_O, "AreaOfUse_east_lon_degree_get(self) -> double"},
+	 { "AreaOfUse_north_lat_degree_get", _wrap_AreaOfUse_north_lat_degree_get, METH_O, "AreaOfUse_north_lat_degree_get(self) -> double"},
+	 { "AreaOfUse_name_get", _wrap_AreaOfUse_name_get, METH_O, "AreaOfUse_name_get(self) -> char *"},
+	 { "new_AreaOfUse", _wrap_new_AreaOfUse, METH_VARARGS, "new_AreaOfUse(west_lon_degree, south_lat_degree, east_lon_degree, north_lat_degree, name) -> AreaOfUse"},
+	 { "delete_AreaOfUse", _wrap_delete_AreaOfUse, METH_O, "delete_AreaOfUse(self)"},
 	 { "AreaOfUse_swigregister", AreaOfUse_swigregister, METH_O, NULL},
 	 { "AreaOfUse_swiginit", AreaOfUse_swiginit, METH_VARARGS, NULL},
-	 { "OSRAreaOfUse_west_lon_degree_get", _wrap_OSRAreaOfUse_west_lon_degree_get, METH_O, "OSRAreaOfUse_west_lon_degree_get(AreaOfUse area) -> double"},
-	 { "OSRAreaOfUse_south_lat_degree_get", _wrap_OSRAreaOfUse_south_lat_degree_get, METH_O, "OSRAreaOfUse_south_lat_degree_get(AreaOfUse area) -> double"},
-	 { "OSRAreaOfUse_east_lon_degree_get", _wrap_OSRAreaOfUse_east_lon_degree_get, METH_O, "OSRAreaOfUse_east_lon_degree_get(AreaOfUse area) -> double"},
-	 { "OSRAreaOfUse_north_lat_degree_get", _wrap_OSRAreaOfUse_north_lat_degree_get, METH_O, "OSRAreaOfUse_north_lat_degree_get(AreaOfUse area) -> double"},
-	 { "OSRAreaOfUse_name_get", _wrap_OSRAreaOfUse_name_get, METH_O, "OSRAreaOfUse_name_get(AreaOfUse area) -> char const *"},
+	 { "OSRAreaOfUse_west_lon_degree_get", _wrap_OSRAreaOfUse_west_lon_degree_get, METH_O, "OSRAreaOfUse_west_lon_degree_get(area) -> double"},
+	 { "OSRAreaOfUse_south_lat_degree_get", _wrap_OSRAreaOfUse_south_lat_degree_get, METH_O, "OSRAreaOfUse_south_lat_degree_get(area) -> double"},
+	 { "OSRAreaOfUse_east_lon_degree_get", _wrap_OSRAreaOfUse_east_lon_degree_get, METH_O, "OSRAreaOfUse_east_lon_degree_get(area) -> double"},
+	 { "OSRAreaOfUse_north_lat_degree_get", _wrap_OSRAreaOfUse_north_lat_degree_get, METH_O, "OSRAreaOfUse_north_lat_degree_get(area) -> double"},
+	 { "OSRAreaOfUse_name_get", _wrap_OSRAreaOfUse_name_get, METH_O, "OSRAreaOfUse_name_get(area) -> char const *"},
 	 { "new_SpatialReference", (PyCFunction)(void(*)(void))_wrap_new_SpatialReference, METH_VARARGS|METH_KEYWORDS, "\n"
-		"new_SpatialReference(char const * wkt=\"\") -> SpatialReference\n"
+		"new_SpatialReference(wkt=\"\") -> SpatialReference\n"
 		"\n"
 		"Python proxy of an :cpp:class:`OGRSpatialReference`.\n"
 		"\n"
@@ -20910,10 +20932,10 @@ static PyMethodDef SwigMethods[] = {
 		"18\n"
 		"\n"
 		""},
-	 { "delete_SpatialReference", _wrap_delete_SpatialReference, METH_O, "delete_SpatialReference(SpatialReference self)"},
-	 { "SpatialReference___str__", _wrap_SpatialReference___str__, METH_O, "SpatialReference___str__(SpatialReference self) -> retStringAndCPLFree *"},
+	 { "delete_SpatialReference", _wrap_delete_SpatialReference, METH_O, "delete_SpatialReference(self)"},
+	 { "SpatialReference___str__", _wrap_SpatialReference___str__, METH_O, "SpatialReference___str__(self) -> retStringAndCPLFree *"},
 	 { "SpatialReference_GetName", _wrap_SpatialReference_GetName, METH_O, "\n"
-		"SpatialReference_GetName(SpatialReference self) -> char const *\n"
+		"SpatialReference_GetName(self) -> char const *\n"
 		"\n"
 		"\n"
 		"Return the CRS name.\n"
@@ -20934,9 +20956,9 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_GetCelestialBodyName", _wrap_SpatialReference_GetCelestialBodyName, METH_O, "SpatialReference_GetCelestialBodyName(SpatialReference self) -> char const *"},
+	 { "SpatialReference_GetCelestialBodyName", _wrap_SpatialReference_GetCelestialBodyName, METH_O, "SpatialReference_GetCelestialBodyName(self) -> char const *"},
 	 { "SpatialReference_IsSame", (PyCFunction)(void(*)(void))_wrap_SpatialReference_IsSame, METH_VARARGS|METH_KEYWORDS, "\n"
-		"SpatialReference_IsSame(SpatialReference self, SpatialReference rhs, char ** options=None) -> int\n"
+		"SpatialReference_IsSame(self, rhs, options=None) -> int\n"
 		"\n"
 		"\n"
 		"Determine if two spatial references describe the same system.\n"
@@ -20956,7 +20978,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_IsSameGeogCS", _wrap_SpatialReference_IsSameGeogCS, METH_VARARGS, "\n"
-		"SpatialReference_IsSameGeogCS(SpatialReference self, SpatialReference rhs) -> int\n"
+		"SpatialReference_IsSameGeogCS(self, rhs) -> int\n"
 		"\n"
 		"\n"
 		"Determine if two spatial references share the same geographic coordinate system.\n"
@@ -20976,7 +20998,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_IsSameVertCS", _wrap_SpatialReference_IsSameVertCS, METH_VARARGS, "\n"
-		"SpatialReference_IsSameVertCS(SpatialReference self, SpatialReference rhs) -> int\n"
+		"SpatialReference_IsSameVertCS(self, rhs) -> int\n"
 		"\n"
 		"\n"
 		"Determine if two spatial references share the same vertical coordinate system.\n"
@@ -20996,7 +21018,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_IsGeographic", _wrap_SpatialReference_IsGeographic, METH_O, "\n"
-		"SpatialReference_IsGeographic(SpatialReference self) -> int\n"
+		"SpatialReference_IsGeographic(self) -> int\n"
 		"\n"
 		"\n"
 		"Check if this SRS is a geographic coordinate system.\n"
@@ -21010,7 +21032,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_IsDerivedGeographic", _wrap_SpatialReference_IsDerivedGeographic, METH_O, "\n"
-		"SpatialReference_IsDerivedGeographic(SpatialReference self) -> int\n"
+		"SpatialReference_IsDerivedGeographic(self) -> int\n"
 		"\n"
 		"\n"
 		"Check if this CRS is a derived geographic CRS, such as a rotated long/lat grid.\n"
@@ -21024,7 +21046,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_IsProjected", _wrap_SpatialReference_IsProjected, METH_O, "\n"
-		"SpatialReference_IsProjected(SpatialReference self) -> int\n"
+		"SpatialReference_IsProjected(self) -> int\n"
 		"\n"
 		"\n"
 		"Check if this SRS is a projected coordinate system.\n"
@@ -21037,9 +21059,9 @@ static PyMethodDef SwigMethods[] = {
 		"    1 if the SRS is projected, 0 otherwise\n"
 		"\n"
 		""},
-	 { "SpatialReference_IsDerivedProjected", _wrap_SpatialReference_IsDerivedProjected, METH_O, "SpatialReference_IsDerivedProjected(SpatialReference self) -> int"},
+	 { "SpatialReference_IsDerivedProjected", _wrap_SpatialReference_IsDerivedProjected, METH_O, "SpatialReference_IsDerivedProjected(self) -> int"},
 	 { "SpatialReference_IsCompound", _wrap_SpatialReference_IsCompound, METH_O, "\n"
-		"SpatialReference_IsCompound(SpatialReference self) -> int\n"
+		"SpatialReference_IsCompound(self) -> int\n"
 		"\n"
 		"\n"
 		"Check if this CRS is a compound CRS.\n"
@@ -21053,7 +21075,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_IsGeocentric", _wrap_SpatialReference_IsGeocentric, METH_O, "\n"
-		"SpatialReference_IsGeocentric(SpatialReference self) -> int\n"
+		"SpatialReference_IsGeocentric(self) -> int\n"
 		"\n"
 		"\n"
 		"Check if this SRS is a geocentric coordinate system.\n"
@@ -21067,7 +21089,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_IsLocal", _wrap_SpatialReference_IsLocal, METH_O, "\n"
-		"SpatialReference_IsLocal(SpatialReference self) -> int\n"
+		"SpatialReference_IsLocal(self) -> int\n"
 		"\n"
 		"\n"
 		"Check if this CRS is a local CRS.\n"
@@ -21081,7 +21103,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_IsVertical", _wrap_SpatialReference_IsVertical, METH_O, "\n"
-		"SpatialReference_IsVertical(SpatialReference self) -> int\n"
+		"SpatialReference_IsVertical(self) -> int\n"
 		"\n"
 		"\n"
 		"Check if this is a vertical coordinate system.\n"
@@ -21096,7 +21118,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_IsDynamic", _wrap_SpatialReference_IsDynamic, METH_O, "\n"
-		"SpatialReference_IsDynamic(SpatialReference self) -> bool\n"
+		"SpatialReference_IsDynamic(self) -> bool\n"
 		"\n"
 		"\n"
 		"Check if this CRS is a dynamic coordinate CRS.\n"
@@ -21109,7 +21131,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_HasPointMotionOperation", _wrap_SpatialReference_HasPointMotionOperation, METH_O, "\n"
-		"SpatialReference_HasPointMotionOperation(SpatialReference self) -> bool\n"
+		"SpatialReference_HasPointMotionOperation(self) -> bool\n"
 		"\n"
 		"\n"
 		"Check if a CRS has an associated point motion operation.\n"
@@ -21123,7 +21145,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetCoordinateEpoch", _wrap_SpatialReference_GetCoordinateEpoch, METH_O, "\n"
-		"SpatialReference_GetCoordinateEpoch(SpatialReference self) -> double\n"
+		"SpatialReference_GetCoordinateEpoch(self) -> double\n"
 		"\n"
 		"\n"
 		"Return the coordinate epoch as a decimal year.\n"
@@ -21137,12 +21159,12 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_SetCoordinateEpoch", _wrap_SpatialReference_SetCoordinateEpoch, METH_VARARGS, "SpatialReference_SetCoordinateEpoch(SpatialReference self, double coordinateEpoch)"},
-	 { "SpatialReference_EPSGTreatsAsLatLong", _wrap_SpatialReference_EPSGTreatsAsLatLong, METH_O, "SpatialReference_EPSGTreatsAsLatLong(SpatialReference self) -> int"},
-	 { "SpatialReference_EPSGTreatsAsNorthingEasting", _wrap_SpatialReference_EPSGTreatsAsNorthingEasting, METH_O, "SpatialReference_EPSGTreatsAsNorthingEasting(SpatialReference self) -> int"},
-	 { "SpatialReference_SetAuthority", _wrap_SpatialReference_SetAuthority, METH_VARARGS, "SpatialReference_SetAuthority(SpatialReference self, char const * pszTargetKey, char const * pszAuthority, int nCode) -> OGRErr"},
+	 { "SpatialReference_SetCoordinateEpoch", _wrap_SpatialReference_SetCoordinateEpoch, METH_VARARGS, "SpatialReference_SetCoordinateEpoch(self, coordinateEpoch)"},
+	 { "SpatialReference_EPSGTreatsAsLatLong", _wrap_SpatialReference_EPSGTreatsAsLatLong, METH_O, "SpatialReference_EPSGTreatsAsLatLong(self) -> int"},
+	 { "SpatialReference_EPSGTreatsAsNorthingEasting", _wrap_SpatialReference_EPSGTreatsAsNorthingEasting, METH_O, "SpatialReference_EPSGTreatsAsNorthingEasting(self) -> int"},
+	 { "SpatialReference_SetAuthority", _wrap_SpatialReference_SetAuthority, METH_VARARGS, "SpatialReference_SetAuthority(self, pszTargetKey, pszAuthority, nCode) -> OGRErr"},
 	 { "SpatialReference_GetAttrValue", _wrap_SpatialReference_GetAttrValue, METH_VARARGS, "\n"
-		"SpatialReference_GetAttrValue(SpatialReference self, char const * name, int child=0) -> char const *\n"
+		"SpatialReference_GetAttrValue(self, name, child=0) -> char const *\n"
 		"\n"
 		"\n"
 		"Fetch indicated attribute of named node.\n"
@@ -21170,10 +21192,10 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_SetAttrValue", _wrap_SpatialReference_SetAttrValue, METH_VARARGS, "SpatialReference_SetAttrValue(SpatialReference self, char const * name, char const * value) -> OGRErr"},
-	 { "SpatialReference_SetAngularUnits", _wrap_SpatialReference_SetAngularUnits, METH_VARARGS, "SpatialReference_SetAngularUnits(SpatialReference self, char const * name, double to_radians) -> OGRErr"},
+	 { "SpatialReference_SetAttrValue", _wrap_SpatialReference_SetAttrValue, METH_VARARGS, "SpatialReference_SetAttrValue(self, name, value) -> OGRErr"},
+	 { "SpatialReference_SetAngularUnits", _wrap_SpatialReference_SetAngularUnits, METH_VARARGS, "SpatialReference_SetAngularUnits(self, name, to_radians) -> OGRErr"},
 	 { "SpatialReference_GetAngularUnits", _wrap_SpatialReference_GetAngularUnits, METH_O, "\n"
-		"SpatialReference_GetAngularUnits(SpatialReference self) -> double\n"
+		"SpatialReference_GetAngularUnits(self) -> double\n"
 		"\n"
 		"\n"
 		"Fetch conversion between angular geographic coordinate system units and radians.\n"
@@ -21196,7 +21218,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetAngularUnitsName", _wrap_SpatialReference_GetAngularUnitsName, METH_O, "\n"
-		"SpatialReference_GetAngularUnitsName(SpatialReference self) -> char const *\n"
+		"SpatialReference_GetAngularUnitsName(self) -> char const *\n"
 		"\n"
 		"\n"
 		"Fetch angular geographic coordinate system units.\n"
@@ -21217,11 +21239,11 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_SetTargetLinearUnits", _wrap_SpatialReference_SetTargetLinearUnits, METH_VARARGS, "SpatialReference_SetTargetLinearUnits(SpatialReference self, char const * target, char const * name, double to_meters) -> OGRErr"},
-	 { "SpatialReference_SetLinearUnits", _wrap_SpatialReference_SetLinearUnits, METH_VARARGS, "SpatialReference_SetLinearUnits(SpatialReference self, char const * name, double to_meters) -> OGRErr"},
-	 { "SpatialReference_SetLinearUnitsAndUpdateParameters", _wrap_SpatialReference_SetLinearUnitsAndUpdateParameters, METH_VARARGS, "SpatialReference_SetLinearUnitsAndUpdateParameters(SpatialReference self, char const * name, double to_meters) -> OGRErr"},
+	 { "SpatialReference_SetTargetLinearUnits", _wrap_SpatialReference_SetTargetLinearUnits, METH_VARARGS, "SpatialReference_SetTargetLinearUnits(self, target, name, to_meters) -> OGRErr"},
+	 { "SpatialReference_SetLinearUnits", _wrap_SpatialReference_SetLinearUnits, METH_VARARGS, "SpatialReference_SetLinearUnits(self, name, to_meters) -> OGRErr"},
+	 { "SpatialReference_SetLinearUnitsAndUpdateParameters", _wrap_SpatialReference_SetLinearUnitsAndUpdateParameters, METH_VARARGS, "SpatialReference_SetLinearUnitsAndUpdateParameters(self, name, to_meters) -> OGRErr"},
 	 { "SpatialReference_GetTargetLinearUnits", _wrap_SpatialReference_GetTargetLinearUnits, METH_VARARGS, "\n"
-		"SpatialReference_GetTargetLinearUnits(SpatialReference self, char const * target_key) -> double\n"
+		"SpatialReference_GetTargetLinearUnits(self, target_key) -> double\n"
 		"\n"
 		"\n"
 		"Fetch linear units for a target.\n"
@@ -21240,7 +21262,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetLinearUnits", _wrap_SpatialReference_GetLinearUnits, METH_O, "\n"
-		"SpatialReference_GetLinearUnits(SpatialReference self) -> double\n"
+		"SpatialReference_GetLinearUnits(self) -> double\n"
 		"\n"
 		"\n"
 		"Fetch the conversion between linear projection units and meters.\n"
@@ -21262,7 +21284,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetLinearUnitsName", _wrap_SpatialReference_GetLinearUnitsName, METH_O, "\n"
-		"SpatialReference_GetLinearUnitsName(SpatialReference self) -> char const *\n"
+		"SpatialReference_GetLinearUnitsName(self) -> char const *\n"
 		"\n"
 		"\n"
 		"Fetch the name of the linear projection units.\n"
@@ -21284,7 +21306,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetAuthorityCode", _wrap_SpatialReference_GetAuthorityCode, METH_VARARGS, "\n"
-		"SpatialReference_GetAuthorityCode(SpatialReference self, char const * target_key) -> char const *\n"
+		"SpatialReference_GetAuthorityCode(self, target_key=None) -> char const *\n"
 		"\n"
 		"\n"
 		"Get the authority code for a node.\n"
@@ -21318,7 +21340,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetAuthorityName", _wrap_SpatialReference_GetAuthorityName, METH_VARARGS, "\n"
-		"SpatialReference_GetAuthorityName(SpatialReference self, char const * target_key) -> char const *\n"
+		"SpatialReference_GetAuthorityName(self, target_key=None) -> char const *\n"
 		"\n"
 		"\n"
 		"Get the authority name for a node.\n"
@@ -21338,7 +21360,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetAreaOfUse", _wrap_SpatialReference_GetAreaOfUse, METH_O, "\n"
-		"SpatialReference_GetAreaOfUse(SpatialReference self) -> AreaOfUse\n"
+		"SpatialReference_GetAreaOfUse(self) -> AreaOfUse\n"
 		"\n"
 		"\n"
 		"Return the area of use of the SRS.\n"
@@ -21365,7 +21387,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetAxisName", _wrap_SpatialReference_GetAxisName, METH_VARARGS, "\n"
-		"SpatialReference_GetAxisName(SpatialReference self, char const * target_key, int iAxis) -> char const *\n"
+		"SpatialReference_GetAxisName(self, target_key, iAxis) -> char const *\n"
 		"\n"
 		"\n"
 		"Fetch an axis description.\n"
@@ -21398,7 +21420,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetAxesCount", _wrap_SpatialReference_GetAxesCount, METH_O, "\n"
-		"SpatialReference_GetAxesCount(SpatialReference self) -> int\n"
+		"SpatialReference_GetAxesCount(self) -> int\n"
 		"\n"
 		"\n"
 		"Return the number of axes of the coordinate system of the CRS.\n"
@@ -21423,7 +21445,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetAxisOrientation", _wrap_SpatialReference_GetAxisOrientation, METH_VARARGS, "\n"
-		"SpatialReference_GetAxisOrientation(SpatialReference self, char const * target_key, int iAxis) -> OGRAxisOrientation\n"
+		"SpatialReference_GetAxisOrientation(self, target_key, iAxis) -> OGRAxisOrientation\n"
 		"\n"
 		"\n"
 		"Fetch an axis orientation.\n"
@@ -21455,7 +21477,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetAxisMappingStrategy", _wrap_SpatialReference_GetAxisMappingStrategy, METH_O, "\n"
-		"SpatialReference_GetAxisMappingStrategy(SpatialReference self) -> OSRAxisMappingStrategy\n"
+		"SpatialReference_GetAxisMappingStrategy(self) -> OSRAxisMappingStrategy\n"
 		"\n"
 		"\n"
 		"Return the data axis to CRS axis mapping strategy:\n"
@@ -21477,9 +21499,9 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_SetAxisMappingStrategy", _wrap_SpatialReference_SetAxisMappingStrategy, METH_VARARGS, "SpatialReference_SetAxisMappingStrategy(SpatialReference self, OSRAxisMappingStrategy strategy)"},
+	 { "SpatialReference_SetAxisMappingStrategy", _wrap_SpatialReference_SetAxisMappingStrategy, METH_VARARGS, "SpatialReference_SetAxisMappingStrategy(self, strategy)"},
 	 { "SpatialReference_GetDataAxisToSRSAxisMapping", _wrap_SpatialReference_GetDataAxisToSRSAxisMapping, METH_O, "\n"
-		"SpatialReference_GetDataAxisToSRSAxisMapping(SpatialReference self)\n"
+		"SpatialReference_GetDataAxisToSRSAxisMapping(self)\n"
 		"\n"
 		"\n"
 		"Return the data axis to SRS axis mapping.\n"
@@ -21492,10 +21514,10 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_SetDataAxisToSRSAxisMapping", _wrap_SpatialReference_SetDataAxisToSRSAxisMapping, METH_VARARGS, "SpatialReference_SetDataAxisToSRSAxisMapping(SpatialReference self, int nList) -> OGRErr"},
-	 { "SpatialReference_SetUTM", _wrap_SpatialReference_SetUTM, METH_VARARGS, "SpatialReference_SetUTM(SpatialReference self, int zone, int north=1) -> OGRErr"},
+	 { "SpatialReference_SetDataAxisToSRSAxisMapping", _wrap_SpatialReference_SetDataAxisToSRSAxisMapping, METH_VARARGS, "SpatialReference_SetDataAxisToSRSAxisMapping(self, nList) -> OGRErr"},
+	 { "SpatialReference_SetUTM", _wrap_SpatialReference_SetUTM, METH_VARARGS, "SpatialReference_SetUTM(self, zone, north=1) -> OGRErr"},
 	 { "SpatialReference_GetUTMZone", _wrap_SpatialReference_GetUTMZone, METH_O, "\n"
-		"SpatialReference_GetUTMZone(SpatialReference self) -> int\n"
+		"SpatialReference_GetUTMZone(self) -> int\n"
 		"\n"
 		"\n"
 		"Get UTM zone.\n"
@@ -21509,9 +21531,9 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_SetStatePlane", _wrap_SpatialReference_SetStatePlane, METH_VARARGS, "SpatialReference_SetStatePlane(SpatialReference self, int zone, int is_nad83=1, char const * unitsname=\"\", double units=0.0) -> OGRErr"},
+	 { "SpatialReference_SetStatePlane", _wrap_SpatialReference_SetStatePlane, METH_VARARGS, "SpatialReference_SetStatePlane(self, zone, is_nad83=1, unitsname=\"\", units=0.0) -> OGRErr"},
 	 { "SpatialReference_AutoIdentifyEPSG", _wrap_SpatialReference_AutoIdentifyEPSG, METH_O, "\n"
-		"SpatialReference_AutoIdentifyEPSG(SpatialReference self) -> OGRErr\n"
+		"SpatialReference_AutoIdentifyEPSG(self) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Add an EPSG authority code to the CRS\n"
@@ -21527,11 +21549,11 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_FindMatches", _wrap_SpatialReference_FindMatches, METH_VARARGS, "SpatialReference_FindMatches(SpatialReference self, char ** options=None)"},
-	 { "SpatialReference_SetProjection", _wrap_SpatialReference_SetProjection, METH_VARARGS, "SpatialReference_SetProjection(SpatialReference self, char const * arg) -> OGRErr"},
-	 { "SpatialReference_SetProjParm", _wrap_SpatialReference_SetProjParm, METH_VARARGS, "SpatialReference_SetProjParm(SpatialReference self, char const * name, double val) -> OGRErr"},
+	 { "SpatialReference_FindMatches", _wrap_SpatialReference_FindMatches, METH_VARARGS, "SpatialReference_FindMatches(self, options=None)"},
+	 { "SpatialReference_SetProjection", _wrap_SpatialReference_SetProjection, METH_VARARGS, "SpatialReference_SetProjection(self, arg) -> OGRErr"},
+	 { "SpatialReference_SetProjParm", _wrap_SpatialReference_SetProjParm, METH_VARARGS, "SpatialReference_SetProjParm(self, name, val) -> OGRErr"},
 	 { "SpatialReference_GetProjParm", _wrap_SpatialReference_GetProjParm, METH_VARARGS, "\n"
-		"SpatialReference_GetProjParm(SpatialReference self, char const * name, double default_val=0.0) -> double\n"
+		"SpatialReference_GetProjParm(self, name, default_val=0.0) -> double\n"
 		"\n"
 		"\n"
 		"Fetch a projection parameter value.\n"
@@ -21561,9 +21583,9 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_SetNormProjParm", _wrap_SpatialReference_SetNormProjParm, METH_VARARGS, "SpatialReference_SetNormProjParm(SpatialReference self, char const * name, double val) -> OGRErr"},
+	 { "SpatialReference_SetNormProjParm", _wrap_SpatialReference_SetNormProjParm, METH_VARARGS, "SpatialReference_SetNormProjParm(self, name, val) -> OGRErr"},
 	 { "SpatialReference_GetNormProjParm", _wrap_SpatialReference_GetNormProjParm, METH_VARARGS, "\n"
-		"SpatialReference_GetNormProjParm(SpatialReference self, char const * name, double default_val=0.0) -> double\n"
+		"SpatialReference_GetNormProjParm(self, name, default_val=0.0) -> double\n"
 		"\n"
 		"\n"
 		"Fetch a normalized projection parameter value.\n"
@@ -21598,7 +21620,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetSemiMajor", _wrap_SpatialReference_GetSemiMajor, METH_O, "\n"
-		"SpatialReference_GetSemiMajor(SpatialReference self) -> double\n"
+		"SpatialReference_GetSemiMajor(self) -> double\n"
 		"\n"
 		"\n"
 		"Get spheroid semi major axis (in meters starting with GDAL 3.0)\n"
@@ -21612,7 +21634,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetSemiMinor", _wrap_SpatialReference_GetSemiMinor, METH_O, "\n"
-		"SpatialReference_GetSemiMinor(SpatialReference self) -> double\n"
+		"SpatialReference_GetSemiMinor(self) -> double\n"
 		"\n"
 		"\n"
 		"Get spheroid semi minor axis.\n"
@@ -21626,7 +21648,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetInvFlattening", _wrap_SpatialReference_GetInvFlattening, METH_O, "\n"
-		"SpatialReference_GetInvFlattening(SpatialReference self) -> double\n"
+		"SpatialReference_GetInvFlattening(self) -> double\n"
 		"\n"
 		"\n"
 		"Get the spheroid inverse flattening.\n"
@@ -21650,54 +21672,54 @@ static PyMethodDef SwigMethods[] = {
 		"298.257222101\n"
 		"\n"
 		""},
-	 { "SpatialReference_SetACEA", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetACEA, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetACEA(SpatialReference self, double stdp1, double stdp2, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetAE", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetAE, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetAE(SpatialReference self, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetBonne", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetBonne, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetBonne(SpatialReference self, double stdp, double cm, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetCEA", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetCEA, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetCEA(SpatialReference self, double stdp1, double cm, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetCS", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetCS, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetCS(SpatialReference self, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetEC", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetEC, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetEC(SpatialReference self, double stdp1, double stdp2, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetEckertIV", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetEckertIV, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetEckertIV(SpatialReference self, double cm, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetEckertVI", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetEckertVI, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetEckertVI(SpatialReference self, double cm, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetEquirectangular", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetEquirectangular, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetEquirectangular(SpatialReference self, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetEquirectangular2", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetEquirectangular2, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetEquirectangular2(SpatialReference self, double clat, double clong, double pseudostdparallellat, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetGaussSchreiberTMercator", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetGaussSchreiberTMercator, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetGaussSchreiberTMercator(SpatialReference self, double clat, double clong, double sc, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetGS", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetGS, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetGS(SpatialReference self, double cm, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetGH", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetGH, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetGH(SpatialReference self, double cm, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetIGH", _wrap_SpatialReference_SetIGH, METH_O, "SpatialReference_SetIGH(SpatialReference self) -> OGRErr"},
-	 { "SpatialReference_SetGEOS", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetGEOS, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetGEOS(SpatialReference self, double cm, double satelliteheight, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetGnomonic", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetGnomonic, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetGnomonic(SpatialReference self, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetHOM", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetHOM, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetHOM(SpatialReference self, double clat, double clong, double azimuth, double recttoskew, double scale, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetHOM2PNO", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetHOM2PNO, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetHOM2PNO(SpatialReference self, double clat, double dfLat1, double dfLong1, double dfLat2, double dfLong2, double scale, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetKrovak", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetKrovak, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetKrovak(SpatialReference self, double clat, double clong, double azimuth, double pseudostdparallellat, double scale, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetLAEA", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetLAEA, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetLAEA(SpatialReference self, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetLCC", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetLCC, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetLCC(SpatialReference self, double stdp1, double stdp2, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetLCC1SP", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetLCC1SP, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetLCC1SP(SpatialReference self, double clat, double clong, double scale, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetLCCB", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetLCCB, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetLCCB(SpatialReference self, double stdp1, double stdp2, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetMC", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetMC, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetMC(SpatialReference self, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetMercator", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetMercator, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetMercator(SpatialReference self, double clat, double clong, double scale, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetMercator2SP", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetMercator2SP, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetMercator2SP(SpatialReference self, double stdp1, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetMollweide", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetMollweide, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetMollweide(SpatialReference self, double cm, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetNZMG", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetNZMG, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetNZMG(SpatialReference self, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetOS", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetOS, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetOS(SpatialReference self, double dfOriginLat, double dfCMeridian, double scale, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetOrthographic", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetOrthographic, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetOrthographic(SpatialReference self, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetPolyconic", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetPolyconic, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetPolyconic(SpatialReference self, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetPS", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetPS, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetPS(SpatialReference self, double clat, double clong, double scale, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetRobinson", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetRobinson, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetRobinson(SpatialReference self, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetSinusoidal", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetSinusoidal, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetSinusoidal(SpatialReference self, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetStereographic", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetStereographic, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetStereographic(SpatialReference self, double clat, double clong, double scale, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetSOC", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetSOC, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetSOC(SpatialReference self, double latitudeoforigin, double cm, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetTM", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetTM, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetTM(SpatialReference self, double clat, double clong, double scale, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetTMVariant", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetTMVariant, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetTMVariant(SpatialReference self, char const * pszVariantName, double clat, double clong, double scale, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetTMG", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetTMG, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetTMG(SpatialReference self, double clat, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetTMSO", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetTMSO, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetTMSO(SpatialReference self, double clat, double clong, double scale, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetVDG", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetVDG, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetVDG(SpatialReference self, double clong, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetVerticalPerspective", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetVerticalPerspective, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetVerticalPerspective(SpatialReference self, double topoOriginLat, double topoOriginLon, double topoOriginHeight, double viewPointHeight, double fe, double fn) -> OGRErr"},
-	 { "SpatialReference_SetWellKnownGeogCS", _wrap_SpatialReference_SetWellKnownGeogCS, METH_VARARGS, "SpatialReference_SetWellKnownGeogCS(SpatialReference self, char const * name) -> OGRErr"},
-	 { "SpatialReference_SetFromUserInput", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetFromUserInput, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetFromUserInput(SpatialReference self, char const * name, char ** options=None) -> OGRErr"},
-	 { "SpatialReference_CopyGeogCSFrom", _wrap_SpatialReference_CopyGeogCSFrom, METH_VARARGS, "SpatialReference_CopyGeogCSFrom(SpatialReference self, SpatialReference rhs) -> OGRErr"},
-	 { "SpatialReference_SetTOWGS84", _wrap_SpatialReference_SetTOWGS84, METH_VARARGS, "SpatialReference_SetTOWGS84(SpatialReference self, double p1, double p2, double p3, double p4=0.0, double p5=0.0, double p6=0.0, double p7=0.0) -> OGRErr"},
+	 { "SpatialReference_SetACEA", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetACEA, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetACEA(self, stdp1, stdp2, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetAE", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetAE, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetAE(self, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetBonne", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetBonne, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetBonne(self, stdp, cm, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetCEA", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetCEA, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetCEA(self, stdp1, cm, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetCS", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetCS, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetCS(self, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetEC", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetEC, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetEC(self, stdp1, stdp2, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetEckertIV", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetEckertIV, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetEckertIV(self, cm, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetEckertVI", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetEckertVI, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetEckertVI(self, cm, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetEquirectangular", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetEquirectangular, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetEquirectangular(self, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetEquirectangular2", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetEquirectangular2, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetEquirectangular2(self, clat, clong, pseudostdparallellat, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetGaussSchreiberTMercator", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetGaussSchreiberTMercator, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetGaussSchreiberTMercator(self, clat, clong, sc, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetGS", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetGS, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetGS(self, cm, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetGH", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetGH, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetGH(self, cm, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetIGH", _wrap_SpatialReference_SetIGH, METH_O, "SpatialReference_SetIGH(self) -> OGRErr"},
+	 { "SpatialReference_SetGEOS", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetGEOS, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetGEOS(self, cm, satelliteheight, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetGnomonic", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetGnomonic, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetGnomonic(self, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetHOM", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetHOM, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetHOM(self, clat, clong, azimuth, recttoskew, scale, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetHOM2PNO", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetHOM2PNO, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetHOM2PNO(self, clat, dfLat1, dfLong1, dfLat2, dfLong2, scale, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetKrovak", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetKrovak, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetKrovak(self, clat, clong, azimuth, pseudostdparallellat, scale, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetLAEA", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetLAEA, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetLAEA(self, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetLCC", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetLCC, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetLCC(self, stdp1, stdp2, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetLCC1SP", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetLCC1SP, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetLCC1SP(self, clat, clong, scale, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetLCCB", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetLCCB, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetLCCB(self, stdp1, stdp2, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetMC", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetMC, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetMC(self, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetMercator", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetMercator, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetMercator(self, clat, clong, scale, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetMercator2SP", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetMercator2SP, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetMercator2SP(self, stdp1, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetMollweide", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetMollweide, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetMollweide(self, cm, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetNZMG", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetNZMG, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetNZMG(self, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetOS", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetOS, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetOS(self, dfOriginLat, dfCMeridian, scale, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetOrthographic", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetOrthographic, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetOrthographic(self, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetPolyconic", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetPolyconic, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetPolyconic(self, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetPS", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetPS, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetPS(self, clat, clong, scale, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetRobinson", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetRobinson, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetRobinson(self, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetSinusoidal", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetSinusoidal, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetSinusoidal(self, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetStereographic", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetStereographic, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetStereographic(self, clat, clong, scale, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetSOC", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetSOC, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetSOC(self, latitudeoforigin, cm, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetTM", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetTM, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetTM(self, clat, clong, scale, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetTMVariant", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetTMVariant, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetTMVariant(self, pszVariantName, clat, clong, scale, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetTMG", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetTMG, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetTMG(self, clat, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetTMSO", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetTMSO, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetTMSO(self, clat, clong, scale, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetVDG", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetVDG, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetVDG(self, clong, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetVerticalPerspective", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetVerticalPerspective, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetVerticalPerspective(self, topoOriginLat, topoOriginLon, topoOriginHeight, viewPointHeight, fe, fn) -> OGRErr"},
+	 { "SpatialReference_SetWellKnownGeogCS", _wrap_SpatialReference_SetWellKnownGeogCS, METH_VARARGS, "SpatialReference_SetWellKnownGeogCS(self, name) -> OGRErr"},
+	 { "SpatialReference_SetFromUserInput", (PyCFunction)(void(*)(void))_wrap_SpatialReference_SetFromUserInput, METH_VARARGS|METH_KEYWORDS, "SpatialReference_SetFromUserInput(self, name, options=None) -> OGRErr"},
+	 { "SpatialReference_CopyGeogCSFrom", _wrap_SpatialReference_CopyGeogCSFrom, METH_VARARGS, "SpatialReference_CopyGeogCSFrom(self, rhs) -> OGRErr"},
+	 { "SpatialReference_SetTOWGS84", _wrap_SpatialReference_SetTOWGS84, METH_VARARGS, "SpatialReference_SetTOWGS84(self, p1, p2, p3, p4=0.0, p5=0.0, p6=0.0, p7=0.0) -> OGRErr"},
 	 { "SpatialReference_HasTOWGS84", _wrap_SpatialReference_HasTOWGS84, METH_O, "\n"
-		"SpatialReference_HasTOWGS84(SpatialReference self) -> bool\n"
+		"SpatialReference_HasTOWGS84(self) -> bool\n"
 		"\n"
 		"\n"
 		"Return whether the SRS has a TOWGS84 parameter.\n"
@@ -21711,7 +21733,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_GetTOWGS84", _wrap_SpatialReference_GetTOWGS84, METH_O, "\n"
-		"SpatialReference_GetTOWGS84(SpatialReference self) -> OGRErr\n"
+		"SpatialReference_GetTOWGS84(self) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Fetch TOWGS84 parameter, if available.\n"
@@ -21724,15 +21746,15 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_AddGuessedTOWGS84", _wrap_SpatialReference_AddGuessedTOWGS84, METH_O, "SpatialReference_AddGuessedTOWGS84(SpatialReference self) -> OGRErr"},
-	 { "SpatialReference_SetLocalCS", _wrap_SpatialReference_SetLocalCS, METH_VARARGS, "SpatialReference_SetLocalCS(SpatialReference self, char const * pszName) -> OGRErr"},
-	 { "SpatialReference_SetGeogCS", _wrap_SpatialReference_SetGeogCS, METH_VARARGS, "SpatialReference_SetGeogCS(SpatialReference self, char const * pszGeogName, char const * pszDatumName, char const * pszEllipsoidName, double dfSemiMajor, double dfInvFlattening, char const * pszPMName=\"Greenwich\", double dfPMOffset=0.0, char const * pszUnits=\"degree\", double dfConvertToRadians=0.0174532925199433) -> OGRErr"},
-	 { "SpatialReference_SetProjCS", _wrap_SpatialReference_SetProjCS, METH_VARARGS, "SpatialReference_SetProjCS(SpatialReference self, char const * name=\"unnamed\") -> OGRErr"},
-	 { "SpatialReference_SetGeocCS", _wrap_SpatialReference_SetGeocCS, METH_VARARGS, "SpatialReference_SetGeocCS(SpatialReference self, char const * name=\"unnamed\") -> OGRErr"},
-	 { "SpatialReference_SetVertCS", _wrap_SpatialReference_SetVertCS, METH_VARARGS, "SpatialReference_SetVertCS(SpatialReference self, char const * VertCSName=\"unnamed\", char const * VertDatumName=\"unnamed\", int VertDatumType=0) -> OGRErr"},
-	 { "SpatialReference_SetCompoundCS", _wrap_SpatialReference_SetCompoundCS, METH_VARARGS, "SpatialReference_SetCompoundCS(SpatialReference self, char const * name, SpatialReference horizcs, SpatialReference vertcs) -> OGRErr"},
+	 { "SpatialReference_AddGuessedTOWGS84", _wrap_SpatialReference_AddGuessedTOWGS84, METH_O, "SpatialReference_AddGuessedTOWGS84(self) -> OGRErr"},
+	 { "SpatialReference_SetLocalCS", _wrap_SpatialReference_SetLocalCS, METH_VARARGS, "SpatialReference_SetLocalCS(self, pszName) -> OGRErr"},
+	 { "SpatialReference_SetGeogCS", _wrap_SpatialReference_SetGeogCS, METH_VARARGS, "SpatialReference_SetGeogCS(self, pszGeogName, pszDatumName, pszEllipsoidName, dfSemiMajor, dfInvFlattening, pszPMName=\"Greenwich\", dfPMOffset=0.0, pszUnits=\"degree\", dfConvertToRadians=0.0174532925199433) -> OGRErr"},
+	 { "SpatialReference_SetProjCS", _wrap_SpatialReference_SetProjCS, METH_VARARGS, "SpatialReference_SetProjCS(self, name=\"unnamed\") -> OGRErr"},
+	 { "SpatialReference_SetGeocCS", _wrap_SpatialReference_SetGeocCS, METH_VARARGS, "SpatialReference_SetGeocCS(self, name=\"unnamed\") -> OGRErr"},
+	 { "SpatialReference_SetVertCS", _wrap_SpatialReference_SetVertCS, METH_VARARGS, "SpatialReference_SetVertCS(self, VertCSName=\"unnamed\", VertDatumName=\"unnamed\", VertDatumType=0) -> OGRErr"},
+	 { "SpatialReference_SetCompoundCS", _wrap_SpatialReference_SetCompoundCS, METH_VARARGS, "SpatialReference_SetCompoundCS(self, name, horizcs, vertcs) -> OGRErr"},
 	 { "SpatialReference_ImportFromWkt", _wrap_SpatialReference_ImportFromWkt, METH_VARARGS, "\n"
-		"SpatialReference_ImportFromWkt(SpatialReference self, char ** ppszInput) -> OGRErr\n"
+		"SpatialReference_ImportFromWkt(self, ppszInput) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Import from WKT string.\n"
@@ -21752,7 +21774,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_ImportFromProj4", _wrap_SpatialReference_ImportFromProj4, METH_VARARGS, "\n"
-		"SpatialReference_ImportFromProj4(SpatialReference self, char * ppszInput) -> OGRErr\n"
+		"SpatialReference_ImportFromProj4(self, ppszInput) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Initialize SRS based on PROJ coordinate string.\n"
@@ -21777,7 +21799,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_ImportFromUrl", _wrap_SpatialReference_ImportFromUrl, METH_VARARGS, "\n"
-		"SpatialReference_ImportFromUrl(SpatialReference self, char * url) -> OGRErr\n"
+		"SpatialReference_ImportFromUrl(self, url) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Initialize SRS based on a URL.\n"
@@ -21798,9 +21820,9 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_ImportFromESRI", _wrap_SpatialReference_ImportFromESRI, METH_VARARGS, "SpatialReference_ImportFromESRI(SpatialReference self, char ** ppszInput) -> OGRErr"},
+	 { "SpatialReference_ImportFromESRI", _wrap_SpatialReference_ImportFromESRI, METH_VARARGS, "SpatialReference_ImportFromESRI(self, ppszInput) -> OGRErr"},
 	 { "SpatialReference_ImportFromEPSG", _wrap_SpatialReference_ImportFromEPSG, METH_VARARGS, "\n"
-		"SpatialReference_ImportFromEPSG(SpatialReference self, int arg) -> OGRErr\n"
+		"SpatialReference_ImportFromEPSG(self, arg) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Initialize SRS based on EPSG geographic, projected or vertical CRS code.\n"
@@ -21828,7 +21850,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_ImportFromEPSGA", _wrap_SpatialReference_ImportFromEPSGA, METH_VARARGS, "\n"
-		"SpatialReference_ImportFromEPSGA(SpatialReference self, int arg) -> OGRErr\n"
+		"SpatialReference_ImportFromEPSGA(self, arg) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Initialize SRS based on EPSG geographic, projected or vertical CRS code.\n"
@@ -21849,15 +21871,15 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_ImportFromPCI", _wrap_SpatialReference_ImportFromPCI, METH_VARARGS, "SpatialReference_ImportFromPCI(SpatialReference self, char const * proj, char const * units=\"METRE\", double [17] argin=0) -> OGRErr"},
-	 { "SpatialReference_ImportFromUSGS", _wrap_SpatialReference_ImportFromUSGS, METH_VARARGS, "SpatialReference_ImportFromUSGS(SpatialReference self, long proj_code, long zone=0, double [15] argin=0, long datum_code=0) -> OGRErr"},
-	 { "SpatialReference_ImportFromXML", _wrap_SpatialReference_ImportFromXML, METH_VARARGS, "SpatialReference_ImportFromXML(SpatialReference self, char const * xmlString) -> OGRErr"},
-	 { "SpatialReference_ImportFromERM", _wrap_SpatialReference_ImportFromERM, METH_VARARGS, "SpatialReference_ImportFromERM(SpatialReference self, char const * proj, char const * datum, char const * units) -> OGRErr"},
-	 { "SpatialReference_ImportFromMICoordSys", _wrap_SpatialReference_ImportFromMICoordSys, METH_VARARGS, "SpatialReference_ImportFromMICoordSys(SpatialReference self, char const * pszCoordSys) -> OGRErr"},
-	 { "SpatialReference_ImportFromOzi", _wrap_SpatialReference_ImportFromOzi, METH_VARARGS, "SpatialReference_ImportFromOzi(SpatialReference self, char const *const * papszLines) -> OGRErr"},
-	 { "SpatialReference_ImportFromCF1", _wrap_SpatialReference_ImportFromCF1, METH_VARARGS, "SpatialReference_ImportFromCF1(SpatialReference self, char ** keyValues, char const * units=None) -> OGRErr"},
+	 { "SpatialReference_ImportFromPCI", _wrap_SpatialReference_ImportFromPCI, METH_VARARGS, "SpatialReference_ImportFromPCI(self, proj, units=\"METRE\", argin=0) -> OGRErr"},
+	 { "SpatialReference_ImportFromUSGS", _wrap_SpatialReference_ImportFromUSGS, METH_VARARGS, "SpatialReference_ImportFromUSGS(self, proj_code, zone=0, argin=0, datum_code=0) -> OGRErr"},
+	 { "SpatialReference_ImportFromXML", _wrap_SpatialReference_ImportFromXML, METH_VARARGS, "SpatialReference_ImportFromXML(self, xmlString) -> OGRErr"},
+	 { "SpatialReference_ImportFromERM", _wrap_SpatialReference_ImportFromERM, METH_VARARGS, "SpatialReference_ImportFromERM(self, proj, datum, units) -> OGRErr"},
+	 { "SpatialReference_ImportFromMICoordSys", _wrap_SpatialReference_ImportFromMICoordSys, METH_VARARGS, "SpatialReference_ImportFromMICoordSys(self, pszCoordSys) -> OGRErr"},
+	 { "SpatialReference_ImportFromOzi", _wrap_SpatialReference_ImportFromOzi, METH_VARARGS, "SpatialReference_ImportFromOzi(self, papszLines) -> OGRErr"},
+	 { "SpatialReference_ImportFromCF1", _wrap_SpatialReference_ImportFromCF1, METH_VARARGS, "SpatialReference_ImportFromCF1(self, keyValues, units=None) -> OGRErr"},
 	 { "SpatialReference_ExportToWkt", _wrap_SpatialReference_ExportToWkt, METH_VARARGS, "\n"
-		"SpatialReference_ExportToWkt(SpatialReference self, char ** options=None) -> OGRErr\n"
+		"SpatialReference_ExportToWkt(self, options=None) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Export  this SRS into WKT 1 format.\n"
@@ -21875,7 +21897,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_ExportToPrettyWkt", _wrap_SpatialReference_ExportToPrettyWkt, METH_VARARGS, "\n"
-		"SpatialReference_ExportToPrettyWkt(SpatialReference self, int simplify=0) -> OGRErr\n"
+		"SpatialReference_ExportToPrettyWkt(self, simplify=0) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Convert this SRS into a nicely formatted WKT 1 string for display to a\n"
@@ -21894,7 +21916,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_ExportToPROJJSON", _wrap_SpatialReference_ExportToPROJJSON, METH_VARARGS, "\n"
-		"SpatialReference_ExportToPROJJSON(SpatialReference self, char ** options=None) -> OGRErr\n"
+		"SpatialReference_ExportToPROJJSON(self, options=None) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Export this SRS in `PROJJSON <https://proj.org/en/latest/specifications/projjson.html>`_ format.\n"
@@ -21913,7 +21935,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "SpatialReference_ExportToProj4", _wrap_SpatialReference_ExportToProj4, METH_O, "\n"
-		"SpatialReference_ExportToProj4(SpatialReference self) -> OGRErr\n"
+		"SpatialReference_ExportToProj4(self) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Export this SRS to PROJ.4 legacy format.\n"
@@ -21928,17 +21950,17 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		"\n"
 		""},
-	 { "SpatialReference_ExportToPCI", _wrap_SpatialReference_ExportToPCI, METH_O, "SpatialReference_ExportToPCI(SpatialReference self) -> OGRErr"},
-	 { "SpatialReference_ExportToUSGS", _wrap_SpatialReference_ExportToUSGS, METH_O, "SpatialReference_ExportToUSGS(SpatialReference self) -> OGRErr"},
-	 { "SpatialReference_ExportToERM", _wrap_SpatialReference_ExportToERM, METH_O, "SpatialReference_ExportToERM(SpatialReference self) -> OGRErr"},
-	 { "SpatialReference_ExportToXML", _wrap_SpatialReference_ExportToXML, METH_VARARGS, "SpatialReference_ExportToXML(SpatialReference self, char const * dialect=\"\") -> OGRErr"},
-	 { "SpatialReference_ExportToMICoordSys", _wrap_SpatialReference_ExportToMICoordSys, METH_O, "SpatialReference_ExportToMICoordSys(SpatialReference self) -> OGRErr"},
-	 { "SpatialReference_ExportToCF1", _wrap_SpatialReference_ExportToCF1, METH_VARARGS, "SpatialReference_ExportToCF1(SpatialReference self, char ** options=None) -> char **"},
-	 { "SpatialReference_ExportToCF1Units", _wrap_SpatialReference_ExportToCF1Units, METH_VARARGS, "SpatialReference_ExportToCF1Units(SpatialReference self, char ** options=None) -> retStringAndCPLFree *"},
-	 { "SpatialReference_CloneGeogCS", _wrap_SpatialReference_CloneGeogCS, METH_O, "SpatialReference_CloneGeogCS(SpatialReference self) -> SpatialReference"},
-	 { "SpatialReference_Clone", _wrap_SpatialReference_Clone, METH_O, "SpatialReference_Clone(SpatialReference self) -> SpatialReference"},
+	 { "SpatialReference_ExportToPCI", _wrap_SpatialReference_ExportToPCI, METH_O, "SpatialReference_ExportToPCI(self) -> OGRErr"},
+	 { "SpatialReference_ExportToUSGS", _wrap_SpatialReference_ExportToUSGS, METH_O, "SpatialReference_ExportToUSGS(self) -> OGRErr"},
+	 { "SpatialReference_ExportToERM", _wrap_SpatialReference_ExportToERM, METH_O, "SpatialReference_ExportToERM(self) -> OGRErr"},
+	 { "SpatialReference_ExportToXML", _wrap_SpatialReference_ExportToXML, METH_VARARGS, "SpatialReference_ExportToXML(self, dialect=\"\") -> OGRErr"},
+	 { "SpatialReference_ExportToMICoordSys", _wrap_SpatialReference_ExportToMICoordSys, METH_O, "SpatialReference_ExportToMICoordSys(self) -> OGRErr"},
+	 { "SpatialReference_ExportToCF1", _wrap_SpatialReference_ExportToCF1, METH_VARARGS, "SpatialReference_ExportToCF1(self, options=None) -> char **"},
+	 { "SpatialReference_ExportToCF1Units", _wrap_SpatialReference_ExportToCF1Units, METH_VARARGS, "SpatialReference_ExportToCF1Units(self, options=None) -> retStringAndCPLFree *"},
+	 { "SpatialReference_CloneGeogCS", _wrap_SpatialReference_CloneGeogCS, METH_O, "SpatialReference_CloneGeogCS(self) -> SpatialReference"},
+	 { "SpatialReference_Clone", _wrap_SpatialReference_Clone, METH_O, "SpatialReference_Clone(self) -> SpatialReference"},
 	 { "SpatialReference_StripVertical", _wrap_SpatialReference_StripVertical, METH_O, "\n"
-		"SpatialReference_StripVertical(SpatialReference self) -> OGRErr\n"
+		"SpatialReference_StripVertical(self) -> OGRErr\n"
 		"\n"
 		"\n"
 		"Convert a compound CRS into a horizontal CRS.\n"
@@ -21953,40 +21975,40 @@ static PyMethodDef SwigMethods[] = {
 		"    :py:const:`OGRERR_NONE` on success, or an error code on failure\n"
 		"\n"
 		""},
-	 { "SpatialReference_Validate", _wrap_SpatialReference_Validate, METH_O, "SpatialReference_Validate(SpatialReference self) -> OGRErr"},
-	 { "SpatialReference_MorphToESRI", _wrap_SpatialReference_MorphToESRI, METH_O, "SpatialReference_MorphToESRI(SpatialReference self) -> OGRErr"},
-	 { "SpatialReference_MorphFromESRI", _wrap_SpatialReference_MorphFromESRI, METH_O, "SpatialReference_MorphFromESRI(SpatialReference self) -> OGRErr"},
-	 { "SpatialReference_ConvertToOtherProjection", _wrap_SpatialReference_ConvertToOtherProjection, METH_VARARGS, "SpatialReference_ConvertToOtherProjection(SpatialReference self, char const * other_projection, char ** options=None) -> SpatialReference"},
-	 { "SpatialReference_PromoteTo3D", _wrap_SpatialReference_PromoteTo3D, METH_VARARGS, "SpatialReference_PromoteTo3D(SpatialReference self, char const * name=None) -> OGRErr"},
-	 { "SpatialReference_DemoteTo2D", _wrap_SpatialReference_DemoteTo2D, METH_VARARGS, "SpatialReference_DemoteTo2D(SpatialReference self, char const * name=None) -> OGRErr"},
+	 { "SpatialReference_Validate", _wrap_SpatialReference_Validate, METH_O, "SpatialReference_Validate(self) -> OGRErr"},
+	 { "SpatialReference_MorphToESRI", _wrap_SpatialReference_MorphToESRI, METH_O, "SpatialReference_MorphToESRI(self) -> OGRErr"},
+	 { "SpatialReference_MorphFromESRI", _wrap_SpatialReference_MorphFromESRI, METH_O, "SpatialReference_MorphFromESRI(self) -> OGRErr"},
+	 { "SpatialReference_ConvertToOtherProjection", _wrap_SpatialReference_ConvertToOtherProjection, METH_VARARGS, "SpatialReference_ConvertToOtherProjection(self, other_projection, options=None) -> SpatialReference"},
+	 { "SpatialReference_PromoteTo3D", _wrap_SpatialReference_PromoteTo3D, METH_VARARGS, "SpatialReference_PromoteTo3D(self, name=None) -> OGRErr"},
+	 { "SpatialReference_DemoteTo2D", _wrap_SpatialReference_DemoteTo2D, METH_VARARGS, "SpatialReference_DemoteTo2D(self, name=None) -> OGRErr"},
 	 { "SpatialReference_swigregister", SpatialReference_swigregister, METH_O, NULL},
 	 { "SpatialReference_swiginit", SpatialReference_swiginit, METH_VARARGS, NULL},
 	 { "new_CoordinateTransformationOptions", _wrap_new_CoordinateTransformationOptions, METH_NOARGS, "new_CoordinateTransformationOptions() -> CoordinateTransformationOptions"},
-	 { "delete_CoordinateTransformationOptions", _wrap_delete_CoordinateTransformationOptions, METH_O, "delete_CoordinateTransformationOptions(CoordinateTransformationOptions self)"},
-	 { "CoordinateTransformationOptions_SetAreaOfInterest", _wrap_CoordinateTransformationOptions_SetAreaOfInterest, METH_VARARGS, "CoordinateTransformationOptions_SetAreaOfInterest(CoordinateTransformationOptions self, double westLongitudeDeg, double southLatitudeDeg, double eastLongitudeDeg, double northLatitudeDeg) -> bool"},
-	 { "CoordinateTransformationOptions_SetOperation", _wrap_CoordinateTransformationOptions_SetOperation, METH_VARARGS, "CoordinateTransformationOptions_SetOperation(CoordinateTransformationOptions self, char const * operation, bool inverseCT=False) -> bool"},
-	 { "CoordinateTransformationOptions_SetDesiredAccuracy", _wrap_CoordinateTransformationOptions_SetDesiredAccuracy, METH_VARARGS, "CoordinateTransformationOptions_SetDesiredAccuracy(CoordinateTransformationOptions self, double accuracy) -> bool"},
-	 { "CoordinateTransformationOptions_SetBallparkAllowed", _wrap_CoordinateTransformationOptions_SetBallparkAllowed, METH_VARARGS, "CoordinateTransformationOptions_SetBallparkAllowed(CoordinateTransformationOptions self, bool allowBallpark) -> bool"},
-	 { "CoordinateTransformationOptions_SetOnlyBest", _wrap_CoordinateTransformationOptions_SetOnlyBest, METH_VARARGS, "CoordinateTransformationOptions_SetOnlyBest(CoordinateTransformationOptions self, bool onlyBest) -> bool"},
+	 { "delete_CoordinateTransformationOptions", _wrap_delete_CoordinateTransformationOptions, METH_O, "delete_CoordinateTransformationOptions(self)"},
+	 { "CoordinateTransformationOptions_SetAreaOfInterest", _wrap_CoordinateTransformationOptions_SetAreaOfInterest, METH_VARARGS, "CoordinateTransformationOptions_SetAreaOfInterest(self, westLongitudeDeg, southLatitudeDeg, eastLongitudeDeg, northLatitudeDeg) -> bool"},
+	 { "CoordinateTransformationOptions_SetOperation", _wrap_CoordinateTransformationOptions_SetOperation, METH_VARARGS, "CoordinateTransformationOptions_SetOperation(self, operation, inverseCT=False) -> bool"},
+	 { "CoordinateTransformationOptions_SetDesiredAccuracy", _wrap_CoordinateTransformationOptions_SetDesiredAccuracy, METH_VARARGS, "CoordinateTransformationOptions_SetDesiredAccuracy(self, accuracy) -> bool"},
+	 { "CoordinateTransformationOptions_SetBallparkAllowed", _wrap_CoordinateTransformationOptions_SetBallparkAllowed, METH_VARARGS, "CoordinateTransformationOptions_SetBallparkAllowed(self, allowBallpark) -> bool"},
+	 { "CoordinateTransformationOptions_SetOnlyBest", _wrap_CoordinateTransformationOptions_SetOnlyBest, METH_VARARGS, "CoordinateTransformationOptions_SetOnlyBest(self, onlyBest) -> bool"},
 	 { "CoordinateTransformationOptions_swigregister", CoordinateTransformationOptions_swigregister, METH_O, NULL},
 	 { "CoordinateTransformationOptions_swiginit", CoordinateTransformationOptions_swiginit, METH_VARARGS, NULL},
 	 { "new_CoordinateTransformation", _wrap_new_CoordinateTransformation, METH_VARARGS, "\n"
-		"CoordinateTransformation(SpatialReference src, SpatialReference dst)\n"
-		"new_CoordinateTransformation(SpatialReference src, SpatialReference dst, CoordinateTransformationOptions options) -> CoordinateTransformation\n"
+		"CoordinateTransformation(src, dst)\n"
+		"new_CoordinateTransformation(src, dst, options) -> CoordinateTransformation\n"
 		"\n"
 		"Python proxy of an :cpp:class:`OGRCoordinateTransformation`.\n"
 		"\n"
 		""},
-	 { "delete_CoordinateTransformation", _wrap_delete_CoordinateTransformation, METH_O, "delete_CoordinateTransformation(CoordinateTransformation self)"},
-	 { "CoordinateTransformation_GetInverse", _wrap_CoordinateTransformation_GetInverse, METH_O, "CoordinateTransformation_GetInverse(CoordinateTransformation self) -> CoordinateTransformation"},
-	 { "CoordinateTransformation__TransformPoint3Double", _wrap_CoordinateTransformation__TransformPoint3Double, METH_VARARGS, "CoordinateTransformation__TransformPoint3Double(CoordinateTransformation self, double [3] inout)"},
-	 { "CoordinateTransformation__TransformPoint4Double", _wrap_CoordinateTransformation__TransformPoint4Double, METH_VARARGS, "CoordinateTransformation__TransformPoint4Double(CoordinateTransformation self, double [4] inout)"},
+	 { "delete_CoordinateTransformation", _wrap_delete_CoordinateTransformation, METH_O, "delete_CoordinateTransformation(self)"},
+	 { "CoordinateTransformation_GetInverse", _wrap_CoordinateTransformation_GetInverse, METH_O, "CoordinateTransformation_GetInverse(self) -> CoordinateTransformation"},
+	 { "CoordinateTransformation__TransformPoint3Double", _wrap_CoordinateTransformation__TransformPoint3Double, METH_VARARGS, "CoordinateTransformation__TransformPoint3Double(self, inout)"},
+	 { "CoordinateTransformation__TransformPoint4Double", _wrap_CoordinateTransformation__TransformPoint4Double, METH_VARARGS, "CoordinateTransformation__TransformPoint4Double(self, inout)"},
 	 { "CoordinateTransformation_TransformPoint", _wrap_CoordinateTransformation_TransformPoint, METH_VARARGS, "\n"
-		"CoordinateTransformation_TransformPoint(CoordinateTransformation self, double x, double y, double z=0.0)\n"
-		"CoordinateTransformation_TransformPoint(CoordinateTransformation self, double x, double y, double z, double t)\n"
+		"CoordinateTransformation_TransformPoint(self, x, y, z=0.0)\n"
+		"CoordinateTransformation_TransformPoint(self, x, y, z, t)\n"
 		""},
 	 { "CoordinateTransformation_TransformPointWithErrorCode", _wrap_CoordinateTransformation_TransformPointWithErrorCode, METH_VARARGS, "\n"
-		"CoordinateTransformation_TransformPointWithErrorCode(CoordinateTransformation self, double x, double y, double z, double t)\n"
+		"CoordinateTransformation_TransformPointWithErrorCode(self, x, y, z, t)\n"
 		"\n"
 		"\n"
 		"Variant of :py:meth:`TransformPoint` that provides an error code.\n"
@@ -22008,7 +22030,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "CoordinateTransformation_TransformPoints", _wrap_CoordinateTransformation_TransformPoints, METH_VARARGS, "\n"
-		"CoordinateTransformation_TransformPoints(CoordinateTransformation self, int nCount)\n"
+		"CoordinateTransformation_TransformPoints(self, nCount)\n"
 		"\n"
 		"\n"
 		"Transform multiple points.\n"
@@ -22044,7 +22066,7 @@ static PyMethodDef SwigMethods[] = {
 		"\n"
 		""},
 	 { "CoordinateTransformation_TransformBounds", _wrap_CoordinateTransformation_TransformBounds, METH_VARARGS, "\n"
-		"CoordinateTransformation_TransformBounds(CoordinateTransformation self, double minx, double miny, double maxx, double maxy, int densify_pts)\n"
+		"CoordinateTransformation_TransformBounds(self, minx, miny, maxx, maxy, densify_pts)\n"
 		"\n"
 		"\n"
 		"Transform a boundary, densifying the edges to account for nonlinear\n"
@@ -22087,7 +22109,7 @@ static PyMethodDef SwigMethods[] = {
 	 { "CoordinateTransformation_swigregister", CoordinateTransformation_swigregister, METH_O, NULL},
 	 { "CoordinateTransformation_swiginit", CoordinateTransformation_swiginit, METH_VARARGS, NULL},
 	 { "CreateCoordinateTransformation", _wrap_CreateCoordinateTransformation, METH_VARARGS, "\n"
-		"CreateCoordinateTransformation(SpatialReference src, SpatialReference dst, CoordinateTransformationOptions options=None) -> CoordinateTransformation\n"
+		"CreateCoordinateTransformation(src, dst, options=None) -> CoordinateTransformation\n"
 		"\n"
 		"\n"
 		"Create a :py:class:`CoordinateTransformation` using a set of :py:class:`CoordinateTransformationOptions`.\n"
@@ -22107,48 +22129,48 @@ static PyMethodDef SwigMethods[] = {
 		"CoordinateTransformation\n"
 		"\n"
 		""},
-	 { "CRSInfo_auth_name_get", _wrap_CRSInfo_auth_name_get, METH_O, "CRSInfo_auth_name_get(CRSInfo self) -> char *"},
-	 { "CRSInfo_code_get", _wrap_CRSInfo_code_get, METH_O, "CRSInfo_code_get(CRSInfo self) -> char *"},
-	 { "CRSInfo_name_get", _wrap_CRSInfo_name_get, METH_O, "CRSInfo_name_get(CRSInfo self) -> char *"},
-	 { "CRSInfo_type_get", _wrap_CRSInfo_type_get, METH_O, "CRSInfo_type_get(CRSInfo self) -> OSRCRSType"},
-	 { "CRSInfo_deprecated_get", _wrap_CRSInfo_deprecated_get, METH_O, "CRSInfo_deprecated_get(CRSInfo self) -> bool"},
-	 { "CRSInfo_bbox_valid_get", _wrap_CRSInfo_bbox_valid_get, METH_O, "CRSInfo_bbox_valid_get(CRSInfo self) -> bool"},
-	 { "CRSInfo_west_lon_degree_get", _wrap_CRSInfo_west_lon_degree_get, METH_O, "CRSInfo_west_lon_degree_get(CRSInfo self) -> double"},
-	 { "CRSInfo_south_lat_degree_get", _wrap_CRSInfo_south_lat_degree_get, METH_O, "CRSInfo_south_lat_degree_get(CRSInfo self) -> double"},
-	 { "CRSInfo_east_lon_degree_get", _wrap_CRSInfo_east_lon_degree_get, METH_O, "CRSInfo_east_lon_degree_get(CRSInfo self) -> double"},
-	 { "CRSInfo_north_lat_degree_get", _wrap_CRSInfo_north_lat_degree_get, METH_O, "CRSInfo_north_lat_degree_get(CRSInfo self) -> double"},
-	 { "CRSInfo_area_name_get", _wrap_CRSInfo_area_name_get, METH_O, "CRSInfo_area_name_get(CRSInfo self) -> char *"},
-	 { "CRSInfo_projection_method_get", _wrap_CRSInfo_projection_method_get, METH_O, "CRSInfo_projection_method_get(CRSInfo self) -> char *"},
-	 { "CRSInfo_celestial_body_name_get", _wrap_CRSInfo_celestial_body_name_get, METH_O, "CRSInfo_celestial_body_name_get(CRSInfo self) -> char *"},
-	 { "new_CRSInfo", _wrap_new_CRSInfo, METH_VARARGS, "new_CRSInfo(char const * auth_name, char const * code, char const * name, OSRCRSType type, bool deprecated, bool bbox_valid, double west_lon_degree, double south_lat_degree, double east_lon_degree, double north_lat_degree, char const * area_name, char const * projection_method, char const * celestial_body_name) -> CRSInfo"},
-	 { "delete_CRSInfo", _wrap_delete_CRSInfo, METH_O, "delete_CRSInfo(CRSInfo self)"},
+	 { "CRSInfo_auth_name_get", _wrap_CRSInfo_auth_name_get, METH_O, "CRSInfo_auth_name_get(self) -> char *"},
+	 { "CRSInfo_code_get", _wrap_CRSInfo_code_get, METH_O, "CRSInfo_code_get(self) -> char *"},
+	 { "CRSInfo_name_get", _wrap_CRSInfo_name_get, METH_O, "CRSInfo_name_get(self) -> char *"},
+	 { "CRSInfo_type_get", _wrap_CRSInfo_type_get, METH_O, "CRSInfo_type_get(self) -> OSRCRSType"},
+	 { "CRSInfo_deprecated_get", _wrap_CRSInfo_deprecated_get, METH_O, "CRSInfo_deprecated_get(self) -> bool"},
+	 { "CRSInfo_bbox_valid_get", _wrap_CRSInfo_bbox_valid_get, METH_O, "CRSInfo_bbox_valid_get(self) -> bool"},
+	 { "CRSInfo_west_lon_degree_get", _wrap_CRSInfo_west_lon_degree_get, METH_O, "CRSInfo_west_lon_degree_get(self) -> double"},
+	 { "CRSInfo_south_lat_degree_get", _wrap_CRSInfo_south_lat_degree_get, METH_O, "CRSInfo_south_lat_degree_get(self) -> double"},
+	 { "CRSInfo_east_lon_degree_get", _wrap_CRSInfo_east_lon_degree_get, METH_O, "CRSInfo_east_lon_degree_get(self) -> double"},
+	 { "CRSInfo_north_lat_degree_get", _wrap_CRSInfo_north_lat_degree_get, METH_O, "CRSInfo_north_lat_degree_get(self) -> double"},
+	 { "CRSInfo_area_name_get", _wrap_CRSInfo_area_name_get, METH_O, "CRSInfo_area_name_get(self) -> char *"},
+	 { "CRSInfo_projection_method_get", _wrap_CRSInfo_projection_method_get, METH_O, "CRSInfo_projection_method_get(self) -> char *"},
+	 { "CRSInfo_celestial_body_name_get", _wrap_CRSInfo_celestial_body_name_get, METH_O, "CRSInfo_celestial_body_name_get(self) -> char *"},
+	 { "new_CRSInfo", _wrap_new_CRSInfo, METH_VARARGS, "new_CRSInfo(auth_name, code, name, type, deprecated, bbox_valid, west_lon_degree, south_lat_degree, east_lon_degree, north_lat_degree, area_name, projection_method, celestial_body_name) -> CRSInfo"},
+	 { "delete_CRSInfo", _wrap_delete_CRSInfo, METH_O, "delete_CRSInfo(self)"},
 	 { "CRSInfo_swigregister", CRSInfo_swigregister, METH_O, NULL},
 	 { "CRSInfo_swiginit", CRSInfo_swiginit, METH_VARARGS, NULL},
-	 { "OSRCRSInfo_auth_name_get", _wrap_OSRCRSInfo_auth_name_get, METH_O, "OSRCRSInfo_auth_name_get(CRSInfo crsInfo) -> char const *"},
-	 { "OSRCRSInfo_code_get", _wrap_OSRCRSInfo_code_get, METH_O, "OSRCRSInfo_code_get(CRSInfo crsInfo) -> char const *"},
-	 { "OSRCRSInfo_name_get", _wrap_OSRCRSInfo_name_get, METH_O, "OSRCRSInfo_name_get(CRSInfo crsInfo) -> char const *"},
-	 { "OSRCRSInfo_type_get", _wrap_OSRCRSInfo_type_get, METH_O, "OSRCRSInfo_type_get(CRSInfo crsInfo) -> OSRCRSType"},
-	 { "OSRCRSInfo_deprecated_get", _wrap_OSRCRSInfo_deprecated_get, METH_O, "OSRCRSInfo_deprecated_get(CRSInfo crsInfo) -> bool"},
-	 { "OSRCRSInfo_bbox_valid_get", _wrap_OSRCRSInfo_bbox_valid_get, METH_O, "OSRCRSInfo_bbox_valid_get(CRSInfo crsInfo) -> bool"},
-	 { "OSRCRSInfo_west_lon_degree_get", _wrap_OSRCRSInfo_west_lon_degree_get, METH_O, "OSRCRSInfo_west_lon_degree_get(CRSInfo crsInfo) -> double"},
-	 { "OSRCRSInfo_south_lat_degree_get", _wrap_OSRCRSInfo_south_lat_degree_get, METH_O, "OSRCRSInfo_south_lat_degree_get(CRSInfo crsInfo) -> double"},
-	 { "OSRCRSInfo_east_lon_degree_get", _wrap_OSRCRSInfo_east_lon_degree_get, METH_O, "OSRCRSInfo_east_lon_degree_get(CRSInfo crsInfo) -> double"},
-	 { "OSRCRSInfo_north_lat_degree_get", _wrap_OSRCRSInfo_north_lat_degree_get, METH_O, "OSRCRSInfo_north_lat_degree_get(CRSInfo crsInfo) -> double"},
-	 { "OSRCRSInfo_area_name_get", _wrap_OSRCRSInfo_area_name_get, METH_O, "OSRCRSInfo_area_name_get(CRSInfo crsInfo) -> char const *"},
-	 { "OSRCRSInfo_projection_method_get", _wrap_OSRCRSInfo_projection_method_get, METH_O, "OSRCRSInfo_projection_method_get(CRSInfo crsInfo) -> char const *"},
-	 { "OSRCRSInfo_celestial_body_name_get", _wrap_OSRCRSInfo_celestial_body_name_get, METH_O, "OSRCRSInfo_celestial_body_name_get(CRSInfo crsInfo) -> char const *"},
+	 { "OSRCRSInfo_auth_name_get", _wrap_OSRCRSInfo_auth_name_get, METH_O, "OSRCRSInfo_auth_name_get(crsInfo) -> char const *"},
+	 { "OSRCRSInfo_code_get", _wrap_OSRCRSInfo_code_get, METH_O, "OSRCRSInfo_code_get(crsInfo) -> char const *"},
+	 { "OSRCRSInfo_name_get", _wrap_OSRCRSInfo_name_get, METH_O, "OSRCRSInfo_name_get(crsInfo) -> char const *"},
+	 { "OSRCRSInfo_type_get", _wrap_OSRCRSInfo_type_get, METH_O, "OSRCRSInfo_type_get(crsInfo) -> OSRCRSType"},
+	 { "OSRCRSInfo_deprecated_get", _wrap_OSRCRSInfo_deprecated_get, METH_O, "OSRCRSInfo_deprecated_get(crsInfo) -> bool"},
+	 { "OSRCRSInfo_bbox_valid_get", _wrap_OSRCRSInfo_bbox_valid_get, METH_O, "OSRCRSInfo_bbox_valid_get(crsInfo) -> bool"},
+	 { "OSRCRSInfo_west_lon_degree_get", _wrap_OSRCRSInfo_west_lon_degree_get, METH_O, "OSRCRSInfo_west_lon_degree_get(crsInfo) -> double"},
+	 { "OSRCRSInfo_south_lat_degree_get", _wrap_OSRCRSInfo_south_lat_degree_get, METH_O, "OSRCRSInfo_south_lat_degree_get(crsInfo) -> double"},
+	 { "OSRCRSInfo_east_lon_degree_get", _wrap_OSRCRSInfo_east_lon_degree_get, METH_O, "OSRCRSInfo_east_lon_degree_get(crsInfo) -> double"},
+	 { "OSRCRSInfo_north_lat_degree_get", _wrap_OSRCRSInfo_north_lat_degree_get, METH_O, "OSRCRSInfo_north_lat_degree_get(crsInfo) -> double"},
+	 { "OSRCRSInfo_area_name_get", _wrap_OSRCRSInfo_area_name_get, METH_O, "OSRCRSInfo_area_name_get(crsInfo) -> char const *"},
+	 { "OSRCRSInfo_projection_method_get", _wrap_OSRCRSInfo_projection_method_get, METH_O, "OSRCRSInfo_projection_method_get(crsInfo) -> char const *"},
+	 { "OSRCRSInfo_celestial_body_name_get", _wrap_OSRCRSInfo_celestial_body_name_get, METH_O, "OSRCRSInfo_celestial_body_name_get(crsInfo) -> char const *"},
 	 { "GetAuthorityListFromDatabase", _wrap_GetAuthorityListFromDatabase, METH_NOARGS, "GetAuthorityListFromDatabase() -> char **"},
-	 { "GetCRSInfoListFromDatabase", _wrap_GetCRSInfoListFromDatabase, METH_O, "GetCRSInfoListFromDatabase(char const * authName)"},
-	 { "SetPROJSearchPath", _wrap_SetPROJSearchPath, METH_O, "SetPROJSearchPath(char const * utf8_path)"},
-	 { "SetPROJSearchPaths", _wrap_SetPROJSearchPaths, METH_O, "SetPROJSearchPaths(char ** paths)"},
+	 { "GetCRSInfoListFromDatabase", _wrap_GetCRSInfoListFromDatabase, METH_O, "GetCRSInfoListFromDatabase(authName)"},
+	 { "SetPROJSearchPath", _wrap_SetPROJSearchPath, METH_O, "SetPROJSearchPath(utf8_string)"},
+	 { "SetPROJSearchPaths", _wrap_SetPROJSearchPaths, METH_O, "SetPROJSearchPaths(paths)"},
 	 { "GetPROJSearchPaths", _wrap_GetPROJSearchPaths, METH_NOARGS, "GetPROJSearchPaths() -> char **"},
 	 { "GetPROJVersionMajor", _wrap_GetPROJVersionMajor, METH_NOARGS, "GetPROJVersionMajor() -> int"},
 	 { "GetPROJVersionMinor", _wrap_GetPROJVersionMinor, METH_NOARGS, "GetPROJVersionMinor() -> int"},
 	 { "GetPROJVersionMicro", _wrap_GetPROJVersionMicro, METH_NOARGS, "GetPROJVersionMicro() -> int"},
 	 { "GetPROJEnableNetwork", _wrap_GetPROJEnableNetwork, METH_NOARGS, "GetPROJEnableNetwork() -> bool"},
-	 { "SetPROJEnableNetwork", _wrap_SetPROJEnableNetwork, METH_O, "SetPROJEnableNetwork(bool enabled)"},
-	 { "SetPROJAuxDbPath", _wrap_SetPROJAuxDbPath, METH_O, "SetPROJAuxDbPath(char const * utf8_path)"},
-	 { "SetPROJAuxDbPaths", _wrap_SetPROJAuxDbPaths, METH_O, "SetPROJAuxDbPaths(char ** paths)"},
+	 { "SetPROJEnableNetwork", _wrap_SetPROJEnableNetwork, METH_O, "SetPROJEnableNetwork(enabled)"},
+	 { "SetPROJAuxDbPath", _wrap_SetPROJAuxDbPath, METH_O, "SetPROJAuxDbPath(utf8_string)"},
+	 { "SetPROJAuxDbPaths", _wrap_SetPROJAuxDbPaths, METH_O, "SetPROJAuxDbPaths(paths)"},
 	 { "GetPROJAuxDbPaths", _wrap_GetPROJAuxDbPaths, METH_NOARGS, "GetPROJAuxDbPaths() -> char **"},
 	 { NULL, NULL, 0, NULL }
 };

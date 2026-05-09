@@ -42,7 +42,9 @@ class Animator(Component):
         idle(Animation, None): animation par défaut
     """
     __slots__ = ("_idle", "_current_request", "_current_animation", "_frame", "_elapsed",  "_requests")
+
     requires = ("SpriteRenderer",)
+
     AnimationRequest: ClassVar[type[AnimationRequest]] = AnimationRequest
 
     def __init__(self, idle: Animation = None):

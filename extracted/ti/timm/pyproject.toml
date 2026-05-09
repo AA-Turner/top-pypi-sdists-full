@@ -40,7 +40,7 @@ dependencies = [
     "safetensors",
 ]
 dynamic = []
-version = "1.0.26"
+version = "1.0.27"
 
 [project.license]
 text = "Apache-2.0"
@@ -75,3 +75,7 @@ markers = [
     "fxforward: marker for model tests using torch fx (only forward)",
     "fxbackward: marker for model tests using torch fx (only backward)",
 ]
+
+[tool.wruff.format]
+quote-style = "preserve"
+preview = true

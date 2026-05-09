@@ -42,9 +42,6 @@ def test_bind_cookie_to_state_class():
     assert "_test_cookie" not in TestState.backend_vars
     assert "_encoded_cookie" not in TestState.backend_vars
     assert "_encoded_errors_cookie" not in TestState.backend_vars
-    assert "_test_cookie" in TestState.get_skip_vars()
-    assert "_encoded_cookie" in TestState.get_skip_vars()
-    assert "_encoded_errors_cookie" in TestState.get_skip_vars()
 
 
 def test_bind_cookie_backend_only():
@@ -60,6 +57,41 @@ def test_bind_cookie_backend_only():
             """An invalid state with HTTPCookie as a frontend var."""
 
             invalid_cookie: str = HTTPCookie()
+
+
+def test_get_skip_vars_cookie_inheritance_hierarchy():
+    """Test that get_skip_vars includes only HTTPCookie vars visible to each class."""
+
+    class ParentState(BaseState):
+        """Parent state with one cookie."""
+
+        _parent_cookie: str = HTTPCookie("parent")
+
+    class ChildState(ParentState):
+        """Child state with its own cookie."""
+
+        _child_cookie: str = HTTPCookie("child")
+
+    class GrandChildState(ChildState):
+        """Grandchild state with another cookie."""
+
+        _grandchild_cookie: str = HTTPCookie("grandchild")
+
+    parent_skip_vars = ParentState.get_skip_vars()
+    child_skip_vars = ChildState.get_skip_vars()
+    grandchild_skip_vars = GrandChildState.get_skip_vars()
+
+    assert "_parent_cookie" not in parent_skip_vars
+    assert "_child_cookie" not in parent_skip_vars
+    assert "_grandchild_cookie" not in parent_skip_vars
+
+    assert "_parent_cookie" in child_skip_vars
+    assert "_child_cookie" not in child_skip_vars
+    assert "_grandchild_cookie" not in child_skip_vars
+
+    assert "_parent_cookie" in grandchild_skip_vars
+    assert "_child_cookie" in grandchild_skip_vars
+    assert "_grandchild_cookie" not in grandchild_skip_vars
 
 
 def test_set_get_cookie_value(mock_http_cookie_notify_sync):
@@ -224,10 +256,13 @@ async def test_get_set_cookie_substates(monkeypatch):
         pass
 
     assert "_parent_cookie" not in ParentState.backend_vars
-    assert "_parent_cookie" not in ChildState.backend_vars
-    assert "_parent_cookie" not in GrandChildState.backend_vars
+    assert "_parent_cookie" in ChildState.backend_vars
+    assert "_parent_cookie" in ChildState.inherited_vars
+    assert "_parent_cookie" in GrandChildState.backend_vars
+    assert "_parent_cookie" in GrandChildState.inherited_vars
     assert "_child_cookie" not in ChildState.backend_vars
-    assert "_child_cookie" not in GrandChildState.backend_vars
+    assert "_child_cookie" in GrandChildState.backend_vars
+    assert "_child_cookie" in GrandChildState.inherited_vars
 
     app = AppEnterprise()
     monkeypatch.setattr("reflex_enterprise.auth.cookie.State", ParentState)
@@ -531,3 +566,52 @@ async def test_notify_send(mock_app, token):
     assert '"include"' in js_code
     assert '"POST"' in js_code
     assert not event.payload.get("callback")
+
+
+def test_var_dependencies_with_http_cookie():
+    """Test that computed var dependencies are tracked correctly with HTTPCookie.
+
+    Verifies that a computed var depending on a regular var in a parent state
+    is properly registered in the parent state's _var_dependencies dict.
+    """
+
+    class ParentState(BaseState):
+        """Parent state with an HTTPCookie field and a regular var."""
+
+        _session_cookie: str = HTTPCookie("default_session", name="session_id")
+        message: str = "Hello"
+
+    class ChildState(ParentState):
+        """Child state with computed vars depending on parent vars."""
+
+        @rx.var
+        def greeting(self) -> str:
+            """Computed var that depends on the message var."""
+            return f"{self.message}, World!"
+
+        @rx.var
+        def cookie_upper(self) -> str:
+            """Computed var that depends directly on the HTTPCookie var."""
+            return self._session_cookie.upper()
+
+    # The message var should have a dependency from the ChildState.greeting computed var
+    assert "message" in ParentState._var_dependencies
+
+    # Extract the dependency tuple
+    dependencies = ParentState._var_dependencies["message"]
+    assert len(dependencies) == 1
+
+    # The dependency should reference ChildState and the greeting computed var
+    state_path, computed_var_name = next(iter(dependencies))
+    assert ChildState.get_full_name() == state_path
+    assert computed_var_name == "greeting"
+
+    # The HTTPCookie var should also appear in _var_dependencies
+    assert "_session_cookie" in ParentState._var_dependencies
+
+    cookie_dependencies = ParentState._var_dependencies["_session_cookie"]
+    assert len(cookie_dependencies) == 1
+
+    state_path, computed_var_name = next(iter(cookie_dependencies))
+    assert ChildState.get_full_name() == state_path
+    assert computed_var_name == "cookie_upper"

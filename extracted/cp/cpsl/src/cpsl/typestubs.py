@@ -136,12 +136,37 @@ declare module "@capsule/page" {
   export function useChat(
     chatName?: string,
     opts?: {
+      /** Stable app-defined key for one chat per project, row, object, etc.
+       * Passing null disables the hook until a selection exists. */
       threadKey?: string | null;
       sessionId?: string;
+      /** Durable creation-time context exposed to the Python session. */
+      context?: Record<string, unknown>;
+      /** @deprecated Use context. */
       initialData?: Record<string, unknown>;
+      /** Named chats default to hidden; default chats default to listed. */
+      visibility?: "hidden" | "listed";
       enabled?: boolean;
     },
   ): ChatState;
+
+  interface ActionState {
+    loading: boolean;
+    error: string | null;
+    run: (payload?: Record<string, unknown>) => Promise<unknown>;
+  }
+
+  export function useAction(
+    name: string,
+    opts?: { chatName?: string; threadKey?: string },
+  ): ActionState;
+
+  export function completeOnboarding(): Promise<void>;
+  export function useOnboarding(): {
+    complete: () => Promise<void>;
+    completing: boolean;
+    error: string | null;
+  };
 
   export function useCapsule(): CapsuleContext;
   export function navigate(target: NavigationTarget): void;
@@ -152,6 +177,8 @@ declare module "@capsule/page" {
   // -----------------------------------------------------------------------
 
   interface ThemeColors {
+    bg: string;
+    fg: string;
     background: string;
     foreground: string;
     muted: string;
@@ -385,6 +412,14 @@ declare module "@capsule/page" {
   }
   export const Spinner: FC<SpinnerProps>;
 
+  interface TabItem {
+    key: string;
+    label: ReactNode;
+    count?: ReactNode;
+    icon?: ReactNode;
+  }
+  export const Tabs: FC<{ items: TabItem[]; activeKey: string; onSelect: (key: any) => void; style?: CSSProperties }>;
+
   interface AvatarProps {
     name: string;
     size?: number;
@@ -424,7 +459,7 @@ declare module "react" {
     key: string | null;
   }
 
-  type FC<P = {}> = (props: P) => ReactElement | null;
+  type FC<P = {}> = (props: P & { key?: string | number }) => ReactElement | null;
   type PropsWithChildren<P = {}> = P & { children?: ReactNode };
   type CSSProperties = Record<string, string | number>;
 

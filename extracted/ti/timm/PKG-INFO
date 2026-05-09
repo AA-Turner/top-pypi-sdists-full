@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: timm
-Version: 1.0.26
+Version: 1.0.27
 Summary: PyTorch Image Models
 Keywords: pytorch,image-classification
 Author-Email: Ross Wightman <ross@huggingface.co>
@@ -43,6 +43,13 @@ Description-Content-Type: text/markdown
 - [Citing](#citing)
 
 ## What's New
+## May 8, 2026
+* Release 1.0.27
+
+## April 23, 2026
+* Add Gemma4 ViT encoders w/ NaFlex pipeline support (variable aspect/size per image). Thanks [Yonghye Kwon](https://github.com/developer0hye)
+* Support DINOv3 weights in NaFlexVit. Thanks [Yonghye Kwon](https://github.com/developer0hye)
+* Some improvements to Muon fallback (AdamW/NadamW) lr behavior
 
 ## March 23, 2026
 * Improve pickle checkpoint handling security. Default all loading to `weights_only=True`, add safe_global for ArgParse.

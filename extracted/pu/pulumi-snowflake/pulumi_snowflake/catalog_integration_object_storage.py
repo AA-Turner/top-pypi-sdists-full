@@ -23,9 +23,9 @@ class CatalogIntegrationObjectStorageArgs:
     def __init__(__self__, *,
                  enabled: pulumi.Input[_builtins.bool],
                  table_format: pulumi.Input[_builtins.str],
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_interval_seconds: Optional[pulumi.Input[_builtins.int]] = None):
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_interval_seconds: pulumi.Input[Optional[_builtins.int]] = None):
         """
         The set of arguments for constructing a CatalogIntegrationObjectStorage resource.
 
@@ -70,55 +70,57 @@ class CatalogIntegrationObjectStorageArgs:
 
     @_builtins.property
     @pulumi.getter
-    def comment(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def comment(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Default: ``) Specifies a comment for the catalog integration.
         """
         return pulumi.get(self, "comment")
 
     @comment.setter
-    def comment(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def comment(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "comment", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the identifier (i.e. name) of the catalog integration; must be unique in your account.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="refreshIntervalSeconds")
-    def refresh_interval_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def refresh_interval_seconds(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         Specifies the number of seconds to wait between attempts to poll the external Iceberg catalog for metadata updates for automated refresh. For Delta-based tables, specifies the number of seconds to wait between attempts to poll your external cloud storage for new metadata.
         """
         return pulumi.get(self, "refresh_interval_seconds")
 
     @refresh_interval_seconds.setter
-    def refresh_interval_seconds(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def refresh_interval_seconds(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "refresh_interval_seconds", value)
 
 
 @pulumi.input_type
 class _CatalogIntegrationObjectStorageState:
     def __init__(__self__, *,
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 describe_outputs: Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationObjectStorageDescribeOutputArgs']]]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 fully_qualified_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_interval_seconds: Optional[pulumi.Input[_builtins.int]] = None,
-                 show_outputs: Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationObjectStorageShowOutputArgs']]]] = None,
-                 table_format: Optional[pulumi.Input[_builtins.str]] = None):
+                 catalog_source: pulumi.Input[Optional[_builtins.str]] = None,
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 describe_outputs: pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationObjectStorageDescribeOutputArgs']]]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_interval_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+                 show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationObjectStorageShowOutputArgs']]]] = None,
+                 table_format: pulumi.Input[Optional[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering CatalogIntegrationObjectStorage resources.
 
+        :param pulumi.Input[_builtins.str] catalog_source: Specifies the type of catalog source. This field is used to detect when the catalog source was changed outside of Terraform and to recreate the resource when that happens.
         :param pulumi.Input[_builtins.str] comment: (Default: ``) Specifies a comment for the catalog integration.
         :param pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationObjectStorageDescribeOutputArgs']]] describe_outputs: Outputs the result of `DESCRIBE CATALOG INTEGRATION` for the given catalog integration.
         :param pulumi.Input[_builtins.bool] enabled: Specifies whether the catalog integration is available for use for Iceberg tables. `true` allows users to create new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration function normally. `false` prevents users from creating new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration cannot access the catalog in the table definition.
@@ -128,6 +130,8 @@ class _CatalogIntegrationObjectStorageState:
         :param pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationObjectStorageShowOutputArgs']]] show_outputs: Outputs the result of `SHOW CATALOG INTEGRATIONS` for the given catalog integration.
         :param pulumi.Input[_builtins.str] table_format: Specifies the table format. Valid values are (case-insensitive): `ICEBERG` | `DELTA`.
         """
+        if catalog_source is not None:
+            pulumi.set(__self__, "catalog_source", catalog_source)
         if comment is not None:
             pulumi.set(__self__, "comment", comment)
         if describe_outputs is not None:
@@ -146,99 +150,111 @@ class _CatalogIntegrationObjectStorageState:
             pulumi.set(__self__, "table_format", table_format)
 
     @_builtins.property
+    @pulumi.getter(name="catalogSource")
+    def catalog_source(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specifies the type of catalog source. This field is used to detect when the catalog source was changed outside of Terraform and to recreate the resource when that happens.
+        """
+        return pulumi.get(self, "catalog_source")
+
+    @catalog_source.setter
+    def catalog_source(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "catalog_source", value)
+
+    @_builtins.property
     @pulumi.getter
-    def comment(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def comment(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Default: ``) Specifies a comment for the catalog integration.
         """
         return pulumi.get(self, "comment")
 
     @comment.setter
-    def comment(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def comment(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "comment", value)
 
     @_builtins.property
     @pulumi.getter(name="describeOutputs")
-    def describe_outputs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationObjectStorageDescribeOutputArgs']]]]:
+    def describe_outputs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationObjectStorageDescribeOutputArgs']]]]:
         """
         Outputs the result of `DESCRIBE CATALOG INTEGRATION` for the given catalog integration.
         """
         return pulumi.get(self, "describe_outputs")
 
     @describe_outputs.setter
-    def describe_outputs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationObjectStorageDescribeOutputArgs']]]]):
+    def describe_outputs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationObjectStorageDescribeOutputArgs']]]]):
         pulumi.set(self, "describe_outputs", value)
 
     @_builtins.property
     @pulumi.getter
-    def enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Specifies whether the catalog integration is available for use for Iceberg tables. `true` allows users to create new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration function normally. `false` prevents users from creating new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration cannot access the catalog in the table definition.
         """
         return pulumi.get(self, "enabled")
 
     @enabled.setter
-    def enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enabled", value)
 
     @_builtins.property
     @pulumi.getter(name="fullyQualifiedName")
-    def fully_qualified_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def fully_qualified_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Fully qualified name of the resource. For more information, see [object name resolution](https://docs.snowflake.com/en/sql-reference/name-resolution).
         """
         return pulumi.get(self, "fully_qualified_name")
 
     @fully_qualified_name.setter
-    def fully_qualified_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def fully_qualified_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fully_qualified_name", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the identifier (i.e. name) of the catalog integration; must be unique in your account.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="refreshIntervalSeconds")
-    def refresh_interval_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def refresh_interval_seconds(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         Specifies the number of seconds to wait between attempts to poll the external Iceberg catalog for metadata updates for automated refresh. For Delta-based tables, specifies the number of seconds to wait between attempts to poll your external cloud storage for new metadata.
         """
         return pulumi.get(self, "refresh_interval_seconds")
 
     @refresh_interval_seconds.setter
-    def refresh_interval_seconds(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def refresh_interval_seconds(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "refresh_interval_seconds", value)
 
     @_builtins.property
     @pulumi.getter(name="showOutputs")
-    def show_outputs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationObjectStorageShowOutputArgs']]]]:
+    def show_outputs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationObjectStorageShowOutputArgs']]]]:
         """
         Outputs the result of `SHOW CATALOG INTEGRATIONS` for the given catalog integration.
         """
         return pulumi.get(self, "show_outputs")
 
     @show_outputs.setter
-    def show_outputs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationObjectStorageShowOutputArgs']]]]):
+    def show_outputs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationObjectStorageShowOutputArgs']]]]):
         pulumi.set(self, "show_outputs", value)
 
     @_builtins.property
     @pulumi.getter(name="tableFormat")
-    def table_format(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def table_format(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the table format. Valid values are (case-insensitive): `ICEBERG` | `DELTA`.
         """
         return pulumi.get(self, "table_format")
 
     @table_format.setter
-    def table_format(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def table_format(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "table_format", value)
 
 
@@ -248,11 +264,11 @@ class CatalogIntegrationObjectStorage(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_interval_seconds: Optional[pulumi.Input[_builtins.int]] = None,
-                 table_format: Optional[pulumi.Input[_builtins.str]] = None,
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_interval_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+                 table_format: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
         !> **Caution: Preview Feature** This feature is considered a preview feature in the provider, regardless of the state of the resource in Snowflake. We do not guarantee its stability. It will be reworked and marked as a stable feature in future releases. Breaking changes are expected, even without bumping the major version. To use this feature, add the relevant feature name to `preview_features_enabled` field in the provider configuration. Please always refer to the Getting Help section in our Github repo to best determine how to get help for your questions.
@@ -357,11 +373,11 @@ class CatalogIntegrationObjectStorage(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_interval_seconds: Optional[pulumi.Input[_builtins.int]] = None,
-                 table_format: Optional[pulumi.Input[_builtins.str]] = None,
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_interval_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+                 table_format: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -380,6 +396,7 @@ class CatalogIntegrationObjectStorage(pulumi.CustomResource):
             if table_format is None and not opts.urn:
                 raise TypeError("Missing required property 'table_format'")
             __props__.__dict__["table_format"] = table_format
+            __props__.__dict__["catalog_source"] = None
             __props__.__dict__["describe_outputs"] = None
             __props__.__dict__["fully_qualified_name"] = None
             __props__.__dict__["show_outputs"] = None
@@ -393,14 +410,15 @@ class CatalogIntegrationObjectStorage(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            comment: Optional[pulumi.Input[_builtins.str]] = None,
-            describe_outputs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CatalogIntegrationObjectStorageDescribeOutputArgs', 'CatalogIntegrationObjectStorageDescribeOutputArgsDict']]]]] = None,
-            enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            fully_qualified_name: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            refresh_interval_seconds: Optional[pulumi.Input[_builtins.int]] = None,
-            show_outputs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CatalogIntegrationObjectStorageShowOutputArgs', 'CatalogIntegrationObjectStorageShowOutputArgsDict']]]]] = None,
-            table_format: Optional[pulumi.Input[_builtins.str]] = None) -> 'CatalogIntegrationObjectStorage':
+            catalog_source: pulumi.Input[Optional[_builtins.str]] = None,
+            comment: pulumi.Input[Optional[_builtins.str]] = None,
+            describe_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CatalogIntegrationObjectStorageDescribeOutputArgs', 'CatalogIntegrationObjectStorageDescribeOutputArgsDict']]]]] = None,
+            enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            refresh_interval_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+            show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CatalogIntegrationObjectStorageShowOutputArgs', 'CatalogIntegrationObjectStorageShowOutputArgsDict']]]]] = None,
+            table_format: pulumi.Input[Optional[_builtins.str]] = None) -> 'CatalogIntegrationObjectStorage':
         """
         Get an existing CatalogIntegrationObjectStorage resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -408,6 +426,7 @@ class CatalogIntegrationObjectStorage(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
+        :param pulumi.Input[_builtins.str] catalog_source: Specifies the type of catalog source. This field is used to detect when the catalog source was changed outside of Terraform and to recreate the resource when that happens.
         :param pulumi.Input[_builtins.str] comment: (Default: ``) Specifies a comment for the catalog integration.
         :param pulumi.Input[Sequence[pulumi.Input[Union['CatalogIntegrationObjectStorageDescribeOutputArgs', 'CatalogIntegrationObjectStorageDescribeOutputArgsDict']]]] describe_outputs: Outputs the result of `DESCRIBE CATALOG INTEGRATION` for the given catalog integration.
         :param pulumi.Input[_builtins.bool] enabled: Specifies whether the catalog integration is available for use for Iceberg tables. `true` allows users to create new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration function normally. `false` prevents users from creating new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration cannot access the catalog in the table definition.
@@ -421,6 +440,7 @@ class CatalogIntegrationObjectStorage(pulumi.CustomResource):
 
         __props__ = _CatalogIntegrationObjectStorageState.__new__(_CatalogIntegrationObjectStorageState)
 
+        __props__.__dict__["catalog_source"] = catalog_source
         __props__.__dict__["comment"] = comment
         __props__.__dict__["describe_outputs"] = describe_outputs
         __props__.__dict__["enabled"] = enabled
@@ -430,6 +450,14 @@ class CatalogIntegrationObjectStorage(pulumi.CustomResource):
         __props__.__dict__["show_outputs"] = show_outputs
         __props__.__dict__["table_format"] = table_format
         return CatalogIntegrationObjectStorage(resource_name, opts=opts, __props__=__props__)
+
+    @_builtins.property
+    @pulumi.getter(name="catalogSource")
+    def catalog_source(self) -> pulumi.Output[_builtins.str]:
+        """
+        Specifies the type of catalog source. This field is used to detect when the catalog source was changed outside of Terraform and to recreate the resource when that happens.
+        """
+        return pulumi.get(self, "catalog_source")
 
     @_builtins.property
     @pulumi.getter

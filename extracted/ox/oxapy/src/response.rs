@@ -1,26 +1,21 @@
-use futures_util::StreamExt;
-use http_body_util::combinators::BoxBody;
-use hyper::body::Frame;
-use hyper::http::HeaderValue;
-use hyper::{
-    HeaderMap,
-    body::Bytes,
-    header::{CONTENT_TYPE, HeaderName, LOCATION},
-};
-
-use futures_util::stream;
-use http_body_util::{BodyExt, Full, StreamBody};
-use hyper::header::CACHE_CONTROL;
-use pyo3::exceptions::PyTypeError;
-use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyString};
-use pyo3_stub_gen::derive::*;
-
 use std::convert::Infallible;
 use std::fs;
 use std::io::Read;
 use std::str::{self, FromStr};
 use std::sync::Arc;
+
+use futures_util::{StreamExt, stream};
+use http_body_util::{BodyExt, Full, StreamBody, combinators::BoxBody};
+use hyper::{
+    HeaderMap,
+    body::{Bytes, Frame},
+    header::{CACHE_CONTROL, CONTENT_TYPE, HeaderName, LOCATION},
+    http::HeaderValue,
+};
+use pyo3::exceptions::PyTypeError;
+use pyo3::prelude::*;
+use pyo3::types::{PyBytes, PyString};
+use pyo3_stub_gen::derive::*;
 
 use crate::{Cors, IntoPyException, ProcessRequest, Request, Status, convert_to_response, json};
 
@@ -54,7 +49,7 @@ pub enum ResponseBody {
 /// response = Response("<h1>Not Found</h1>", Status.NOT_FOUND, "text/html")
 /// `
 #[gen_stub_pyclass]
-#[pyclass(subclass)]
+#[pyclass(from_py_object, subclass)]
 #[derive(Clone)]
 pub struct Response {
     #[pyo3(get, set)]
@@ -118,7 +113,7 @@ impl Response {
     fn body(&self) -> PyResult<String> {
         match &self.body {
             ResponseBody::Bytes(b) => {
-                let s = str::from_utf8(&b).into_py_exception()?;
+                let s = str::from_utf8(b).into_py_exception()?;
                 Ok(s.to_string())
             }
             _ => {
@@ -213,7 +208,7 @@ impl Response {
 
     fn from_str(s: String, status: Status, content_type: HeaderValue) -> PyResult<Self> {
         Ok(Self {
-            body: ResponseBody::Bytes(Bytes::from(s.clone())),
+            body: ResponseBody::Bytes(Bytes::from(s)),
             status,
             headers: HeaderMap::from_iter([(CONTENT_TYPE, content_type)]),
         })

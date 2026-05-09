@@ -2,6 +2,8 @@ import base64
 import io
 import json
 import platform
+import sys
+from pathlib import Path
 from unittest.mock import ANY
 
 import harfile
@@ -35,11 +37,11 @@ def load_response_body(cassette, idx):
 
 @pytest.mark.parametrize("mode", [m.value for m in list(GenerationMode)] + ["all"])
 @pytest.mark.parametrize("args", [(), ("--report-preserve-bytes",)], ids=("plain", "base64"))
-@pytest.mark.operations("success", "upload_file")
-def test_store_cassette(cli, schema_url, cassette_path, hypothesis_max_examples, args, mode):
+def test_store_cassette(ctx, cli, cassette_path, hypothesis_max_examples, args, mode):
+    api = ctx.openapi.apps.success_and_upload_file()
     hypothesis_max_examples = hypothesis_max_examples or 2
     cli.run_and_assert(
-        schema_url,
+        api.schema_url,
         f"--report-vcr-path={cassette_path}",
         f"--max-examples={hypothesis_max_examples}",
         f"--mode={mode}",
@@ -64,7 +66,8 @@ def test_store_cassette(cli, schema_url, cassette_path, hypothesis_max_examples,
         success_idx = None
         for idx in range(len(interactions)):
             body = load_response_body(cassette, idx)
-            if '{"success": true}' in body:
+            normalized = body.replace(" ", "").replace("\n", "")
+            if '{"success":true}' in normalized:
                 success_idx = idx
                 break
         assert success_idx is not None, "Could not find /success interaction in positive mode"
@@ -98,11 +101,10 @@ def test_store_cassette(cli, schema_url, cassette_path, hypothesis_max_examples,
 
 
 @pytest.mark.parametrize("format", ["vcr", "har", "ndjson"])
-@pytest.mark.operations("slow")
-@pytest.mark.openapi_version("3.0")
-def test_store_timeout(cli, schema_url, cassette_path, format):
+def test_store_timeout(ctx, cli, cassette_path, format):
+    api = ctx.openapi.apps.slow()
     cli.run_and_assert(
-        schema_url,
+        api.schema_url,
         f"--report-{format}-path={cassette_path}",
         "--max-examples=1",
         "--request-timeout=0.001",
@@ -129,12 +131,12 @@ def test_store_timeout(cli, schema_url, cassette_path, format):
         assert events[0]["Initialize"]["seed"] == 1
 
 
-@pytest.mark.operations("flaky")
-def test_interaction_status(cli, openapi3_schema_url, hypothesis_max_examples, cassette_path):
+def test_interaction_status(ctx, cli, hypothesis_max_examples, cassette_path):
     # See GH-695
     # When an API operation has responses with SUCCESS and FAILURE statuses
+    api = ctx.openapi.apps.flaky()
     cli.run_and_assert(
-        openapi3_schema_url,
+        api.schema_url,
         f"--report-vcr-path={cassette_path}",
         f"--max-examples={hypothesis_max_examples or 5}",
         "--seed=1",
@@ -145,10 +147,10 @@ def test_interaction_status(cli, openapi3_schema_url, hypothesis_max_examples, c
     # Then their statuses should be reflected in the "status" field
     # And it should not be overridden by the overall test status
     assert cassette["http_interactions"][0]["status"] == "FAILURE"
-    assert load_response_body(cassette, 0) == "500: Internal Server Error"
+    assert "Internal Server Error" in load_response_body(cassette, 0)
 
 
-def test_bad_yaml_headers(ctx, cli, cassette_path, hypothesis_max_examples, openapi3_base_url):
+def test_bad_yaml_headers(ctx, cli, cassette_path, hypothesis_max_examples):
     # See GH-708
     # When the schema expects an input that is not ascii and represented as UTF-8
     # And is not representable in CP1251. E.g. "àààà"
@@ -175,9 +177,10 @@ def test_bad_yaml_headers(ctx, cli, cassette_path, hypothesis_max_examples, open
         },
         format="yaml",
     )
+    api = ctx.openapi.apps.success()
     result = cli.run_and_assert(
         str(schema_path),
-        f"--url={openapi3_base_url}",
+        f"--url={api.base_url}/api",
         f"--max-examples={hypothesis_max_examples or 1}",
         f"--report-vcr-path={cassette_path}",
         "--checks=not_a_server_error",
@@ -192,30 +195,31 @@ def test_bad_yaml_headers(ctx, cli, cassette_path, hypothesis_max_examples, open
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Simpler to setup on Linux")
-@pytest.mark.operations("success")
-def test_run_subprocess(testdir, cassette_path, hypothesis_max_examples, schema_url, snapshot_cli):
+def test_run_subprocess(ctx, testdir, hypothesis_max_examples, snapshot_cli):
+    api = ctx.openapi.apps.success()
+    cassette_path = Path(str(testdir.tmpdir)) / "output.yaml"
     result = testdir.run(
-        "schemathesis",
+        str(Path(sys.executable).with_name("schemathesis")),
         "run",
         f"--report-vcr-path={cassette_path}",
         f"--max-examples={hypothesis_max_examples or 2}",
-        schema_url,
+        api.schema_url,
     )
     assert result == snapshot_cli
     cassette = load_cassette(cassette_path)
     assert len(cassette["http_interactions"]) == 9
-    command = f"st run --report-vcr-path={cassette_path} --max-examples={hypothesis_max_examples or 2} {schema_url}"
+    command = f"st run --report-vcr-path={cassette_path} --max-examples={hypothesis_max_examples or 2} {api.schema_url}"
     assert cassette["command"] == command
 
 
-@pytest.mark.operations("__all__")
 @pytest.mark.parametrize("value", ["true", "false"])
 @pytest.mark.parametrize("args", [(), ("--report-preserve-bytes",)], ids=("plain", "base64"))
-def test_har_format(cli, schema_url, cassette_path, hypothesis_max_examples, args, value):
+def test_har_format(ctx, cli, cassette_path, hypothesis_max_examples, args, value):
+    api = ctx.openapi.apps.success_and_failure()
     cassette_path = cassette_path.with_suffix(".har")
     auth = "secret"
     result = cli.run_and_assert(
-        schema_url,
+        api.schema_url,
         f"--report-har-path={cassette_path}",
         f"--max-examples={hypothesis_max_examples or 1}",
         "--seed=1",
@@ -290,11 +294,11 @@ def request_args(request, tmp_path):
 
 
 @pytest.mark.parametrize("value", ["true", "false"])
-@pytest.mark.operations("headers")
-def test_output_sanitization(cli, openapi2_schema_url, hypothesis_max_examples, cassette_path, value):
+def test_output_sanitization(ctx, cli, hypothesis_max_examples, cassette_path, value):
+    api = ctx.openapi.apps.headers()
     auth = "secret-auth"
     cli.run_and_assert(
-        openapi2_schema_url,
+        api.schema_url,
         f"--report-vcr-path={cassette_path}",
         f"--max-examples={hypothesis_max_examples or 5}",
         "--seed=1",
@@ -320,16 +324,16 @@ def test_output_sanitization(cli, openapi2_schema_url, hypothesis_max_examples, 
     )
 
 
-@pytest.mark.openapi_version("3.0")
-def test_forbid_preserve_bytes_without_cassette_path(cli, schema_url, snapshot_cli):
+def test_forbid_preserve_bytes_without_cassette_path(ctx, cli, snapshot_cli):
     # When `--report-preserve-bytes` is specified without `--report-vcr-path` or `--report=vcr`
     # Then it is an error
-    assert cli.run(schema_url, "--report-preserve-bytes") == snapshot_cli
+    api = ctx.openapi.apps.success()
+    assert cli.run(api.schema_url, "--report-preserve-bytes") == snapshot_cli
 
 
 @pytest.mark.parametrize("in_config", [True, False])
-@pytest.mark.openapi_version("3.0")
-def test_report_dir(cli, schema_url, tmp_path, in_config):
+def test_report_dir(ctx, cli, tmp_path, in_config):
+    api = ctx.openapi.apps.success()
     # When report directory is specified with a report format
     report_dir = tmp_path / "reports"
     args = [
@@ -340,7 +344,7 @@ def test_report_dir(cli, schema_url, tmp_path, in_config):
         kwargs["config"] = {"reports": {"junit": {"enabled": True}, "directory": str(report_dir)}}
     else:
         args = ["--report=junit", f"--report-dir={report_dir}", *args]
-    cli.run(schema_url, *args, **kwargs)
+    cli.run(api.schema_url, *args, **kwargs)
     # And the report should be created in the specified directory
     assert report_dir.exists()
     assert list(report_dir.glob("*.xml"))
@@ -361,7 +365,7 @@ def test_report_dir(cli, schema_url, tmp_path, in_config):
         }
     else:
         args = [f"--report-dir={report_dir}", "--report=vcr,har,ndjson", *args]
-    cli.run(schema_url, *args, **kwargs)
+    cli.run(api.schema_url, *args, **kwargs)
     # Then all reports should be created in the specified directory
     assert list(report_dir.glob("*.yaml"))
     assert list(report_dir.glob("*.json"))

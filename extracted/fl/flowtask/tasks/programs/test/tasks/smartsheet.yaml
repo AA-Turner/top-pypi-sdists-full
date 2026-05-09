@@ -1,9 +1,0 @@
-name: Test Smartsheet
-description: Test Smartsheet
-steps:
-- DownloadFromSmartSheet:
-      file_id: 8504624500658052
-      file_format: application/vnd.ms-excel
-      destination:
-        filename: "Vendor Packet Tracking.xlsx"
-        directory: /home/ubuntu/symbits/assurant/files/

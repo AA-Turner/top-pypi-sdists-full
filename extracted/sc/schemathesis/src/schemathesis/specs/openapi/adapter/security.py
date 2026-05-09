@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from schemathesis.config import ApiKeyAuthConfig, DynamicTokenAuthConfig, HttpBasicAuthConfig, HttpBearerAuthConfig
 from schemathesis.config._error import ConfigError
+from schemathesis.core.jsonschema.resolver import Resolver, resolve_reference
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation.meta import CoveragePhaseData, FuzzingPhaseData, StatefulPhaseData
 from schemathesis.specs.openapi.auths import (
@@ -17,8 +18,8 @@ from schemathesis.specs.openapi.auths import (
 
 if TYPE_CHECKING:
     from schemathesis.auths import AuthContext, AuthProvider
-    from schemathesis.core.compat import RefResolver
     from schemathesis.generation.case import Case
+    from schemathesis.schemas import APIOperation
     from schemathesis.specs.openapi.adapter.protocol import SpecificationAdapter
 
 ORIGINAL_SECURITY_TYPE_KEY = "x-original-security-type"
@@ -52,13 +53,13 @@ class OpenApiSecurity:
 
     raw_schema: Mapping[str, Any]
     adapter: SpecificationAdapter
-    resolver: RefResolver
+    resolver: Resolver
     _auth_provider_cache: dict[str, AuthProvider]
     _resolved_definitions: Mapping[str, Mapping[str, Any]] | None
 
     __slots__ = ("raw_schema", "adapter", "resolver", "_auth_provider_cache", "_resolved_definitions")
 
-    def __init__(self, raw_schema: Mapping[str, Any], adapter: SpecificationAdapter, resolver: RefResolver) -> None:
+    def __init__(self, raw_schema: Mapping[str, Any], adapter: SpecificationAdapter, resolver: Resolver) -> None:
         self.raw_schema = raw_schema
         self.adapter = adapter
         self.resolver = resolver
@@ -120,11 +121,9 @@ class OpenApiSecurity:
                             # Don't re-apply auth that was intentionally removed for testing
                             return False
 
-        # Get security requirements for this operation
-        operation_definition = case.operation.definition.raw
-
-        # Security requirements: OR semantics (first match wins), AND semantics (all in requirement)
-        security_requirements = operation_definition.get("security", self.raw_schema.get("security", []))
+        # Security requirements: OR semantics (first match wins), AND semantics (all in requirement).
+        # Auth-inference may attach a runtime overlay; that takes precedence over the raw spec.
+        security_requirements = effective_security_requirements(case.operation, self.raw_schema)
 
         if not security_requirements:
             return False
@@ -173,7 +172,7 @@ class OpenApiSecurityParameters:
         cls,
         schema: Mapping[str, Any],
         operation: Mapping[str, Any],
-        resolver: RefResolver,
+        resolver: Resolver,
         adapter: SpecificationAdapter,
     ) -> OpenApiSecurityParameters:
         return cls(list(adapter.extract_security_parameters(schema, operation, resolver)))
@@ -183,7 +182,7 @@ class OpenApiSecurityParameters:
 
 
 def extract_security_parameters_v2(
-    schema: Mapping[str, Any], operation: Mapping[str, Any], resolver: RefResolver
+    schema: Mapping[str, Any], operation: Mapping[str, Any], resolver: Resolver
 ) -> Iterator[Mapping[str, Any]]:
     """Extract all required security parameters for this operation."""
     defined = extract_security_definitions_v2(schema, resolver)
@@ -215,7 +214,7 @@ def extract_security_parameters_v2(
 def extract_security_parameters_v3(
     schema: Mapping[str, Any],
     operation: Mapping[str, Any],
-    resolver: RefResolver,
+    resolver: Resolver,
 ) -> Iterator[Mapping[str, Any]]:
     """Extract all required security parameters for this operation."""
     defined = extract_security_definitions_v3(schema, resolver)
@@ -269,29 +268,45 @@ def has_optional_auth(schema: Mapping[str, Any], operation: Mapping[str, Any]) -
     return {} in operation.get("security", schema.get("security", []))
 
 
-def extract_security_definitions_v2(schema: Mapping[str, Any], resolver: RefResolver) -> Mapping[str, Any]:
+def effective_security_requirements(
+    operation: APIOperation, raw_schema: Mapping[str, Any]
+) -> list[Mapping[str, list[str]]]:
+    """Return the operation's security requirements, including any runtime auth-inference overlay."""
+    overlay = operation.schema._inferred_security.get(operation.label)
+    if overlay is not None:
+        return list(overlay)
+    return operation.definition.raw.get("security", raw_schema.get("security", []))
+
+
+def get_effective_security_scheme_names(operation: APIOperation, raw_schema: Mapping[str, Any]) -> list[str]:
+    """Return the scheme names that govern an operation, including auth-inference overlays."""
+    return [
+        key
+        for requirement in effective_security_requirements(operation, raw_schema)
+        if isinstance(requirement, dict)
+        for key in requirement
+    ]
+
+
+def has_effective_optional_auth(operation: APIOperation, raw_schema: Mapping[str, Any]) -> bool:
+    """Return True iff an empty `{}` requirement appears in the effective security list."""
+    return {} in effective_security_requirements(operation, raw_schema)
+
+
+def extract_security_definitions_v2(schema: Mapping[str, Any], resolver: Resolver) -> Mapping[str, Any]:
     return schema.get("securityDefinitions", {})
 
 
-def extract_security_definitions_v3(schema: Mapping[str, Any], resolver: RefResolver) -> Mapping[str, Any]:
+def extract_security_definitions_v3(schema: Mapping[str, Any], resolver: Resolver) -> Mapping[str, Any]:
     """In Open API 3 security definitions are located in ``components`` and may have references inside."""
     components = schema.get("components", {})
     security_schemes = components.get("securitySchemes", {})
-    # At this point, the resolution scope could differ from the root scope, that's why we need to restore it
-    # as now we resolve root-level references
-    if len(resolver._scopes_stack) > 1:
-        scope = resolver.resolution_scope
-        resolver.pop_scope()
-    else:
-        scope = None
-    resolve = resolver.resolve
-    try:
-        if "$ref" in security_schemes:
-            return resolve(security_schemes["$ref"])[1]
-        return {key: resolve(value["$ref"])[1] if "$ref" in value else value for key, value in security_schemes.items()}
-    finally:
-        if scope is not None:
-            resolver._scopes_stack.append(scope)
+    if "$ref" in security_schemes:
+        return resolve_reference(resolver, security_schemes["$ref"])[1]
+    return {
+        key: resolve_reference(resolver, value["$ref"])[1] if "$ref" in value else value
+        for key, value in security_schemes.items()
+    }
 
 
 def build_auth_provider(

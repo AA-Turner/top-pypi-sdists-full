@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +47,10 @@ def tfds_path(*relative_path: epath.PathLike) -> epath.Path:
   Returns:
     path: The root TFDS path.
   """
-  return root_tfds_path().joinpath(*relative_path)
+  path = root_tfds_path()
+  for pkg_name in relative_path:
+    path = path.joinpath(pkg_name)
+  return path
 
 
 def tfds_write_path(*relative_path: epath.PathLike) -> epath.Path:

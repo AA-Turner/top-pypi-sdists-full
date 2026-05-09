@@ -70,13 +70,13 @@ from mycli.main_modes.checkup import main_checkup
 from mycli.main_modes.execute import main_execute_from_cli
 from mycli.main_modes.list_dsn import main_list_dsn
 from mycli.main_modes.list_ssh_config import main_list_ssh_config
-from mycli.main_modes.repl import get_prompt, main_repl, set_all_external_titles
+from mycli.main_modes.repl import main_repl, render_prompt_string, set_all_external_titles
 from mycli.packages import special
 from mycli.packages.cli_utils import filtered_sys_argv, is_valid_connection_scheme
 from mycli.packages.filepaths import dir_path_exists, guess_socket_location
 from mycli.packages.interactive_utils import confirm_destructive_query
 from mycli.packages.special.favoritequeries import FavoriteQueries
-from mycli.packages.special.main import ArgType
+from mycli.packages.special.main import ArgType, SpecialCommandAlias
 from mycli.packages.sqlresult import SQLResult
 from mycli.packages.ssh_utils import read_ssh_config
 from mycli.packages.tabular_output import sql_format
@@ -268,8 +268,8 @@ class MyCli:
         self.min_completion_trigger = c["main"].as_int("min_completion_trigger")
         # a hack, pending a better way to handle settings and state
         repl_package.MIN_COMPLETION_TRIGGER = self.min_completion_trigger
-        self.last_prompt_message = ANSI('')
-        self.last_custom_toolbar_message = ANSI('')
+        self.last_prompt_message = to_formatted_text('')
+        self.last_custom_toolbar_message = to_formatted_text('')
 
         # Register custom special commands.
         self.register_special_commands()
@@ -312,39 +312,59 @@ class MyCli:
             self.sqlexecute.close()
 
     def register_special_commands(self) -> None:
-        special.register_special_command(self.change_db, "use", "use <database>", "Change to a new database.", aliases=["\\u"])
+        special.register_special_command(
+            self.change_db,
+            "use",
+            "use <database>",
+            "Change to a new database.",
+            aliases=[SpecialCommandAlias("\\u", case_sensitive=False)],
+        )
         special.register_special_command(
             self.manual_reconnect,
             "connect",
             "connect [database]",
             "Reconnect to the server, optionally switching databases.",
-            aliases=["\\r"],
             case_sensitive=True,
+            aliases=[SpecialCommandAlias("\\r", case_sensitive=True)],
         )
         special.register_special_command(
-            self.refresh_completions, "rehash", "rehash", "Refresh auto-completions.", arg_type=ArgType.NO_QUERY, aliases=["\\#"]
+            self.refresh_completions,
+            "rehash",
+            "rehash",
+            "Refresh auto-completions.",
+            arg_type=ArgType.NO_QUERY,
+            aliases=[SpecialCommandAlias("\\#", case_sensitive=False)],
         )
         special.register_special_command(
             self.change_table_format,
             "tableformat",
             "tableformat <format>",
             "Change the table format used to output interactive results.",
-            aliases=["\\T"],
             case_sensitive=True,
+            aliases=[SpecialCommandAlias("\\T", case_sensitive=True)],
         )
         special.register_special_command(
             self.change_redirect_format,
             "redirectformat",
             "redirectformat <format>",
             "Change the table format used to output redirected results.",
-            aliases=["\\Tr"],
             case_sensitive=True,
+            aliases=[SpecialCommandAlias("\\Tr", case_sensitive=True)],
         )
         special.register_special_command(
-            self.execute_from_file, "source", "source <filename>", "Execute queries from a file.", aliases=["\\."]
+            self.execute_from_file,
+            "source",
+            "source <filename>",
+            "Execute queries from a file.",
+            aliases=[SpecialCommandAlias("\\.", case_sensitive=False)],
         )
         special.register_special_command(
-            self.change_prompt_format, "prompt", "prompt <string>", "Change prompt format.", aliases=["\\R"], case_sensitive=True
+            self.change_prompt_format,
+            "prompt",
+            "prompt <string>",
+            "Change prompt format.",
+            case_sensitive=True,
+            aliases=[SpecialCommandAlias("\\R", case_sensitive=True)],
         )
 
     def manual_reconnect(self, arg: str = "", **_) -> Generator[SQLResult, None, None]:
@@ -907,8 +927,9 @@ class MyCli:
                 render_counter = self.prompt_session.app.render_counter
             else:
                 render_counter = 0
-            # todo: this jump back to get_prompt() in repl.py is a sign that separation is incomplete
-            self.prompt_lines = get_prompt(self, self.prompt_format, render_counter).count('\n') + 1
+            # todo: this jump back to render_prompt_string() in repl.py is a sign that separation is incomplete
+            prompt_string = render_prompt_string(self, self.prompt_format, render_counter)
+            self.prompt_lines = to_plain_text(prompt_string).count('\n') + 1
         margin = self.get_reserved_space() + self.prompt_lines
         if special.is_timing_enabled():
             margin += 1

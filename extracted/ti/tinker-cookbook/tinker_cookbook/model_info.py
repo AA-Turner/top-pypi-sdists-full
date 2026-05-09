@@ -26,7 +26,9 @@ _DEEPSEEKV3 = ("deepseekv3", "deepseekv3_thinking")
 _GPT_OSS = ("gpt_oss_no_sysprompt", "gpt_oss_medium_reasoning")
 _KIMI_K2 = ("kimi_k2",)
 _KIMI_K25 = ("kimi_k25", "kimi_k25_disable_thinking")
+_KIMI_K26 = ("kimi_k26", "kimi_k26_disable_thinking", "kimi_k26_preserve_thinking")
 _NEMOTRON3 = ("nemotron3", "nemotron3_disable_thinking")
+_NEMOTRON3_SUPER = _NEMOTRON3 + ("nemotron3_low_thinking",)
 
 
 @dataclass
@@ -110,6 +112,11 @@ def get_qwen_info() -> dict[str, ModelAttributes]:
         "Qwen3.5-27B": ModelAttributes(org, "3.5", "27B", True, _QWEN3_5, is_vl=True),
         "Qwen3.5-35B-A3B": ModelAttributes(org, "3.5", "35B-A3B", True, _QWEN3_5, is_vl=True),
         "Qwen3.5-397B-A17B": ModelAttributes(org, "3.5", "397B-A17B", True, _QWEN3_5, is_vl=True),
+        # Qwen3.6 reuses the Qwen3.5 renderer: identical tokenizer, special tokens,
+        # preprocessor, and chat template (same qwen3_5 / qwen3_5_moe model_type),
+        # so renderer/merge/export code paths are shared.
+        "Qwen3.6-27B": ModelAttributes(org, "3.6", "27B", True, _QWEN3_5, is_vl=True),
+        "Qwen3.6-35B-A3B": ModelAttributes(org, "3.6", "35B-A3B", True, _QWEN3_5, is_vl=True),
     }
 
 
@@ -155,6 +162,7 @@ def get_moonshot_info() -> dict[str, ModelAttributes]:
     return {
         "Kimi-K2-Thinking": ModelAttributes(org, "K2", "1T-A32B", True, _KIMI_K2),
         "Kimi-K2.5": ModelAttributes(org, "K2.5", "1T-A32B", True, _KIMI_K25, is_vl=True),
+        "Kimi-K2.6": ModelAttributes(org, "K2.6", "1T-A32B", True, _KIMI_K26, is_vl=True),
     }
 
 
@@ -172,7 +180,7 @@ def get_nvidia_info() -> dict[str, ModelAttributes]:
             org, "3", "30B-A3B", True, _NEMOTRON3
         ),
         "NVIDIA-Nemotron-3-Super-120B-A12B-BF16": ModelAttributes(
-            org, "3", "120B-A12B", True, _NEMOTRON3
+            org, "3", "120B-A12B", True, _NEMOTRON3_SUPER
         ),
     }
 

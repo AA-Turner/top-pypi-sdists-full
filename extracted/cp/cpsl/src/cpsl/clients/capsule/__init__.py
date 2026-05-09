@@ -122,6 +122,8 @@ class InboundMessage(betterproto.Message):
     attachments: List["ChatAttachment"] = betterproto.message_field(9)
     chat_name: str = betterproto.string_field(10)
     initial_data_json: str = betterproto.string_field(11)
+    action_name: str = betterproto.string_field(12)
+    action_payload_json: str = betterproto.string_field(13)
 
 
 @dataclass(eq=False, repr=False)
@@ -539,6 +541,17 @@ class WaitForApprovalRequest(betterproto.Message):
 class WaitForApprovalResponse(betterproto.Message):
     timed_out: bool = betterproto.bool_field(1)
     approved: bool = betterproto.bool_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class CompleteOnboardingRequest(betterproto.Message):
+    session_id: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class CompleteOnboardingResponse(betterproto.Message):
+    completed: bool = betterproto.bool_field(1)
+    completed_at: str = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -1444,6 +1457,15 @@ class SessionServiceStub(SyncServiceStub):
             WaitForApprovalRequest,
             WaitForApprovalResponse,
         )(wait_for_approval_request)
+
+    def complete_onboarding(
+        self, complete_onboarding_request: "CompleteOnboardingRequest"
+    ) -> "CompleteOnboardingResponse":
+        return self._unary_unary(
+            "/capsule.SessionService/CompleteOnboarding",
+            CompleteOnboardingRequest,
+            CompleteOnboardingResponse,
+        )(complete_onboarding_request)
 
 
 class SecretServiceStub(SyncServiceStub):

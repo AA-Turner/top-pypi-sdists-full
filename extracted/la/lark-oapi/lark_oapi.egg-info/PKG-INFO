@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lark-oapi
-Version: 1.6.1
+Version: 1.6.2
 Summary: Lark OpenAPI SDK for Python
 Home-page: https://github.com/larksuite/oapi-sdk-python
 Author: Wenbo Mao
@@ -25,7 +25,7 @@ License-File: LICENSE
 Requires-Dist: requests>=2.25
 Requires-Dist: requests_toolbelt>=0.9
 Requires-Dist: pycryptodome>=3.9
-Requires-Dist: websockets<14,>=11
+Requires-Dist: websockets<16,>=11
 Requires-Dist: httpx<1.0,>=0.24
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp>=3.8; extra == "aiohttp"

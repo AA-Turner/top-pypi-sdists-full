@@ -30,20 +30,28 @@ def render_spark_step_call(step: TransformationStep) -> str:
 
 
 def _impute_null(col, p):
+    # Guard against recommendations that target a column not in this stage's
+    # input — same rationale as the per-column transforms below.
     value = p.get("value", 0)
     if isinstance(value, str):
-        return f'df.fillna("{value}", subset=["{col}"])'
-    return f'df.fillna({value}, subset=["{col}"])'
+        return f'(df.fillna("{value}", subset=["{col}"]) if "{col}" in df.columns else df)'
+    return f'(df.fillna({value}, subset=["{col}"]) if "{col}" in df.columns else df)'
 
 
 def _cap_outlier(col, p):
     lower = p.get("lower", 0)
     upper = p.get("upper", 1000000)
+    # Recommendations registered against exploration's silver-merged frame can
+    # target columns that don't exist in this stage's input (e.g. silver-derived
+    # `days_since_*`/`days_until_*` recency features mistakenly attributed to
+    # bronze). Guard the withColumn so the rec degrades to a no-op at runtime
+    # instead of failing the stage with UNRESOLVED_COLUMN.
     return (
-        f'df.withColumn("{col}", '
+        f'(df.withColumn("{col}", '
         f'F.when(F.col("{col}") < {lower}, {lower})'
         f'.when(F.col("{col}") > {upper}, {upper})'
-        f'.otherwise(F.col("{col}")))'
+        f'.otherwise(F.col("{col}"))) '
+        f'if "{col}" in df.columns else df)'
     )
 
 
@@ -54,20 +62,28 @@ def _drop_column(col, _p):
 def _winsorize(col, p):
     lower = p.get("lower_bound", 0)
     upper = p.get("upper_bound", 1000000)
+    # See `_cap_outlier` — same column-existence guard.
     return (
-        f'df.withColumn("{col}", '
+        f'(df.withColumn("{col}", '
         f'F.when(F.col("{col}") < {lower}, {lower})'
         f'.when(F.col("{col}") > {upper}, {upper})'
-        f'.otherwise(F.col("{col}")))'
+        f'.otherwise(F.col("{col}"))) '
+        f'if "{col}" in df.columns else df)'
     )
 
 
 def _log_transform(col, _p):
-    return f'df.withColumn("{col}", F.log1p(F.col("{col}")))'
+    return (
+        f'(df.withColumn("{col}", F.log1p(F.col("{col}"))) '
+        f'if "{col}" in df.columns else df)'
+    )
 
 
 def _sqrt_transform(col, _p):
-    return f'df.withColumn("{col}", F.sqrt(F.abs(F.col("{col}"))))'
+    return (
+        f'(df.withColumn("{col}", F.sqrt(F.abs(F.col("{col}")))) '
+        f'if "{col}" in df.columns else df)'
+    )
 
 
 def _encode_one_hot(col, _p):
@@ -86,8 +102,9 @@ def _derived_ratio(col, p):
     num = p.get("numerator", "")
     den = p.get("denominator", "")
     return (
-        f'df.withColumn("{col}", '
-        f'F.col("{num}") / F.when(F.col("{den}") != 0, F.col("{den}")).otherwise(F.lit(None)))'
+        f'(df.withColumn("{col}", '
+        f'F.col("{num}") / F.when(F.col("{den}") != 0, F.col("{den}")).otherwise(F.lit(None))) '
+        f'if all(c in df.columns for c in ["{num}", "{den}"]) else df)'
     )
 
 
@@ -95,7 +112,10 @@ def _derived_interaction(col, p):
     features = p.get("features", [])
     col_a = features[0] if len(features) > 0 else p.get("col_a", "")
     col_b = features[1] if len(features) > 1 else p.get("col_b", "")
-    return f'df.withColumn("{col}", F.col("{col_a}") * F.col("{col_b}"))'
+    return (
+        f'(df.withColumn("{col}", F.col("{col_a}") * F.col("{col_b}")) '
+        f'if all(c in df.columns for c in ["{col_a}", "{col_b}"]) else df)'
+    )
 
 
 def _derived_composite(col, p):
@@ -103,33 +123,47 @@ def _derived_composite(col, p):
     if not columns:
         raise ValueError(f"Composite derived column '{col}' requires non-empty 'columns' parameter")
     expr_parts = " + ".join(f'F.col("{c}")' for c in columns)
-    return f'df.withColumn("{col}", ({expr_parts}) / {len(columns)})'
+    cols_repr = "[" + ", ".join(f'"{c}"' for c in columns) + "]"
+    return (
+        f'(df.withColumn("{col}", ({expr_parts}) / {len(columns)}) '
+        f'if all(c in df.columns for c in {cols_repr}) else df)'
+    )
 
 
 def _segment_aware_cap(col, p):
     n_segments = p.get("n_segments", 2)
-    return f'_segment_aware_cap(df, "{col}", n_segments={n_segments})'
+    return (
+        f'(_segment_aware_cap(df, "{col}", n_segments={n_segments}) '
+        f'if "{col}" in df.columns else df)'
+    )
 
 
 def _zero_inflation_handling(col, _p):
     return (
-        f'df.withColumn("{col}_is_zero", F.when(F.col("{col}") == 0, 1).otherwise(0))'
-        f'.withColumn("{col}_log", F.when(F.col("{col}") > 0, F.log1p(F.col("{col}"))).otherwise(0))'
+        f'(df.withColumn("{col}_is_zero", F.when(F.col("{col}") == 0, 1).otherwise(0))'
+        f'.withColumn("{col}_log", F.when(F.col("{col}") > 0, F.log1p(F.col("{col}"))).otherwise(0)) '
+        f'if "{col}" in df.columns else df)'
     )
 
 
 def _cap_then_log(col, _p):
-    return f'_cap_then_log(df, "{col}")'
+    return f'(_cap_then_log(df, "{col}") if "{col}" in df.columns else df)'
 
 
 def _type_cast(col, p):
     dtype = p.get("dtype", "double")
     spark_type = {"float": "double", "int": "int", "string": "string"}.get(dtype, dtype)
-    return f'df.withColumn("{col}", F.col("{col}").cast("{spark_type}"))'
+    return (
+        f'(df.withColumn("{col}", F.col("{col}").cast("{spark_type}")) '
+        f'if "{col}" in df.columns else df)'
+    )
 
 
 def _yeo_johnson(col, _p):
-    return f'df.withColumn("{col}", F.log1p(F.abs(F.col("{col}"))))'
+    return (
+        f'(df.withColumn("{col}", F.log1p(F.abs(F.col("{col}")))) '
+        f'if "{col}" in df.columns else df)'
+    )
 
 
 def _dispatch_encode(col, p):
@@ -149,15 +183,17 @@ def _dispatch_scale(col, p):
 def _filter_step(col, p):
     condition = p.get("condition", "non_negative")
     if condition == "non_negative":
-        return f'df.filter(F.col("{col}") >= 0)'
-    if condition == "range":
+        expr = f'df.filter(F.col("{col}") >= 0)'
+    elif condition == "range":
         min_val = p.get("min_value", 0)
         max_val = p.get("max_value", 1000000)
-        return f'df.filter(F.col("{col}").between({min_val}, {max_val}))'
-    if condition == "valid_values":
+        expr = f'df.filter(F.col("{col}").between({min_val}, {max_val}))'
+    elif condition == "valid_values":
         valid = p.get("valid_values", [])
-        return f'df.filter(F.col("{col}").isin({valid}))'
-    return f'df.filter(F.col("{col}").isNotNull())'
+        expr = f'df.filter(F.col("{col}").isin({valid}))'
+    else:
+        expr = f'df.filter(F.col("{col}").isNotNull())'
+    return f'({expr} if "{col}" in df.columns else df)'
 
 
 def _resolve_derived_sources(p, col, *, prefix=None, suffix=None, infix=None):
@@ -193,11 +229,15 @@ def _derived_recency(col, p):
     if not sources:
         return f'df  # silver_derived recency {col!r}: source unresolvable'
     src = sources[0]
+    # `try_to_date` returns NULL on non-date inputs (e.g. a `cohort_quarter`
+    # int cast to STRING). With strict `to_date`, such recs would crash the
+    # stage with CAST_INVALID_INPUT at write time.
     return (
-        f'df.withColumn("{col}", '
+        f'(df.withColumn("{col}", '
         f'F.when(F.col("{src}").isNotNull() & F.col("as_of_date").isNotNull(), '
-        f'F.datediff(F.col("as_of_date"), F.to_date(F.col("{src}"))).cast("double"))'
-        f'.otherwise(F.lit(None)))'
+        f'F.datediff(F.col("as_of_date"), F.try_to_date(F.col("{src}"))).cast("double"))'
+        f'.otherwise(F.lit(None))) '
+        f'if "{src}" in df.columns else df)'
     )
 
 
@@ -206,11 +246,13 @@ def _derived_duration(col, p):
     if len(sources) < 2:
         return f'df  # silver_derived duration {col!r}: source unresolvable'
     a, b = sources[0], sources[1]
+    # `try_to_date` for both endpoints — see `_derived_recency`.
     return (
-        f'df.withColumn("{col}", '
+        f'(df.withColumn("{col}", '
         f'F.when(F.col("{a}").isNotNull() & F.col("{b}").isNotNull(), '
-        f'F.datediff(F.to_date(F.col("{b}")), F.to_date(F.col("{a}"))).cast("double"))'
-        f'.otherwise(F.lit(None)))'
+        f'F.datediff(F.try_to_date(F.col("{b}")), F.try_to_date(F.col("{a}"))).cast("double"))'
+        f'.otherwise(F.lit(None))) '
+        f'if all(c in df.columns for c in ["{a}", "{b}"]) else df)'
     )
 
 
@@ -228,13 +270,16 @@ def _derived_cyclical(col, p):
     if not sources:
         return f'df  # silver_derived cyclical {col!r}: source unresolvable'
     src = sources[0]
+    # `try_to_date` so a non-date STRING (e.g. cohort_quarter cast to "1")
+    # yields NULL month -> NULL cyclical, instead of crashing the stage.
     return (
-        f'df.withColumn("{src}_month_sin", '
+        f'(df.withColumn("{src}_month_sin", '
         f'F.when(F.col("{src}").isNotNull(), '
-        f'F.sin(2 * 3.141592653589793 * F.month(F.col("{src}")) / 12)).otherwise(F.lit(None)))'
+        f'F.sin(2 * 3.141592653589793 * F.month(F.try_to_date(F.col("{src}"))) / 12)).otherwise(F.lit(None)))'
         f'.withColumn("{src}_month_cos", '
         f'F.when(F.col("{src}").isNotNull(), '
-        f'F.cos(2 * 3.141592653589793 * F.month(F.col("{src}")) / 12)).otherwise(F.lit(None)))'
+        f'F.cos(2 * 3.141592653589793 * F.month(F.try_to_date(F.col("{src}"))) / 12)).otherwise(F.lit(None))) '
+        f'if "{src}" in df.columns else df)'
     )
 
 
@@ -243,11 +288,13 @@ def _derived_tenure(col, p):
     if not sources:
         return f'df  # silver_derived tenure {col!r}: source unresolvable'
     src = sources[0]
+    # `try_to_date` — see `_derived_recency`.
     return (
-        f'df.withColumn("{col}", '
+        f'(df.withColumn("{col}", '
         f'F.when(F.col("{src}").isNotNull() & F.col("as_of_date").isNotNull(), '
-        f'(F.datediff(F.col("as_of_date"), F.to_date(F.col("{src}"))) / 365.25).cast("double"))'
-        f'.otherwise(F.lit(None)))'
+        f'(F.datediff(F.col("as_of_date"), F.try_to_date(F.col("{src}"))) / 365.25).cast("double"))'
+        f'.otherwise(F.lit(None))) '
+        f'if "{src}" in df.columns else df)'
     )
 
 
@@ -262,12 +309,16 @@ def _derived_extraction(col, p):
     if not sources:
         return f'df  # silver_derived extraction {col!r}: source unresolvable'
     src = sources[0]
+    # Three-way fall-through: passthrough if `{col}` is already present
+    # (landing emitted it), derive from `{src}` when present, otherwise no-op
+    # so a missing source from a phantom rec doesn't crash the stage.
     return (
-        f'df if "{col}" in df.columns else '
-        f'df.withColumn("{col}", '
+        f'(df if "{col}" in df.columns else '
+        f'(df.withColumn("{col}", '
         f'F.when(F.col("{src}").isNotNull(), '
-        f'F.when(F.dayofweek(F.to_date(F.col("{src}"))).isin(1, 7), 1.0).otherwise(0.0))'
-        f'.otherwise(F.lit(None)))'
+        f'F.when(F.dayofweek(F.try_to_date(F.col("{src}"))).isin(1, 7), 1.0).otherwise(0.0))'
+        f'.otherwise(F.lit(None))) '
+        f'if "{src}" in df.columns else df))'
     )
 
 
@@ -696,15 +747,30 @@ def run_bronze():
     df.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(output_table)
     return df
 
-result = run_bronze()
-_summary = f"{result.count():,} rows, {len(result.columns)} columns"
-# Narrow-projection display (see silver template for full rationale): rendering
-# wide DataFrames through Databricks' display widget serialises the entire
-# logical plan to protobuf, which trips Catalyst attribute-id resolution at
-# wide schemas. Project to entity/key cols + row-limit; the table is already
-# committed to Delta above.
-_disp = [c for c in ("entity_id", "ACCOUNT_ID", "as_of_date") if c in result.columns] or list(result.columns[:10])
-display(result.select(*_disp).limit(20))
+import json as _bronze_json
+import traceback as _bronze_tb
+try:
+    result = run_bronze()
+    _summary = f"{result.count():,} rows, {len(result.columns)} columns"
+    # Narrow-projection display (see silver template for full rationale): rendering
+    # wide DataFrames through Databricks' display widget serialises the entire
+    # logical plan to protobuf, which trips Catalyst attribute-id resolution at
+    # wide schemas. Project to entity/key cols + row-limit; the table is already
+    # committed to Delta above.
+    _disp = [c for c in ("entity_id", "ACCOUNT_ID", "as_of_date") if c in result.columns] or list(result.columns[:10])
+    display(result.select(*_disp).limit(20))
+except Exception as _bronze_exc:
+    print("=" * 70, flush=True)
+    print(f"[bronze] FATAL: {type(_bronze_exc).__name__}: {_bronze_exc}", flush=True)
+    print("=" * 70, flush=True)
+    print(_bronze_tb.format_exc(), flush=True)
+    dbutils.notebook.exit(_bronze_json.dumps({
+        "status": "FAILED",
+        "stage": "bronze",
+        "error_type": type(_bronze_exc).__name__,
+        "error_message": str(_bronze_exc)[:2000],
+    }))
+    raise
 dbutils.notebook.exit(_summary)
 """,
     "databricks_bronze_event.py.j2": """# Databricks notebook source
@@ -1169,11 +1235,26 @@ def run_bronze_event():
     return df
 {%- endif %}
 
-result = run_bronze_event()
-_summary = f"{result.count():,} rows, {len(result.columns)} columns"
-# Narrow-projection display (see silver template for full rationale).
-_disp = [c for c in ("entity_id", "ACCOUNT_ID", "as_of_date", "feature_timestamp") if c in result.columns] or list(result.columns[:10])
-display(result.select(*_disp).limit(20))
+import json as _bronze_json
+import traceback as _bronze_tb
+try:
+    result = run_bronze_event()
+    _summary = f"{result.count():,} rows, {len(result.columns)} columns"
+    # Narrow-projection display (see silver template for full rationale).
+    _disp = [c for c in ("entity_id", "ACCOUNT_ID", "as_of_date", "feature_timestamp") if c in result.columns] or list(result.columns[:10])
+    display(result.select(*_disp).limit(20))
+except Exception as _bronze_exc:
+    print("=" * 70, flush=True)
+    print(f"[bronze_event] FATAL: {type(_bronze_exc).__name__}: {_bronze_exc}", flush=True)
+    print("=" * 70, flush=True)
+    print(_bronze_tb.format_exc(), flush=True)
+    dbutils.notebook.exit(_bronze_json.dumps({
+        "status": "FAILED",
+        "stage": "bronze_event",
+        "error_type": type(_bronze_exc).__name__,
+        "error_message": str(_bronze_exc)[:2000],
+    }))
+    raise
 dbutils.notebook.exit(_summary)
 """,
     "databricks_bronze_entity.py.j2": """# Databricks notebook source
@@ -1199,6 +1280,10 @@ def load_aggregated():
 {% set post_groups = group_steps(config.post_shaping) %}
 {% if config.post_shaping %}
 def apply_post_shaping(df):
+    # Each per-column group is shallow on its own. A `localCheckpoint`
+    # between groups is unreliable on Spark Connect so we don't add one
+    # here; bronze typically stays well under the column count where
+    # the wide-schema attribute-resolver bug surfaces.
 {%- for func_name, steps in post_groups %}
     df = {{ func_name }}(df)
 {%- endfor %}
@@ -1423,11 +1508,26 @@ def run_bronze_entity():
         DeltaTable.forName(spark, output_table).optimize().executeCompaction()
     return df
 
-result = run_bronze_entity()
-_summary = f"{result.count():,} rows, {len(result.columns)} columns"
-# Narrow-projection display (see silver template for full rationale).
-_disp = [c for c in ("entity_id", "ACCOUNT_ID", "as_of_date") if c in result.columns] or list(result.columns[:10])
-display(result.select(*_disp).limit(20))
+import json as _bronze_json
+import traceback as _bronze_tb
+try:
+    result = run_bronze_entity()
+    _summary = f"{result.count():,} rows, {len(result.columns)} columns"
+    # Narrow-projection display (see silver template for full rationale).
+    _disp = [c for c in ("entity_id", "ACCOUNT_ID", "as_of_date") if c in result.columns] or list(result.columns[:10])
+    display(result.select(*_disp).limit(20))
+except Exception as _bronze_exc:
+    print("=" * 70, flush=True)
+    print(f"[bronze_entity] FATAL: {type(_bronze_exc).__name__}: {_bronze_exc}", flush=True)
+    print("=" * 70, flush=True)
+    print(_bronze_tb.format_exc(), flush=True)
+    dbutils.notebook.exit(_bronze_json.dumps({
+        "status": "FAILED",
+        "stage": "bronze_entity",
+        "error_type": type(_bronze_exc).__name__,
+        "error_message": str(_bronze_exc)[:2000],
+    }))
+    raise
 dbutils.notebook.exit(_summary)
 """,
     "databricks_silver.py.j2": """# Databricks notebook source
@@ -1605,6 +1705,10 @@ def merge_sources(bronze_outputs):
 {% set derived_groups = group_steps(config.silver.derived_columns) %}
 {% if config.silver.derived_columns %}
 def apply_derived_columns(df):
+    # Plan barrier between groups is the silver write's staging round-trip
+    # (in `run_silver` below) — `localCheckpoint` is unreliable on Spark
+    # Connect at this column count and just adds plan markers Catalyst has
+    # to walk later.
 {%- for func_name, steps in derived_groups %}
     df = {{ func_name }}(df)
 {%- endfor %}
@@ -1714,30 +1818,74 @@ def run_silver():
     _timings["holdout_mask"] = round(_time.monotonic() - _t3, 2)
     print(f"  holdout_mask: {_timings['holdout_mask']:.1f}s")
     _t4 = _time.monotonic()
+    # Wide-schema barrier (~2620 cols): the cumulative AttributeReferences
+    # from temporal merge + apply_derived_columns + holdout-mask can trip
+    # Catalyst's adaptive-plan attribute-index resolver on the write path
+    # with `IllegalArgumentException: Cannot find column index for attribute
+    # X#NNNN`. Disable AQE for the write and stage through a temp Delta
+    # table so the final write sees a fresh, shallow plan with stable
+    # attribute IDs. Same class of bug the display narrow-projection
+    # workaround below documents.
     output_table = silver_table()
-    merged.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(output_table)
+    _staging_table = output_table + "__staging"
+    _aqe_prev = spark.conf.get("spark.sql.adaptive.enabled", "true")
+    spark.conf.set("spark.sql.adaptive.enabled", "false")
+    try:
+        (merged.write.format("delta")
+            .mode("overwrite")
+            .option("overwriteSchema", "true")
+            .saveAsTable(_staging_table))
+        merged = spark.table(_staging_table)
+        merged.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(output_table)
+    finally:
+        spark.conf.set("spark.sql.adaptive.enabled", _aqe_prev)
+        spark.sql(f"DROP TABLE IF EXISTS {_staging_table}")
     _timings["delta_write"] = round(_time.monotonic() - _t4, 2)
-    print(f"  delta_write: {_timings['delta_write']:.1f}s")
-    _t5 = _time.monotonic()
-    from delta.tables import DeltaTable
-    _z_cols = [c for c in ["entity_id", "as_of_date"] if c in [f.name for f in merged.schema.fields]]
-    if _z_cols:
-        DeltaTable.forName(spark, output_table).optimize().executeZOrderBy(_z_cols)
+    print(f"  delta_write (staging round-trip): {_timings['delta_write']:.1f}s")
+    # Z-Order skipped by default. On wide silver tables it adds 30-90 min for
+    # a marginal read-time speedup that doesn't materially help downstream.
+    if OPTIMIZE_AFTER_WRITE:
+        _t5 = _time.monotonic()
+        from delta.tables import DeltaTable
+        _z_cols = [c for c in ["entity_id", "as_of_date"] if c in [f.name for f in merged.schema.fields]]
+        if _z_cols:
+            DeltaTable.forName(spark, output_table).optimize().executeZOrderBy(_z_cols)
+        else:
+            DeltaTable.forName(spark, output_table).optimize().executeCompaction()
+        _timings["optimize"] = round(_time.monotonic() - _t5, 2)
+        print(f"  optimize: {_timings['optimize']:.1f}s")
     else:
-        DeltaTable.forName(spark, output_table).optimize().executeCompaction()
-    _timings["optimize"] = round(_time.monotonic() - _t5, 2)
-    print(f"  optimize: {_timings['optimize']:.1f}s")
+        _timings["optimize"] = 0.0
+        print(f"  optimize: SKIPPED (OPTIMIZE_AFTER_WRITE=False)")
     _timings["total"] = round(_time.monotonic() - _t0, 2)
     print(f"  total: {_timings['total']:.1f}s")
     return output_table, _timings, _report
 
-_output_table, _silver_timings, _silver_report = run_silver()
-_result = spark.table(_output_table)
-_row_count = _result.count()
-_col_count = len(_result.columns)
+# Set to True to re-enable post-write OPTIMIZE+ZORDER on the silver table.
+OPTIMIZE_AFTER_WRITE = False
 
 import json
+import traceback as _silver_tb
+try:
+    _output_table, _silver_timings, _silver_report = run_silver()
+    _result = spark.table(_output_table)
+    _row_count = _result.count()
+    _col_count = len(_result.columns)
+except Exception as _silver_exc:
+    print("=" * 70, flush=True)
+    print(f"[silver] FATAL: {type(_silver_exc).__name__}: {_silver_exc}", flush=True)
+    print("=" * 70, flush=True)
+    print(_silver_tb.format_exc(), flush=True)
+    dbutils.notebook.exit(json.dumps({
+        "status": "FAILED",
+        "stage": "silver",
+        "error_type": type(_silver_exc).__name__,
+        "error_message": str(_silver_exc)[:2000],
+    }))
+    raise
+
 _silver_results = {
+    "status": "OK",
     "rows": _row_count,
     "columns": _col_count,
     "elapsed_seconds": _silver_timings,
@@ -1869,6 +2017,30 @@ def _label_encode(df, col):
     )
     return df
 
+# Chained `withColumn` builds one Project node per call; with hundreds of
+# columns, Catalyst optimization and Spark Connect plan serialization fail with
+# opaque SparkConnectGrpcException (status=UNKNOWN). The batch helpers below
+# fold N transforms into ONE `select(...)` (one Project node) and chunk at
+# `_BATCH_CHUNK_SIZE` so a single select doesn't itself become unwieldy.
+_BATCH_CHUNK_SIZE = 500
+
+def _apply_batched_select(df, expr_by_col):
+    # Apply a per-column expression map via chunked single-select calls.
+    # `expr_by_col` is a dict[col -> Column]. For every column present in
+    # `df.columns`, emits the mapped expression aliased back to the same name;
+    # other columns pass through unchanged. Chunked at `_BATCH_CHUNK_SIZE` to
+    # keep each select width bounded.
+    targets = [c for c in df.columns if c in expr_by_col]
+    if not targets:
+        return df
+    for chunk_start in range(0, len(targets), _BATCH_CHUNK_SIZE):
+        chunk = set(targets[chunk_start:chunk_start + _BATCH_CHUNK_SIZE])
+        df = df.select(*[
+            expr_by_col[c].alias(c) if c in chunk else F.col(c)
+            for c in df.columns
+        ])
+    return df
+
 def _batch_scale_standard(df, cols):
     cols = [c for c in cols if c in df.columns]
     if not cols:
@@ -1877,13 +2049,14 @@ def _batch_scale_standard(df, cols):
     for c in cols:
         exprs.extend([F.mean(c).alias(f"{c}__mean"), F.stddev(c).alias(f"{c}__std")])
     stats = df.agg(*exprs).collect()[0]
+    expr_by_col = {}
     for c in cols:
         mean_val = stats[f"{c}__mean"] or 0
         std_val = stats[f"{c}__std"] or 1
         if std_val == 0:
             std_val = 1
-        df = df.withColumn(c, (F.col(c) - mean_val) / std_val)
-    return df
+        expr_by_col[c] = (F.col(c) - mean_val) / std_val
+    return _apply_batched_select(df, expr_by_col)
 
 def _batch_scale_minmax(df, cols):
     cols = [c for c in cols if c in df.columns]
@@ -1893,41 +2066,133 @@ def _batch_scale_minmax(df, cols):
     for c in cols:
         exprs.extend([F.min(c).alias(f"{c}__min"), F.max(c).alias(f"{c}__max")])
     stats = df.agg(*exprs).collect()[0]
+    expr_by_col = {}
     for c in cols:
         min_val = stats[f"{c}__min"] or 0
         max_val = stats[f"{c}__max"] or 1
         range_val = max_val - min_val
         if range_val == 0:
             range_val = 1
-        df = df.withColumn(c, (F.col(c) - min_val) / range_val)
-    return df
+        expr_by_col[c] = (F.col(c) - min_val) / range_val
+    return _apply_batched_select(df, expr_by_col)
 
 def _batch_segment_aware_cap(df, cols):
     cols = [c for c in cols if c in df.columns]
     if not cols:
         return df
     quantile_map = dict(zip(cols, df.approxQuantile(cols, [0.25, 0.75], 0.01)))
+    expr_by_col = {}
     for c in cols:
         qs = quantile_map[c]
         if len(qs) == 2:
             q1, q3 = qs
             iqr = q3 - q1
             lower, upper = q1 - 1.5 * iqr, q3 + 1.5 * iqr
-            df = df.withColumn(c,
+            expr_by_col[c] = (
                 F.when(F.col(c) < lower, lower)
                 .when(F.col(c) > upper, upper)
-                .otherwise(F.col(c)))
-    return df
+                .otherwise(F.col(c))
+            )
+    return _apply_batched_select(df, expr_by_col)
 
 def _batch_cap_then_log(df, cols):
     cols = [c for c in cols if c in df.columns]
     if not cols:
         return df
     quantile_map = dict(zip(cols, df.approxQuantile(cols, [0.99], 0.01)))
+    expr_by_col = {}
     for c in cols:
         qs = quantile_map[c]
         if qs:
-            df = df.withColumn(c, F.log1p(F.greatest(F.least(F.col(c), F.lit(qs[0])), F.lit(0)).cast("double")))
+            expr_by_col[c] = F.log1p(
+                F.greatest(F.least(F.col(c), F.lit(qs[0])), F.lit(0)).cast("double")
+            )
+    return _apply_batched_select(df, expr_by_col)
+
+def _batch_log_transform(df, cols):
+    # log1p applied to each column in one chunked `select` (keeps in-place).
+    cols = [c for c in cols if c in df.columns]
+    if not cols:
+        return df
+    return _apply_batched_select(df, {c: F.log1p(F.col(c)) for c in cols})
+
+def _batch_sqrt_transform(df, cols):
+    # sqrt(abs(col)) applied to each column in one chunked `select`.
+    cols = [c for c in cols if c in df.columns]
+    if not cols:
+        return df
+    return _apply_batched_select(df, {c: F.sqrt(F.abs(F.col(c))) for c in cols})
+
+def _batch_yeo_johnson(df, cols):
+    # Codegen Yeo-Johnson approximation: log1p(abs(col)). Single chunked select.
+    cols = [c for c in cols if c in df.columns]
+    if not cols:
+        return df
+    return _apply_batched_select(df, {c: F.log1p(F.abs(F.col(c))) for c in cols})
+
+def _batch_zero_inflation(df, cols):
+    # For each col, emits two NEW columns `<col>_is_zero` and `<col>_log` in
+    # a single chunked select. Keeps the original column intact.
+    cols = [c for c in cols if c in df.columns]
+    if not cols:
+        return df
+    new_exprs = []
+    for c in cols:
+        new_exprs.append(F.when(F.col(c) == 0, 1).otherwise(0).alias(f"{c}_is_zero"))
+        new_exprs.append(
+            F.when(F.col(c) > 0, F.log1p(F.col(c))).otherwise(0).alias(f"{c}_log")
+        )
+    for chunk_start in range(0, len(new_exprs), _BATCH_CHUNK_SIZE):
+        chunk = new_exprs[chunk_start:chunk_start + _BATCH_CHUNK_SIZE]
+        df = df.select(*[F.col(c) for c in df.columns], *chunk)
+    return df
+
+def _batch_one_hot_encode(df, cols, max_categories=100):
+    # Bulk one-hot encode multiple columns.
+    # Collects distinct values for ALL listed columns in ONE Spark job via
+    # `collect_set` aggregation, then materialises the indicator columns via a
+    # single chunked `select`. Falls back to per-column `_label_encode` for
+    # columns whose cardinality exceeds `max_categories`.
+    # With 24 categorical columns this collapses 24 separate `distinct().collect()`
+    # Spark jobs into 1, and replaces the chained `withColumn` per category with
+    # a single Project node per chunk.
+    cols = [c for c in cols if c in df.columns]
+    if not cols:
+        return df
+    # Narrow projection for the distinct collection — running agg+collect on
+    # the wide df (~3000 cols) trips Catalyst's adaptive-plan attribute-index
+    # resolver during execution. `df.select(*cols)` gives the agg a tiny
+    # schema to plan against; the resulting collect is cheap.
+    distinct_exprs = [F.collect_set(F.col(c)).alias(c) for c in cols]
+    row = df.select(*cols).agg(*distinct_exprs).collect()[0]
+    one_hot_plan = {}
+    label_encode_cols = []
+    for c in cols:
+        cats = [v for v in (row[c] or []) if v is not None]
+        if not cats:
+            continue
+        if len(cats) > max_categories:
+            print(
+                f"WARNING: column '{c}' has {len(cats)} categories "
+                f"(>{max_categories}), using label encoding instead"
+            )
+            label_encode_cols.append(c)
+        else:
+            one_hot_plan[c] = sorted(str(v) for v in cats)
+    if one_hot_plan:
+        new_exprs = []
+        for c, cats in one_hot_plan.items():
+            for cat in cats:
+                safe_name = f"{c}_{sanitize_column_token(cat)}"
+                new_exprs.append(
+                    F.when(F.col(c) == cat, 1).otherwise(0).alias(safe_name)
+                )
+        for chunk_start in range(0, len(new_exprs), _BATCH_CHUNK_SIZE):
+            chunk = new_exprs[chunk_start:chunk_start + _BATCH_CHUNK_SIZE]
+            df = df.select(*[F.col(c) for c in df.columns], *chunk)
+        df = df.drop(*list(one_hot_plan.keys()))
+    for c in label_encode_cols:
+        df = _label_encode(df, c)
     return df
 
 # COMMAND ----------
@@ -1937,9 +2202,15 @@ def apply_encodings(df):
 {%- if _prov %}
 {{ _prov }}
 {%- endif %}
+{%- set enc_ns = namespace(one_hot=[], label=[]) %}
 {%- for step in config.gold.encodings %}
-    # {{ step.rationale }}
-    df = {{ render_spark_step_call(step) }}
+{%- if step.parameters.get('method') in ('one_hot', 'onehot') %}{% set enc_ns.one_hot = enc_ns.one_hot + [step.column] %}{% else %}{% set enc_ns.label = enc_ns.label + [step.column] %}{% endif %}
+{%- endfor %}
+{%- if enc_ns.one_hot %}
+    df = _batch_one_hot_encode(df, [{% for c in enc_ns.one_hot %}"{{ c }}"{{ ", " if not loop.last }}{% endfor %}])
+{%- endif %}
+{%- for c in enc_ns.label %}
+    df = _label_encode(df, "{{ c }}")
 {%- endfor %}
     return df
 
@@ -1964,6 +2235,13 @@ def apply_scalings(df):
 
 {% set transform_groups = group_steps(config.gold.transformations) %}
 def apply_transformations(df):
+    # Each `apply_*_transforms` group below collapses N per-column
+    # withColumn into ONE chunked single-`select`, so the per-group plan
+    # is shallow. The hard plan barrier between transformations and the
+    # next stage (encoding) is the staging round-trip in `run_gold` —
+    # `localCheckpoint` here is unreliable on Spark Connect at this
+    # column count (often returns a logical-plan reference instead of
+    # forcing materialisation), so we don't rely on it.
 {%- for func_name, steps in transform_groups %}
     df = {{ func_name }}(df)
 {%- endfor %}
@@ -1979,6 +2257,14 @@ def {{ func_name }}(df):
     df = _batch_cap_then_log(df, [{% for t in steps %}"{{ t.column }}"{{ ", " if not loop.last }}{% endfor %}])
 {%- elif func_name == "cap_segment_aware_outliers" %}
     df = _batch_segment_aware_cap(df, [{% for t in steps %}"{{ t.column }}"{{ ", " if not loop.last }}{% endfor %}])
+{%- elif func_name == "apply_log_transforms" %}
+    df = _batch_log_transform(df, [{% for t in steps %}"{{ t.column }}"{{ ", " if not loop.last }}{% endfor %}])
+{%- elif func_name == "apply_sqrt_transforms" %}
+    df = _batch_sqrt_transform(df, [{% for t in steps %}"{{ t.column }}"{{ ", " if not loop.last }}{% endfor %}])
+{%- elif func_name == "apply_power_transforms" %}
+    df = _batch_yeo_johnson(df, [{% for t in steps %}"{{ t.column }}"{{ ", " if not loop.last }}{% endfor %}])
+{%- elif func_name == "handle_zero_inflation" %}
+    df = _batch_zero_inflation(df, [{% for t in steps %}"{{ t.column }}"{{ ", " if not loop.last }}{% endfor %}])
 {%- else %}
 {%- for t in steps %}
     # {{ t.rationale }}
@@ -2034,40 +2320,87 @@ def _register_feature_table(table_name, df):
             raise
         print(f"[GOLD] Feature table {table_name} already registered")
 
+def _stage_and_reload(df, table_name):
+    # Force a hard plan barrier by writing to Delta and reading back. Used
+    # between major gold stages because `localCheckpoint(eager=True)` is
+    # unreliable on Spark Connect at ~3000 columns — it often returns a
+    # logical-plan reference that still carries the original ExprIds
+    # rather than forcing executor-side materialisation, so the deep
+    # plan accumulates and Catalyst's column-index resolver crashes
+    # later. A Delta round-trip is unambiguous: the returned df's plan
+    # is a single read-from-table with stable, fresh attribute IDs.
+    (df.write.format("delta")
+        .mode("overwrite")
+        .option("overwriteSchema", "true")
+        .saveAsTable(table_name))
+    return spark.table(table_name)
+
 def run_gold():
     import time as _time
     _t0 = _time.monotonic()
-    df = spark.table(silver_table())
-    print(f"  load_silver: {_time.monotonic() - _t0:.1f}s")
-    _t1 = _time.monotonic()
-    df = apply_transformations(df)
-    print(f"  transformations: {_time.monotonic() - _t1:.1f}s")
-    _t2 = _time.monotonic()
-    df = apply_feature_selection(df)
-    print(f"  feature_selection: {_time.monotonic() - _t2:.1f}s")
-    _t3 = _time.monotonic()
-    df = apply_encodings(df)
-    print(f"  encodings: {_time.monotonic() - _t3:.1f}s")
-    _t4 = _time.monotonic()
-    df = apply_scalings(df)
-    print(f"  scalings: {_time.monotonic() - _t4:.1f}s")
-    if "as_of_date" in df.columns:
-        df = df.withColumnRenamed("as_of_date", TIMESTAMP_COLUMN)
-    elif "feature_timestamp" in df.columns:
-        df = df.withColumnRenamed("feature_timestamp", TIMESTAMP_COLUMN)
-    df = _cast_timestamp_ntz_to_timestamp(df)
-    from pyspark.sql.types import DoubleType, LongType, IntegerType, ShortType
-    _NUMERIC_TYPES = (DoubleType, LongType, IntegerType, ShortType)
-    _f32_exprs = [
-        F.col(c).cast("float").alias(c) if isinstance(df.schema[c].dataType, _NUMERIC_TYPES)
-        else F.col(c)
-        for c in df.columns
-    ]
-    df = df.select(*_f32_exprs)
     output_table = gold_table()
-    _t5 = _time.monotonic()
-    df.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(output_table)
-    print(f"  delta_write: {_time.monotonic() - _t5:.1f}s")
+    _stg_xforms = output_table + "__stg_xforms"
+    _stg_enc = output_table + "__stg_enc"
+    _stg_final = output_table + "__stg_final"
+    # Disable AQE for the *entire* gold pipeline. AQE rewrites plans at
+    # runtime and reassigns ExprIds — at ~3000 columns this trips the
+    # column-index resolver with `IllegalArgumentException: Cannot find
+    # column index for attribute X#NNNN`. Setting it before silver read
+    # ensures every select-derived plan is built without AQE rewrites,
+    # not just the final write. Restored in `finally` below.
+    _aqe_prev = spark.conf.get("spark.sql.adaptive.enabled", "true")
+    spark.conf.set("spark.sql.adaptive.enabled", "false")
+    try:
+        df = spark.table(silver_table())
+        print(f"  load_silver: {_time.monotonic() - _t0:.1f}s")
+        _t1 = _time.monotonic()
+        df = apply_transformations(df)
+        # Hard plan barrier before the wide-schema agg+collect inside
+        # `_batch_one_hot_encode` — running that against the deep
+        # post-transform plan trips the same column-index resolver bug
+        # before encoding even begins. Staging here gives the agg a
+        # shallow input plan.
+        df = _stage_and_reload(df, _stg_xforms)
+        print(f"  transformations: {_time.monotonic() - _t1:.1f}s")
+        _t2 = _time.monotonic()
+        df = apply_feature_selection(df)
+        print(f"  feature_selection: {_time.monotonic() - _t2:.1f}s")
+        _t3 = _time.monotonic()
+        df = apply_encodings(df)
+        # Stage between encoding fan-out and scaling so the scaling agg
+        # plans against a fresh, post-encoding schema.
+        df = _stage_and_reload(df, _stg_enc)
+        print(f"  encodings: {_time.monotonic() - _t3:.1f}s")
+        _t4 = _time.monotonic()
+        df = apply_scalings(df)
+        print(f"  scalings: {_time.monotonic() - _t4:.1f}s")
+        if "as_of_date" in df.columns:
+            df = df.withColumnRenamed("as_of_date", TIMESTAMP_COLUMN)
+        elif "feature_timestamp" in df.columns:
+            df = df.withColumnRenamed("feature_timestamp", TIMESTAMP_COLUMN)
+        df = _cast_timestamp_ntz_to_timestamp(df)
+        from pyspark.sql.types import DoubleType, LongType, IntegerType, ShortType
+        _NUMERIC_TYPES = (DoubleType, LongType, IntegerType, ShortType)
+        _f32_exprs = [
+            F.col(c).cast("float").alias(c) if isinstance(df.schema[c].dataType, _NUMERIC_TYPES)
+            else F.col(c)
+            for c in df.columns
+        ]
+        df = df.select(*_f32_exprs)
+        # Final stage barrier so the output_table write plans against a
+        # shallow read (the rename + ntz cast + f32 cast otherwise stack
+        # back up before write).
+        _t5 = _time.monotonic()
+        df = _stage_and_reload(df, _stg_final)
+        df.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(output_table)
+        print(f"  delta_write: {_time.monotonic() - _t5:.1f}s")
+    finally:
+        spark.conf.set("spark.sql.adaptive.enabled", _aqe_prev)
+        for _t in (_stg_xforms, _stg_enc, _stg_final):
+            try:
+                spark.sql(f"DROP TABLE IF EXISTS {_t}")
+            except Exception:
+                pass
     del df
     from delta.tables import DeltaTable
     saved = spark.table(output_table)
@@ -2082,10 +2415,25 @@ def run_gold():
     print(f"  gold_total: {_time.monotonic() - _t0:.1f}s")
     return saved
 
-result = run_gold()
-_row_count = result.count()
-_col_count = len(result.columns)
-_summary = f"{_row_count:,} rows, {_col_count} columns"
+import json as _gold_json
+import traceback as _gold_tb
+try:
+    result = run_gold()
+    _row_count = result.count()
+    _col_count = len(result.columns)
+    _summary = f"{_row_count:,} rows, {_col_count} columns"
+except Exception as _gold_exc:
+    print("=" * 70, flush=True)
+    print(f"[gold] FATAL: {type(_gold_exc).__name__}: {_gold_exc}", flush=True)
+    print("=" * 70, flush=True)
+    print(_gold_tb.format_exc(), flush=True)
+    dbutils.notebook.exit(_gold_json.dumps({
+        "status": "FAILED",
+        "stage": "gold",
+        "error_type": type(_gold_exc).__name__,
+        "error_message": str(_gold_exc)[:2000],
+    }))
+    raise
 
 from pathlib import Path
 from customer_retention.analysis.auto_explorer.run_namespace import RunNamespace
@@ -2275,11 +2623,35 @@ def _apply_feature_spec_gate(df, spec):
         df = df.drop(*_leakage_drops)
     _missing = [c for c in spec.selected_features if c not in df.columns]
     if _missing:
-        raise RuntimeError(
-            f"FeatureSpec parity violation: gold missing {len(_missing)} declared "
-            f"features: {_missing[:10]}. Bronze/silver/gold derivation is out of sync "
-            "with exploration — regenerate gold or re-run NB08."
-        )
+        # Operator escape hatch: when an upstream phantom-rec or column-rename
+        # left a spec'd feature unproduced, raising here blocks training
+        # entirely. The orchestrator passes `auto_drop_missing_features` via
+        # `_ns_params` (same channel as `experiments_dir`/`run_id`); when it
+        # resolves truthy the missing features are warned and dropped so
+        # training proceeds. Operator should then add them to
+        # `PARITY_IGNORED_FEATURES` post-hoc once the cause is identified.
+        try:
+            _auto_drop = bool(dbutils.widgets.get("auto_drop_missing_features"))
+        except Exception:
+            _auto_drop = False
+        if _auto_drop:
+            warnings.warn(
+                f"[TRAINING] auto-dropping {len(_missing)} missing features from spec "
+                f"(auto_drop_missing_features=1): {_missing[:20]}",
+                stacklevel=1,
+            )
+            _missing_set = set(_missing)
+            spec.selected_features = [
+                c for c in spec.selected_features if c not in _missing_set
+            ]
+        else:
+            raise RuntimeError(
+                f"FeatureSpec parity violation: gold missing {len(_missing)} declared "
+                f"features: {_missing[:10]}. Bronze/silver/gold derivation is out of sync "
+                "with exploration — regenerate gold or re-run NB08. "
+                "Pass auto_drop_missing_features=1 via the runner's _ns_params to drop "
+                "missing features and continue."
+            )
     keep = list(spec.selected_features)
     for meta_col in (TARGET, TIMESTAMP_COLUMN, ENTITY_KEY, spec.target_column,
                      spec.entity_column, spec.timestamp_column):
@@ -2869,11 +3241,27 @@ def train_and_evaluate():
 
 # COMMAND ----------
 
-_training_results = train_and_evaluate()
-print("\\n" + "=" * 60)
-print("TRAINING RESULTS")
-print("=" * 60)
-print(json.dumps(_training_results, indent=2, default=str))
+import traceback as _training_tb
+try:
+    _training_results = train_and_evaluate()
+    if isinstance(_training_results, dict):
+        _training_results.setdefault("status", "OK")
+    print("\\n" + "=" * 60)
+    print("TRAINING RESULTS")
+    print("=" * 60)
+    print(json.dumps(_training_results, indent=2, default=str))
+except Exception as _training_exc:
+    print("=" * 70, flush=True)
+    print(f"[training] FATAL: {type(_training_exc).__name__}: {_training_exc}", flush=True)
+    print("=" * 70, flush=True)
+    print(_training_tb.format_exc(), flush=True)
+    dbutils.notebook.exit(json.dumps({
+        "status": "FAILED",
+        "stage": "training",
+        "error_type": type(_training_exc).__name__,
+        "error_message": str(_training_exc)[:2000],
+    }))
+    raise
 dbutils.notebook.exit(json.dumps(_training_results, default=str))
 """,
     "databricks_landing.py.j2": """# Databricks notebook source
@@ -3085,10 +3473,25 @@ def run_landing():
         DeltaTable.forName(spark, output_table).optimize().executeCompaction()
     return df
 
-result = run_landing()
-_summary = f"{result.count():,} rows, {len(result.columns)} columns"
-# Row-limited display (landing is narrow but uniform pattern across stages).
-display(result.limit(20))
+import json as _landing_json
+import traceback as _landing_tb
+try:
+    result = run_landing()
+    _summary = f"{result.count():,} rows, {len(result.columns)} columns"
+    # Row-limited display (landing is narrow but uniform pattern across stages).
+    display(result.limit(20))
+except Exception as _landing_exc:
+    print("=" * 70, flush=True)
+    print(f"[landing] FATAL: {type(_landing_exc).__name__}: {_landing_exc}", flush=True)
+    print("=" * 70, flush=True)
+    print(_landing_tb.format_exc(), flush=True)
+    dbutils.notebook.exit(_landing_json.dumps({
+        "status": "FAILED",
+        "stage": "landing",
+        "error_type": type(_landing_exc).__name__,
+        "error_message": str(_landing_exc)[:2000],
+    }))
+    raise
 dbutils.notebook.exit(_summary)
 """,
     "databricks_target_derive.py.j2": """# Databricks notebook source
@@ -3213,6 +3616,7 @@ def _spark_job_id():
 def run_notebook(path, timeout=86400):
     sj_before = _spark_job_id()
     start = time.time()
+    failure_payload = None
     try:
         result = dbutils.notebook.run(path, timeout, _ns_params)
         elapsed = time.time() - start
@@ -3220,16 +3624,35 @@ def run_notebook(path, timeout=86400):
         _profile.append({"notebook": path, "elapsed": round(elapsed, 3),
                          "spark_jobs": (sj_after - sj_before) if sj_before >= 0 and sj_after >= 0 else None,
                          "status": "completed"})
+        # Generated notebooks structured-exit on top-level exceptions with
+        # {"status":"FAILED",...}; surface that as a real RuntimeError so the
+        # pipeline halts at the failed stage instead of cascading.
+        if result:
+            try:
+                _parsed = json.loads(result)
+            except (ValueError, TypeError):
+                _parsed = None
+            if isinstance(_parsed, dict) and _parsed.get("status") == "FAILED":
+                failure_payload = _parsed
     except Exception as exc:
         elapsed = time.time() - start
         sj_after = _spark_job_id()
         _profile.append({"notebook": path, "elapsed": round(elapsed, 3),
                          "spark_jobs": (sj_after - sj_before) if sj_before >= 0 and sj_after >= 0 else None,
                          "status": "failed"})
-        result = f"FAILED: {exc}"
+        line = f"{path}: FAILED ({elapsed:.1f}s) -> {type(exc).__name__}: {exc}"
+        print(line)
+        _log.append(line)
+        raise
     line = f"{path}: {result} ({elapsed:.1f}s)"
     print(line)
     _log.append(line)
+    if failure_payload is not None:
+        raise RuntimeError(
+            f"{path} failed: {failure_payload.get('error_type', '?')}: "
+            f"{failure_payload.get('error_message', '')} "
+            f"(see spawned notebook output for full traceback)"
+        )
     return result
 
 # COMMAND ----------
@@ -3440,7 +3863,7 @@ GLOBAL_NOTEBOOKS = [
     "10_spec_generation",
 ]
 
-NOTEBOOK_TIMEOUT = 1800
+NOTEBOOK_TIMEOUT = 28800  # 8h ceiling per spawned notebook
 
 # COMMAND ----------
 

@@ -20,7 +20,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List
-from arize._generated.api_client.models.user_role import UserRole
+from arize._generated.api_client.models.user_role_assignment import UserRoleAssignment
 from arize._generated.api_client.models.user_status import UserStatus
 from typing import Optional, Set
 from typing_extensions import Self
@@ -34,7 +34,7 @@ class User(BaseModel):
     email: StrictStr = Field(description="An email address")
     created_at: datetime = Field(description="Timestamp for when the user was created")
     status: UserStatus
-    role: UserRole
+    role: UserRoleAssignment
     is_developer: StrictBool = Field(description="Whether the user has developer permissions (can create GraphQL API keys)")
     __properties: ClassVar[List[str]] = ["id", "name", "email", "created_at", "status", "role", "is_developer"]
 
@@ -77,6 +77,9 @@ class User(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of role
+        if self.role:
+            _dict['role'] = self.role.to_dict()
         return _dict
 
     @classmethod
@@ -99,7 +102,7 @@ class User(BaseModel):
             "email": obj.get("email"),
             "created_at": obj.get("created_at"),
             "status": obj.get("status"),
-            "role": obj.get("role"),
+            "role": UserRoleAssignment.from_dict(obj["role"]) if obj.get("role") is not None else None,
             "is_developer": obj.get("is_developer")
         })
         return _obj

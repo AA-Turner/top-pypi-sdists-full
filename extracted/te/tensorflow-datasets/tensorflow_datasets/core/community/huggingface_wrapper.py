@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import builtins
 import contextlib
 import functools
 import glob
+from importlib import machinery
 import os
 import sys
 import types
@@ -248,6 +249,7 @@ class _MockedHFDatasets(types.ModuleType):
 
   def __init__(self):
     super().__init__('datasets')
+    self.__spec__ = machinery.ModuleSpec('datasets', None)
 
   # pylint: disable=invalid-name
 

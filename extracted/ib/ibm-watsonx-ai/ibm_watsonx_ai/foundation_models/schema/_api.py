@@ -51,7 +51,7 @@ class BaseSchema:
 
     def to_dict(self) -> dict[str, Any]:
         def unpack(
-            value: Enum | list[Any] | Any,
+            value: Enum | list[Any] | dict[str, Any] | Any,
         ) -> int | dict[str, Any] | list[Any] | Any:
             if isinstance(value, Enum):
                 return value.value
@@ -61,6 +61,8 @@ class BaseSchema:
                     for k, v in value.__dict__.items()
                     if v is not None and not k.startswith("_")
                 }
+            elif isinstance(value, dict):
+                return {k: unpack(v) for k, v in value.items()}
             elif isinstance(value, list):
                 return [unpack(v) for v in value]
             else:
@@ -804,7 +806,7 @@ class ImproveSchemasFields(BaseSchema):
 class ImproveSchemasSchemaDefinition(BaseSchema):
     document_type: str
     document_description: str
-    fields: ImproveSchemasFields | None = None
+    fields: dict[str, ImproveSchemasFields] | None = None
     additional_prompt_instructions: str | None = None
 
     @classmethod
@@ -813,7 +815,7 @@ class ImproveSchemasSchemaDefinition(BaseSchema):
         return {
             "document_type": "Corporate_Annual_Review",
             "document_description": "Annual review doc",
-            "fields": ImproveSchemasFields.get_sample_params(),
+            "fields": {"example_amount": ImproveSchemasFields.get_sample_params()},
             "additional_prompt_instructions": "Pay special attention to currency symbols and date formats",
         }
 
@@ -867,7 +869,7 @@ class MergeSchemasFields(BaseSchema):
 class MergeSchemasSchemaDefinition(BaseSchema):
     document_type: str
     document_description: str
-    fields: MergeSchemasFields | None = None
+    fields: dict[str, MergeSchemasFields] | None = None
     additional_prompt_instructions: str | None = None
 
     @classmethod
@@ -876,7 +878,7 @@ class MergeSchemasSchemaDefinition(BaseSchema):
         return {
             "document_type": "Passport",
             "document_description": "Passport document to get the schema",
-            "fields": MergeSchemasFields.get_sample_params(),
+            "fields": {"user_name": MergeSchemasFields.get_sample_params()},
             "additional_prompt_instructions": "Ensure consistent field naming across merged schemas",
         }
 
@@ -930,7 +932,7 @@ class ClusterSchemasFields(BaseSchema):
 class ClusterSchemasSchemaDefinition(BaseSchema):
     document_type: str
     document_description: str
-    fields: ClusterSchemasFields | None = None
+    fields: dict[str, ClusterSchemasFields] | None = None
     additional_prompt_instructions: str | None = None
 
     @classmethod
@@ -939,7 +941,7 @@ class ClusterSchemasSchemaDefinition(BaseSchema):
         return {
             "document_type": "Invoice",
             "document_description": "Invoice form from Company A",
-            "fields": ClusterSchemasFields.get_sample_params(),
+            "fields": {"account_id": ClusterSchemasFields.get_sample_params()},
             "additional_prompt_instructions": "Group similar invoice formats together based on field structure",
         }
 

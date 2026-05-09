@@ -522,6 +522,8 @@ class HybridSemanticChunker(BaseChunker[Document]):
     def _breakpoints_split(self) -> list[list[str]]:
         """
         Splits documents contents on potential breakpoints.
+        If no valid breakpoints are found (empty or single element after merging),
+        falls back to RecursiveCharacterTextSplitter.
 
         :return: documents split on potential breakpoints
         :rtype: list[list[str]]
@@ -533,6 +535,19 @@ class HybridSemanticChunker(BaseChunker[Document]):
             merged_split = self._merge_too_small_texts(
                 sentences_split, self.min_breakpoint_chunk_size
             )
+            # Fallback to RecursiveCharacterTextSplitter if no valid breakpoints found
+            if len(merged_split) <= 1:
+                # Use chunk_size/4 to create meaningful breakpoint chunks for semantic analysis
+                # Ensure minimum size for semantic coherence while generating multiple breakpoints
+                fallback_chunk_size = max(
+                    self.min_breakpoint_chunk_size, self.chunk_size // 4
+                )
+                fallback_splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=fallback_chunk_size,
+                    chunk_overlap=0,
+                )
+                merged_split = fallback_splitter.split_text(doc_content)
+
             breakpoint_chunks.append(merged_split)
 
         return breakpoint_chunks

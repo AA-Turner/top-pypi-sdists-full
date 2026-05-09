@@ -1,0 +1,8 @@
+template: |
+  ## What's New :octocat:
+
+  - ...
+
+  ### Changes since last release
+
+  $CHANGES

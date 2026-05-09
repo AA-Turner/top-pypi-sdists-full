@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.postgres-mcp-server
-Version: 1.1.2
+Version: 1.1.4
 Summary: An AWS Labs Model Context Protocol (MCP) server for postgres
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/postgres-mcp-server/

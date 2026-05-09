@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: moyopy
-Version: 0.8.0
-Classifier: Development Status :: 3 - Alpha
+Version: 0.9.0
+Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: License :: OSI Approved :: MIT License
@@ -31,6 +31,7 @@ Requires-Dist: sphinx-autobuild ; extra == 'docs'
 Requires-Dist: sphinxcontrib-bibtex>=2.5 ; extra == 'docs'
 Requires-Dist: sphinx-book-theme ; extra == 'docs'
 Requires-Dist: sphinx-autoapi ; extra == 'docs'
+Requires-Dist: sphinx-copybutton ; extra == 'docs'
 Requires-Dist: myst-parser>=2.0 ; extra == 'docs'
 Requires-Dist: linkify-it-py ; extra == 'docs'
 Requires-Dist: numpy ; extra == 'interface'
@@ -72,5 +73,5 @@ pip install moyopy[interface]
 
 ## How to cite moyopy
 
-See the citation information in [the root README](../README.md)
+See the citation information in [the root README](https://github.com/spglib/moyo/blob/main/README.md)
 

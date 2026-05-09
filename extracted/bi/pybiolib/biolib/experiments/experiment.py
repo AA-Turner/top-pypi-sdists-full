@@ -3,15 +3,15 @@ from collections import OrderedDict
 from pathlib import Path
 
 from biolib import api
+from biolib._internal.result.job_result import PathFilter
+from biolib._internal.result.types import JobsPaginatedResponse
 from biolib._internal.utils import open_browser_window_from_notebook
 from biolib._internal.utils.experiment import fetch_experiment_by_uri
+from biolib._result.result import Result
 from biolib._shared.types import DeprecatedExperimentDict, ExperimentDict, ResourceDetailedDict
 from biolib.api.client import ApiClient
 from biolib.biolib_api_client import BiolibApiClient
 from biolib.biolib_errors import BioLibError, WaitTimeoutError
-from biolib.jobs.job import Job
-from biolib.jobs.job_result import PathFilter
-from biolib.jobs.types import JobsPaginatedResponse
 from biolib.tables import BioLibTable
 from biolib.typing_utils import Dict, List, Optional, Union
 from biolib.utils import IS_RUNNING_IN_NOTEBOOK
@@ -20,11 +20,11 @@ from biolib.utils import IS_RUNNING_IN_NOTEBOOK
 class Experiment:
     _BIOLIB_EXPERIMENTS: List['Experiment'] = []
 
-    # Columns to print in table when showing Job
+    # Columns to print in table when showing Result
     _table_columns_to_row_map = OrderedDict(
         {
             'Name': {'key': 'name', 'params': {}},
-            'Job Count': {'key': 'job_count', 'params': {}},
+            'Result Count': {'key': 'job_count', 'params': {}},
             'Created At': {'key': 'created_at', 'params': {}},
         }
     )
@@ -101,19 +101,19 @@ class Experiment:
         while self._experiment_dict['job_running_count'] > 0:
             if deadline is not None and time.monotonic() >= deadline:
                 raise WaitTimeoutError(f'Experiment {self.name} did not finish within {timeout} seconds')
-            print(f"Waiting for {self._experiment_dict['job_running_count']} jobs to finish", end='\r')
+            print(f'Waiting for {self._experiment_dict["job_running_count"]} jobs to finish', end='\r')
             time.sleep(5)
             self._refetch()
 
         print(f'All jobs of experiment {self.name} have finished')
 
-    def add_job(self, job: Optional[Union[Job, str]] = None, job_id: Optional[str] = None) -> None:
+    def add_job(self, job: Optional[Union[Result, str]] = None, job_id: Optional[str] = None) -> None:
         if job_id is not None:
             print(
                 'WARNING: job_id argument is deprecated and may be removed in a future release.'
                 'Please use job argument instead.'
             )
-        elif isinstance(job, Job):
+        elif isinstance(job, Result):
             job_id = job.id
         elif isinstance(job, str):
             job_id = job
@@ -124,8 +124,8 @@ class Experiment:
             data={'job_uuid': job_id},
         )
 
-    def remove_job(self, job: Union[Job, str]) -> None:
-        if isinstance(job, Job):
+    def remove_job(self, job: Union[Result, str]) -> None:
+        if isinstance(job, Result):
             job_id = job.id
         elif isinstance(job, str):
             job_id = job
@@ -185,15 +185,15 @@ class Experiment:
             path=f'/experiments/{self.uuid}/jobs/',
             params=dict(page_size=10),
         ).json()
-        jobs: List[Job] = [Job(job_dict) for job_dict in response['results']]
+        jobs: List[Result] = [Result(job_dict) for job_dict in response['results']]
 
         BioLibTable(
-            columns_to_row_map=Job.table_columns_to_row_map,
+            columns_to_row_map=Result.table_columns_to_row_map,
             rows=[job._job_dict for job in jobs],  # pylint: disable=protected-access
             title=f'Jobs in experiment: "{self.name}"',
         ).print_table()
 
-    def get_jobs(self, status: Optional[str] = None) -> List[Job]:
+    def get_jobs(self, status: Optional[str] = None) -> List[Result]:
         job_states = ['in_progress', 'completed', 'failed', 'cancelled']
         if status is not None and status not in job_states:
             raise Exception('Invalid status filter')
@@ -204,17 +204,17 @@ class Experiment:
             params['status'] = status
 
         response: JobsPaginatedResponse = self._api_client.get(url, params=params).json()
-        jobs: List[Job] = [Job(job_dict) for job_dict in response['results']]
+        jobs: List[Result] = [Result(job_dict) for job_dict in response['results']]
 
         for page_number in range(2, response['page_count'] + 1):
             page_response: JobsPaginatedResponse = self._api_client.get(
                 url, params=dict(**params, page=page_number)
             ).json()
-            jobs.extend([Job(job_dict) for job_dict in page_response['results']])
+            jobs.extend([Result(job_dict) for job_dict in page_response['results']])
 
         return jobs
 
-    def get_results(self, status: Optional[str] = None) -> List[Job]:
+    def get_results(self, status: Optional[str] = None) -> List[Result]:
         r"""Get a list of results in this experiment, optionally filtered by status.
 
         Args:
@@ -222,7 +222,7 @@ class Experiment:
                 'in_progress', 'completed', 'failed', 'cancelled'
 
         Returns:
-            List[Job]: List of result objects in this experiment
+            List[Result]: List of result objects in this experiment
 
         Example::
 
@@ -274,7 +274,7 @@ class Experiment:
         experiment_folder = base_dir / self.name
         experiment_folder.mkdir(parents=True, exist_ok=True)
 
-        completed_results: List[Job] = []
+        completed_results: List[Result] = []
         failed_results = False
         print('Getting experiment status...')
         for result in self.get_results():

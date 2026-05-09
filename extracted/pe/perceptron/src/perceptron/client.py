@@ -31,7 +31,15 @@ from .errors import (
     TransportError,
 )
 from .expectations import STRUCTURED_EXPECTATIONS
-from .pointing.parser import extract_points, parse_text
+from .pointing.parser import extract_clips, extract_points, parse_text
+
+# Maps each structured `expects` value to (PerceiveResult bucket name, extractor).
+_BUCKET_BY_EXPECTS = {
+    "point": ("points", lambda c: extract_points(c, expected="point")),
+    "box": ("boxes", lambda c: extract_points(c, expected="box")),
+    "polygon": ("polygons", lambda c: extract_points(c, expected="polygon")),
+    "clip": ("clips", extract_clips),
+}
 
 # ---------------------------------------------------------------------------
 # Response format types for constrained decoding
@@ -113,7 +121,7 @@ class _StreamProcessor:
     ) -> None:
         self._client_core = client_core
         self._expects = expects
-        self._parse_points = parse_points and expects in {"point", "box", "polygon"}
+        self._parse_points = parse_points and expects in _BUCKET_BY_EXPECTS
         self._max_buffer_bytes = max_buffer_bytes
         self._cumulative: str = ""
         self._reasoning: str = ""
@@ -173,11 +181,10 @@ class _StreamProcessor:
         reasoning = self._reasoning or None
         result: dict[str, Any] = {"text": content, "reasoning": reasoning, "raw": None}
         expects = self._expects
-        parsed_segments: list[dict[str, Any]] | None = None
-        if expects in {"point", "box", "polygon"} and self._parsing_enabled and isinstance(content, str):
-            parsed_segments = parse_text(content)
-            result["points"] = [seg["value"] for seg in parsed_segments if seg["kind"] == expects]
-            result["parsed"] = parsed_segments
+        if expects in _BUCKET_BY_EXPECTS and self._parsing_enabled and isinstance(content, str):
+            bucket_name, extract = _BUCKET_BY_EXPECTS[expects]
+            result[bucket_name] = extract(content)
+            result["parsed"] = parse_text(content)
         issues: list[dict[str, Any]] = []
         if not self._parsing_enabled:
             issues.append(
@@ -189,27 +196,23 @@ class _StreamProcessor:
         return {
             "type": "final",
             "result": {
-                "text": result.get("text"),
-                "reasoning": result.get("reasoning"),
-                "points": result.get("points"),
-                "parsed": result.get("parsed"),
+                **result,
                 "usage": self._usage_payload,
                 "errors": issues,
-                "raw": result.get("raw"),
             },
         }
 
     def _point_events(self) -> list[dict[str, Any]]:
         events: list[dict[str, Any]] = []
         expects = self._expects
-        if expects not in {"point", "box", "polygon"}:
+        if expects not in _BUCKET_BY_EXPECTS:
             return events
         try:
             segments = parse_text(self._cumulative)
         except Exception:
             return events
         for seg in segments:
-            if seg.get("kind") not in {"point", "box", "polygon"}:
+            if seg.get("kind") not in _BUCKET_BY_EXPECTS:
                 continue
             span_info = seg.get("span")
             if not isinstance(span_info, dict):
@@ -266,6 +269,15 @@ def _response_json(resp) -> dict[str, Any]:
     return resp.json()
 
 
+def _is_url_payload(item: dict[str, Any]) -> bool:
+    """True when the payload should pass through as a URL rather than a data URL."""
+
+    if item.get("url"):
+        return True
+    payload = item.get("content")
+    return isinstance(payload, str) and payload.startswith(("http://", "https://"))
+
+
 def _task_to_openai_messages(task: dict) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = []
     current_role: str | None = None
@@ -299,17 +311,48 @@ def _task_to_openai_messages(task: dict) -> list[dict[str, Any]]:
             payload = item.get("content")
             if payload is None:
                 continue
-            if isinstance(payload, str) and payload.startswith(("http://", "https://")):
+            if _is_url_payload(item):
                 image_part = {"type": "image_url", "image_url": {"url": payload}}
             else:
+                fmt = item.get("format")
+                if fmt is None:
+                    raise BadRequestError(
+                        "Could not determine image format from input. The wire protocol "
+                        "supports png, jpeg, and webp; convert the image to one of these "
+                        "formats before passing it to the SDK.",
+                        code="invalid_image_format",
+                    )
                 image_part = {
                     "type": "image_url",
-                    "image_url": {"url": f"data:image/png;base64,{payload}"},
+                    "image_url": {"url": f"data:image/{fmt};base64,{payload}"},
                 }
             if current_role not in {role, None}:
                 _flush()
             current_role = role
             current_content.append(image_part)
+            contains_non_text = True
+        elif itype == "video":
+            payload = item.get("content")
+            if payload is None:
+                continue
+            if _is_url_payload(item):
+                video_part = {"type": "video_url", "video_url": {"url": payload}}
+            else:
+                fmt = item.get("format")
+                if fmt is None:
+                    raise BadRequestError(
+                        "Could not determine video format from input. The wire protocol "
+                        "supports mp4 and webm.",
+                        code="invalid_video_format",
+                    )
+                video_part = {
+                    "type": "video_url",
+                    "video_url": {"url": f"data:video/{fmt};base64,{payload}"},
+                }
+            if current_role not in {role, None}:
+                _flush()
+            current_role = role
+            current_content.append(video_part)
             contains_non_text = True
         else:
             continue
@@ -718,9 +761,9 @@ class _ClientCore:
         content = message.get("content")
 
         result: dict[str, Any] = {"text": content, "reasoning": reasoning_content, "raw": data}
-        if expects in {"point", "box", "polygon"} and isinstance(content, str):
-            kind = "point" if expects == "point" else ("box" if expects == "box" else "polygon")
-            result["points"] = extract_points(content, expected=kind)
+        if expects in _BUCKET_BY_EXPECTS and isinstance(content, str):
+            bucket_name, extract = _BUCKET_BY_EXPECTS[expects]
+            result[bucket_name] = extract(content)
             result["parsed"] = parse_text(content)
         return result
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import os
 import socket
 import subprocess
@@ -8,16 +7,20 @@ import sys
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from time import sleep, time
+from time import monotonic, sleep, time
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import pytest
 import requests
-from aiohttp import web
+import uvicorn
 
 if TYPE_CHECKING:
+    from fastapi import FastAPI
     from flask import Flask
+
+
+COVERAGE_ENV_VARS = ("COVERAGE_PROCESS_START", "COVERAGE_FILE")
 
 
 def unused_port() -> int:
@@ -26,31 +29,27 @@ def unused_port() -> int:
         return s.getsockname()[1]
 
 
-def run(target: Callable, port: int | None = None, timeout: float = 0.05, **kwargs: Any) -> int:
-    """Start a thread with the given aiohttp application."""
+def wait_for_port(port: int, *, timeout: float = 5.0, interval: float = 0.01) -> None:
+    deadline = monotonic() + timeout
+    while monotonic() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=interval):
+                return
+        except OSError:
+            sleep(interval)
+    raise RuntimeError(f"Server on port {port} failed to start within {timeout}s")
+
+
+def run(target: Callable, port: int | None = None, timeout: float = 5.0, wait: bool = True, **kwargs: Any) -> int:
+    """Start a daemon thread running the given server target on a free port."""
     if port is None:
         port = unused_port()
     server_thread = threading.Thread(target=target, kwargs={"port": port, **kwargs})
     server_thread.daemon = True
     server_thread.start()
-    sleep(timeout)
+    if wait:
+        wait_for_port(port, timeout=timeout)
     return port
-
-
-def _run_server(app: web.Application, port: int) -> None:
-    """Run the given app on the given port.
-
-    Intended to be called as a target for a separate thread.
-    NOTE. `aiohttp.web.run_app` works only in the main thread and can't be used here (or maybe can we some tuning)
-    """
-    # Set a loop for a new thread (there is no by default for non-main threads)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    runner = web.AppRunner(app)
-    loop.run_until_complete(runner.setup())
-    site = web.TCPSite(runner, "127.0.0.1", port)
-    loop.run_until_complete(site.start())
-    loop.run_forever()
 
 
 class SubprocessRunner:
@@ -73,7 +72,7 @@ class SubprocessRunner:
         filepath = self.tmp_path / filename
         filepath.write_text(content)
 
-        process_env = os.environ.copy()
+        process_env = {key: value for key, value in os.environ.items() if key not in COVERAGE_ENV_VARS}
         process_env["PORT"] = str(port)
         if env:
             process_env.update(env)
@@ -133,16 +132,35 @@ def subprocess_runner(tmp_path):
     runner.cleanup()
 
 
-def run_aiohttp_app(app: web.Application, port: int | None = None, timeout: float = 0.05) -> int:
-    """Start a thread with the given aiohttp application."""
-    return run(_run_server, app=app, port=port, timeout=timeout)
+def run_flask_app(app: Flask, port: int | None = None, timeout: float = 5.0, wait: bool = True) -> int:
+    """Start a thread with the given Flask application."""
+    return run(app.run, port=port, timeout=timeout, wait=wait)
 
 
-def run_flask_app(app: Flask, port: int | None = None, timeout: float = 0.05) -> int:
-    """Start a thread with the given aiohttp application."""
-    return run(app.run, port=port, timeout=timeout)
+def openapi_url(app: Flask, *, path: str = "/openapi.json", wait: bool = True) -> str:
+    """Start `app` on a free port and return the URL where the OpenAPI schema is served."""
+    port = run_flask_app(app, wait=wait)
+    return f"http://127.0.0.1:{port}{path}"
+
+
+def run_asgi_app(app: FastAPI, port: int | None = None, timeout: float = 5.0, wait: bool = True) -> int:
+    """Start a daemon thread running uvicorn against the given ASGI application."""
+    if port is None:
+        port = unused_port()
+    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error", lifespan="off")
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    if wait:
+        wait_for_port(port, timeout=timeout)
+    return port
 
 
 @pytest.fixture(scope="session")
 def app_runner():
-    return SimpleNamespace(run_flask_app=run_flask_app, run_aiohttp_app=run_aiohttp_app)
+    return SimpleNamespace(
+        run_flask_app=run_flask_app,
+        run_asgi_app=run_asgi_app,
+        unused_port=unused_port,
+        openapi_url=openapi_url,
+    )

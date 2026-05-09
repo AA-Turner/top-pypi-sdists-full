@@ -11,6 +11,12 @@ from .annotations import annotate_image, canonicalize_text_collections, serializ
 from .client import _PROVIDER_CONFIG, ResponseFormat, _select_model
 from .config import settings
 from .dsl.nodes import (
+    Image as ImageNode,
+)
+from .dsl.nodes import (
+    Media as MediaNode,
+)
+from .dsl.nodes import (
     Sequence as SequenceNode,
 )
 from .dsl.nodes import (
@@ -131,9 +137,8 @@ def _run_perceive_sequence(
 
 
 def _caption_sequence(
-    image_obj: Any,
+    media_node: MediaNode,
     style: str,
-    expects: str | None,
     template: CaptionPromptTemplate,
 ) -> SequenceNode:
     style_map = template.style_prompts
@@ -142,13 +147,13 @@ def _caption_sequence(
     nodes = []
     if template.system_instruction:
         nodes.append(system(template.system_instruction))
-    nodes.append(image_node(image_obj))
-    nodes.append(text(style_map[style]))
+    nodes.append(media_node)
+    nodes.append(text(style_map[style].get(media_node)))
     return SequenceNode(nodes)
 
 
 def caption(
-    image_obj: Any,
+    media_obj: MediaNode,
     *,
     style: str = "concise",
     expects: str = "box",
@@ -156,7 +161,10 @@ def caption(
     response_format: ResponseFormat | None = None,
     **gen_kwargs: Any,
 ):
-    """Generate a caption for an image using predefined best-practice prompts.
+    """Generate a caption for media using predefined best-practice prompts.
+
+    ``media_obj`` must be wrapped with :func:`perceptron.image` or
+    :func:`perceptron.video`.
 
     Args:
         response_format: Optional constraint for output format. Use
@@ -175,7 +183,7 @@ def caption(
     }
 
     return _run_perceive_sequence(
-        builder=lambda: _caption_sequence(image_obj, style, structured_expectation, caption_template),
+        builder=lambda: _caption_sequence(media_obj, style, caption_template),
         perceive_base_kwargs=base_kwargs,
         gen_kwargs=gen_kwargs,
         response_format=response_format,
@@ -188,7 +196,7 @@ def caption(
 
 
 def _question_sequence(
-    image_obj: Any,
+    media_node: MediaNode,
     question_text: str,
     expects: str | None,
     template: QuestionPromptTemplate,
@@ -201,13 +209,13 @@ def _question_sequence(
     nodes: list = []
     if system_instruction:
         nodes.append(system(system_instruction))
-    nodes.append(image_node(image_obj))
+    nodes.append(media_node)
     nodes.append(text(question_text))
     return SequenceNode(nodes)
 
 
 def question(
-    image_obj: Any,
+    media_obj: MediaNode,
     question_text: str,
     *,
     expects: str = "text",
@@ -215,7 +223,10 @@ def question(
     response_format: ResponseFormat | None = None,
     **gen_kwargs: Any,
 ):
-    """Answer a question about an image, optionally requesting structured outputs.
+    """Answer a question about media, optionally requesting structured outputs.
+
+    ``media_obj`` must be wrapped with :func:`perceptron.image` or
+    :func:`perceptron.video`.
 
     Args:
         response_format: Optional constraint for output format. Use
@@ -234,7 +245,7 @@ def question(
     }
 
     return _run_perceive_sequence(
-        builder=lambda: _question_sequence(image_obj, question_text, structured_expectation, question_template),
+        builder=lambda: _question_sequence(media_obj, question_text, structured_expectation, question_template),
         perceive_base_kwargs=base_kwargs,
         gen_kwargs=gen_kwargs,
         response_format=response_format,
@@ -247,21 +258,21 @@ def question(
 
 
 def _ocr_sequence(
-    image_obj: Any,
+    image_node_obj: ImageNode,
     prompt: str | None,
     template: OcrPromptTemplate,
 ) -> SequenceNode:
     nodes = []
     if template.system_instruction:
         nodes.append(system(template.system_instruction))
-    nodes.append(image_node(image_obj))
+    nodes.append(image_node_obj)
     if prompt:
         nodes.append(text(prompt))
     return SequenceNode(nodes)
 
 
 def _run_ocr(
-    image_obj: Any,
+    image_node_obj: ImageNode,
     *,
     prompt: str | None,
     stream: bool,
@@ -288,7 +299,7 @@ def _run_ocr(
     }
 
     return _run_perceive_sequence(
-        builder=lambda: _ocr_sequence(image_obj, effective_prompt, ocr_template),
+        builder=lambda: _ocr_sequence(image_node_obj, effective_prompt, ocr_template),
         perceive_base_kwargs=base_kwargs,
         gen_kwargs=gen_kwargs,
         response_format=response_format,
@@ -296,7 +307,7 @@ def _run_ocr(
 
 
 def ocr(
-    image_obj: Any,
+    image_obj: ImageNode,
     *,
     prompt: str | None = None,
     stream: bool = False,
@@ -304,6 +315,8 @@ def ocr(
     **gen_kwargs: Any,
 ):
     """Perform OCR on an image (plain text).
+
+    ``image_obj`` must be wrapped with :func:`perceptron.image`.
 
     Args:
         response_format: Optional constraint for output format. Use
@@ -322,7 +335,7 @@ def ocr(
 
 
 def ocr_markdown(
-    image_obj: Any,
+    image_obj: ImageNode,
     *,
     prompt: str | None = None,
     stream: bool = False,
@@ -330,6 +343,8 @@ def ocr_markdown(
     **gen_kwargs: Any,
 ):
     """Perform OCR and request Markdown output when supported by the provider.
+
+    ``image_obj`` must be wrapped with :func:`perceptron.image`.
 
     Args:
         response_format: Optional constraint for output format. Use
@@ -348,7 +363,7 @@ def ocr_markdown(
 
 
 def ocr_html(
-    image_obj: Any,
+    image_obj: ImageNode,
     *,
     prompt: str | None = None,
     stream: bool = False,
@@ -356,6 +371,8 @@ def ocr_html(
     **gen_kwargs: Any,
 ):
     """Perform OCR and request HTML output when supported by the provider.
+
+    ``image_obj`` must be wrapped with :func:`perceptron.image`.
 
     Args:
         response_format: Optional constraint for output format. Use
@@ -381,36 +398,36 @@ def ocr_html(
 def _detect_system_message(
     classes: Sequence[str] | None,
     template: DetectPromptTemplate,
+    media: MediaNode,
 ) -> SequenceNode:
     if classes:
         categories = ", ".join(str(c) for c in classes)
-        message = template.category_instruction_template.format(categories=categories)
+        message = template.category_instruction_template.get(media).format(categories=categories)
     else:
-        message = template.general_instruction
+        message = template.general_instruction.get(media)
     return SequenceNode([system(message)])
 
 
 def _detect_sequence(
-    image_obj: Any,
+    media_node: MediaNode,
     *,
     classes: Sequence[str] | None,
     examples: Sequence[Any] | None,
     template: DetectPromptTemplate,
 ) -> SequenceNode:
-    sequence = _detect_system_message(classes, template)
+    sequence = _detect_system_message(classes, template, media_node)
     normalized_examples = _normalize_examples(examples, classes) if examples else []
     for ex in normalized_examples:
         sequence = sequence + image_node(ex.image)
         if ex.prompt:
             sequence = sequence + text(ex.prompt)
         sequence = sequence + agent(ex.tags)
-    im = image_node(image_obj)
-    sequence = sequence + im
+    sequence = sequence + media_node
     return sequence
 
 
 def detect(  # noqa: PLR0913
-    image_obj: Any,
+    media_obj: MediaNode,
     *,
     classes: Sequence[str] | None = None,
     examples: Sequence[Any] | None = None,
@@ -421,6 +438,9 @@ def detect(  # noqa: PLR0913
     **gen_kwargs: Any,
 ):
     """High-level object detection helper.
+
+    ``media_obj`` must be wrapped with :func:`perceptron.image` or
+    :func:`perceptron.video`.
 
     Args:
         response_format: Optional constraint for output format. Use
@@ -440,7 +460,7 @@ def detect(  # noqa: PLR0913
         base_kwargs["strict"] = strict
 
     return _run_perceive_sequence(
-        builder=lambda: _detect_sequence(image_obj, classes=classes, examples=examples, template=detect_template),
+        builder=lambda: _detect_sequence(media_obj, classes=classes, examples=examples, template=detect_template),
         perceive_base_kwargs=base_kwargs,
         gen_kwargs=gen_kwargs,
         response_format=response_format,
@@ -711,7 +731,7 @@ def detect_from_coco(  # noqa: PLR0913
 
         image_bytes = image_path.read_bytes()
         result = detect(
-            image_bytes,
+            image_node(image_bytes),
             classes=class_list,
             stream=False,
             examples=examples if examples else None,

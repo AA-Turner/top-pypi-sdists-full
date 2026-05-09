@@ -1,3 +1,0 @@
-"""
-FlowTask plugin Directory.
-"""

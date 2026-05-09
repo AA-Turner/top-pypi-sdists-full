@@ -20,7 +20,7 @@ from gi.repository import GObject, GLib, Gio
 from gi.repository import GIMarshallingTests
 import pytest
 
-from .helper import capture_exceptions, capture_output
+from .helper import capture_exceptions, capture_glib_warnings, capture_output
 import contextlib
 
 
@@ -2574,6 +2574,12 @@ class TestStructure(unittest.TestCase):
         del in_struct
         del out_struct
 
+    def test_pointer_array_struct_with_guint8(self):
+        out_struct = GIMarshallingTests.PointerArrayStruct.with_uint8_array()
+
+        with capture_glib_warnings(allow_warnings=True):
+            assert out_struct.array == list(map(ord, "0123456789"))
+
     def test_struct_field_assignment(self):
         struct = GIMarshallingTests.BoxedStruct()
 
@@ -3106,6 +3112,42 @@ class TestPythonGObject(unittest.TestCase):
         GIMarshallingTests.callback_owned_boxed(callback, None)
         GIMarshallingTests.callback_owned_boxed(nop_callback, None)
         self.assertEqual(self.box.long_, 1)
+
+    def test_callback_user_data_after_callback(self):
+        def callback(*args):
+            self.callback_args = args
+
+        GIMarshallingTests.callback_user_data_after_callback(1, 2, callback)
+        self.assertEqual(self.callback_args, (1, 2))
+
+        GIMarshallingTests.callback_user_data_after_callback(3, 4, callback, "testdata")
+        self.assertEqual(self.callback_args, (3, 4, "testdata"))
+
+        GIMarshallingTests.callback_user_data_after_callback(
+            5, 6, callback, "more testdata", "even more testdata"
+        )
+        self.assertEqual(
+            self.callback_args, (5, 6, "more testdata", "even more testdata")
+        )
+
+    def test_callback_user_data_before_callback(self):
+        def callback(*args):
+            self.callback_args = args
+
+        GIMarshallingTests.callback_user_data_before_callback(1, 2, None, callback)
+        self.assertEqual(self.callback_args, (1, 2, None))
+
+        GIMarshallingTests.callback_user_data_before_callback(
+            3, 4, "testdata", callback
+        )
+        self.assertEqual(self.callback_args, (3, 4, "testdata"))
+
+        GIMarshallingTests.callback_user_data_before_callback(
+            5, 6, ("more testdata", "even more testdata"), callback
+        )
+        self.assertEqual(
+            self.callback_args, (5, 6, ("more testdata", "even more testdata"))
+        )
 
 
 class TestMultiOutputArgs(unittest.TestCase):

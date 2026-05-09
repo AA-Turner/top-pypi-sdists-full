@@ -23,6 +23,7 @@ from typing import (
     cast,
     overload,
 )
+from warnings import warn
 
 import httpx
 
@@ -33,6 +34,7 @@ from ibm_watsonx_ai.utils.utils import (
     anext_resource_generator,
     get_from_json,
 )
+from ibm_watsonx_ai.utils.warnings import WatsonxAPIWarning
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     MissingMetaProp,
@@ -69,6 +71,33 @@ class WMLResource:
     @property
     def _credentials(self) -> Credentials:
         return self._client.credentials
+
+    @staticmethod
+    def _build_warning_message(warning: dict[str, Any]) -> str:
+        warning_message = ""
+
+        if "message" in warning:
+            warning_message += warning["message"]
+
+        if "id" in warning:
+            warning_message += f"\nID: {warning['id']}"
+
+        if "more_info" in warning:
+            warning_message += f"\nMore info: {warning['more_info']}"
+
+        if not warning_message:
+            warning_message = str(warning)
+
+        return warning_message
+
+    @classmethod
+    def _process_system_warnings(cls, response_json_content: Any) -> None:
+        system_warnings = get_from_json(response_json_content, ["system", "warnings"])
+        if not system_warnings:
+            return
+
+        for warning in system_warnings:
+            warn(cls._build_warning_message(warning), WatsonxAPIWarning)
 
     @overload
     @classmethod
@@ -178,7 +207,10 @@ class WMLResource:
                 try:
                     if is_streaming:
                         response.read()
-                    return response.json()
+
+                    response_json_content = response.json()
+                    cls._process_system_warnings(response_json_content)
+                    return response_json_content
                 except Exception as e:
                     if is_streaming:
                         try:

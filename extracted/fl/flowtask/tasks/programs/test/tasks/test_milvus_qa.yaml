@@ -1,8 +1,0 @@
-name: Test Load QA Milvus database
-description: Test Load QA Milvus database with Excel files.
-steps:
-  - LangchainLoader:
-      path: "/home/ubuntu/symbits/assurant/reviews/faq_table.xlsx"
-      source_type: "Assurant-FAQ"
-      loader: QAFileLoader
-      chunk_size: 2048

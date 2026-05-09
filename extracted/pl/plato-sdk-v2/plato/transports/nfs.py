@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import shlex
 import time as _time
@@ -16,6 +17,30 @@ if TYPE_CHECKING:
     from plato.v2.async_.environment import Environment
 
 logger = logging.getLogger(__name__)
+
+_MOUNT_MAX_ATTEMPTS = 3
+_MOUNT_RETRY_DELAY_S = 5.0
+_MOUNT_PER_ATTEMPT_TIMEOUT_S = 35  # `timeout 30 mount …` + small SSH overhead
+
+
+def _is_transient_mount_failure(exit_code: int, stderr: str) -> bool:
+    """Return True if a failed mount looks like a retryable transient (timeout, EIO).
+
+    `timeout` exits 124 when it kills the child; mount.nfs exits 32 on most
+    failures and prints a human reason on stderr. Connection/portmap timeouts
+    are the only ones we want to retry — auth/permission failures are not."""
+    if exit_code == 124:
+        return True
+    err = stderr.lower()
+    transient_markers = (
+        "connection timed out",
+        "timed out",
+        "no route to host",
+        "connection refused",
+        "portmap",
+        "rpc: timed out",
+    )
+    return any(marker in err for marker in transient_markers)
 
 
 class NFSTransport(Transport):
@@ -162,37 +187,100 @@ class NFSTransport(Transport):
         hostname: str,
         mount: AgentWorkspaceMount,
     ) -> None:
-        """Mount the world VM's NFS export on an agent VM via SSH."""
+        """Mount the world VM's NFS export on an agent VM via SSH.
+
+        The mount step is retried up to ``_MOUNT_MAX_ATTEMPTS`` times on
+        transient connection-timeout failures (intermittent rpcbind/mountd
+        races and overlay-network packet loss show up here). Each attempt is
+        wrapped in `timeout 30 mount …` so it fails fast instead of waiting
+        ~130s for the kernel's own retrans loop."""
         await self._setup_workspace_path(self.path)
 
         del agent_env
         remote = mount.agent_path
         nfs_src = f"{self.world_vm_ip}:{self.path}"
 
-        parts = [
-            "(which mount.nfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq nfs-common))",
-            f"mkdir -p {remote}",
-            f"mount -t nfs -o vers=3,hard,timeo=300,retrans=5,nolock,rsize=32768,wsize=32768 {nfs_src} {remote}",
-            f"echo \"NFS_MOUNT_INFO=$(mount | grep '{remote}')\"",
-        ]
+        # Step 1: install nfs-common and create the mountpoint. Idempotent;
+        # only run once even if mount retries.
+        prep_cmd = (
+            "(which mount.nfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq nfs-common))"
+            f" && mkdir -p {remote}"
+        )
+        exit_code, _, stderr = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            prep_cmd,
+            timeout=120,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to prepare NFS mount on agent VM: {stderr}")
 
+        # Step 2: mount with bounded per-attempt timeout and retries.
+        mount_cmd = (
+            f"timeout 30 mount -t nfs -o vers=3,hard,timeo=300,retrans=5,nolock,"
+            f"rsize=32768,wsize=32768 {nfs_src} {remote}"
+        )
+        t0 = _time.monotonic()
+        last_err = ""
+        for attempt in range(1, _MOUNT_MAX_ATTEMPTS + 1):
+            logger.info(
+                "NFSTransport.setup_agent: mounting %s -> %s on %s (attempt %d/%d)",
+                nfs_src,
+                remote,
+                hostname,
+                attempt,
+                _MOUNT_MAX_ATTEMPTS,
+            )
+            exit_code, _, stderr = await run_ssh(
+                self.ssh_key_path,
+                hostname,
+                mount_cmd,
+                timeout=_MOUNT_PER_ATTEMPT_TIMEOUT_S,
+            )
+            if exit_code == 0:
+                break
+            last_err = stderr.strip() or f"exit_code={exit_code}"
+            if not _is_transient_mount_failure(exit_code, stderr):
+                raise RuntimeError(f"Failed to mount NFS on agent VM: {last_err}")
+            if attempt < _MOUNT_MAX_ATTEMPTS:
+                logger.warning(
+                    "NFS mount attempt %d/%d failed on %s (%s); retrying in %.1fs",
+                    attempt,
+                    _MOUNT_MAX_ATTEMPTS,
+                    hostname,
+                    last_err,
+                    _MOUNT_RETRY_DELAY_S,
+                )
+                await asyncio.sleep(_MOUNT_RETRY_DELAY_S)
+        else:
+            raise RuntimeError(f"Failed to mount NFS on agent VM after {_MOUNT_MAX_ATTEMPTS} attempts: {last_err}")
+        logger.info(
+            "NFSTransport.setup_agent: mounted in %.1fs on %s (attempt %d)",
+            _time.monotonic() - t0,
+            hostname,
+            attempt,
+        )
+
+        # Step 3: post-mount steps (mount info log + optional audit rules).
+        post_parts = [f"echo \"NFS_MOUNT_INFO=$(mount | grep '{remote}')\""]
         audit_key = mount.audit_key
         tracked = mount.tracked
         if tracked and audit_key:
-            parts.extend(build_auditctl_commands(remote, audit_key))
+            post_parts.extend(build_auditctl_commands(remote, audit_key))
 
-        combined_cmd = " && ".join(parts)
-        t0 = _time.monotonic()
-        logger.info("NFSTransport.setup_agent: mounting %s -> %s on %s", nfs_src, remote, hostname)
         exit_code, stdout, stderr = await run_ssh(
             self.ssh_key_path,
             hostname,
-            combined_cmd,
-            timeout=180,
+            " && ".join(post_parts),
+            timeout=60,
         )
-        if exit_code != 0:
-            raise RuntimeError(f"Failed to mount NFS on agent VM: {stderr}")
-        logger.info("NFSTransport.setup_agent: mounted in %.1fs on %s", _time.monotonic() - t0, hostname)
+        post_ok = exit_code == 0
+        if not post_ok:
+            logger.warning(
+                "NFS post-mount setup returned non-zero on %s: %s",
+                hostname,
+                stderr.strip(),
+            )
 
         for line in stdout.splitlines():
             if line.startswith("NFS_MOUNT_INFO="):
@@ -200,7 +288,15 @@ class NFSTransport(Transport):
                 break
 
         if tracked and audit_key:
-            logger.info("Filesystem audit enabled on agent VM for %s (key=%s)", remote, audit_key)
+            if post_ok:
+                logger.info("Filesystem audit enabled on agent VM for %s (key=%s)", remote, audit_key)
+            else:
+                logger.warning(
+                    "Filesystem audit may NOT be active on agent VM for %s (key=%s) — "
+                    "post-mount auditctl setup failed; tool attribution will be incomplete",
+                    remote,
+                    audit_key,
+                )
 
     async def collect_audit_log(
         self,

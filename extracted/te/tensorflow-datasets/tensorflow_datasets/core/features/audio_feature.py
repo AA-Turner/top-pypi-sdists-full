@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -131,6 +131,8 @@ def _pydub_decode_audio(
   fobj = io.BytesIO(audio_tensor.numpy())
   if file_format_tensor.has_value():
     file_format = file_format_tensor.get_value().numpy()
+    if isinstance(file_format, bytes):
+      file_format = file_format.decode('utf-8')
   else:
     file_format = None
   return _pydub_load_audio(fobj, file_format, channels)

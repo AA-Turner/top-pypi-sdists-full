@@ -19,6 +19,7 @@ query getUser {
           createdOn
           jobTypes
           isActive
+          disabledOn
           connectionIdentifiers {
             key
             value
@@ -38,6 +39,7 @@ query getUser {
           createdOn
           jobTypes
           isActive
+          disabledOn
           connectionIdentifiers {
             key
             value
@@ -57,6 +59,7 @@ query getUser {
           createdOn
           jobTypes
           isActive
+          disabledOn
           connectionIdentifiers {
             key
             value

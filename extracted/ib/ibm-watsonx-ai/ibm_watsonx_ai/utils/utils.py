@@ -852,17 +852,22 @@ async def anext_resource_generator(
         if "http" not in next_href:
             next_href = f"{url}/{next_href}"
 
+        has_query = bool(urllib.parse.urlparse(next_href).query)
+
+        request_params = None if has_query else (params or client._params())
+
         response = await client.async_httpx_client.get(
             url=next_href,
             headers=await client._aget_headers(),
-            params=(params if params is not None else client._params()),
+            params=request_params,
         )
-
-        next_href, resources = _handle_next_details_response(
-            response, _all, _filter_func, _silent_response_logging
-        )
-
-        yield resources
+        try:
+            next_href, resources = _handle_next_details_response(
+                response, _all, _filter_func, _silent_response_logging
+            )
+            yield resources
+        finally:
+            await response.aclose()
 
 
 class DisableWarningsLogger:

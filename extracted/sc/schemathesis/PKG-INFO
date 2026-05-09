@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: schemathesis
-Version: 4.17.0
-Summary: Property-based testing framework for Open API and GraphQL based apps
+Version: 4.18.0
+Summary: Adaptive API testing for OpenAPI and GraphQL
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/schemathesis/schemathesis
@@ -11,7 +11,7 @@ Author-email: Dmitry Dygalo <dmitry@dygalo.dev>
 Maintainer-email: Dmitry Dygalo <dmitry@dygalo.dev>
 License-Expression: MIT
 License-File: LICENSE
-Keywords: graphql,hypothesis,openapi,pytest,testing
+Keywords: adaptive,fuzzing,graphql,hypothesis,openapi,pytest,testing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Framework :: Hypothesis
@@ -35,8 +35,7 @@ Requires-Dist: httpx<1.0,>=0.22.0
 Requires-Dist: hypothesis-graphql<1,>=0.12.0
 Requires-Dist: hypothesis-jsonschema<0.24,>=0.23.1
 Requires-Dist: hypothesis<7,>=6.108.0
-Requires-Dist: jsonschema-rs>=0.46.3
-Requires-Dist: jsonschema<5.0,>=4.18.0
+Requires-Dist: jsonschema-rs>=0.46.4
 Requires-Dist: junit-xml<2.0,>=1.9
 Requires-Dist: pyrate-limiter<5.0,>=4.0
 Requires-Dist: pytest<10,>=9
@@ -51,13 +50,12 @@ Requires-Dist: werkzeug<4,>=0.16.0
 Provides-Extra: allure
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'allure'
 Provides-Extra: bench
-Requires-Dist: pytest-codspeed==4.4.0; extra == 'bench'
+Requires-Dist: pytest-codspeed==4.5.0; extra == 'bench'
 Requires-Dist: pytest-test-groups==1.2.1; extra == 'bench'
 Provides-Extra: cov
 Requires-Dist: coverage-enable-subprocess; extra == 'cov'
 Requires-Dist: coverage[toml]>=5.3; extra == 'cov'
 Provides-Extra: dev
-Requires-Dist: aiohttp<4.0,>=3.9.1; extra == 'dev'
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'dev'
 Requires-Dist: coverage-enable-subprocess; extra == 'dev'
 Requires-Dist: coverage>=6; extra == 'dev'
@@ -69,7 +67,7 @@ Requires-Dist: mkdocs-material; extra == 'dev'
 Requires-Dist: mkdocstrings[python]; extra == 'dev'
 Requires-Dist: pydantic>=1.10.2; extra == 'dev'
 Requires-Dist: pytest-asyncio<2.0,>=1.0; extra == 'dev'
-Requires-Dist: pytest-codspeed==4.4.0; extra == 'dev'
+Requires-Dist: pytest-codspeed==4.5.0; extra == 'dev'
 Requires-Dist: pytest-httpserver<2.0,>=1.0; extra == 'dev'
 Requires-Dist: pytest-mock<4.0,>=3.7.0; extra == 'dev'
 Requires-Dist: pytest-test-groups==1.2.1; extra == 'dev'
@@ -79,13 +77,13 @@ Requires-Dist: strawberry-graphql[fastapi]>=0.109.0; extra == 'dev'
 Requires-Dist: syrupy<6.0,>=4; extra == 'dev'
 Requires-Dist: tomli-w>=1.2.0; extra == 'dev'
 Requires-Dist: trustme<2.0,>=0.9.0; extra == 'dev'
+Requires-Dist: uvicorn<1.0,>=0.20; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: mkdocs-material; extra == 'docs'
 Requires-Dist: mkdocstrings[python]; extra == 'docs'
 Provides-Extra: profiling
 Requires-Dist: pyinstrument>=5.1; extra == 'profiling'
 Provides-Extra: tests
-Requires-Dist: aiohttp<4.0,>=3.9.1; extra == 'tests'
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'tests'
 Requires-Dist: coverage>=6; extra == 'tests'
 Requires-Dist: fastapi>=0.86.0; extra == 'tests'
@@ -101,6 +99,7 @@ Requires-Dist: strawberry-graphql[fastapi]>=0.109.0; extra == 'tests'
 Requires-Dist: syrupy<6.0,>=4; extra == 'tests'
 Requires-Dist: tomli-w>=1.2.0; extra == 'tests'
 Requires-Dist: trustme<2.0,>=0.9.0; extra == 'tests'
+Requires-Dist: uvicorn<1.0,>=0.20; extra == 'tests'
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -126,9 +125,9 @@ Description-Content-Type: text/markdown
 
 ## Schemathesis
 
-> **Catch API bugs before your users do.** 
+> **Catch API bugs before your users do.**
 
-Schemathesis automatically generates thousands of test cases from your OpenAPI or GraphQL schema and finds edge cases that break your API.
+Schemathesis tests OpenAPI and GraphQL APIs by generating inputs from your schema, adapting to server responses, and chaining operations into realistic workflows.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/schemathesis/schemathesis/master/img/demo.gif" alt="Schemathesis automatically finding a server error"/>

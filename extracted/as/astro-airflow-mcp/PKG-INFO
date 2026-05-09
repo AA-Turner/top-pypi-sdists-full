@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astro-airflow-mcp
-Version: 0.8.1
+Version: 0.8.2
 Summary: A FastMCP server for Airflow integration that can run standalone or as an Airflow 2/3 plugin
 License-File: LICENSE
 Requires-Python: >=3.10

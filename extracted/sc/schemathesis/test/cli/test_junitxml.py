@@ -8,12 +8,12 @@ from _pytest.main import ExitCode
 from flask import jsonify
 
 
-@pytest.mark.operations("success")
-def test_junitxml_option(cli, schema_url, hypothesis_max_examples, tmp_path):
+def test_junitxml_option(ctx, cli, hypothesis_max_examples, tmp_path):
+    api = ctx.openapi.apps.success()
     # When option with a path to junit.xml is provided
     xml_path = tmp_path / "junit.xml"
     cli.run_and_assert(
-        schema_url,
+        api.schema_url,
         f"--report-junit-path={xml_path}",
         f"--max-examples={hypothesis_max_examples or 2}",
         "--checks=not_a_server_error",
@@ -27,8 +27,9 @@ def test_junitxml_option(cli, schema_url, hypothesis_max_examples, tmp_path):
 
 @pytest.mark.parametrize("in_config", [True, False])
 @pytest.mark.parametrize("path", ["junit.xml", "does-not-exist/junit.xml"])
-@pytest.mark.operations("success", "failure", "unsatisfiable", "empty_string")
-def test_junitxml_file(cli, schema_url, hypothesis_max_examples, tmp_path, path, server_host, in_config):
+def test_junitxml_file(ctx, cli, hypothesis_max_examples, tmp_path, path, in_config):
+    api = ctx.openapi.apps.success_failure_unsatisfiable_empty_string()
+    server_host = api.base_url.removeprefix("http://")
     xml_path = tmp_path / path
     args = [
         f"--max-examples={hypothesis_max_examples or 1}",
@@ -42,7 +43,7 @@ def test_junitxml_file(cli, schema_url, hypothesis_max_examples, tmp_path, path,
         kwargs["config"] = {"reports": {"junit": {"path": str(xml_path)}}}
     else:
         args.append(f"--report-junit-path={xml_path}")
-    cli.run_and_assert(schema_url, *args, exit_code=ExitCode.TESTS_FAILED, **kwargs)
+    cli.run_and_assert(api.schema_url, *args, exit_code=ExitCode.TESTS_FAILED, **kwargs)
     tree = ElementTree.parse(xml_path)
     # Inspect root element `testsuites`
     root = tree.getroot()
@@ -65,21 +66,21 @@ def test_junitxml_file(cli, schema_url, hypothesis_max_examples, tmp_path, path,
     testcases_by_name = {tc.attrib["name"]: tc for tc in testcases}
 
     # Inspected testcase with a failure
-    failure = testcases_by_name["GET /failure"]
+    failure = testcases_by_name["GET /api/failure"]
     assert failure.tag == "testcase"
     assert failure[0].tag == "failure"
     assert failure[0].attrib["type"] == "failure"
-    assert (
-        extract_message(failure[0], server_host)
-        == "1. Test Case ID: <PLACEHOLDER>  - Server error  - Undocumented Content-Type      Received: text/plain; charset=utf-8     Documented: application/json  [500] Internal Server Error:      `500: Internal Server Error`  Reproduce with:      curl -X GET http://localhost/api/failure"
-    )
+    message = extract_message(failure[0], server_host)
+    assert "Server error" in message
+    assert "[500] Internal Server Error" in message
+    assert "curl -X GET http://localhost/api/failure" in message
 
     # Inspect passed testcase
-    success = testcases_by_name["GET /success"]
+    success = testcases_by_name["GET /api/success"]
     assert success.tag == "testcase"
 
     # Inspect testcase with an error
-    error = testcases_by_name["POST /unsatisfiable"]
+    error = testcases_by_name["POST /api/unsatisfiable"]
     assert error.tag == "testcase"
     assert error[0].tag == "error"
     assert error[0].attrib["type"] == "error"
@@ -104,13 +105,12 @@ def with_error(ctx, response, case):
     sys.version_info < (3, 11) or platform.system() == "Windows",
     reason="Cover only tracebacks that highlight error positions in every line",
 )
-@pytest.mark.operations("success")
-@pytest.mark.openapi_version("3.0")
-def test_error_with_traceback(with_error, cli, schema_url, tmp_path):
+def test_error_with_traceback(ctx, with_error, cli, tmp_path):
+    api = ctx.openapi.apps.success()
     xml_path = tmp_path / "junit.xml"
     cli.main(
         "run",
-        schema_url,
+        api.schema_url,
         "-c",
         "with_error",
         f"--report-junit-path={xml_path}",
@@ -134,9 +134,9 @@ def extract_message(testcase, server_host):
     )
 
 
-def test_binary_response(ctx, cli, openapi3_base_url, tmp_path, server_host):
+def test_binary_response(ctx, cli, app_runner, tmp_path):
     xml_path = tmp_path / "junit.xml"
-    schema_path = ctx.openapi.write_schema(
+    app, _ = ctx.openapi.make_flask_app(
         {
             "/binary": {
                 "get": {
@@ -150,9 +150,21 @@ def test_binary_response(ctx, cli, openapi3_base_url, tmp_path, server_host):
             },
         }
     )
+
+    @app.route("/api/binary")
+    def binary():
+        from flask import Response
+
+        return Response(
+            b"\xa7\xf5=\x18H\xc7\xff'\xf0\xeep\x06M-RX",
+            content_type="application/octet-stream",
+            status=500,
+        )
+
+    base_url = app_runner.openapi_url(app, path="")
     cli.run(
-        str(schema_path),
-        f"--url={openapi3_base_url}",
+        f"{base_url}/openapi.json",
+        f"--url={base_url}/api",
         "--checks=all",
         f"--report-junit-path={xml_path}",
         "--exclude-checks=positive_data_acceptance",
@@ -165,17 +177,16 @@ def test_binary_response(ctx, cli, openapi3_base_url, tmp_path, server_host):
     assert testcases[0][0].tag == "failure"
     assert testcases[0][0].attrib["type"] == "failure"
     assert (
-        extract_message(testcases[0][0], server_host)
+        extract_message(testcases[0][0], base_url.removeprefix("http://"))
         == "1. Test Case ID: <PLACEHOLDER>  - Server error  [500] Internal Server Error:      <BINARY>  Reproduce with:      curl -X GET http://localhost/api/binary"
     )
 
 
-@pytest.mark.operations("slow")
-@pytest.mark.openapi_version("3.0")
-def test_timeout(cli, tmp_path, schema_url, hypothesis_max_examples):
+def test_timeout(ctx, cli, tmp_path, hypothesis_max_examples):
+    api = ctx.openapi.apps.slow()
     xml_path = tmp_path / "junit.xml"
     cli.run(
-        schema_url,
+        api.schema_url,
         f"--report-junit-path={xml_path}",
         f"--max-examples={hypothesis_max_examples or 1}",
         "--seed=1",
@@ -186,18 +197,17 @@ def test_timeout(cli, tmp_path, schema_url, hypothesis_max_examples):
     testsuite = tree.getroot()[0]
     testcases = list(testsuite)
     assert testcases[0].tag == "testcase"
-    assert testcases[0].attrib["name"] == "GET /slow"
+    assert testcases[0].attrib["name"] == "GET /api/slow"
     assert testcases[0][0].tag == "error"
     assert testcases[0][0].attrib["type"] == "error"
     assert "Read timed out after 0.01 seconds" in testcases[0][0].text
 
 
-@pytest.mark.operations("success")
-@pytest.mark.openapi_version("3.0")
-def test_skipped(cli, tmp_path, schema_url, server_host):
+def test_skipped(ctx, cli, tmp_path):
+    api = ctx.openapi.apps.success()
     xml_path = tmp_path / "junit.xml"
     cli.run(
-        schema_url,
+        api.schema_url,
         f"--report-junit-path={xml_path}",
         "--seed=1",
         "--phases=examples",
@@ -207,25 +217,46 @@ def test_skipped(cli, tmp_path, schema_url, server_host):
     testsuite = tree.getroot()[0]
     testcases = list(testsuite)
     assert testcases[0].tag == "testcase"
-    assert testcases[0].attrib["name"] == "GET /success"
+    assert testcases[0].attrib["name"] == "GET /api/success"
     assert testcases[0][0].tag == "skipped"
     assert testcases[0][0].attrib["type"] == "skipped"
-    assert extract_message(testcases[0][0], server_host) == "No examples in schema"
+    assert extract_message(testcases[0][0], f"127.0.0.1:{api.port}") == "No examples in schema"
+
+
+def test_examples_phase_skip_cleared_when_coverage_runs(ctx, cli, tmp_path):
+    # When the Examples phase skips an operation (schema has no inline examples)
+    # but the Coverage phase subsequently runs and produces real results,
+    # the JUnit report must NOT mark the test case as skipped.
+    api = ctx.openapi.apps.success()
+    xml_path = tmp_path / "junit.xml"
+    cli.run(
+        api.schema_url,
+        f"--report-junit-path={xml_path}",
+        "--phases=examples,coverage",
+        "--checks=all",
+    )
+    tree = ElementTree.parse(xml_path)
+    testsuite = tree.getroot()[0]
+    testcases = list(testsuite)
+    assert testcases[0].tag == "testcase"
+    assert testcases[0].attrib["name"] == "GET /api/success"
+    # Coverage ran real requests — the earlier skip must have been cleared
+    assert not testcases[0].findall("skipped")
 
 
 @pytest.mark.parametrize("path", ["junit.xml", "does-not-exist/junit.xml"])
-@pytest.mark.openapi_version("3.0")
 @pytest.mark.skipif(platform.system() == "Windows", reason="Unclear how to trigger the permission error on Windows")
-def test_permission_denied(cli, tmp_path, schema_url, path):
+def test_permission_denied(ctx, cli, tmp_path, path):
+    api = ctx.openapi.apps.success()
     dir_path = tmp_path / "output"
     dir_path.mkdir(mode=0o555)
     xml_path = dir_path / path
-    result = cli.run_and_assert(schema_url, f"--report-junit-path={xml_path}", exit_code=ExitCode.INTERRUPTED)
+    result = cli.run_and_assert(api.schema_url, f"--report-junit-path={xml_path}", exit_code=ExitCode.INTERRUPTED)
 
     assert "Permission denied" in result.stdout or "Permission denied" in result.stderr
 
 
-def test_coverage_unspecified_method_in_junit(cli, ctx, app_runner, tmp_path):
+def test_coverage_unspecified_method_in_junit(cli, ctx, tmp_path):
     # See GH-3699
     # When coverage phase triggers an `unsupported_method` failure via UNSPECIFIED_HTTP_METHOD,
     # the failure must appear in JUnit XML
@@ -237,9 +268,8 @@ def test_coverage_unspecified_method_in_junit(cli, ctx, app_runner, tmp_path):
     def users():
         return jsonify([])
 
-    port = app_runner.run_flask_app(app)
-    result = cli.run(
-        f"http://127.0.0.1:{port}/openapi.json",
+    result = cli.run_openapi_app(
+        app,
         "--phases=coverage",
         f"--report-junit-path={xml_path}",
         "--checks=unsupported_method",

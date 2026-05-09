@@ -590,52 +590,68 @@ def print_changes(result: dict, project: Project, output: Optional[str] = "human
             for dm in data_movements
         ]
 
-    for ds in deployment.get("new_datasource_names", []):
-        resources.append(["new", ds, "datasource", project.get_resource_path(ds, "datasource")])
+    resources.extend(
+        ["new", ds, "datasource", project.get_resource_path(ds, "datasource")]
+        for ds in deployment.get("new_datasource_names", [])
+    )
 
     for p in deployment.get("new_pipe_names", []):
         path = project.get_resource_path(p, "pipe")
         pipe_type = project.get_pipe_type(path)
         resources.append(["new", p, pipe_type, path])
 
-    for dc in deployment.get("new_data_connector_names", []):
-        resources.append(["new", dc, "connection", project.get_resource_path(dc, "connection")])
+    resources.extend(
+        ["new", dc, "connection", project.get_resource_path(dc, "connection")]
+        for dc in deployment.get("new_data_connector_names", [])
+    )
 
-    for ds in deployment.get("changed_datasource_names", []):
-        resources.append(["modified", ds, "datasource", project.get_resource_path(ds, "datasource")])
+    resources.extend(
+        ["modified", ds, "datasource", project.get_resource_path(ds, "datasource")]
+        for ds in deployment.get("changed_datasource_names", [])
+    )
 
     for p in deployment.get("changed_pipe_names", []):
         path = project.get_resource_path(p, "pipe")
         pipe_type = project.get_pipe_type(path)
         resources.append(["modified", p, pipe_type, path])
 
-    for dc in deployment.get("changed_data_connector_names", []):
-        resources.append(["modified", dc, "connection", project.get_resource_path(dc, "connection")])
+    resources.extend(
+        ["modified", dc, "connection", project.get_resource_path(dc, "connection")]
+        for dc in deployment.get("changed_data_connector_names", [])
+    )
 
-    for ds in deployment.get("disconnected_data_source_names", []):
-        resources.append(["modified", ds, "datasource", project.get_resource_path(ds, "datasource")])
+    resources.extend(
+        ["modified", ds, "datasource", project.get_resource_path(ds, "datasource")]
+        for ds in deployment.get("disconnected_data_source_names", [])
+    )
 
-    for ds in deployment.get("deleted_datasource_names", []):
-        resources.append(["deleted", ds, "datasource", project.get_resource_path(ds, "datasource")])
+    resources.extend(
+        ["deleted", ds, "datasource", project.get_resource_path(ds, "datasource")]
+        for ds in deployment.get("deleted_datasource_names", [])
+    )
 
     for p in deployment.get("deleted_pipe_names", []):
         path = project.get_resource_path(p, "pipe")
         pipe_type = project.get_pipe_type(path)
         resources.append(["deleted", p, pipe_type, path])
 
-    for dc in deployment.get("deleted_data_connector_names", []):
-        resources.append(["deleted", dc, "connection", project.get_resource_path(dc, "connection")])
+    resources.extend(
+        ["deleted", dc, "connection", project.get_resource_path(dc, "connection")]
+        for dc in deployment.get("deleted_data_connector_names", [])
+    )
 
     for token_change in deployment.get("token_changes", []):
         token_name = token_change.get("token_name")
         change_type = token_change.get("change_type")
-        added_perms = []
-        removed_perms = []
         permission_changes = token_change.get("permission_changes", {})
-        for perm in permission_changes.get("added_permissions", []):
-            added_perms.append(f"{perm['resource_name']}.{perm['resource_type']}:{perm['permission']}")
-        for perm in permission_changes.get("removed_permissions", []):
-            removed_perms.append(f"{perm['resource_name']}.{perm['resource_type']}:{perm['permission']}")
+        added_perms = [
+            f"{perm['resource_name']}.{perm['resource_type']}:{perm['permission']}"
+            for perm in permission_changes.get("added_permissions", [])
+        ]
+        removed_perms = [
+            f"{perm['resource_name']}.{perm['resource_type']}:{perm['permission']}"
+            for perm in permission_changes.get("removed_permissions", [])
+        ]
 
         tokens.append((change_type, token_name, "\n".join(added_perms), "\n".join(removed_perms)))
 

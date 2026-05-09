@@ -105,9 +105,7 @@ def list_members_in_workspace(ctx: Context) -> None:
     """List members in the current Workspace."""
 
     cmd_ctx = get_command_context(ctx)
-    users = []
-    for u in cmd_ctx.workspace["members"]:
-        users.append([u["email"], u["role"]])
+    users = [[u["email"], u["role"]] for u in cmd_ctx.workspace["members"]]
     click.echo(FeedbackManager.info_workspace_users(workspace_name=cmd_ctx.workspace["name"]))
     echo_safe_humanfriendly_tables_format_smart_table(users, column_names=["email", "role"])
 

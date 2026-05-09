@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import enum
 import time
 from collections.abc import Callable, Generator, Iterator, Mapping
 from dataclasses import dataclass
 from difflib import get_close_matches
-from enum import unique
 from types import SimpleNamespace
 from typing import (
     TYPE_CHECKING,
@@ -14,16 +12,18 @@ from typing import (
     cast,
 )
 from unittest import SkipTest
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from hypothesis import strategies as st
 from requests.structures import CaseInsensitiveDict
+from typing_extensions import override
 
 from schemathesis import auths
 from schemathesis.core import NOT_SET, NotSet, Specification
 from schemathesis.core.errors import InvalidSchema, OperationNotFound
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.result import Ok, Result
+from schemathesis.core.statistic import ApiStatistic
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import (
@@ -33,31 +33,41 @@ from schemathesis.generation.meta import (
     FuzzingPhaseData,
     GenerationInfo,
     PhaseInfo,
+    StatefulPhaseData,
     TestPhase,
 )
 from schemathesis.hooks import HookContext, HookDispatcher, apply_to_all_dispatchers
 from schemathesis.schemas import (
     APIOperation,
     APIOperationMap,
-    ApiStatistic,
     BaseSchema,
     OperationDefinition,
 )
+from schemathesis.transport.prepare import prepare_path
 
+from .extra_data_source import GraphQLResourcePool
+from .inference import RootType
 from .scalars import CUSTOM_SCALARS, get_extra_scalar_strategies
+from .substitution import SUBSTITUTION_PROBABILITY, substitute_pool_values
 
 if TYPE_CHECKING:
+    from random import Random
+
     import graphql
     from hypothesis.strategies import SearchStrategy
 
     from schemathesis.auths import AuthContext, AuthStorage
+    from schemathesis.core.error_feedback import ErrorFeedbackStore
+    from schemathesis.engine.context import EngineContext
+    from schemathesis.engine.run import Phase
+    from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
+    from schemathesis.engine.run.unit._pool import DefaultScheduler
+    from schemathesis.generation.stateful.state_machine import APIStateMachine
     from schemathesis.resources import ExtraDataSource
 
 
-@unique
-class RootType(enum.Enum):
-    QUERY = enum.auto()
-    MUTATION = enum.auto()
+# Reused on every per-draw call; allocating once avoids ~600ns of `LazyStrategy` construction.
+_NONE_STRATEGY: st.SearchStrategy = st.none()
 
 
 @dataclass(repr=False)
@@ -89,9 +99,17 @@ class GraphQLResponses:
 
 @dataclass
 class GraphQLSchema(BaseSchema):
+    @override
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        from schemathesis.specs.graphql.analysis import GraphQLAnalysis
+
+        self.analysis = GraphQLAnalysis(self)
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}>"
 
+    @override
     def __iter__(self) -> Iterator[str]:
         schema = self.client_schema
         for operation_type in (
@@ -101,6 +119,7 @@ class GraphQLSchema(BaseSchema):
             if operation_type is not None:
                 yield operation_type.name
 
+    @override
     def _get_operation_map(self, key: str) -> APIOperationMap:
         schema = self.client_schema
         for root_type, operation_type in (
@@ -113,6 +132,7 @@ class GraphQLSchema(BaseSchema):
                 return map
         raise KeyError(key)
 
+    @override
     def find_operation_by_label(self, label: str) -> APIOperation | None:
         if label.startswith(("Query.", "Mutation.")):
             ty, field = label.split(".", maxsplit=1)
@@ -122,6 +142,7 @@ class GraphQLSchema(BaseSchema):
                 return None
         return None
 
+    @override
     def on_missing_operation(self, item: str, exc: KeyError) -> NoReturn:
         raw_schema = self.raw_schema["__schema"]
         type_names = [type_def["name"] for type_def in raw_schema.get("types", [])]
@@ -131,19 +152,70 @@ class GraphQLSchema(BaseSchema):
             message += f". Did you mean `{matches[0]}`?"
         raise OperationNotFound(message=message, item=item) from exc
 
+    @override
     def get_full_path(self, path: str) -> str:
         return self.base_path
 
     @property
+    @override
     def specification(self) -> Specification:
         return Specification.graphql(version="")
 
+    @override
     def apply_auth(self, case: Case, context: AuthContext) -> bool:
         return False
 
-    def create_extra_data_source(self) -> None:
-        """Extra data sources are not supported for GraphQL schemas."""
-        return None
+    @override
+    def as_state_machine(self, *, error_feedback: ErrorFeedbackStore | None = None) -> type[APIStateMachine]:
+        # `error_feedback` is OpenAPI-specific; `hypothesis-graphql` strategies have no hook to consume it.
+        from schemathesis.specs.graphql.stateful import create_state_machine
+
+        return create_state_machine(self)
+
+    @override
+    def apply_stateful_inference(self, ctx: EngineContext) -> int:
+        # All GraphQL transitions are derived from schema structure (no `links` keyword equivalent),
+        # so the entire selected count is reported through the engine's `inferred` channel.
+        return self.analysis.transition_count
+
+    @override
+    def create_extra_data_source(self) -> GraphQLResourcePool:
+        return GraphQLResourcePool(client_schema=self.client_schema)
+
+    @override
+    def build_request_url(self, case: Case, base_url: str) -> str:
+        parts = list(urlsplit(base_url))
+        parts[2] = prepare_path(case.path, case.path_parameters)
+        return urlunsplit(parts)
+
+    @override
+    def prepare_request_body(
+        self, body: list | dict[str, Any] | str | int | float | bool | bytes | NotSet
+    ) -> list | dict[str, Any] | str | int | float | bool | bytes | NotSet:
+        if isinstance(body, NotSet | bytes):
+            return body
+        return {"query": body}
+
+    @override
+    def get_unit_scheduler(
+        self,
+        operations: list[Result[APIOperation, InvalidSchema]],
+        phase: Phase,
+    ) -> DefaultScheduler | LayeredScheduler:
+        from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
+        from schemathesis.engine.run.unit._pool import DefaultScheduler, split_results
+        from schemathesis.specs.graphql.ordering import compute_graphql_layers
+
+        successes, errors = split_results(operations)
+        if not successes:
+            return DefaultScheduler(operations=operations)
+
+        layers = compute_graphql_layers(successes)
+        if len(layers) == 1:
+            # Single role: layering would add no information.
+            return DefaultScheduler(operations=operations)
+
+        return LayeredScheduler(layers, errors=errors)
 
     @property
     def client_schema(self) -> graphql.GraphQLSchema:
@@ -154,14 +226,17 @@ class GraphQLSchema(BaseSchema):
         return self._client_schema
 
     @property
+    @override
     def base_path(self) -> str:
         if self.config.base_url:
             return urlsplit(self.config.base_url).path
         return self._get_base_path()
 
+    @override
     def _get_base_path(self) -> str:
         return cast(str, urlsplit(self.location).path)
 
+    @override
     def _measure_statistic(self) -> ApiStatistic:
         statistic = ApiStatistic()
         raw_schema = self.raw_schema["__schema"]
@@ -189,6 +264,7 @@ class GraphQLSchema(BaseSchema):
                                 statistic.operations.selected += 1
         return statistic
 
+    @override
     def get_all_operations(self) -> Generator[Result[APIOperation, InvalidSchema], None, None]:
         schema = self.client_schema
         for root_type, operation_type in (
@@ -236,6 +312,7 @@ class GraphQLSchema(BaseSchema):
             ),
         )
 
+    @override
     def get_case_strategy(
         self,
         operation: APIOperation,
@@ -252,9 +329,11 @@ class GraphQLSchema(BaseSchema):
             **kwargs,
         )
 
+    @override
     def get_strategies_from_examples(self, operation: APIOperation, **kwargs: Any) -> list[SearchStrategy[Case]]:
         return []
 
+    @override
     def make_case(
         self,
         *,
@@ -284,9 +363,11 @@ class GraphQLSchema(BaseSchema):
             meta=meta,
         )
 
+    @override
     def get_tags(self, operation: APIOperation) -> list[str] | None:
         return None
 
+    @override
     def validate(self) -> None:
         return None
 
@@ -345,6 +426,8 @@ def graphql_cases(
     phase: TestPhase = TestPhase.FUZZING,
     # Not supported for GraphQL, passed here to unify interfaces
     extra_data_source: ExtraDataSource | None = None,
+    error_feedback: ErrorFeedbackStore | None = None,
+    mutate_ast: Callable[[graphql.OperationDefinitionNode, Random], None] | None = None,
 ) -> Any:
     import graphql
     from hypothesis.errors import InvalidArgument
@@ -359,7 +442,7 @@ def graphql_cases(
     }[definition.root_type]
     hook_context = HookContext(operation=operation)
     custom_scalars = {**get_extra_scalar_strategies(), **CUSTOM_SCALARS}
-    generation = operation.schema.config.generation_for(operation=operation, phase="fuzzing")
+    generation = operation.schema.config.generation_for(operation=operation, phase=phase.value)
     gql_mode = GqlMode.NEGATIVE if generation_mode == GenerationMode.NEGATIVE else GqlMode.POSITIVE
     effective_mode = generation_mode
     strategy = strategy_factory(
@@ -372,9 +455,9 @@ def graphql_cases(
         codec=generation.codec,
         mode=gql_mode,
     )
-    strategy = apply_to_all_dispatchers(operation, hook_context, hooks, strategy, "body").map(graphql.print_ast)
+    strategy = apply_to_all_dispatchers(operation, hook_context, hooks, strategy, "body")
     try:
-        body = draw(strategy)
+        ast_node = draw(strategy)
     except InvalidArgument:
         # Negative mode is not possible for this operation (no required arguments or scalar types to violate)
         if generation.modes == [GenerationMode.NEGATIVE]:
@@ -391,10 +474,26 @@ def graphql_cases(
             codec=generation.codec,
             mode=GqlMode.POSITIVE,
         )
-        fallback_strategy = apply_to_all_dispatchers(operation, hook_context, hooks, fallback_strategy, "body").map(
-            graphql.print_ast
-        )
-        body = draw(fallback_strategy)
+        fallback_strategy = apply_to_all_dispatchers(operation, hook_context, hooks, fallback_strategy, "body")
+        ast_node = draw(fallback_strategy)
+
+    operation_node = next(
+        (d for d in ast_node.definitions if isinstance(d, graphql.OperationDefinitionNode)),
+        None,
+    )
+    if operation_node is not None:
+        if isinstance(extra_data_source, GraphQLResourcePool):
+            random_source = draw(st.randoms())
+            if random_source.random() < SUBSTITUTION_PROBABILITY:
+                substitute_pool_values(
+                    operation_node=operation_node,
+                    client_schema=operation.schema.client_schema,  # type: ignore[attr-defined]
+                    pool=extra_data_source,
+                    random=random_source,
+                )
+        if mutate_ast is not None:
+            mutate_ast(operation_node, draw(st.randoms()))
+    body = graphql.print_ast(ast_node)
 
     path_parameters_ = _generate_parameter(
         ParameterLocation.PATH, path_parameters, draw, operation, hook_context, hooks
@@ -417,8 +516,14 @@ def graphql_cases(
             parameter_location=None,
             location=None,
         ),
+        TestPhase.STATEFUL: StatefulPhaseData(
+            description=description,
+            parameter=None,
+            parameter_location=None,
+            location=None,
+        ),
     }[phase]
-    phase_data = cast(ExamplesPhaseData | FuzzingPhaseData, _phase_data)
+    phase_data = cast(ExamplesPhaseData | FuzzingPhaseData | StatefulPhaseData, _phase_data)
     instance = operation.Case(
         path_parameters=path_parameters_,
         headers=headers_,
@@ -464,7 +569,7 @@ def _generate_parameter(
     # Schemathesis does not generate anything but `body` for GraphQL, hence use `None`
     container = location.container_name
     if isinstance(explicit, NotSet):
-        strategy = apply_to_all_dispatchers(operation, context, hooks, st.none(), container)
+        strategy = apply_to_all_dispatchers(operation, context, hooks, _NONE_STRATEGY, container)
     else:
         strategy = apply_to_all_dispatchers(operation, context, hooks, st.just(explicit), container)
     return draw(strategy)

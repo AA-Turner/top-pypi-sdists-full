@@ -19,13 +19,21 @@ from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import TestPhase
 from schemathesis.generation.stateful import STATEFUL_TESTS_LABEL
-from schemathesis.generation.stateful.state_machine import APIStateMachine, StepInput, StepOutput, _normalize_name
+from schemathesis.generation.stateful.control import TransitionController
+from schemathesis.generation.stateful.state_machine import (
+    BASE_EXPLORATION_RATE,
+    APIStateMachine,
+    StepInput,
+    StepOutput,
+    _normalize_name,
+)
 from schemathesis.schemas import APIOperation
-from schemathesis.specs.openapi.stateful.control import TransitionController
+from schemathesis.specs.openapi.expressions import MultiMatch
 from schemathesis.specs.openapi.stateful.links import OpenApiLink
 from schemathesis.specs.openapi.utils import expand_status_code
 
 if TYPE_CHECKING:
+    from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.generation.stateful.state_machine import StepOutput
     from schemathesis.specs.openapi.schemas import OpenApiSchema
 
@@ -69,8 +77,6 @@ class OpenAPIStateMachine(APIStateMachine):
 
 # The proportion of negative tests generated for "root" transitions
 NEGATIVE_TEST_CASES_THRESHOLD = 10
-# How often some transition is skipped
-BASE_EXPLORATION_RATE = 0.15
 
 
 @dataclass
@@ -98,6 +104,12 @@ class ApiTransitions:
         """Record an outgoing transition from source operation."""
         self.operations.setdefault(source, OperationTransitions()).outgoing.append(link)
         self.operations.setdefault(link.target.label, OperationTransitions()).incoming.append(link)
+
+    def producer_labels_for_bundle(self, bundle_name: str) -> Iterator[str]:
+        # Bundles are named "<source label> -> <status code>" by `create_state_machine`.
+        source, separator, _ = bundle_name.partition(" -> ")
+        if separator:
+            yield source
 
 
 @dataclass
@@ -135,7 +147,9 @@ def collect_transitions(operations: list[APIOperation]) -> ApiTransitions:
     return transitions
 
 
-def create_state_machine(schema: OpenApiSchema) -> type[APIStateMachine]:
+def create_state_machine(
+    schema: OpenApiSchema, *, error_feedback: ErrorFeedbackStore | None = None
+) -> type[APIStateMachine]:
     operations = [result.ok() for result in schema.get_all_operations() if isinstance(result, Ok)]
     bundles = {}
     transitions = collect_transitions(operations)
@@ -196,17 +210,28 @@ def create_state_machine(schema: OpenApiSchema) -> type[APIStateMachine]:
                             name=name,
                             target=catch_all,
                             input=bundles[bundle_name].flatmap(
-                                into_step_input(target=target, link=link, modes=config.modes)
+                                into_step_input(
+                                    target=target,
+                                    link=link,
+                                    modes=config.modes,
+                                    error_feedback=error_feedback,
+                                )
                             ),
                         )
                     )
             if target.label in roots.reliable or (not roots.reliable and target.label in roots.fallback):
                 name = _normalize_name(f"RANDOM -> {target.label}")
                 if len(config.modes) == 1:
-                    case_strategy = target.as_strategy(generation_mode=config.modes[0], phase=TestPhase.STATEFUL)
+                    case_strategy = target.as_strategy(
+                        generation_mode=config.modes[0],
+                        phase=TestPhase.STATEFUL,
+                        error_feedback=error_feedback,
+                    )
                 else:
                     _strategies = {
-                        method: target.as_strategy(generation_mode=method, phase=TestPhase.STATEFUL)
+                        method: target.as_strategy(
+                            generation_mode=method, phase=TestPhase.STATEFUL, error_feedback=error_feedback
+                        )
                         for method in config.modes
                     }
 
@@ -269,7 +294,11 @@ def is_likely_root_transition(operation: APIOperation) -> bool:
 
 
 def into_step_input(
-    *, target: APIOperation, link: OpenApiLink, modes: list[GenerationMode]
+    *,
+    target: APIOperation,
+    link: OpenApiLink,
+    modes: list[GenerationMode],
+    error_feedback: ErrorFeedbackStore | None = None,
 ) -> Callable[[StepOutput], st.SearchStrategy[StepInput]]:
     """A single transition between API operations."""
 
@@ -295,6 +324,14 @@ def into_step_input(
                         continue
 
                     param_key = f"{container}.{name}"
+                    value = extracted.value.ok()
+                    # Wildcard expressions yield multiple candidates. Pick via the
+                    # `use_true_random` instance so the per-step pick stays out of
+                    # Hypothesis's data tree — the producer's response shape can vary
+                    # across runs of the same byte stream when the API has mutable
+                    # state, and a tracked draw would be flagged as inconsistent.
+                    if isinstance(value, MultiMatch):
+                        value = random.choice(value.values)
 
                     # Calculate exploration rate based on parameter characteristics
                     exploration_rate = BASE_EXPLORATION_RATE
@@ -312,7 +349,7 @@ def into_step_input(
                         exploration_rate *= 3.0
 
                     if biased_coin(1 - exploration_rate):
-                        overrides[container][name] = extracted.value.ok()
+                        overrides[container][name] = value
                         applied_parameters.append(param_key)
 
             # Get the extracted body value
@@ -334,7 +371,15 @@ def into_step_input(
                     applied_parameters.append("body")
 
             cases = st.one_of(
-                [target.as_strategy(generation_mode=mode, phase=TestPhase.STATEFUL, **overrides) for mode in modes]
+                [
+                    target.as_strategy(
+                        generation_mode=mode,
+                        phase=TestPhase.STATEFUL,
+                        error_feedback=error_feedback,
+                        **overrides,
+                    )
+                    for mode in modes
+                ]
             )
             case = draw(cases)
             if request_body is not NOT_SET and link.merge_body:

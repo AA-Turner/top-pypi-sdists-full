@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
-import concurrent.futures
 import dataclasses
 import functools
 import itertools
@@ -36,6 +35,7 @@ with epy.lazy_imports():
   from etils import epath
   from tensorflow_datasets.core import example_parser
   from tensorflow_datasets.core import example_serializer
+  from tensorflow_datasets.core import features as features_lib
   from tensorflow_datasets.core import file_adapters
   from tensorflow_datasets.core import hashing
   from tensorflow_datasets.core import naming
@@ -264,17 +264,26 @@ class ShardWriter:
 
   def __init__(
       self,
+      features: features_lib.FeatureConnector,
       serializer: example_serializer.Serializer,
       example_writer: ExampleWriter,
   ):
     """Initializes Writer.
 
     Args:
+      features: the features of the dataset.
       serializer: class that can serialize examples.
       example_writer: class that writes examples to disk or elsewhere.
     """
+    self._features = features
     self._serializer = serializer
     self._example_writer = example_writer
+
+  def _serialize_example(self, example: Example) -> Any:
+    """Encodes and serializes an example."""
+    return self._serializer.serialize_example(
+        self._features.encode_example(example)
+    )
 
   def write(
       self,
@@ -282,12 +291,16 @@ class ShardWriter:
       path: epath.Path,
   ) -> int:
     """Returns the number of examples written to the given path."""
-    serialized_examples = [
-        (k, self._serializer.serialize_example(v)) for k, v in examples
-    ]
-    self._example_writer.write(path=path, examples=serialized_examples)
+    (for_writing, for_counting) = itertools.tee(examples, 2)
 
-    return len(serialized_examples)
+    def serialize_examples() -> Iterator[type_utils.KeySerializedExample]:
+      for k, v in for_writing:
+        yield k, self._serialize_example(v)
+
+    self._example_writer.write(path=path, examples=serialize_examples())
+    num_examples = sum(1 for _ in for_counting)
+
+    return num_examples
 
   def write_with_beam(
       self,
@@ -798,12 +811,8 @@ class NoShuffleBeamWriter:
         | "Shuffle" >> beam.Reshuffle()
         | "Serialize" >> beam.Map(self._serialize_example)
     )
-    if self._num_shards is not None:
-      serialized_examples = serialized_examples | "Reshard" >> beam.Reshuffle(
-          self._num_shards
-      )
     return serialized_examples | "Write" >> self._file_adapter.beam_sink(
-        filename_template=self._filename_template
+        filename_template=self._filename_template, num_shards=self._num_shards
     )
 
   def finalize(self) -> tuple[list[int], int]:
@@ -814,22 +823,11 @@ class NoShuffleBeamWriter:
       in each shard, and size of the files (in bytes).
     """
     logging.info("Finalizing writer for %s", self._filename_template.split)
-    # We don't know the number of shards, the length of each shard, nor the
-    # total size, so we compute them here.
-    prefix = epath.Path(self._filename_template.filepath_prefix())
-    shards = self._filename_template.data_dir.glob(f"{prefix.name}*")
-
-    def _get_length_and_size(shard: epath.Path) -> tuple[epath.Path, int, int]:
-      length = self._file_adapter.num_examples(shard)
-      size = shard.stat().length
-      return shard, length, size
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-      shard_sizes = executor.map(_get_length_and_size, shards)
-
-    shard_sizes = sorted(shard_sizes, key=lambda x: x[0])
-    shard_lengths: list[int] = [x[1] for x in shard_sizes]
-    total_size_bytes: int = sum([x[2] for x in shard_sizes])
+    shard_lengths_and_sizes = self._file_adapter.shard_lengths_and_sizes(
+        self._filename_template, num_shards=self._num_shards
+    )
+    shard_lengths = [length for length, _ in shard_lengths_and_sizes]
+    total_size_bytes = sum(size for _, size in shard_lengths_and_sizes)
 
     logging.info(
         "Found %d shards with a total size of %d bytes.",
@@ -837,4 +835,31 @@ class NoShuffleBeamWriter:
         total_size_bytes,
     )
 
-    return shard_lengths, total_size_bytes
+    # Empty shards may be produced by Beam. We delete them and rename the
+    # non-empty shards accordingly.
+    all_shard_paths = self._filename_template.sharded_filepaths(
+        len(shard_lengths)
+    )
+    non_empty_shards: list[epath.Path] = []
+    non_empty_shard_lengths: list[int] = []
+    empty_shards: list[epath.Path] = []
+    for length, shard_path in zip(shard_lengths, all_shard_paths):
+      if length > 0:
+        non_empty_shard_lengths.append(length)
+        non_empty_shards.append(shard_path)
+      else:
+        empty_shards.append(shard_path)
+
+    non_empty_shard_paths = self._filename_template.sharded_filepaths(
+        len(non_empty_shards)
+    )
+    if empty_shards:
+      old_paths: list[epath.Path] = []
+      new_paths: list[epath.Path] = []
+      for orig_path, new_path in zip(non_empty_shards, non_empty_shard_paths):
+        old_paths.append(orig_path)
+        new_paths.append(new_path)
+      file_utils.bulk_delete(empty_shards)
+      file_utils.bulk_rename(old_paths=old_paths, new_paths=new_paths)
+
+    return non_empty_shard_lengths, total_size_bytes

@@ -195,7 +195,7 @@ def _get_session_metrics_logger() -> logging.Logger:
     """Get or initialize the session metrics file logger."""
     metrics_logger = logging.getLogger("session_metrics")
     if not metrics_logger.handlers:
-        log_file = "/var/log/studio/data-notebook-kernel-server/athena_spark_session_metrics.log"
+        log_file = "/var/log/studio/data-notebook-kernel-server/spark_connect_session_metrics.log"
         try:
             os.makedirs(os.path.dirname(log_file), exist_ok=True)
             handler = logging.FileHandler(log_file)

@@ -6,6 +6,7 @@ from ._collision import CollisionSystem
 from ._animation import AnimationSystem
 from ._render import RenderSystem
 from ._sound import SoundSystem
+from ._video import VideoSystem
 
 # ======================================== EXPORTS ========================================
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "AnimationSystem",
     "RenderSystem",
     "SoundSystem",
+    "VideoSystem",
 ]

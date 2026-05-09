@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, overload
+from typing import Any, TypeGuard, overload
 
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, REFERENCE_TO_BUNDLE_PREFIX
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.transforms import deepclone
-from schemathesis.specs.openapi.patterns import is_valid_python_regex, normalize_regex, update_quantifier
+from schemathesis.specs.openapi.patterns import (
+    is_valid_python_regex,
+    normalize_regex,
+    pattern_length_bounds,
+    update_quantifier,
+)
 
 
 @overload
@@ -97,7 +102,7 @@ def _to_json_schema(
                 schema["pattern"] = translated
             else:
                 del schema["pattern"]
-        elif isinstance(pattern, str) and (pattern.startswith(r"\A") or pattern.endswith(r"\Z")):
+        elif pattern.startswith(r"\A") or pattern.endswith(r"\Z"):
             # Pattern uses Python-specific anchors that need Rust translation for jsonschema-rs
             translated = normalize_regex(pattern)
             if translated is not None:
@@ -180,7 +185,31 @@ def _to_json_schema(
                     name_to_uri=name_to_uri,
                 )
 
+    # A property forbidden inside an `allOf` branch (read/write-only rewrite produces `{"not": {}}`)
+    # must also be removed from the parent's `required`, otherwise the schema is unsatisfiable.
+    required = schema.get("required")
+    if isinstance(required, list) and required:
+        forbidden = _forbidden_in_allof_branches(schema)
+        if forbidden:
+            new_required = [name for name in required if name not in forbidden]
+            if new_required:
+                schema["required"] = new_required
+            else:
+                schema.pop("required", None)
+
     return schema
+
+
+def _forbidden_in_allof_branches(schema: dict[str, Any]) -> set[str]:
+    forbidden: set[str] = set()
+    for branch in schema.get("allOf") or []:
+        if not isinstance(branch, dict):
+            continue
+        for name, subschema in (branch.get("properties") or {}).items():
+            if subschema == {"not": {}}:
+                forbidden.add(name)
+        forbidden.update(_forbidden_in_allof_branches(branch))
+    return forbidden
 
 
 def _pin_discriminator_property(schema: dict[str, Any], name_to_uri: dict[str, str] | None) -> None:
@@ -337,9 +366,13 @@ def update_pattern_in_schema(schema: dict[str, Any]) -> None:
     if pattern and (min_length or max_length):
         new_pattern = update_quantifier(pattern, min_length, max_length)
         if new_pattern != pattern:
-            schema.pop("minLength", None)
-            schema.pop("maxLength", None)
+            # Pop a bound only if the rewrite encodes it; rewrites with unbounded slots can't absorb `maxLength`.
+            new_min, new_max = pattern_length_bounds(new_pattern)
             schema["pattern"] = new_pattern
+            if min_length is not None and new_min >= min_length:
+                schema.pop("minLength", None)
+            if max_length is not None and new_max is not None and new_max <= max_length:
+                schema.pop("maxLength", None)
 
 
 def rewrite_properties(schema: dict[str, Any], predicate: Callable[[dict[str, Any]], bool]) -> None:
@@ -355,13 +388,13 @@ def rewrite_properties(schema: dict[str, Any], predicate: Callable[[dict[str, An
         schema.pop("properties", None)
 
 
-def is_write_only(schema: Any) -> bool:
+def is_write_only(schema: Any) -> TypeGuard[dict[str, Any]]:
     if not isinstance(schema, dict):
         return False
     return schema.get("writeOnly", False) or schema.get("x-writeOnly", False)
 
 
-def is_read_only(schema: Any) -> bool:
+def is_read_only(schema: Any) -> TypeGuard[dict[str, Any]]:
     if not isinstance(schema, dict):
         return False
     return schema.get("readOnly", False)

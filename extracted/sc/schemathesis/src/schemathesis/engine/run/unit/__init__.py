@@ -18,7 +18,6 @@ from schemathesis.config import (
     CoveragePhaseConfig,
     ExamplesPhaseConfig,
     FuzzingPhaseConfig,
-    OperationOrdering,
 )
 from schemathesis.core.errors import (
     AuthenticationError,
@@ -27,18 +26,16 @@ from schemathesis.core.errors import (
     InvalidSchema,
     is_regex_validation_error,
 )
-from schemathesis.core.result import Err, Ok, Result
-from schemathesis.core.transport import restful_method_priority
+from schemathesis.core.result import Ok, Result
 from schemathesis.engine import Status, events
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.engine.run import PhaseName, PhaseSkipReason
 from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
-from schemathesis.engine.run.unit._ordering import compute_operation_layers
 from schemathesis.engine.run.unit._pool import DefaultScheduler, WorkerPool
+from schemathesis.engine.supervisor import SchedulingDirective
 from schemathesis.generation import overrides
 from schemathesis.generation.hypothesis.builder import HypothesisTestConfig, HypothesisTestMode
 from schemathesis.generation.hypothesis.reporting import ignore_hypothesis_output
-from schemathesis.specs.openapi.schemas import OpenApiSchema
 
 if TYPE_CHECKING:
     from schemathesis.engine.context import EngineContext
@@ -49,57 +46,9 @@ WORKER_TIMEOUT = 0.1
 
 
 def _create_scheduler(engine: EngineContext, phase: Phase) -> DefaultScheduler | LayeredScheduler:
-    """Create the appropriate scheduler based on ordering configuration.
-
-    Args:
-        engine: Engine context
-        phase: Current phase
-
-    Returns:
-        Task scheduler (default or layered)
-
-    """
+    """Create the appropriate scheduler via the schema's specification-aware override."""
     operations: list[Result[APIOperation, InvalidSchema]] = list(engine.schema.get_all_operations())
-    # Check if this is an OpenAPI schema (ordering only works for OpenAPI)
-    if not isinstance(engine.schema, OpenApiSchema):
-        return DefaultScheduler(operations=operations)
-
-    # Get operation ordering config for this phase
-    phase_config = engine.config.phases.get_by_name(name=phase.name.name)
-    assert isinstance(phase_config, FuzzingPhaseConfig | CoveragePhaseConfig | ExamplesPhaseConfig)
-    ordering = phase_config.operation_ordering
-
-    # If ordering is disabled, use regular scheduler with collected operations
-    if ordering == OperationOrdering.NONE:
-        return DefaultScheduler(operations=operations)
-
-    # Extract successful operations for layer computation and collect errors
-    successes: list[APIOperation] = []
-    errors: list[InvalidSchema] = []
-    for result in operations:
-        if isinstance(result, Ok):
-            successes.append(result.ok())
-        else:
-            errors.append(result.err())
-
-    if not successes:
-        return DefaultScheduler(operations=operations)
-
-    layers = compute_operation_layers(engine.schema, successes)
-
-    if not layers:
-        return DefaultScheduler(operations=operations)
-
-    if len(layers) == 1:
-        # Stable-sort by RESTful priority so producers dispatch before consumers
-        # without reordering same-priority operations against each other.
-        ordered_successes = sorted(successes, key=lambda op: restful_method_priority(op.method))
-        ordered: list[Result[APIOperation, InvalidSchema]] = [Ok(op) for op in ordered_successes]
-        ordered.extend(Err(err) for err in errors)
-        return DefaultScheduler(operations=ordered)
-
-    # Pass errors so they are reported after all successful operations are processed
-    return LayeredScheduler(layers, errors=errors)
+    return engine.schema.get_unit_scheduler(operations, phase)
 
 
 def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
@@ -165,7 +114,10 @@ def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
                         if engine.has_to_stop:
                             break
                     except queue.Empty:
-                        if all(not worker.is_alive() for worker in pool.workers):
+                        # A worker may put its final events and exit between this thread's
+                        # get(timeout=...) raising Empty and the liveness check below.
+                        # Stop only when no producer remains AND nothing is left to drain.
+                        if all(not worker.is_alive() for worker in pool.workers) and pool.events_queue.empty():
                             break
                         continue
             except KeyboardInterrupt:
@@ -251,6 +203,25 @@ def worker_task(
                         or (phase == PhaseName.COVERAGE and not phases.coverage.enabled)
                     ):
                         continue
+                    verdict = ctx.supervisor.verdict(operation.label)
+                    if verdict.directive is SchedulingDirective.SKIP:
+                        scenario_started = events.ScenarioStarted(label=operation.label, phase=phase, suite_id=suite_id)
+                        events_queue.put(scenario_started)
+                        events_queue.put(
+                            events.ScenarioFinished(
+                                id=scenario_started.id,
+                                suite_id=suite_id,
+                                phase=phase,
+                                label=operation.label,
+                                status=Status.SKIP,
+                                recorder=ScenarioRecorder(label=operation.label),
+                                elapsed_time=0.0,
+                                skip_reason=verdict.reason,
+                                skip_warning=verdict.warning,
+                                is_final=True,
+                            )
+                        )
+                        continue
                     as_strategy_kwargs = get_strategy_kwargs(ctx, operation=operation, phase=phase)
                     scenario_started = events.ScenarioStarted(label=operation.label, phase=phase, suite_id=suite_id)
                     events_queue.put(scenario_started)
@@ -307,11 +278,11 @@ def get_strategy_kwargs(ctx: EngineContext, *, operation: APIOperation, phase: P
 
     # If extra data sources are enabled, pass them to augment data generation
     phase_config = ctx.config.phases_for(operation=operation).get_by_name(name=phase.name)
-    if isinstance(phase_config, FuzzingPhaseConfig) and phase_config.extra_data_sources.is_enabled:
-        kwargs["extra_data_source"] = ctx.extra_data_source
-    elif isinstance(phase_config, ExamplesPhaseConfig) and ctx.extra_data_source is not None:
-        kwargs["extra_data_source"] = ctx.extra_data_source
-    elif isinstance(phase_config, CoveragePhaseConfig) and ctx.extra_data_source is not None:
-        kwargs["extra_data_source"] = ctx.extra_data_source
+    if isinstance(phase_config, (FuzzingPhaseConfig, ExamplesPhaseConfig, CoveragePhaseConfig)):
+        if phase_config.extra_data_sources.is_enabled and ctx.extra_data_source is not None:
+            kwargs["extra_data_source"] = ctx.extra_data_source
+
+    if ctx.error_feedback is not None:
+        kwargs["error_feedback"] = ctx.error_feedback
 
     return kwargs

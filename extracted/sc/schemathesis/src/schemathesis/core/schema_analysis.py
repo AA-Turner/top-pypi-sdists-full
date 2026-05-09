@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from schemathesis.config import SchemathesisWarning
+from schemathesis.core.warnings import SchemathesisWarning
 
 
 class SchemaWarning(Protocol):
@@ -11,7 +11,7 @@ class SchemaWarning(Protocol):
     operation_label: str | None
 
     @property
-    def kind(self) -> SchemathesisWarning: ...
+    def kind(self) -> SchemathesisWarning: ...  # pragma: no cover
 
     @property
-    def message(self) -> str: ...
+    def message(self) -> str: ...  # pragma: no cover

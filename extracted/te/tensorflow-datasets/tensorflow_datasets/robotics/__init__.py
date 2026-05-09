@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,10 @@ from tensorflow_datasets.robotics.asimov.asimov import AsimovDilemmasScifiVal
 from tensorflow_datasets.robotics.asimov.asimov import AsimovInjuryVal
 from tensorflow_datasets.robotics.asimov.asimov import AsimovMultimodalAutoVal
 from tensorflow_datasets.robotics.asimov.asimov import AsimovMultimodalManualVal
+from tensorflow_datasets.robotics.asimov.asimov_v2 import AsimovV2ConstraintsWithoutRationale
+from tensorflow_datasets.robotics.asimov.asimov_v2 import AsimovV2ConstraintsWithRationale
+from tensorflow_datasets.robotics.asimov.asimov_v2 import AsimovV2Injuries
+from tensorflow_datasets.robotics.asimov.asimov_v2 import AsimovV2Videos
 from tensorflow_datasets.robotics.mt_opt import MtOpt
 from tensorflow_datasets.robotics.rtx import AlohaMobile
 from tensorflow_datasets.robotics.rtx import AsuTableTopConvertedExternallyToRlds
@@ -62,6 +66,7 @@ from tensorflow_datasets.robotics.rtx import NyuDoorOpeningSurprisingEffectivene
 from tensorflow_datasets.robotics.rtx import NyuFrankaPlayDatasetConvertedExternallyToRlds
 from tensorflow_datasets.robotics.rtx import NyuRotDatasetConvertedExternallyToRlds
 from tensorflow_datasets.robotics.rtx import PlexRobosuite
+from tensorflow_datasets.robotics.rtx import RoboAiUR5e
 from tensorflow_datasets.robotics.rtx import RoboSet
 from tensorflow_datasets.robotics.rtx import Roboturk
 from tensorflow_datasets.robotics.rtx import SpocRobot

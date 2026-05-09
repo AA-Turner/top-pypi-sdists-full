@@ -98,21 +98,20 @@ class MumbleUser(MumbleUserCommon):
         return NameFormatter(MumbleService(), self.user).format_name()
 
     @property
-    def groups(self) -> str:
-        # Not sure where this is used, there was a test for it
-        return self.group_string()
-
-    def group_string(self) -> str:
-        """Return a Mumble Safe Formatted List of Groups
-        This used to be a ModelField, generated on the fly now with DjangoAuthenticatorTM
-
-        Returns:
-            LiteralString: Mumble Safe Formatted List of Groups
+    def groups(self) -> list[str]:
         """
-        groups_str = [self.user.profile.state.name]
+        Return a list of groups for a given user
+
+        :return:
+        :rtype:
+        """
+
+        groups = [self.user.profile.state.name]
+
         for group in self.user.groups.all():
-            groups_str.append(str(group.name))
-        return ','.join({g.replace(' ', '-') for g in groups_str})
+            groups.append(str(group.name).replace(' ', '-'))
+
+        return groups
 
     class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
         verbose_name = _("User")
@@ -133,9 +132,15 @@ class TempUser(MumbleUserCommon):
         return f"{MUMBLE_TEMPS_SSO_PREFIX}{self.character.character_name}"
 
     @property
-    def groups(self) -> str:
-        # Not sure where this is used, there was a test for it
-        return self.group_string()
+    def groups(self) -> list[str]:
+        """
+        Default groups for ther Temp user
+
+        :return:
+        :rtype:
+        """
+
+        return ['Guest', 'Temporary-User']
 
     @staticmethod
     def generate_random_pass() -> str:
@@ -147,11 +152,6 @@ class TempUser(MumbleUserCommon):
 
     def __str__(self) -> str:
         return f"Temp User: {self.username}"
-
-    def group_string(self) -> str:
-        """Overwritten from MumbleUser, we could add features to this in the future
-        """
-        return str([f"{MUMBLE_TEMPS_SSO_PREFIX}"])
 
     class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
         verbose_name = _("Temp User")

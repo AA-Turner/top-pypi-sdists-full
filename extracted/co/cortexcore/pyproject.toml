@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cortexcore"
-version = "0.1.9"
+version = "0.1.6"
 description = "cortex is a modular library for building recurrent backbones and agent memory systems."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/Metta-AI/cortex"
+Repository = "https://github.com/Metta-AI/metta/tree/main/packages/cortex"
 
 [dependency-groups]
 dev = ["pytest>=8.3.3", "pytest-cov>=6.1.1", "pytest-xdist>=3.8.0"]

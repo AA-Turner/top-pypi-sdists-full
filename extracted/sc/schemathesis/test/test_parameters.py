@@ -1,6 +1,7 @@
 import datetime
 
 import pytest
+from flask import jsonify
 from hypothesis import HealthCheck, assume, find, given, settings
 from hypothesis.errors import FailedHealthCheck, NoSuchExample, Unsatisfiable
 
@@ -485,7 +486,7 @@ def test_(case):
 
 def test_nullable_body_behind_a_reference(ctx):
     # When a body parameter is nullable and is behind a reference
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/payload": {
                 "post": {
@@ -505,7 +506,6 @@ def test_nullable_body_behind_a_reference(ctx):
         },
     )
     # Then it should be properly collected
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/payload"]["POST"]
     # And its definition is not transformed to JSON Schema
     assert operation.body[0].definition == {
@@ -517,74 +517,43 @@ def test_nullable_body_behind_a_reference(ctx):
     }
 
 
-@pytest.fixture(params=["aiohttp", "flask"])
-def api_schema(ctx, request, openapi_version):
-    if openapi_version.is_openapi_2:
-        schema = ctx.openapi.build_schema(
-            {
-                "/payload": {
-                    "post": {
-                        "parameters": [
-                            {
-                                "in": "body",
-                                "required": True,
-                                "name": "payload",
-                                "schema": {"type": "boolean", "x-nullable": True},
-                            }
-                        ],
-                        "responses": {"200": {"description": "OK"}},
-                    }
-                }
-            },
-            version="2.0",
-        )
-    else:
-        schema = ctx.openapi.build_schema(
-            {
-                "/payload": {
-                    "post": {
-                        "requestBody": {
-                            "required": True,
-                            "content": {"application/json": {"schema": {"type": "boolean", "nullable": True}}},
-                        },
-                        "responses": {"200": {"description": "OK"}},
-                    }
+@pytest.mark.hypothesis_nested
+def test_null_body(ctx):
+    api = ctx.openapi.apps.payload()
+    # When API operation expects `null` as payload
+    schema = ctx.openapi.load_schema(
+        {
+            "/api/payload": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "boolean", "nullable": True}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
                 }
             }
-        )
-    schema = schemathesis.openapi.from_dict(schema)
-    if request.param == "aiohttp":
-        base_url = request.getfixturevalue("base_url")
-        schema.config.update(base_url=base_url)
-        return schema
-    schema.app = request.getfixturevalue("flask_app")
-    schema.config.update(base_url="http://127.0.0.1/api")
-    return schema
+        }
+    )
+    schema.config.update(base_url=api.base_url)
 
-
-@pytest.mark.hypothesis_nested
-@pytest.mark.operations("payload")
-def test_null_body(api_schema):
-    # When API operation expects `null` as payload
-
-    @given(case=api_schema["/payload"]["POST"].as_strategy())
+    @given(case=schema["/api/payload"]["POST"].as_strategy())
     @settings(max_examples=5, deadline=None)
     def test(case):
         assume(case.body is None)
         # Then it should be possible to send `null`
         response = case.call_and_validate()
-        # And the application should return what was sent (`/payload` behaves this way)
+        # And the application should return what was sent (`/api/payload` behaves this way)
         assert response.content.strip() == b"null"
 
     test()
 
 
-@pytest.mark.operations("read_only")
-def test_read_only(schema_url):
+def test_read_only(ctx):
     # When API operation has `readOnly` properties
-    schema = schemathesis.openapi.from_url(schema_url)
+    api = ctx.openapi.apps.read_only()
+    schema = schemathesis.openapi.from_url(api.schema_url)
 
-    @given(case=schema["/read_only"]["GET"].as_strategy())
+    @given(case=schema["/api/read_only"]["GET"].as_strategy())
     @settings(max_examples=1, deadline=None)
     def test(case):
         # Then `writeOnly` should not affect the response schema
@@ -595,12 +564,12 @@ def test_read_only(schema_url):
     test()
 
 
-@pytest.mark.operations("write_only")
-def test_write_only(schema_url):
+def test_write_only(ctx):
     # When API operation has `writeOnly` properties
-    schema = schemathesis.openapi.from_url(schema_url)
+    api = ctx.openapi.apps.write_only()
+    schema = schemathesis.openapi.from_url(api.schema_url)
 
-    @given(case=schema["/write_only"]["POST"].as_strategy())
+    @given(case=schema["/api/write_only"]["POST"].as_strategy())
     @settings(max_examples=1)
     def test(case):
         # Then `writeOnly` should be used only in requests
@@ -617,10 +586,9 @@ def test_write_only(schema_url):
 @pytest.mark.parametrize("location", ["path", "query", "header", "cookie"])
 def test_missing_content_and_schema(ctx, location):
     # When an Open API 3 parameter is missing `schema` & `content`
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {"/foo": {"get": {"parameters": [{"in": location, "name": "X-Foo", "required": True}]}}}
     )
-    schema = schemathesis.openapi.from_dict(schema)
 
     @given(schema["/foo"]["GET"].as_strategy())
     @settings(max_examples=1)
@@ -636,12 +604,12 @@ def test_missing_content_and_schema(ctx, location):
         test()
 
 
-@pytest.mark.operations("headers")
-def test_ascii_codec_for_headers(openapi3_schema_url):
-    schema = schemathesis.openapi.from_url(openapi3_schema_url)
+def test_ascii_codec_for_headers(ctx):
+    api = ctx.openapi.apps.headers()
+    schema = schemathesis.openapi.from_url(api.schema_url)
     schema.config.generation.codec = "ascii"
 
-    @given(case=schema["/headers"]["GET"].as_strategy())
+    @given(case=schema["/api/headers"]["GET"].as_strategy())
     @settings(max_examples=50)
     def test(case):
         assert case.headers["X-Token"].isascii()
@@ -649,13 +617,13 @@ def test_ascii_codec_for_headers(openapi3_schema_url):
     test()
 
 
-@pytest.mark.operations("headers")
-def test_exclude_chars_and_no_x00_for_headers(openapi3_schema_url):
-    schema = schemathesis.openapi.from_url(openapi3_schema_url)
+def test_exclude_chars_and_no_x00_for_headers(ctx):
+    api = ctx.openapi.apps.headers()
+    schema = schemathesis.openapi.from_url(api.schema_url)
     schema.config.generation.exclude_header_characters = "abc"
     schema.config.generation.allow_x00 = False
 
-    @given(case=schema["/headers"]["GET"].as_strategy())
+    @given(case=schema["/api/headers"]["GET"].as_strategy())
     @settings(max_examples=50)
     def test(case):
         assert "\x00" not in case.headers["X-Token"]
@@ -664,7 +632,7 @@ def test_exclude_chars_and_no_x00_for_headers(openapi3_schema_url):
     test()
 
 
-def test_parameter_with_boolean_true_schema(ctx, cli, openapi3_base_url, snapshot_cli):
+def test_parameter_with_boolean_true_schema(ctx, cli, snapshot_cli):
     # When a parameter has a boolean true schema (accepts anything in OpenAPI 3.1)
     paths = {
         "/success": {
@@ -687,9 +655,7 @@ def test_parameter_with_boolean_true_schema(ctx, cli, openapi3_base_url, snapsho
             }
         }
     }
-    raw_schema = ctx.openapi.build_schema(paths, version="3.1.0")
-
-    schema = schemathesis.openapi.from_dict(raw_schema)
+    schema = ctx.openapi.load_schema(paths, version="3.1.0")
     operation = schema["/success"]["GET"]
 
     # Then the optimized schema should handle boolean true correctly
@@ -714,16 +680,17 @@ def test_parameter_with_boolean_true_schema(ctx, cli, openapi3_base_url, snapsho
     test_negative()
 
     schema_path = ctx.openapi.write_schema(paths, version="3.1.0")
+    api = ctx.openapi.apps.success()
 
     assert (
-        cli.run(str(schema_path), "--max-examples=1", f"--url={openapi3_base_url}", "--checks=not_a_server_error")
+        cli.run(str(schema_path), "--max-examples=1", f"--url={api.base_url}/api", "--checks=not_a_server_error")
         == snapshot_cli
     )
 
 
 def test_parameter_with_boolean_false_schema(ctx):
     # When a parameter has a boolean false schema (accepts nothing - unusual but valid)
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/test": {
                 "get": {
@@ -741,14 +708,13 @@ def test_parameter_with_boolean_false_schema(ctx):
         version="3.1.0",
     )
     # Then it should load without crashing
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/test"]["GET"]
     parameter = operation.query[0]
     # The optimized schema should be preserved or handled
     assert parameter.optimized_schema is False
 
 
-def test_request_body_with_boolean_true_schema(ctx, cli, openapi3_base_url, snapshot_cli):
+def test_request_body_with_boolean_true_schema(ctx, cli, snapshot_cli):
     # When a request body has a boolean true schema
     paths = {
         "/payload": {
@@ -765,9 +731,7 @@ def test_request_body_with_boolean_true_schema(ctx, cli, openapi3_base_url, snap
             }
         }
     }
-    raw_schema = ctx.openapi.build_schema(paths, version="3.1.0")
-
-    schema = schemathesis.openapi.from_dict(raw_schema)
+    schema = ctx.openapi.load_schema(paths, version="3.1.0")
     operation = schema["/payload"]["POST"]
 
     # Then the optimized schema should handle boolean true correctly
@@ -789,15 +753,16 @@ def test_request_body_with_boolean_true_schema(ctx, cli, openapi3_base_url, snap
     with pytest.raises((Unsatisfiable, FailedHealthCheck)):
         test_negative()
 
-    schema_path = ctx.openapi.write_schema(paths, version="3.1.0")
+    app, _ = ctx.openapi.make_flask_app(paths, version="3.1.0")
 
-    assert (
-        cli.run(str(schema_path), "--max-examples=1", f"--url={openapi3_base_url}", "--checks=not_a_server_error")
-        == snapshot_cli
-    )
+    @app.route("/payload", methods=["POST"])
+    def payload():
+        return jsonify({}), 200
+
+    assert cli.run_openapi_app(app, "--max-examples=1", "--checks=not_a_server_error") == snapshot_cli
 
 
-def test_parameter_type_detection(ctx, cli, openapi3_base_url, snapshot_cli):
+def test_parameter_type_detection(ctx, cli, snapshot_cli):
     # See GH-3149
     schema_path = ctx.openapi.write_schema(
         {
@@ -816,7 +781,8 @@ def test_parameter_type_detection(ctx, cli, openapi3_base_url, snapshot_cli):
             }
         }
     )
+    api = ctx.openapi.apps.success()
     assert (
-        cli.run(str(schema_path), f"--url={openapi3_base_url}", "--checks=not_a_server_error", "--max-examples=5")
+        cli.run(str(schema_path), f"--url={api.base_url}/api", "--checks=not_a_server_error", "--max-examples=5")
         == snapshot_cli
     )

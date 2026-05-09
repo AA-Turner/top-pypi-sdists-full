@@ -2826,7 +2826,7 @@ def render_sql_template(
             return Comment("error launched")
 
         v: dict = {x["name"]: Placeholder(x["name"], x["line"]) for x in template_variables}
-        is_tb_secret = any([s for s in template_variables if s["name"] == "tb_secret" or s["name"] == "tb_var"])
+        is_tb_secret = any(s for s in template_variables if s["name"] == "tb_secret" or s["name"] == "tb_var")
 
         if variables:
             v.update(variables)

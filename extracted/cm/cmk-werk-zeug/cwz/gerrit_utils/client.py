@@ -157,6 +157,30 @@ class GerritChange(GerritBase):
     is_private: None | bool = None
 
 
+class GerritCommitPerson(GerritBase):
+    name: str
+    email: str
+    time: datetime
+
+    @field_validator("time", mode="before")
+    @classmethod
+    def parse_time(cls, v: object) -> datetime:
+        with suppress(ValueError):
+            return datetime.strptime(str(v).rsplit(" ", 1)[0], "%a %b %d %H:%M:%S %Y")  # noqa: DTZ007
+        return datetime.strptime(str(v), "%Y-%m-%dT%H:%M:%S")  # noqa: DTZ007
+
+
+class GerritCommit(GerritBase):
+    # model_config = ConfigDict(extra="forbid")
+    commit: str
+    message: str
+    author: GerritCommitPerson
+    committer: GerritCommitPerson
+    affected_files: Sequence[str] = []
+    tree: str
+    parents: list[str]
+
+
 class Component(GerritBase):
     component_id: str
     display_name: None | str = None  # will be derived from component_id if not available
@@ -262,7 +286,7 @@ class GerritClient:
 
     async def get_log(
         self, file_path: str, since: datetime | date, project: str, branch: str
-    ) -> Sequence[tuple[str, datetime, str, str, Sequence[Path]]]:
+    ) -> Sequence[GerritCommit]:
         """Returns git log output for a path since a given date.
 
         Args:
@@ -275,59 +299,37 @@ class GerritClient:
             Sequence of tuples containing (commit_id, date, author, message, list of files affected)
 
         """
-
-        class GerritCommitPerson(GerritBase):
-            name: str
-            email: str
-            time: datetime
-
-            @field_validator("time", mode="before")
-            @classmethod
-            def parse_time(cls, v: object) -> datetime:
-                return datetime.strptime(str(v), "%a %b %d %H:%M:%S %Y %z").replace(tzinfo=None)
-
-        class GerritCommit(GerritBase):
-            tree: str
-            parents: list[str]
-            author: GerritCommitPerson
-            committer: GerritCommitPerson
-            message: str
-            commit: str
-
-        # fixme (frans): cache
-
         ref = branch if "refs/" in branch else f"refs/heads/{branch}"
         endpoint = f"a/plugins/gitiles/{quote(project, safe='')}/+log/{quote(ref, safe='')}"
         if file_path:
             endpoint += f"/{quote(file_path.lstrip('/'), safe='')}"
 
-        results: list[tuple[str, datetime, str, str, Sequence[Path]]] = []
+        results: list[GerritCommit] = []
         cursor: None | str = None
         since_dt = (
             datetime.combine(since, datetime.min.time()) if isinstance(since, date) else since
         )
 
         while True:
-            response: dict[str, Any] = await self.get(
+            log_response: dict[str, Any] = await self.get(
                 endpoint, params={"format": "JSON", "s": cursor}
             )
-            logs = [GerritCommit.model_validate(raw) for raw in response.get("log", [])]
+            logs = [GerritCommit.model_validate(raw) for raw in log_response.get("log", [])]
+
+            for commit in logs:
+                commit_response: dict[str, Any] = await self.get(
+                    f"a/projects/{quote(project, safe='')}/commits/{commit.commit}/files"
+                )
+                commit.affected_files = [p for p in commit_response if p != "/COMMIT_MSG"]
 
             done = False
             for commit in logs:
                 if commit.committer.time < since_dt:
                     done = True
                     break
-                results.append(
-                    (
-                        commit.commit,
-                        commit.committer.time,
-                        commit.author.email,
-                        commit.message.strip(),
-                        [],
-                    )
-                )
-            if done or not (cursor := response.get("next")):
+                results.append(commit)
+
+            if done or not (cursor := log_response.get("next")):
                 break
 
         return results
@@ -476,6 +478,7 @@ class CodeOwnersClient:
         # this maps `OWNERS-directory` -> (`per-file pattern` -> [`Component``])
         entries: Mapping[str, Mapping[str, "CodeOwnersClient.Entry"]] = {}
         all_remote_files: None | Sequence[str] = None
+        latest_commits: MutableMapping[str, Sequence[GerritCommit]] = {}
 
     def __init__(self, gerrit_client: GerritClient, project: str, branch: str) -> None:
         """Initialize the Gerrit Code Owners client.
@@ -530,6 +533,14 @@ class CodeOwnersClient:
                 for pi in range(len(split_path), 0, -1)
             }
         )
+
+    async def get_log(self, file_path: str, since: datetime | date) -> Sequence[GerritCommit]:
+        if file_path not in self._cached.latest_commits:
+            log().debug("fetching log for %s since %s", file_path, since)
+            self._cached.latest_commits[file_path] = await self._gerrit_client.get_log(
+                file_path, since, self._project, self._branch
+            )
+        return self._cached.latest_commits[file_path]
 
     async def all_code_owners_config_files(self) -> Sequence[str]:
         """Get list of code owners configuration files using the official endpoint.
@@ -701,10 +712,14 @@ class CodeOwnersClient:
         if mode == "never":
             return False
 
-        with suppress(FileNotFoundError, json.JSONDecodeError, ValidationError):
+        with suppress(FileNotFoundError, json.JSONDecodeError):
             log().info("load local ownership data cache..")
             with self._cache_file_path.open() as f:
-                cached = self.OwnershipInfo.model_validate(json.load(f))
+                try:
+                    cached = self.OwnershipInfo.model_validate(json.load(f))
+                except ValidationError:
+                    raise RuntimeError(f"{self._cache_file_path} seems to be invalid") from None
+
                 if mode == "always" or cached.commit_id == self._cached.commit_id:
                     self._cached = cached
                     log().info(
@@ -721,7 +736,7 @@ class CodeOwnersClient:
     async def _persist_cached_state(self) -> None:
         self._cache_file_path.parent.mkdir(parents=True, exist_ok=True)
         with self._cache_file_path.open("w") as f:
-            f.write(self._cached.model_dump_json())
+            f.write(self._cached.model_dump_json(indent=2))
 
     async def _component_details(self, identifier: str) -> Component:
         """Reads OWNERS_DEFINITION and component_info.toml"""

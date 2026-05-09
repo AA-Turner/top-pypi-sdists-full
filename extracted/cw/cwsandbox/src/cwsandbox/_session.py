@@ -19,7 +19,6 @@ from cwsandbox._types import (
     OperationRef,
     ResourceOptions,
     Secret,
-    Serialization,
 )
 from cwsandbox._wandb import WandbReporter
 from cwsandbox.exceptions import SandboxError
@@ -356,7 +355,10 @@ class Session:
             runner_ids: Optional list of runner IDs
             resources: Resource configuration. Accepts ResourceOptions for separate
                 requests/limits, or a flat dict for backward-compatible Guaranteed QoS.
-            mounted_files: Files to mount into the sandbox
+            mounted_files: Files to mount into the sandbox at startup. Each dict
+                should have ``mount_path`` (str) and ``file_content`` (bytes).
+                Note: Mounted files are read-only at runtime. To modify a file,
+                use ``sandbox.write_file()`` after the sandbox is running.
             s3_mount: S3 bucket mount configuration
             ports: Port mappings for the sandbox
             network: Network configuration (NetworkOptions dataclass)
@@ -646,7 +648,6 @@ class Session:
         self,
         *,
         container_image: str | None = None,
-        serialization: Serialization = Serialization.JSON,
         temp_dir: str | None = None,
         profile_ids: builtins.list[str] | None = None,
         profile_names: builtins.list[str] | None = None,
@@ -669,9 +670,6 @@ class Session:
 
         Args:
             container_image: Override session's default image for this function
-            serialization: How to serialize arguments and return values.
-                Defaults to JSON for safety. Use PICKLE for complex types,
-                but only in trusted environments.
             temp_dir: Override temp directory for payload/result files in sandbox.
                 Defaults to session default. Created if missing.
             profile_ids: Optional list of profile IDs for infrastructure selection.
@@ -683,7 +681,10 @@ class Session:
             runner_ids: Optional list of runner IDs
             resources: Resource configuration. Accepts ResourceOptions for separate
                 requests/limits, or a flat dict for backward-compatible Guaranteed QoS.
-            mounted_files: Files to mount into the sandbox
+            mounted_files: Files to mount into the sandbox at startup. Each dict
+                should have ``mount_path`` (str) and ``file_content`` (bytes).
+                Note: Mounted files are read-only at runtime. To modify a file,
+                use ``sandbox.write_file()`` after the sandbox is running.
             s3_mount: S3 bucket mount configuration
             ports: Port mappings for the sandbox
             network: Network configuration (NetworkOptions dataclass)
@@ -704,10 +705,6 @@ class Session:
                 @session.function()
                 def compute(x: int, y: int) -> int:
                     return x + y
-
-                @session.function(serialization=Serialization.PICKLE)
-                def process_complex(data: MyClass) -> MyClass:
-                    return data.transform()
 
                 # Call .remote() to execute in sandbox
                 ref = compute.remote(2, 3)  # Returns OperationRef immediately
@@ -738,7 +735,6 @@ class Session:
                 f,
                 session=self,
                 container_image=container_image,
-                serialization=serialization,
                 temp_dir=temp_dir or self._defaults.temp_dir,
                 profile_ids=profile_ids,
                 profile_names=profile_names,

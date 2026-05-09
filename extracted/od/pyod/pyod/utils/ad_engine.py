@@ -8,12 +8,41 @@ required) or as the backend for MCP/agent interfaces.
 # Author: Yue Zhao <yzhao062@gmail.com>
 # License: BSD 2 clause
 
-import importlib
+from __future__ import annotations
+
+import logging
 import os
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from .knowledge import KnowledgeBase
+from pyod.utils._quality_metrics import (
+    compute_consensus,
+    compute_feature_importance,
+    compute_quality,
+    feature_contributions,
+    select_best_detector,
+)
+from pyod.utils._kb_router import (
+    evaluate_rules,
+    make_plan,
+    suggest_alternative,
+)
+from pyod.utils._detector_factory import (
+    build_detector_from_plan,
+)
+from pyod.utils._nl_feedback import (
+    adjust_contamination_down,
+    adjust_contamination_up,
+    apply_nl_feedback,
+    apply_structured_feedback,
+)
+
+if TYPE_CHECKING:
+    from pyod.utils.investigation import InvestigationState
+
+logger = logging.getLogger(__name__)
 
 
 class ADEngine:
@@ -25,10 +54,10 @@ class ADEngine:
         Path to knowledge base directory. If None, uses bundled.
     """
 
-    def __init__(self, knowledge_dir=None):
+    def __init__(self, knowledge_dir: str | None = None) -> None:
         self.kb = KnowledgeBase(knowledge_dir=knowledge_dir)
 
-    def profile_data(self, X, data_type=None):
+    def profile_data(self, X: Any, data_type: str | None = None) -> dict:
         """Profile the input data.
 
         Parameters
@@ -91,7 +120,7 @@ class ADEngine:
 
         return profile
 
-    def _sniff_data_type(self, X):
+    def _sniff_data_type(self, X: Any) -> str:
         """Conservative data type detection."""
         # Check for PyG Data object
         try:
@@ -112,7 +141,7 @@ class ADEngine:
         return 'tabular'
 
     @staticmethod
-    def _looks_like_image_paths(samples):
+    def _looks_like_image_paths(samples: list[str]) -> bool:
         """Check if string samples look like image file paths."""
         image_exts = {'.jpg', '.jpeg', '.png', '.bmp', '.gif',
                       '.tiff', '.webp'}
@@ -122,8 +151,8 @@ class ADEngine:
                 return False
         return True
 
-    def plan_detection(self, profile, priority='balanced',
-                       constraints=None):
+    def plan_detection(self, profile: dict, priority: str = 'balanced',
+                       constraints: dict | None = None) -> dict:
         """Plan a detection pipeline.
 
         Parameters
@@ -142,7 +171,7 @@ class ADEngine:
         constraints = constraints or {}
         exclude = set(constraints.get('exclude_detectors', []))
 
-        matched = self._evaluate_rules(profile, priority)
+        matched = evaluate_rules(profile, priority, self.kb)
 
         valid = []
         for rec in matched:
@@ -168,7 +197,7 @@ class ADEngine:
                         fallback_name = fb
                         break
             if fallback_name is None:
-                return self._make_plan(
+                return make_plan(
                     detector_name='',
                     params={},
                     reason='No valid detector available: all candidates '
@@ -178,7 +207,7 @@ class ADEngine:
                     alternatives=[],
                     note='no_valid_plan')
 
-            return self._make_plan(
+            return make_plan(
                 detector_name=fallback_name, params={},
                 reason='Fallback: no routing rule matched or all '
                        'candidates excluded',
@@ -186,7 +215,7 @@ class ADEngine:
                 alternatives=[], note='No specific rule matched')
 
         best = valid[0]
-        alternatives = [self._make_plan(
+        alternatives = [make_plan(
             detector_name=r['detector'],
             params=r.get('params', {}),
             preset=r.get('preset'),
@@ -195,7 +224,7 @@ class ADEngine:
             confidence=r.get('confidence', 0.5),
             alternatives=[]) for r in valid[1:3]]
 
-        return self._make_plan(
+        return make_plan(
             detector_name=best['detector'],
             params=best.get('params', {}),
             preset=best.get('preset'),
@@ -204,91 +233,11 @@ class ADEngine:
             confidence=best.get('confidence', 0.7),
             alternatives=alternatives)
 
-    def _evaluate_rules(self, profile, priority):
-        """Evaluate routing rules against profile. Returns matched
-        recommendations with their rule context."""
-        rules = self.kb.routing_rules.get('rules', [])
-        all_recs = []
-
-        for rule in rules:
-            if self._rule_matches(rule, profile, priority):
-                reason = rule.get('reason', '')
-                evidence = rule.get('evidence', [])
-                for rec in rule.get('recommendations', []):
-                    enriched = dict(rec)
-                    enriched['_reason'] = reason
-                    enriched['_evidence'] = evidence
-                    all_recs.append(enriched)
-
-        seen = {}
-        for rec in all_recs:
-            name = rec['detector']
-            if name not in seen or \
-                    rec.get('confidence', 0) > seen[name].get('confidence', 0):
-                seen[name] = rec
-        return sorted(seen.values(),
-                      key=lambda r: r.get('confidence', 0),
-                      reverse=True)
-
-    def _rule_matches(self, rule, profile, priority):
-        """Check if all conditions in a rule match the profile."""
-        for cond in rule.get('conditions', []):
-            field = cond['field']
-            op = cond['op']
-            value = cond['value']
-
-            if field == 'priority':
-                actual = priority
-            else:
-                actual = profile.get(field)
-
-            if actual is None:
-                return False
-            if not self._eval_condition(actual, op, value):
-                return False
-        return True
-
-    @staticmethod
-    def _eval_condition(actual, op, value):
-        """Evaluate a single condition predicate."""
-        if op == 'eq':
-            return actual == value
-        if op == 'lt':
-            return float(actual) < float(value)
-        if op == 'lte':
-            return float(actual) <= float(value)
-        if op == 'gt':
-            return float(actual) > float(value)
-        if op == 'gte':
-            return float(actual) >= float(value)
-        if op == 'in':
-            return actual in value
-        return False
-
-    @staticmethod
-    def _make_plan(detector_name, params=None, preset=None,
-                   reason='', evidence=None, confidence=0.5,
-                   alternatives=None, note=None):
-        """Construct a closed-schema DetectionPlan dict."""
-        plan = {
-            'detector_name': detector_name,
-            'params': params or {},
-            'reason': reason,
-            'evidence': evidence or [],
-            'confidence': confidence,
-            'alternatives': alternatives or [],
-        }
-        if preset:
-            plan['preset'] = preset
-        if note:
-            plan['note'] = note
-        return plan
-
     # ------------------------------------------------------------------
     # Detector construction
     # ------------------------------------------------------------------
 
-    def build_detector(self, plan):
+    def build_detector(self, plan: dict) -> Any:
         """Build and return an unfitted detector from a plan.
 
         Parameters
@@ -300,45 +249,15 @@ class ADEngine:
         -------
         detector : BaseDetector
         """
-        name = plan['detector_name']
-        algo = self.kb.get_algorithm(name)
-        if algo is None:
-            raise ValueError("Unknown detector '%s'" % name)
-        if algo.get('status') not in ('shipped', 'experimental'):
-            raise ValueError(
-                "Detector '%s' has status '%s' and cannot be built"
-                % (name, algo.get('status', 'unknown')))
-
-        preset = plan.get('preset')
-        if preset:
-            return self._build_from_preset(name, preset,
-                                           plan.get('params', {}))
-
-        class_path = algo['class_path']
-        module_path, class_name = class_path.rsplit('.', 1)
-        mod = importlib.import_module(module_path)
-        cls = getattr(mod, class_name)
-        params = plan.get('params', {})
-        return cls(**params)
-
-    @staticmethod
-    def _build_from_preset(detector_name, preset, extra_params):
-        """Build a detector using a factory preset."""
-        if detector_name == 'EmbeddingOD':
-            from pyod.models.embedding import EmbeddingOD
-            if preset == 'for_text':
-                return EmbeddingOD.for_text(**extra_params)
-            elif preset == 'for_image':
-                return EmbeddingOD.for_image(**extra_params)
-        raise ValueError("Unknown preset '%s' for '%s'"
-                         % (preset, detector_name))
+        return build_detector_from_plan(plan, self.kb)
 
     # ------------------------------------------------------------------
     # One-shot detection
     # ------------------------------------------------------------------
 
-    def detect(self, X_train, X_test=None, data_type=None,
-               priority='balanced'):
+    def detect(self, X_train: Any, X_test: Any = None,
+               data_type: str | None = None,
+               priority: str = 'balanced') -> dict:
         """One-shot anomaly detection: profile -> plan -> run -> analyze.
 
         Parameters
@@ -369,7 +288,8 @@ class ADEngine:
     # Structured detection
     # ------------------------------------------------------------------
 
-    def run_detection(self, X_train, plan, X_test=None):
+    def run_detection(self, X_train: Any, plan: dict,
+                      X_test: Any = None) -> dict:
         """Execute a detection plan.
 
         Parameters
@@ -433,7 +353,8 @@ class ADEngine:
     # Result analysis
     # ------------------------------------------------------------------
 
-    def analyze_results(self, result, X=None, top_k=10):
+    def analyze_results(self, result: dict, X: Any = None,
+                        top_k: int = 10) -> dict:
         """Analyze detection results.
 
         Parameters
@@ -489,42 +410,19 @@ class ADEngine:
         }
 
         if X is not None:
-            fi = self._compute_feature_importance(result, X)
+            fi = compute_feature_importance(result, X)
             if fi is not None:
                 analysis['feature_importance'] = fi
 
         return analysis
 
-    @staticmethod
-    def _compute_feature_importance(result, X):
-        """Estimate per-feature contribution to anomaly scores."""
-        try:
-            X_arr = np.asarray(X, dtype=np.float64)
-            if X_arr.ndim != 2:
-                return None
-            scores = result['scores_train']
-            if len(scores) != X_arr.shape[0]:
-                return None
-
-            means = np.mean(X_arr, axis=0)
-            stds = np.std(X_arr, axis=0)
-            stds[stds == 0] = 1.0
-            z_scores = np.abs((X_arr - means) / stds)
-
-            importances = []
-            for j in range(X_arr.shape[1]):
-                corr = np.corrcoef(z_scores[:, j], scores)[0, 1]
-                importances.append(float(corr) if np.isfinite(corr) else 0.0)
-
-            return importances
-        except Exception:
-            return None
-
     # ------------------------------------------------------------------
     # Explanation
     # ------------------------------------------------------------------
 
-    def explain_findings(self, result, indices=None, top_k=5, X=None):
+    def explain_findings(self, result: dict,
+                         indices: list[int] | None = None,
+                         top_k: int = 5, X: Any = None) -> list[dict]:
         """Explain why specific samples were flagged as anomalies.
 
         Parameters
@@ -580,7 +478,7 @@ class ADEngine:
             }
 
             if X is not None:
-                contribs = self._feature_contributions(X, idx, scores)
+                contribs = feature_contributions(X, idx, scores)
                 if contribs is not None:
                     entry['contributing_features'] = contribs
 
@@ -588,28 +486,12 @@ class ADEngine:
 
         return explanations
 
-    @staticmethod
-    def _feature_contributions(X, idx, scores):
-        """Compute per-feature z-score for a specific sample."""
-        try:
-            X_arr = np.asarray(X, dtype=np.float64)
-            if X_arr.ndim != 2:
-                return None
-            means = np.mean(X_arr, axis=0)
-            stds = np.std(X_arr, axis=0)
-            stds[stds == 0] = 1.0
-            z = np.abs((X_arr[idx] - means) / stds)
-            top_feat = np.argsort(z)[::-1][:5]
-            return [{'feature': int(f), 'z_score': float(z[f])}
-                    for f in top_feat]
-        except Exception:
-            return None
-
     # ------------------------------------------------------------------
     # Next-step suggestions
     # ------------------------------------------------------------------
 
-    def suggest_next_step(self, result, analysis, feedback=None):
+    def suggest_next_step(self, result: dict, analysis: dict,
+                          feedback: str | None = None) -> dict:
         """Suggest what to try next.
 
         Parameters
@@ -636,7 +518,7 @@ class ADEngine:
                 'action': 'try_alternative',
                 'reason': 'Consider running multiple detectors and '
                           'combining scores.',
-                'new_plan': self._suggest_alternative(result),
+                'new_plan': suggest_alternative(result, self.kb, make_plan),
             }
 
         # "more sensitive" intent: lower threshold / increase contamination
@@ -651,7 +533,7 @@ class ADEngine:
         if _more_sensitive:
             current_contam = result['plan'].get('params', {}).get(
                 'contamination', 0.1)
-            new_contam = min(current_contam * 1.5, 0.5)
+            new_contam = adjust_contamination_up(current_contam)
             return {
                 'action': 'adjust_threshold',
                 'reason': 'Missed anomalies reported. Try increasing '
@@ -677,7 +559,7 @@ class ADEngine:
         if _less_sensitive:
             current_contam = result['plan'].get('params', {}).get(
                 'contamination', 0.1)
-            new_contam = max(current_contam * 0.5, 0.01)
+            new_contam = adjust_contamination_down(current_contam)
             return {
                 'action': 'adjust_threshold',
                 'reason': 'High false positive rate reported. Try reducing '
@@ -692,7 +574,7 @@ class ADEngine:
 
         if ('different' in feedback_lower or 'another' in feedback_lower
                 or 'switch' in feedback_lower):
-            new_plan = self._suggest_alternative(result)
+            new_plan = suggest_alternative(result, self.kb, make_plan)
             return {
                 'action': 'try_alternative',
                 'reason': 'Trying an alternative detector.',
@@ -703,7 +585,7 @@ class ADEngine:
         if ratio > 0.3:
             current_contam = result['plan'].get('params', {}).get(
                 'contamination', 0.1)
-            new_contam = max(current_contam * 0.5, 0.01)
+            new_contam = adjust_contamination_down(current_contam)
             return {
                 'action': 'adjust_threshold',
                 'reason': '%.0f%% flagged as anomalies, which is unusually '
@@ -716,7 +598,7 @@ class ADEngine:
                 },
             }
         if ratio == 0:
-            new_plan = self._suggest_alternative(result)
+            new_plan = suggest_alternative(result, self.kb, make_plan)
             return {
                 'action': 'try_alternative',
                 'reason': 'No anomalies detected. Try a different detector.',
@@ -730,35 +612,12 @@ class ADEngine:
                       % (ratio * 100),
         }
 
-    def _suggest_alternative(self, result):
-        """Suggest an alternative detector different from the current one."""
-        current = result['plan'].get('detector_name', '')
-
-        alternatives = result['plan'].get('alternatives', [])
-        for alt in alternatives:
-            if alt.get('detector_name') and alt['detector_name'] != current:
-                return alt
-
-        fallback_order = ['IForest', 'ECOD', 'KNN', 'LOF', 'HBOS',
-                          'COPOD', 'CBLOF']
-        for name in fallback_order:
-            if name != current:
-                algo = self.kb.get_algorithm(name)
-                if algo and algo.get('status') == 'shipped':
-                    return self._make_plan(
-                        detector_name=name, params={},
-                        reason='Alternative to %s' % current,
-                        evidence=[], confidence=0.6)
-
-        return self._make_plan(
-            detector_name='IForest', params={},
-            reason='Default fallback', evidence=[], confidence=0.5)
-
     # ------------------------------------------------------------------
     # Report generation
     # ------------------------------------------------------------------
 
-    def generate_report(self, result, analysis, format='text'):
+    def generate_report(self, result: dict, analysis: dict,
+                        format: str = 'text') -> str:
         """Generate a summary report.
 
         Parameters
@@ -830,7 +689,8 @@ class ADEngine:
     # V3 Session workflow
     # ------------------------------------------------------------------
 
-    def start(self, X, data_type=None):
+    def start(self, X: Any,
+              data_type: str | None = None) -> InvestigationState:
         """Start an investigation session.
 
         Profiles the data and returns an InvestigationState.
@@ -866,7 +726,9 @@ class ADEngine:
             'Profiled %s data' % profile['data_type']))
         return state
 
-    def plan(self, state, priority='balanced', constraints=None):
+    def plan(self, state: InvestigationState,
+             priority: str = 'balanced',
+             constraints: dict | None = None) -> InvestigationState:
         """Plan detection: select top-N detectors.
 
         Wraps ``plan_detection()`` and extracts primary + alternatives
@@ -919,7 +781,7 @@ class ADEngine:
         return state
 
     @staticmethod
-    def _require_phase(state, expected):
+    def _require_phase(state: InvestigationState, expected: str) -> None:
         """Enforce workflow phase precondition."""
         if state.phase != expected:
             raise ValueError(
@@ -928,7 +790,7 @@ class ADEngine:
                 "run -> analyze -> iterate/report."
                 % (expected, state.phase))
 
-    def run(self, state):
+    def run(self, state: InvestigationState) -> InvestigationState:
         """Run detection with all planned detectors.
 
         Wraps ``run_detection()`` per plan. Computes consensus via
@@ -945,7 +807,6 @@ class ADEngine:
         """
         self._require_phase(state, 'planned')
         from .investigation import _make_history_entry
-        from scipy.stats import rankdata, spearmanr
 
         results = []
         for plan in state.plans:
@@ -956,11 +817,14 @@ class ADEngine:
                 entry['status'] = 'success'
                 entry['error'] = None
                 results.append(entry)
-            except Exception as e:
+            except Exception as exc:
+                logger.warning(
+                    'Detector %s raised %s during run(): %s',
+                    plan['detector_name'], type(exc).__name__, exc)
                 results.append({
                     'detector_name': plan['detector_name'],
                     'status': 'error',
-                    'error': str(e),
+                    'error': str(exc),
                     'plan': plan,
                 })
 
@@ -969,74 +833,26 @@ class ADEngine:
 
         # Compute consensus from successful detectors
         successful = [r for r in results if r['status'] == 'success']
+        state.consensus = compute_consensus(successful)
 
-        if len(successful) == 0:
-            state.consensus = None
+        if state.consensus is None:
             state.next_action = {
                 'action': 'confirm_with_user',
                 'reason': 'All %d detectors failed. Check data format '
                           'or try a different detector family.'
                           % len(results),
             }
-        elif len(successful) == 1:
-            r = successful[0]
-            state.consensus = {
-                'scores': r['scores_train'],
-                'labels': r['labels_train'],
-                'n_detectors': 1,
-                'agreement': 0.5,
-                'disagreements': [],
-            }
+        elif state.consensus['n_detectors'] == 1:
             state.next_action = {
                 'action': 'analyze',
                 'reason': 'Detection complete (1 detector).',
             }
         else:
-            n_samples = len(successful[0]['scores_train'])
-            # Rank-normalize scores per detector
-            rank_scores = np.array([
-                rankdata(r['scores_train']) / n_samples
-                for r in successful
-            ])
-            consensus_scores = np.mean(rank_scores, axis=0)
-
-            # Majority-vote labels
-            all_labels = np.array([
-                r['labels_train'] for r in successful])
-            vote_count = np.sum(all_labels, axis=0)
-            consensus_labels = (
-                vote_count > len(successful) / 2).astype(int)
-
-            # Pairwise Spearman agreement
-            correlations = []
-            for i in range(len(successful)):
-                for j in range(i + 1, len(successful)):
-                    rho, _ = spearmanr(
-                        successful[i]['scores_train'],
-                        successful[j]['scores_train'])
-                    correlations.append(
-                        max(0.0, rho) if np.isfinite(rho) else 0.0)
-            agreement = float(np.mean(correlations)) if correlations else 0.5
-
-            # Disagreements: indices where detectors disagree
-            disagreements = []
-            for idx in range(n_samples):
-                votes = all_labels[:, idx]
-                if not (votes.all() or not votes.any()):
-                    disagreements.append(int(idx))
-
-            state.consensus = {
-                'scores': consensus_scores,
-                'labels': consensus_labels,
-                'n_detectors': len(successful),
-                'agreement': agreement,
-                'disagreements': disagreements,
-            }
             state.next_action = {
                 'action': 'analyze',
                 'reason': 'Detection complete (%d detectors, '
-                          'agreement=%.2f).'
-                          % (len(successful), agreement),
+                          'agreement=%.2f).' % (state.consensus['n_detectors'],
+                                                state.consensus['agreement']),
             }
 
         state.history.append(_make_history_entry(
@@ -1045,7 +861,7 @@ class ADEngine:
             % (len(successful), len(results))))
         return state
 
-    def analyze(self, state):
+    def analyze(self, state: InvestigationState) -> InvestigationState:
         """Analyze detection results with quality assessment.
 
         Computes per-detector analysis, consensus analysis, quality
@@ -1062,7 +878,6 @@ class ADEngine:
         """
         self._require_phase(state, 'detected')
         from .investigation import _make_history_entry
-        from scipy.stats import spearmanr
 
         state.phase = 'analyzed'
 
@@ -1093,7 +908,11 @@ class ADEngine:
             if r['status'] == 'success':
                 try:
                     a = self.analyze_results(r, X=state.data)
-                except Exception:
+                except Exception as exc:
+                    logger.warning(
+                        'analyze_results failed for %s with %s: %s',
+                        r.get('detector_name', '<unknown>'),
+                        type(exc).__name__, exc)
                     a = None
                 per_det.append(a)
             else:
@@ -1130,7 +949,7 @@ class ADEngine:
         }
 
         # Best detector selection
-        best_idx = self._select_best_detector(
+        best_idx = select_best_detector(
             state.results, c_scores)
 
         state.analysis = {
@@ -1142,7 +961,7 @@ class ADEngine:
         }
 
         # Quality metrics
-        state.quality = self._compute_quality(
+        state.quality = compute_quality(
             c_scores, c_labels, state.results, c)
         state.analysis['summary'] += (
             ' Quality: %s (%.2f).'
@@ -1175,118 +994,12 @@ class ADEngine:
                 state.quality['overall'])))
         return state
 
-    def _select_best_detector(self, results, consensus_scores):
-        """Select best detector via Spearman with consensus.
-
-        Fallback chain (per spec):
-        1. Highest finite Spearman correlation
-        2. If tied: highest plan confidence
-        3. If still tied: fastest runtime
-        4. If ALL correlations are NaN: first successful detector
-        """
-        from scipy.stats import spearmanr
-
-        successful = [
-            (i, r) for i, r in enumerate(results)
-            if r['status'] == 'success']
-        if len(successful) == 1:
-            return successful[0][0]
-
-        # Compute Spearman for each successful detector
-        rhos = []
-        for i, r in successful:
-            rho, _ = spearmanr(r['scores_train'], consensus_scores)
-            rhos.append(float(rho) if np.isfinite(rho) else None)
-
-        # If ALL NaN: return first successful (spec rule 4)
-        if all(rho is None for rho in rhos):
-            return successful[0][0]
-
-        # Find best by finite Spearman, then tie-break
-        best_j = 0  # index into successful list
-        best_rho = -1.0
-        for j, (i, r) in enumerate(successful):
-            rho = rhos[j]
-            if rho is None:
-                continue
-            if rho > best_rho:
-                best_rho = rho
-                best_j = j
-            elif rho == best_rho:
-                # Tie-break: plan confidence
-                curr_conf = r.get('plan', {}).get('confidence', 0)
-                prev_conf = successful[best_j][1].get(
-                    'plan', {}).get('confidence', 0)
-                if curr_conf > prev_conf:
-                    best_j = j
-                elif curr_conf == prev_conf:
-                    # Tie-break: fastest
-                    if r.get('runtime_seconds', 999) < successful[
-                            best_j][1].get('runtime_seconds', 999):
-                        best_j = j
-        return successful[best_j][0]
-
-    def _compute_quality(self, scores, labels, results, consensus):
-        """Compute quality metrics: separation, agreement, stability."""
-        # Separation
-        if labels.sum() == 0 or labels.sum() == len(labels):
-            separation = 0.0
-        else:
-            anomaly_mean = float(np.mean(scores[labels == 1]))
-            inlier_mean = float(np.mean(scores[labels == 0]))
-            separation = float(np.clip(
-                anomaly_mean / (inlier_mean + 1e-10) - 1, 0, 1))
-
-        # Agreement (from consensus)
-        agreement = float(consensus.get('agreement', 0.5))
-
-        # Stability: Jaccard of top-k under +/-20% perturbation
-        n_anomalies = int(labels.sum())
-        n_samples = len(labels)
-        if n_anomalies == 0:
-            stability = 0.0
-        else:
-            k = n_anomalies
-            k_low = max(1, int(k * 0.8))
-            k_high = min(n_samples, int(k * 1.2))
-            sorted_idx = np.argsort(scores)[::-1]
-            top_k = set(sorted_idx[:k].tolist())
-            top_low = set(sorted_idx[:k_low].tolist())
-            top_high = set(sorted_idx[:k_high].tolist())
-
-            def _jaccard(a, b):
-                if not a and not b:
-                    return 1.0
-                return len(a & b) / len(a | b)
-
-            stability = 0.5 * (
-                _jaccard(top_k, top_low)
-                + _jaccard(top_k, top_high))
-
-        overall = float(np.mean([separation, agreement, stability]))
-        if overall >= 0.7:
-            verdict = 'high'
-        elif overall >= 0.4:
-            verdict = 'medium'
-        else:
-            verdict = 'low'
-
-        return {
-            'separation': separation,
-            'agreement': agreement,
-            'stability': stability,
-            'overall': overall,
-            'verdict': verdict,
-            'explanation': 'Separation=%.2f, agreement=%.2f, '
-                           'stability=%.2f.' % (
-                               separation, agreement, stability),
-        }
-
     # ------------------------------------------------------------------
     # V3 Session workflow: iterate
     # ------------------------------------------------------------------
 
-    def iterate(self, state, feedback):
+    def iterate(self, state: InvestigationState,
+                feedback: str | dict) -> InvestigationState:
         """Iterate based on feedback.
 
         Structured dicts execute immediately. NL strings are
@@ -1304,160 +1017,17 @@ class ADEngine:
         """
         self._require_phase(state, 'analyzed')
         if isinstance(feedback, dict):
-            return self._iterate_structured(state, feedback)
-        return self._iterate_nl(state, str(feedback))
-
-    def _iterate_structured(self, state, feedback):
-        """Handle structured feedback dict."""
-        from .investigation import _make_history_entry
-
-        action = feedback.get('action', '')
-        state.iteration += 1
-
-        if action == 'adjust_contamination':
-            value = feedback['value']
-            for p in state.plans:
-                params = dict(p.get('params', {}))
-                params['contamination'] = value
-                p['params'] = params
-            detail = 'Adjusted contamination to %.3f' % value
-
-        elif action == 'exclude':
-            to_exclude = set(feedback.get('detectors', []))
-            state.plans = [
-                p for p in state.plans
-                if p['detector_name'] not in to_exclude]
-            if not state.plans:
-                # Re-plan without excluded detectors
-                result = self.plan_detection(
-                    state.profile,
-                    constraints={'exclude_detectors': list(to_exclude)})
-                state.plans = [result]
-                for alt in result.get('alternatives', []):
-                    if alt.get('detector_name'):
-                        state.plans.append(alt)
-            detail = 'Excluded: %s' % ', '.join(to_exclude)
-
-        elif action == 'include':
-            to_include = feedback.get('detectors', [])
-            existing = {p['detector_name'] for p in state.plans}
-            added, already, capped = [], [], []
-            for name in to_include:
-                if name in existing:
-                    already.append(name)
-                elif len(state.plans) >= 3:
-                    capped.append(name)
-                else:
-                    algo = self.kb.get_algorithm(name)
-                    if algo and algo.get('status') in (
-                            'shipped', 'experimental'):
-                        state.plans.append(self._make_plan(
-                            detector_name=name, params={},
-                            reason='Added by user', confidence=0.5))
-                        added.append(name)
-            parts = []
-            if added:
-                parts.append('Included: %s' % ', '.join(added))
-            if already:
-                parts.append('Already present: %s'
-                             % ', '.join(already))
-            if capped:
-                parts.append('Could not add %s (v1 cap: 3)'
-                             % ', '.join(capped))
-            detail = '. '.join(parts) if parts else 'No changes'
-
-        elif action == 'rerun':
-            detail = 'Re-running same plan'
-
-        else:
-            state.next_action = {
-                'action': 'confirm_with_user',
-                'reason': 'Unknown action: %s' % action,
-            }
-            return state
-
-        state.phase = 'planned'
-        state.results = []
-        state.consensus = None
-        state.analysis = None
-        state.quality = None
-        state.next_action = {
-            'action': 'run',
-            'reason': 'Plan adjusted. ' + detail,
-            'adjustment': detail,
-        }
-        state.history.append(_make_history_entry(
-            'planned', 'iterate', state.iteration, detail))
-        return state
-
-    def _iterate_nl(self, state, feedback):
-        """Parse NL feedback into structured action."""
-        from .investigation import _make_history_entry
-
-        lower = feedback.lower()
-        proposed = None
-        confidence = 0.0
-
-        # High-confidence patterns
-        if 'without' in lower or 'exclude' in lower:
-            # Try to extract detector name
-            for r in state.results:
-                name = r.get('detector_name', '')
-                if name.lower() in lower:
-                    proposed = {'action': 'exclude',
-                                'detectors': [name]}
-                    confidence = 0.9
-                    break
-            if proposed is None and ('without' in lower
-                                     or 'exclude' in lower):
-                proposed = {'action': 'exclude', 'detectors': []}
-                confidence = 0.3
-
-        elif ('false positive' in lower or 'too many' in lower):
-            current = state.plans[0].get('params', {}).get(
-                'contamination', 0.1) if state.plans else 0.1
-            proposed = {'action': 'adjust_contamination',
-                        'value': max(current * 0.5, 0.01)}
-            confidence = 0.7
-
-        elif ('missed' in lower or 'false negative' in lower):
-            current = state.plans[0].get('params', {}).get(
-                'contamination', 0.1) if state.plans else 0.1
-            proposed = {'action': 'adjust_contamination',
-                        'value': min(current * 1.5, 0.5)}
-            confidence = 0.7
-
-        elif 'rerun' in lower or 'again' in lower:
-            proposed = {'action': 'rerun'}
-            confidence = 0.9
-
-        if proposed is None:
-            proposed = {'action': 'rerun'}
-            confidence = 0.0
-
-        if confidence >= 0.8:
-            return self._iterate_structured(state, proposed)
-
-        # Low confidence → ask for confirmation
-        state.next_action = {
-            'action': 'confirm_with_user',
-            'reason': 'Interpreted "%s" as: %s (confidence=%.1f).'
-                      % (feedback, proposed.get('action', '?'),
-                         confidence),
-            'suggestion': 'Proposed: %s. Proceed?' % str(proposed),
-            'proposed_change': proposed,
-        }
-        state.history.append(_make_history_entry(
-            state.phase, 'iterate_nl', state.iteration,
-            'NL feedback: "%s" -> confidence=%.1f'
-            % (feedback, confidence)))
-        return state
+            return apply_structured_feedback(
+                state, feedback, self.kb, self.plan_detection, make_plan)
+        return apply_nl_feedback(
+            state, str(feedback), self.kb, self.plan_detection, make_plan)
 
     # ------------------------------------------------------------------
     # V3 Session workflow: report and investigate
     # ------------------------------------------------------------------
 
-    def report(self, state, format='text'):
+    def report(self, state: InvestigationState,
+               format: str = 'text') -> str | dict:
         """Generate investigation report.
 
         Text format wraps ``generate_report()`` for best detector,
@@ -1550,7 +1120,8 @@ class ADEngine:
 
         return '\n'.join(lines)
 
-    def investigate(self, X, data_type=None, priority='balanced'):
+    def investigate(self, X: Any, data_type: str | None = None,
+                    priority: str = 'balanced') -> InvestigationState:
         """One-shot investigation: start → plan → run → analyze.
 
         Parameters
@@ -1574,7 +1145,8 @@ class ADEngine:
     # Knowledge queries
     # ------------------------------------------------------------------
 
-    def list_detectors(self, data_type=None, status='shipped'):
+    def list_detectors(self, data_type: str | None = None,
+                       status: str = 'shipped') -> list[dict]:
         """List available detectors.
 
         Parameters
@@ -1595,7 +1167,7 @@ class ADEngine:
                     for k, v in self.kb.algorithms.items()]
         return self.kb.list_by_status(status)
 
-    def explain_detector(self, name):
+    def explain_detector(self, name: str) -> dict:
         """Explain a detector.
 
         Parameters
@@ -1612,7 +1184,9 @@ class ADEngine:
             raise ValueError("Unknown detector '%s'" % name)
         return {'name': name, **algo}
 
-    def compare_detectors(self, names=None, data_type=None, top_k=3):
+    def compare_detectors(self, names: list[str] | None = None,
+                          data_type: str | None = None,
+                          top_k: int = 3) -> list[dict]:
         """Compare detectors.
 
         Parameters
@@ -1633,7 +1207,7 @@ class ADEngine:
         detectors = self.list_detectors(data_type=data_type)
         return detectors[:top_k]
 
-    def get_benchmarks(self, benchmark='all'):
+    def get_benchmarks(self, benchmark: str = 'all') -> dict:
         """Get benchmark results.
 
         Parameters

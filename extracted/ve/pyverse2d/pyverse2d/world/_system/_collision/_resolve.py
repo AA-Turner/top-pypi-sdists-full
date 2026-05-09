@@ -165,7 +165,7 @@ def _normal_impulse(ctx: ResolveContext):
         restitution = ctx.rb_a.restitution
 
     if ctx.vel_along < -ctx.C.RESTITUTION_THRESHOLD:
-        t = min((-ctx.vel_along - ctx.C.RESTITUTION_THRESHOLD) / (ctx.C.RESTITUTION_MAX_VEL - ctx.C.RESTITUTION_THRESHOLD), 1.0)
+        t = min(-ctx.vel_along / ctx.C.RESTITUTION_MAX_VEL, 1.0)
         j_delta_n = -(1.0 + restitution * t) * ctx.vel_along / ctx.inv_sum
     elif ctx.vel_along < 0:
         j_delta_n = -ctx.vel_along / ctx.inv_sum

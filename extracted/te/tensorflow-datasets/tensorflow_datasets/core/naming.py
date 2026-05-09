@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -666,7 +666,7 @@ class ShardedFileTemplate:
     `/path/dataset_name-split.fileformat@num_shards` or
     `/path/dataset_name-split@num_shards.fileformat` depending on the format.
     If `num_shards` is not given, then it returns
-    `/path/dataset_name-split.fileformat*`.
+    `/path/dataset_name-split.fileformat-[0-9][0-9][0-9][0-9][0-9]-of-[0-9][0-9][0-9][0-9][0-9]`.
 
     Args:
       num_shards: optional specification of the number of shards.
@@ -681,7 +681,7 @@ class ShardedFileTemplate:
     elif use_at_notation:
       replacement = '@*'
     else:
-      replacement = '*'
+      replacement = '-[0-9][0-9][0-9][0-9][0-9]-of-[0-9][0-9][0-9][0-9][0-9]'
     return _replace_shard_pattern(os.fspath(a_filepath), replacement)
 
   def glob_pattern(self, num_shards: int | None = None) -> str:

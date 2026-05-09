@@ -3,14 +3,13 @@
 import asyncio
 import contextlib
 from functools import lru_cache
-from typing import Any, ClassVar, get_type_hints, overload
+from typing import Any, ClassVar, overload
 
 import reflex as rx
 from reflex.constants.state import FIELD_MARKER
 from reflex.event import EventSpec, IndividualEventType, fix_events
-from reflex.state import BaseState, State, StateUpdate, _substate_key
+from reflex.state import BaseState, State, StateUpdate
 from reflex.utils.prerequisites import get_app
-from reflex.utils.types import is_optional
 from starlette.requests import Request, cookie_parser
 from starlette.responses import Response
 from starlette.routing import Route
@@ -20,8 +19,6 @@ from reflex_enterprise.vars import PromiseVar
 
 # Used to replace the cookie options without replacing the value.
 _NotSet = object()
-
-accepts_final_none = is_optional(get_type_hints(StateUpdate).get("final"))
 
 
 class HTTPCookie(str):
@@ -128,32 +125,6 @@ class HTTPCookie(str):
             raise TypeError(msg)
         self.context["owner"] = owner
         self.context["var_name"] = name
-
-        # Patch some owner class methods to use the descriptor __get__ and __set__.
-        original_get_skip_vars = owner.get_skip_vars
-        original_init_var_dependency_dicts = owner._init_var_dependency_dicts
-
-        @classmethod
-        def get_skip_vars(_: type[BaseState]) -> set[str]:
-            return original_get_skip_vars() | {name}
-
-        @classmethod
-        def _init_var_dependency_dicts(cls: type[BaseState]) -> None:
-            """Remove HTTPCookie var from backend_vars after __init_subclass__."""
-            original_init_var_dependency_dicts()
-            # Ensure no HTTPCookie vars are in backend_vars.
-            remove_vars = []
-            for var_name, var_value in cls.backend_vars.items():
-                if isinstance(var_value, HTTPCookie):
-                    remove_vars.append(var_name)
-            for name in remove_vars:
-                # Hack so State __getattribute__ will pass control to this descriptor.
-                cls.backend_vars.pop(name, None)
-                # Hack so computed vars can depend on the cookie var.
-                cls.vars[name] = rx.Var("")
-
-        owner.get_skip_vars = get_skip_vars
-        owner._init_var_dependency_dicts = _init_var_dependency_dicts
 
     @property
     def state(self) -> type[BaseState]:
@@ -347,7 +318,6 @@ class HTTPCookie(str):
                         token=instance.router.session.client_token,
                         router_data=instance.router_data,
                     ),
-                    final=None if accepts_final_none else True,
                 ),
                 token=instance.router.session.client_token,
             )
@@ -454,10 +424,7 @@ async def sync_cookies(request: Request) -> Response:
 
     app = get_app().app
 
-    try:
-        token = rx.BaseStateToken(ident=client_token, cls=State)
-    except AttributeError:
-        token = _substate_key(client_token, State)
+    token = rx.BaseStateToken(ident=client_token, cls=State)
 
     async with app.modify_state(token, background=True) as state:
         for record in get_cookies_from_state_recursive(state):

@@ -29,9 +29,6 @@ class TrustedProfileAuth(RefreshableTokenAuth):
     :param api_client: initialized APIClient object with set project or space ID
     :type api_client: APIClient
 
-    :param token: token to be used to generate trusted profile token
-    :type token: str, optional
-
     :param on_token_creation: callback which allows to notify about token creation
     :type on_token_creation: function which takes no params and returns nothing, optional
 
@@ -45,7 +42,6 @@ class TrustedProfileAuth(RefreshableTokenAuth):
     def __init__(
         self,
         api_client: APIClient,
-        token: str | None = None,
         on_token_creation: Callable[[], None] | None = None,
         on_token_refresh: Callable[[], None] | None = None,
         on_token_set: Callable[[], None] | None = None,
@@ -55,7 +51,7 @@ class TrustedProfileAuth(RefreshableTokenAuth):
         )
         self._trusted_profile_id = api_client.credentials.trusted_profile_id
 
-        if token is None:
+        if api_client.credentials.api_key is not None:
 
             def _on_token_refresh():
                 self._save_token_data(self._generate_token())
@@ -64,8 +60,13 @@ class TrustedProfileAuth(RefreshableTokenAuth):
                 api_client,
                 on_token_refresh=_on_token_refresh,
             )
+        elif api_client.credentials.token is not None:
+            self._internal_auth_method = TokenAuth(
+                api_client.credentials.token, on_token_set=on_token_set
+            )
         else:
-            self._internal_auth_method = TokenAuth(token, on_token_set=on_token_set)
+            # Should not happen as in cloud scenario token or api_key must be set.
+            raise WMLClientError("No api_key nor token available in the credentials.")
 
     def get_token(self) -> str:
         """Returns the trusted profile token. If `api_key` has been passed and the token will be about to expire, it will be refreshed.

@@ -27,7 +27,8 @@ def test_register_returns_a_value(new_check):
     assert new_check is not None
 
 
-def test_negative_data_rejection(ctx, cli, openapi3_base_url):
+def test_negative_data_rejection(ctx, cli):
+    api = ctx.openapi.apps.success()
     schema_path = ctx.openapi.write_schema(
         {
             "/success": {
@@ -40,7 +41,7 @@ def test_negative_data_rejection(ctx, cli, openapi3_base_url):
     )
     cli.run_and_assert(
         str(schema_path),
-        f"--url={openapi3_base_url}",
+        f"--url={api.base_url}/api",
         "--checks",
         "negative_data_rejection",
         "--mode",
@@ -51,7 +52,7 @@ def test_negative_data_rejection(ctx, cli, openapi3_base_url):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_negative_data_rejection_displays_all_cases(ctx, app_runner, cli, snapshot_cli):
+def test_negative_data_rejection_displays_all_cases(ctx, cli, snapshot_cli):
     raw_schema = {
         "openapi": "3.0.0",
         "paths": {
@@ -105,11 +106,9 @@ def test_negative_data_rejection_displays_all_cases(ctx, app_runner, cli, snapsh
             return jsonify({"message": "negative"}), 406
         return jsonify({"incorrect": "positive"}), 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--mode=all",
             "--phases=coverage",
             "--continue-on-failure",
@@ -124,7 +123,7 @@ def test_negative_data_rejection_displays_all_cases(ctx, app_runner, cli, snapsh
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_negative_data_rejection_path_parameter_type_mutation(ctx, app_runner, cli, snapshot_cli):
+def test_negative_data_rejection_path_parameter_type_mutation(ctx, cli, snapshot_cli):
     # String value for an integer path parameter serializes to the same URL as the integer.
     # E.g., string "7" becomes /api/run/7 - indistinguishable from integer 7.
     app, raw_schema = ctx.openapi.make_flask_app(
@@ -147,11 +146,9 @@ def test_negative_data_rejection_path_parameter_type_mutation(ctx, app_runner, c
         except ValueError:
             return "", 400
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
@@ -162,7 +159,7 @@ def test_negative_data_rejection_path_parameter_type_mutation(ctx, app_runner, c
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_negative_data_rejection_path_parameter_number_type_mutation(ctx, app_runner, cli, snapshot_cli):
+def test_negative_data_rejection_path_parameter_number_type_mutation(ctx, cli, snapshot_cli):
     # Like the integer variant, string mutations for a float path parameter can decode to valid floats.
     # E.g., "+1.5" becomes /api/rate/%2B1.5 - URL-decoded to "+1.5" which float() accepts.
     app, raw_schema = ctx.openapi.make_flask_app(
@@ -184,11 +181,9 @@ def test_negative_data_rejection_path_parameter_number_type_mutation(ctx, app_ru
         except ValueError:
             return "", 400
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
@@ -198,7 +193,7 @@ def test_negative_data_rejection_path_parameter_number_type_mutation(ctx, app_ru
     )
 
 
-def test_negative_data_rejection_uuid_path_param_with_pattern_no_false_positive(ctx, app_runner, cli):
+def test_negative_data_rejection_uuid_path_param_with_pattern_no_false_positive(ctx, cli, app_runner):
     # See GH-3603
     # UUID path param with an explicit lowercase pattern — when the fuzzing phase injects
     # a captured valid UUID, the positive value must NOT trigger a failure
@@ -280,10 +275,8 @@ def test_negative_data_rejection_uuid_path_param_with_pattern_no_false_positive(
     def get_task(task_id):
         return jsonify(tasks[task_id]) if task_id in tasks else ("", 404)
 
-    port = app_runner.run_flask_app(app)
-
     cli.run_and_assert(
-        f"http://127.0.0.1:{port}/openapi.json",
+        app_runner.openapi_url(app),
         "--checks=negative_data_rejection",
         "--mode=negative",
         "--phases=stateful,fuzzing",
@@ -293,7 +286,7 @@ def test_negative_data_rejection_uuid_path_param_with_pattern_no_false_positive(
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_negative_data_rejection_xml_body_string_type_no_false_positive(ctx, app_runner, cli, snapshot_cli):
+def test_negative_data_rejection_xml_body_string_type_no_false_positive(ctx, cli, snapshot_cli):
     # Type mutations for XML body string fields serialize all non-string values to their string
     # representations via _escape_xml (False -> "False", 0 -> "0", None -> "").
     # These are indistinguishable from valid strings at the wire level, so no false positive
@@ -337,11 +330,9 @@ def test_negative_data_rejection_xml_body_string_type_no_false_positive(ctx, app
         except ET.ParseError:
             return "", 400
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
@@ -351,7 +342,7 @@ def test_negative_data_rejection_xml_body_string_type_no_false_positive(ctx, app
     )
 
 
-def test_negative_data_rejection_number_body_field_accepts_integer_no_false_positive(ctx, app_runner, cli):
+def test_negative_data_rejection_number_body_field_accepts_integer_no_false_positive(ctx, cli, app_runner):
     # See GH-3697
     # `type: number` in JSON Schema accepts integers — any integer is a valid number.
     # Sending an integer (e.g., score=3) for a `type: number` field must NOT trigger
@@ -391,10 +382,8 @@ def test_negative_data_rejection_number_body_field_accepts_integer_no_false_posi
             return jsonify({"error": "score must be a number"}), 422
         return jsonify({"ok": True}), 200
 
-    port = app_runner.run_flask_app(app)
-
     cli.run_and_assert(
-        f"http://127.0.0.1:{port}/openapi.json",
+        app_runner.openapi_url(app),
         "--checks=negative_data_rejection",
         "--mode=negative",
         "--phases=fuzzing",
@@ -403,7 +392,7 @@ def test_negative_data_rejection_number_body_field_accepts_integer_no_false_posi
     )
 
 
-def test_negative_data_rejection_query_integer_param_accepts_numeric_string_no_false_positive(ctx, app_runner, cli):
+def test_negative_data_rejection_query_integer_param_accepts_numeric_string_no_false_positive(ctx, cli, app_runner):
     # See GH-3712
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -436,19 +425,16 @@ def test_negative_data_rejection_query_integer_param_accepts_numeric_string_no_f
                 return jsonify({"error": "invalid page_size"}), 422
         return jsonify({"results": []}), 200
 
-    port = app_runner.run_flask_app(app)
-
     cli.run_and_assert(
-        f"http://127.0.0.1:{port}/openapi.json",
+        app_runner.openapi_url(app),
         "--checks=negative_data_rejection",
         "--mode=negative",
         "--phases=fuzzing",
-        "--generation-database=none",
         exit_code=ExitCode.OK,
     )
 
 
-def test_negative_data_rejection_array_of_strings_boolean_collision(ctx, app_runner, cli, snapshot_cli):
+def test_negative_data_rejection_array_of_strings_boolean_collision(ctx, cli, snapshot_cli):
     # See GH-2913
     app, raw_schema = ctx.openapi.make_flask_app(
         {
@@ -501,11 +487,9 @@ def test_negative_data_rejection_array_of_strings_boolean_collision(ctx, app_run
 
         return jsonify({"data": names}), 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
@@ -531,7 +515,7 @@ def test_negative_data_rejection_array_of_strings_boolean_collision(ctx, app_run
         ),
     ],
 )
-def test_optional_auth_should_not_trigger_ignored_auth_check(ctx, app_runner, cli, snapshot_cli, version, kwargs):
+def test_optional_auth_should_not_trigger_ignored_auth_check(ctx, cli, snapshot_cli, version, kwargs):
     # See GH-3052
     app, raw_schema = ctx.openapi.make_flask_app(
         {
@@ -553,12 +537,7 @@ def test_optional_auth_should_not_trigger_ignored_auth_check(ctx, app_runner, cl
     def data_endpoint():
         return jsonify({"status": "Ok"})
 
-    port = app_runner.run_flask_app(app)
-
-    assert (
-        cli.run(f"http://127.0.0.1:{port}/openapi.json", "-c ignored_auth", "--phases=fuzzing", "--max-examples=3")
-        == snapshot_cli
-    )
+    assert cli.run_openapi_app(app, "-c ignored_auth", "--phases=fuzzing", "--max-examples=3") == snapshot_cli
 
 
 @pytest.mark.parametrize(
@@ -576,7 +555,7 @@ def test_optional_auth_should_not_trigger_ignored_auth_check(ctx, app_runner, cl
         ),
     ],
 )
-def test_optional_auth_should_not_trigger_missing_required_header(ctx, app_runner, cli, snapshot_cli, version, kwargs):
+def test_optional_auth_should_not_trigger_missing_required_header(ctx, cli, snapshot_cli, version, kwargs):
     app, raw_schema = ctx.openapi.make_flask_app(
         {
             "/": {
@@ -597,12 +576,10 @@ def test_optional_auth_should_not_trigger_missing_required_header(ctx, app_runne
     def data_endpoint():
         return jsonify({"status": "Ok"})
 
-    port = app_runner.run_flask_app(app)
-
-    assert cli.run(f"http://127.0.0.1:{port}/openapi.json", "-c missing_required_header") == snapshot_cli
+    assert cli.run_openapi_app(app, "-c missing_required_header") == snapshot_cli
 
 
-def test_format_parameter_csv_response(ctx, app_runner, cli, snapshot_cli):
+def test_format_parameter_csv_response(ctx, cli, snapshot_cli):
     raw_schema = {
         "openapi": "3.0.0",
         "paths": {
@@ -640,11 +617,9 @@ def test_format_parameter_csv_response(ctx, app_runner, cli, snapshot_cli):
             return "name,age\nJohn,25", 200, {"Content-Type": ""}
         return jsonify({"name": "John", "age": 25})
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "-c response_schema_conformance",
             "--mode=positive",
             "--phases=fuzzing",
@@ -688,7 +663,8 @@ def schema(ctx):
         ["200", 201, 400, 401],
     ],
 )
-def test_positive_data_acceptance(ctx, cli, snapshot_cli, schema, openapi3_base_url, expected_statuses):
+def test_positive_data_acceptance(ctx, cli, snapshot_cli, schema, expected_statuses):
+    api = ctx.openapi.apps.success()
     schema_path = ctx.makefile(schema)
     kwargs = {}
     if expected_statuses is not None:
@@ -697,7 +673,7 @@ def test_positive_data_acceptance(ctx, cli, snapshot_cli, schema, openapi3_base_
     assert (
         cli.run(
             str(schema_path),
-            f"--url={openapi3_base_url}",
+            f"--url={api.base_url}/api",
             "--max-examples=5",
             "--checks=positive_data_acceptance",
             **kwargs,
@@ -706,10 +682,11 @@ def test_positive_data_acceptance(ctx, cli, snapshot_cli, schema, openapi3_base_
     )
 
 
-def test_not_a_server_error(cli, snapshot_cli, openapi3_schema_url):
+def test_not_a_server_error(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success_and_failure()
     assert (
         cli.run(
-            openapi3_schema_url,
+            api.schema_url,
             "--max-examples=5",
             "--checks=not_a_server_error",
             "--mode=positive",
@@ -856,10 +833,14 @@ def app(ctx):
     return app
 
 
-def test_response_schema_conformance(ctx, app_runner, cli, snapshot_cli, app):
+def test_response_schema_conformance(ctx, cli, app_runner, snapshot_cli, app):
     @app.route("/organizations/", methods=["GET"])
     def list_organizations():
         return [], 200
+
+    @app.route("/organizations/<slug>/", methods=["GET"])
+    def get_organization(slug):
+        return jsonify({"name": slug}), 200
 
     schema_file = ctx.openapi.write_schema(
         {
@@ -910,13 +891,13 @@ def test_response_schema_conformance(ctx, app_runner, cli, snapshot_cli, app):
             }
         },
     )
-    port = app_runner.run_flask_app(app)
+    base_url = app_runner.openapi_url(app, path="")
     # There should be no empty `organization_slug` generated which will lead to request being handled by `GET /organizations/`
     # onstead of `GET /organizations/{organization_slug}/` and will give a response schema conformance error
     assert (
         cli.run(
             str(schema_file),
-            f"--url=http://127.0.0.1:{port}",
+            f"--url={base_url}",
             "-c response_schema_conformance",
             "--max-examples=10",
         )
@@ -924,12 +905,10 @@ def test_response_schema_conformance(ctx, app_runner, cli, snapshot_cli, app):
     )
 
 
-def test_ensure_resource_availability_does_not_trigger_on_subsequent_error(app_runner, cli, snapshot_cli, app):
-    port = app_runner.run_flask_app(app)
-
+def test_ensure_resource_availability_does_not_trigger_on_subsequent_error(cli, snapshot_cli, app):
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "-c ensure_resource_availability",
             "--max-examples=50",
             "--phases=stateful",
@@ -940,12 +919,10 @@ def test_ensure_resource_availability_does_not_trigger_on_subsequent_error(app_r
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_use_after_free_does_not_trigger_on_error(app_runner, cli, snapshot_cli, app):
-    port = app_runner.run_flask_app(app)
-
+def test_use_after_free_does_not_trigger_on_error(cli, snapshot_cli, app):
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "-c use_after_free",
             "--max-examples=50",
             "--phases=stateful",
@@ -954,7 +931,7 @@ def test_use_after_free_does_not_trigger_on_error(app_runner, cli, snapshot_cli,
     )
 
 
-def test_negative_data_rejection_array_min_items_zero_no_false_positive(ctx, app_runner, cli, snapshot_cli):
+def test_negative_data_rejection_array_min_items_zero_no_false_positive(ctx, cli, snapshot_cli):
     # See GH-3056
     raw_schema = {
         "openapi": "3.1.1",
@@ -1034,11 +1011,9 @@ def test_negative_data_rejection_array_min_items_zero_no_false_positive(ctx, app
             return jsonify({"error": "Missing required parameter: ids"}), 400
         return jsonify({"foo": "bar"}), 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
@@ -1049,7 +1024,7 @@ def test_negative_data_rejection_array_min_items_zero_no_false_positive(ctx, app
     )
 
 
-def test_negative_data_rejection_form_data_empty_string_false_positive(ctx, app_runner, cli, snapshot_cli):
+def test_negative_data_rejection_form_data_empty_string_false_positive(ctx, cli, snapshot_cli):
     # Empty string in form data should not be treated as None/null for required string fields
     app, raw_schema = ctx.openapi.make_flask_app(
         {
@@ -1089,11 +1064,9 @@ def test_negative_data_rejection_form_data_empty_string_false_positive(ctx, app_
             return jsonify({"error": "Missing required field"}), 400
         return jsonify({"results": []}), 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--max-examples=20",
@@ -1102,7 +1075,7 @@ def test_negative_data_rejection_form_data_empty_string_false_positive(ctx, app_
     )
 
 
-def test_negative_data_rejection_fuzzing_phase_metadata(ctx, app_runner, cli):
+def test_negative_data_rejection_fuzzing_phase_metadata(ctx, cli, app_runner):
     # Use a simple schema with single property to avoid multiple mutation conflicts
     app, raw_schema = ctx.openapi.make_flask_app(
         {
@@ -1130,10 +1103,8 @@ def test_negative_data_rejection_fuzzing_phase_metadata(ctx, app_runner, cli):
     def create_user():
         return jsonify({"result": "ok"}), 200
 
-    port = app_runner.run_flask_app(app)
-
     result = cli.run_and_assert(
-        f"http://127.0.0.1:{port}/openapi.json",
+        app_runner.openapi_url(app),
         "--checks=negative_data_rejection",
         "--mode=negative",
         "--phases=fuzzing",
@@ -1158,7 +1129,7 @@ def test_negative_data_rejection_fuzzing_phase_metadata(ctx, app_runner, cli):
         ),
     ],
 )
-def test_positive_data_acceptance_required_form_body_no_false_positive(ctx, app_runner, cli, snapshot_cli, body_schema):
+def test_positive_data_acceptance_required_form_body_no_false_positive(ctx, cli, snapshot_cli, body_schema):
     # When requestBody.required=true but inner schema allows empty object,
     # coverage generates {} which serializes to no body content for form-urlencoded.
     # This should NOT trigger a false positive "API rejected schema-compliant request".
@@ -1185,11 +1156,9 @@ def test_positive_data_acceptance_required_form_body_no_false_positive(ctx, app_
             return jsonify({"error": "Request body is required"}), 400
         return jsonify({"result": "ok"}), 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=positive_data_acceptance",
             "--phases=coverage",
         )
@@ -1198,7 +1167,7 @@ def test_positive_data_acceptance_required_form_body_no_false_positive(ctx, app_
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_positive_data_acceptance_additional_properties_hint(ctx, app_runner, cli, snapshot_cli):
+def test_positive_data_acceptance_additional_properties_hint(ctx, cli, snapshot_cli):
     # When Hypothesis adds extra properties to a schema without `additionalProperties: false`,
     # the failure message should include a hint explaining the likely cause.
     app, raw_schema = ctx.openapi.make_flask_app(
@@ -1245,11 +1214,9 @@ def test_positive_data_acceptance_additional_properties_hint(ctx, app_runner, cl
             return jsonify({"error": "Unexpected fields"}), 422
         return jsonify({"ok": True}), 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=positive_data_acceptance",
             "--phases=fuzzing",
             "--max-examples=50",
@@ -1259,7 +1226,7 @@ def test_positive_data_acceptance_additional_properties_hint(ctx, app_runner, cl
     )
 
 
-def test_positive_data_acceptance_body_list_examples_verbatim(ctx, app_runner, cli):
+def test_positive_data_acceptance_body_list_examples_verbatim(ctx, cli, app_runner):
     app, raw_schema = ctx.openapi.make_flask_app(
         {
             "/api/payments": {
@@ -1328,16 +1295,16 @@ def test_positive_data_acceptance_body_list_examples_verbatim(ctx, app_runner, c
             )
         return jsonify({"result": "ok"}), 200
 
-    port = app_runner.run_flask_app(app)
+    schema_url = app_runner.openapi_url(app)
 
     cli.run_and_assert(
-        f"http://127.0.0.1:{port}/openapi.json",
+        schema_url,
         "--checks=positive_data_acceptance",
         "--phases=examples",
         exit_code=ExitCode.OK,
     )
     cli.run_and_assert(
-        f"http://127.0.0.1:{port}/openapi.json",
+        schema_url,
         "--checks=positive_data_acceptance",
         "--phases=fuzzing",
         "--max-examples=50",
@@ -1345,7 +1312,7 @@ def test_positive_data_acceptance_body_list_examples_verbatim(ctx, app_runner, c
     )
 
 
-def test_missing_required_header_body_first_server_no_false_negative(ctx, app_runner, cli):
+def test_missing_required_header_body_first_server_no_false_negative(ctx, cli, app_runner):
     # Server validates body before header. With a valid template body the missing-header case
     # reaches header validation (400), so the check correctly passes — no false negative.
     app = ctx.openapi.make_flask_app_from_schema(
@@ -1407,10 +1374,8 @@ def test_missing_required_header_body_first_server_no_false_negative(ctx, app_ru
             return jsonify({"error": "missing required header"}), 400
         return jsonify({"ok": True}), 200
 
-    port = app_runner.run_flask_app(app)
-
     cli.run_and_assert(
-        f"http://127.0.0.1:{port}/openapi.json",
+        app_runner.openapi_url(app),
         "--checks=missing_required_header",
         "--phases=coverage",
         exit_code=ExitCode.OK,
@@ -1418,7 +1383,7 @@ def test_missing_required_header_body_first_server_no_false_negative(ctx, app_ru
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_response_schema_conformance_reports_all_errors_in_cli(ctx, app_runner, cli, snapshot_cli):
+def test_response_schema_conformance_reports_all_errors_in_cli(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/data": {
@@ -1451,17 +1416,64 @@ def test_response_schema_conformance_reports_all_errors_in_cli(ctx, app_runner, 
         # 'id' is a string (should be integer), 'name' is an integer (should be string)
         return jsonify({"id": "not-an-int", "name": 42})
 
-    port = app_runner.run_flask_app(app)
-    result = cli.run(
-        f"http://127.0.0.1:{port}/openapi.json",
-        "--checks=response_schema_conformance",
-        "--max-examples=1",
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--checks=response_schema_conformance",
+            "--max-examples=1",
+        )
+        == snapshot_cli
     )
-    assert result == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_negative_data_rejection_nested_body_description(ctx, app_runner, cli, snapshot_cli):
+def test_response_schema_conformance_groups_multiple_violations(ctx, cli, snapshot_cli):
+    # 4 violations on one response should render under a single header with a violation count,
+    # not 4 separate `- Response violates schema` blocks.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/api/user": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "email": {"type": "string", "format": "email"},
+                                            "age": {"type": "integer", "minimum": 0},
+                                            "status": {"type": "string", "enum": ["active", "inactive"]},
+                                            "name": {"type": "string", "minLength": 1},
+                                        },
+                                        "required": ["email", "age", "status", "name"],
+                                    }
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    )
+
+    @app.route("/api/user")
+    def user():
+        return jsonify({"email": "abc", "age": -1, "status": "pending", "name": ""})
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--checks=response_schema_conformance",
+            "--max-examples=1",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_negative_data_rejection_nested_body_description(ctx, cli, snapshot_cli):
     # Schema with no type at root/intermediate levels so coverage only generates
     # property constraint violations, surfacing the nested path in the description
     app, _ = ctx.openapi.make_flask_app(
@@ -1500,10 +1512,100 @@ def test_negative_data_rejection_nested_body_description(ctx, app_runner, cli, s
     def payment():
         return jsonify({}), 200
 
-    port = app_runner.run_flask_app(app)
-    result = cli.run(
-        f"http://127.0.0.1:{port}/openapi.json",
-        "--checks=negative_data_rejection",
-        "--phases=coverage",
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--checks=negative_data_rejection",
+            "--phases=coverage",
+        )
+        == snapshot_cli
     )
-    assert result == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_readonly_in_allof_branch_does_not_collapse_positive_generation(ctx, cli, snapshot_cli):
+    # Server bug behind valid POST body; reachable only when positive-mode generates valid data.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/widgets": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Widget"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "WidgetFields": {
+                    "type": "object",
+                    "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 30}},
+                    "required": ["name"],
+                },
+                "Widget": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/WidgetFields"},
+                        {"type": "object", "properties": {"id": {"type": "integer", "readOnly": True}}},
+                    ],
+                    "required": ["id", "name"],
+                },
+            }
+        },
+    )
+
+    @app.route("/widgets", methods=["POST"])
+    def create_widget():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not isinstance(data.get("name"), str) or not data["name"]:
+            return "", 400
+        raise RuntimeError("planted bug")
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--mode=positive",
+            "--phases=fuzzing",
+            "--max-examples=10",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_response_schema_conformance_large_pattern(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/data": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "string",
+                                        "pattern": r"^.{0,404600}$",
+                                    }
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    )
+
+    @app.route("/data")
+    def data():
+        return jsonify("")
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--checks=response_schema_conformance",
+            "--max-examples=1",
+        )
+        == snapshot_cli
+    )

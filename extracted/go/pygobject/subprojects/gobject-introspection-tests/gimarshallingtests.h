@@ -864,6 +864,9 @@ GI_TEST_EXTERN
 void gi_marshalling_tests_array_struct_in (GIMarshallingTestsBoxedStruct **structs, gint length);
 
 GI_TEST_EXTERN
+void gi_marshalling_tests_array_struct_full_in (GIMarshallingTestsBoxedStruct **structs, gint length);
+
+GI_TEST_EXTERN
 void gi_marshalling_tests_array_struct_value_in (GIMarshallingTestsBoxedStruct *structs, gint length);
 
 GI_TEST_EXTERN
@@ -1011,13 +1014,13 @@ GI_TEST_EXTERN
 gchar **gi_marshalling_tests_zero_terminated_array_utf8_full_return (void);
 
 GI_TEST_EXTERN
-void gi_marshalling_tests_zero_terminated_array_utf8_none_in (const gchar *const *array);
+void gi_marshalling_tests_zero_terminated_array_utf8_none_in (const gchar *const *array, gchar *extra);
 
 GI_TEST_EXTERN
-void gi_marshalling_tests_zero_terminated_array_utf8_container_in (const gchar **array);
+void gi_marshalling_tests_zero_terminated_array_utf8_container_in (const gchar **array, gchar *extra);
 
 GI_TEST_EXTERN
-void gi_marshalling_tests_zero_terminated_array_utf8_full_in (gchar **array);
+void gi_marshalling_tests_zero_terminated_array_utf8_full_in (gchar **array, gchar *extra);
 
 GI_TEST_EXTERN
 void gi_marshalling_tests_zero_terminated_array_utf8_none_out (const gchar *const **array_out);
@@ -1664,6 +1667,28 @@ GI_TEST_EXTERN
 glong gi_marshalling_tests_callback_owned_boxed (GIMarshallingTestsCallbackOwnedBoxed callback,
                                                  void *callback_data);
 
+/**
+ * GIMarshallingTestsCallbackWithTwoParametersAndUserData:
+ * @a:
+ * @b:
+ * @user_data: (closure):
+ */
+typedef void (*GIMarshallingTestsCallbackWithTwoParametersAndUserData) (gint a,
+                                                                        gint b,
+                                                                        gpointer user_data);
+
+GI_TEST_EXTERN
+void gi_marshalling_tests_callback_user_data_after_callback (gint a,
+                                                             gint b,
+                                                             GIMarshallingTestsCallbackWithTwoParametersAndUserData callback,
+                                                             gpointer user_data);
+
+GI_TEST_EXTERN
+void gi_marshalling_tests_callback_user_data_before_callback (gint a,
+                                                              gint b,
+                                                              gpointer user_data,
+                                                              GIMarshallingTestsCallbackWithTwoParametersAndUserData callback);
+
 /* Pointer */
 
 GI_TEST_EXTERN
@@ -1737,6 +1762,22 @@ gboolean gi_marshalling_tests_boxed_struct_out_uninitialized (GIMarshallingTests
 
 GI_TEST_EXTERN
 void gi_marshalling_tests_boxed_struct_inout (GIMarshallingTestsBoxedStruct **struct_);
+
+/**
+ * GIMarshallingTestsPointerArrayStruct:
+ * @array: a #GArray of #guint8 elements.
+ */
+typedef struct
+{
+  GArray *array;
+  gint ref_count;
+} GIMarshallingTestsPointerArrayStruct;
+
+GI_TEST_EXTERN
+GType gi_marshalling_tests_pointer_array_struct_get_type (void) G_GNUC_CONST;
+
+GI_TEST_EXTERN
+GIMarshallingTestsPointerArrayStruct *gi_marshalling_tests_pointer_array_struct_with_uint8_array (void);
 
 typedef union
 {

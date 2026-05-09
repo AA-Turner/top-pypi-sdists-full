@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -371,6 +371,15 @@ def test_mock_data_source():
         'imagenet2012', split='train[:50%]', decoders=decoders
     )
     assert isinstance(data_source[0]['image'], bytes)
+
+    # Without deserializing the examples
+    data_source = tfds.data_source(
+        'imagenet2012',
+        split='train',
+        deserialize_method=tfds.decode.DeserializeMethod.RAW_BYTES,
+    )
+    assert len(data_source) == 10
+    assert isinstance(data_source[0], bytes)
 
 
 def test_mock_multiple_data_source():

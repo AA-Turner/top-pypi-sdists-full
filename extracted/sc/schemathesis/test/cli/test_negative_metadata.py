@@ -4,9 +4,12 @@ import pytest
 from _pytest.main import ExitCode
 from flask import jsonify, request
 
+import schemathesis
+from schemathesis.engine import Status, events
+
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_format_password_false_positive(ctx, app_runner, cli, snapshot_cli):
+def test_format_password_false_positive(ctx, cli, snapshot_cli):
     # GH-3480: Schemathesis incorrectly reports data as invalid for format: password
     # In OpenAPI 3.0, `format` is an annotation and does NOT impose validation constraints by itself.
     # With only `type: string, format: password`, any string is valid.
@@ -48,12 +51,10 @@ def test_format_password_false_positive(ctx, app_runner, cli, snapshot_cli):
             return jsonify({"error": "invalid json"}), 422
         return jsonify({"result": "ok"}), 200
 
-    port = app_runner.run_flask_app(app)
-
     # No failure should be reported since any string is valid for format: password in OpenAPI 3.0
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=negative_data_rejection",
             "--phases=coverage",
             "--continue-on-failure",
@@ -62,7 +63,7 @@ def test_format_password_false_positive(ctx, app_runner, cli, snapshot_cli):
     )
 
 
-def test_negative_metadata_required_property(ctx, app_runner, cli):
+def test_negative_metadata_required_property(ctx, cli, app_runner):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/items": {
@@ -92,10 +93,8 @@ def test_negative_metadata_required_property(ctx, app_runner, cli):
     def create_item():
         return jsonify({"result": "ok"}), 200
 
-    port = app_runner.run_flask_app(app)
-
     result = cli.run_and_assert(
-        f"http://127.0.0.1:{port}/openapi.json",
+        app_runner.openapi_url(app),
         "--checks=negative_data_rejection",
         "--mode=negative",
         "--phases=fuzzing",
@@ -108,7 +107,7 @@ def test_negative_metadata_required_property(ctx, app_runner, cli):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_text_plain_negative_becomes_valid_after_serialization(ctx, app_runner, cli, snapshot_cli):
+def test_text_plain_negative_becomes_valid_after_serialization(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/some-string-endpoint": {
@@ -127,11 +126,9 @@ def test_text_plain_negative_becomes_valid_after_serialization(ctx, app_runner, 
     def string_endpoint():
         return "", 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
@@ -142,8 +139,8 @@ def test_text_plain_negative_becomes_valid_after_serialization(ctx, app_runner, 
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_text_plain_with_query_negative_still_fails(ctx, app_runner, cli, snapshot_cli):
+@pytest.mark.snapshot(replace_reproduce_with=True, replace_invalid_component=True)
+def test_text_plain_with_query_negative_still_fails(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/endpoint": {
@@ -165,11 +162,9 @@ def test_text_plain_with_query_negative_still_fails(ctx, app_runner, cli, snapsh
     def endpoint():
         return "", 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
@@ -180,53 +175,46 @@ def test_text_plain_with_query_negative_still_fails(ctx, app_runner, cli, snapsh
     )
 
 
-@pytest.mark.parametrize(
-    "auth_config",
-    [
-        {"auth": {"openapi": {"password": {"username": "plain", "password": "test"}}}},
-        {"auth": {"basic": {"username": "plain", "password": "test"}}},
-        None,
-    ],
-    ids=["openapi-auth", "basic-auth", "no-auth"],
-)
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_removed_auth_parameter_not_reapplied(ctx, app_runner, cli, snapshot_cli, auth_config):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/ping": {
-                "post": {
-                    "security": [{"password": []}],
-                    "responses": {"204": {"description": "No Content"}},
-                }
-            }
-        },
-        components={
-            "securitySchemes": {
-                "password": {
-                    "type": "http",
-                    "scheme": "basic",
-                }
-            }
-        },
-    )
+def test_removed_auth_parameter_not_reapplied_no_credentials(ctx):
+    # No credentials configured — server always returns 401; negative_data_rejection must not fire.
+    api = ctx.openapi.apps.basic()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    schema.config.seed = 42
+    schema.config.generation.update(modes=[schemathesis.GenerationMode.NEGATIVE])
+    schema.config.phases.examples.enabled = False
+    schema.config.phases.coverage.enabled = False
+    schema.config.phases.stateful.enabled = False
+    schema.config.phases.fuzzing.generation.update(max_examples=20)
+    schema.config.checks.update(included_check_names=["negative_data_rejection"])
 
-    @app.route("/ping", methods=["POST"])
-    def ping():
-        auth_header = request.headers.get("Authorization")
-        if not auth_header:
-            return "", 401
-        return "", 204
+    failures = []
+    for event in schemathesis.engine.from_schema(schema).execute():
+        if isinstance(event, events.ScenarioFinished) and event.status == Status.FAILURE:
+            failures.append(event)
 
-    port = app_runner.run_flask_app(app)
+    assert not failures, f"unexpected negative_data_rejection failures: {failures}"
 
-    args = [
-        f"http://127.0.0.1:{port}/openapi.json",
-        "--checks=negative_data_rejection",
-        "--mode=negative",
-        "--phases=fuzzing",
-        "--max-examples=5",
-        "--seed=42",
-    ]
-    kwargs = {"config": auth_config} if auth_config else {}
 
-    assert cli.run(*args, **kwargs) == snapshot_cli
+def test_removed_auth_parameter_not_reapplied_with_credentials(ctx):
+    # When auth credentials are configured, a removal mutation must leave the
+    # Authorization header absent — interceptor must not re-add it — so the
+    # server returns 401 and negative_data_rejection does not fire.
+    api = ctx.openapi.apps.basic()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    schema.config.seed = 42
+    schema.config.generation.update(modes=[schemathesis.GenerationMode.NEGATIVE])
+    schema.config.phases.examples.enabled = False
+    schema.config.phases.coverage.enabled = False
+    schema.config.phases.stateful.enabled = False
+    schema.config.phases.fuzzing.generation.update(max_examples=50)
+    schema.config.auth.update(basic=("test", "test"))
+    schema.config.checks.update(included_check_names=["negative_data_rejection"])
+
+    failures = []
+    for event in schemathesis.engine.from_schema(schema).execute():
+        if isinstance(event, events.ScenarioFinished) and event.status == Status.FAILURE:
+            failures.append(event)
+
+    auth_removed = [r for r in api.requests if "Authorization" not in r.headers]
+    assert auth_removed, "no auth-removal mutation fired in 50 examples"
+    assert not failures, f"unexpected negative_data_rejection failures: {failures}"

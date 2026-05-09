@@ -184,19 +184,6 @@ def build_inputs_by_label(graph: DependencyGraph) -> dict[str, list[InputSlot]]:
     return inputs_by_label
 
 
-def _variant_satisfies(variant: dict[str, Any], validators: dict[str, jsonschema_rs.Validator | None]) -> bool:
-    for name, value in variant.items():
-        validator = validators.get(name)
-        if validator is None:
-            continue
-        try:
-            if not validator.is_valid(value):
-                return False
-        except Exception:
-            continue
-    return True
-
-
 def _build_property_validator(
     prop_schema: Any, container_schema: Any, validator_cls: type
 ) -> jsonschema_rs.Validator | None:
@@ -207,6 +194,67 @@ def _build_property_validator(
         return make_validator(schema_with_bundle(prop_schema, container_schema), validator_cls)
     except Exception:
         return None
+
+
+@dataclass(slots=True, frozen=True)
+class _VariantSlot:
+    # `path` is where the value lands in the variant; `lookup_key` is the slash-joined
+    # form used as the requirements-dict key and `instance.context` lookup.
+    path: tuple[str, ...]
+    leaf_schema: JsonSchema
+    requirement: ParameterRequirement
+
+    @property
+    def lookup_key(self) -> str:
+        return "/".join(self.path)
+
+
+def _assemble_path(path: tuple[str, ...], value: Any) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    cursor = result
+    for key in path[:-1]:
+        nxt: dict[str, Any] = {}
+        cursor[key] = nxt
+        cursor = nxt
+    cursor[path[-1]] = value
+    return result
+
+
+def _assemble_variant(slots: list[_VariantSlot], values_by_lookup_key: dict[str, Any]) -> dict[str, Any]:
+    variant: dict[str, Any] = {}
+    for slot in slots:
+        if slot.lookup_key not in values_by_lookup_key:
+            continue
+        cursor = variant
+        for key in slot.path[:-1]:
+            cursor = cursor.setdefault(key, {})
+        cursor[slot.path[-1]] = values_by_lookup_key[slot.lookup_key]
+    return variant
+
+
+def _variant_satisfies_paths(
+    variant: dict[str, Any],
+    slots: list[_VariantSlot],
+    validators: dict[str, jsonschema_rs.Validator | None],
+) -> bool:
+    for slot in slots:
+        validator = validators.get(slot.lookup_key)
+        if validator is None:
+            continue
+        cursor: Any = variant
+        for key in slot.path:
+            if not isinstance(cursor, dict) or key not in cursor:
+                cursor = None
+                break
+            cursor = cursor[key]
+        if cursor is None:
+            continue
+        try:
+            if not validator.is_valid(cursor):
+                return False
+        except Exception:
+            continue
+    return True
 
 
 @dataclass(slots=True)
@@ -229,6 +277,14 @@ class OpenApiExtraDataSource(ExtraDataSource):
         self.requirements = requirements
         self.inputs_by_label = inputs_by_label if inputs_by_label is not None else {}
         self.usage_tracker = usage_tracker if usage_tracker is not None else VariantUsageTracker()
+        # Values that have been successfully DELETEd; pool draws skip them.
+        self._tombstoned: set[tuple[str, Any]] = set()
+
+    def _is_tombstoned(self, resource_name: str, value: Any) -> bool:
+        try:
+            return (resource_name, value) in self._tombstoned
+        except TypeError:  # unhashable value
+            return False
 
     def get_captured_variants(
         self,
@@ -242,6 +298,7 @@ class OpenApiExtraDataSource(ExtraDataSource):
         Returns list of parameter value sets from captured responses.
         For single requirements, returns single-property dicts.
         For multiple requirements, returns complete value sets preserving relationships.
+        For BODY location, walks one level into nested objects so nested foreign-key fields get overlays.
         """
         if not isinstance(schema, dict):
             return None
@@ -250,73 +307,93 @@ class OpenApiExtraDataSource(ExtraDataSource):
         if not isinstance(properties, dict):
             return None
 
-        # Collect requirements for this schema
-        property_requirements: dict[str, ParameterRequirement] = {}
-        for name in properties:
+        slots: list[_VariantSlot] = []
+        for name, prop_schema in properties.items():
             requirement = self.requirements.get((operation.label, location, name))
             if requirement is not None:
-                property_requirements[name] = requirement
+                slots.append(_VariantSlot((name,), prop_schema, requirement))
+                continue
+            if location != ParameterLocation.BODY or not isinstance(prop_schema, dict):
+                continue
+            sub_props = prop_schema.get("properties")
+            if not isinstance(sub_props, dict):
+                continue
+            for sub_name, sub_schema in sub_props.items():
+                req = self.requirements.get((operation.label, location, f"{name}/{sub_name}"))
+                if req is not None:
+                    slots.append(_VariantSlot((name, sub_name), sub_schema, req))
 
-        if not property_requirements:
+        if not slots:
             return None
 
-        # Single requirement: return simple single-property variants
-        if len(property_requirements) == 1:
-            name, requirement = next(iter(property_requirements.items()))
-            variants = [{name: value} for value in self._collect_values(requirement)]
+        if len(slots) == 1:
+            slot = slots[0]
+            variants = [_assemble_path(slot.path, value) for value in self._collect_values(slot.requirement)]
         else:
-            # Multiple requirements: return complete object variants preserving relationships
-            variants = self._collect_object_variants(property_requirements)
+            variants = self._collect_object_variants(slots)
 
-        # Drop variants whose values violate the destination schema (e.g. producer's `id: 0`
-        # leaking into a consumer with `minimum: 1`).
         from schemathesis.specs.openapi.schemas import OpenApiSchema
 
         assert isinstance(operation.schema, OpenApiSchema)
         validator_cls = operation.schema.adapter.jsonschema_validator_cls
         validators = {
-            name: _build_property_validator(properties.get(name), schema, validator_cls)
-            for name in property_requirements
+            slot.lookup_key: _build_property_validator(slot.leaf_schema, schema, validator_cls) for slot in slots
         }
-        variants = [v for v in variants if _variant_satisfies(v, validators)]
+        variants = [v for v in variants if _variant_satisfies_paths(v, slots, validators)]
         return variants or None
 
-    def _collect_object_variants(self, requirements: dict[str, ParameterRequirement]) -> list[dict[str, Any]]:
+    def _collect_object_variants(self, slots: list[_VariantSlot]) -> list[dict[str, Any]]:
         """Collect complete value sets that preserve relationships between properties."""
-        # Get all resource types involved
-        resource_names = {req.resource_name for req in requirements.values()}
+        resource_names = {slot.requirement.resource_name for slot in slots}
 
         variants: list[dict[str, Any]] = []
         seen: set[str] = set()
 
-        # For each resource instance, try to build a complete variant
         for resource_name in resource_names:
             for instance in self.repository.iter_instances(resource_name):
-                variant: dict[str, Any] = {}
-
-                for param_name, req in requirements.items():
+                filled: dict[str, Any] = {}
+                for slot in slots:
+                    req = slot.requirement
                     if req.resource_name == resource_name:
-                        # Value from the resource data (e.g., Pet.id from response)
                         value = instance.data.get(req.resource_field)
                     else:
-                        # Value from context (e.g., ownerId from request path)
-                        value = instance.context.get(param_name)
-
-                    if value is not None:
-                        variant[param_name] = value
-
-                # Only include if we filled ALL requirements
-                if len(variant) == len(requirements):
-                    # Deduplicate by serializing the variant
+                        value = instance.context.get(slot.lookup_key)
+                    if value is not None and not self._is_tombstoned(req.resource_name, value):
+                        filled[slot.lookup_key] = value
+                if len(filled) == len(slots):
+                    variant = _assemble_variant(slots, filled)
                     key = jsonschema_rs.canonical.json.to_string(variant)
                     if key not in seen:
                         seen.add(key)
                         variants.append(variant)
 
+        if variants:
+            return variants
+
+        # No instance covered every slot; chain picks across resources, each constrained
+        # by the context of slots already chosen.
+        chosen: dict[str, Any] = {}
+        for slot in slots:
+            req = slot.requirement
+            best: Any = None
+            for instance in self.repository.iter_instances(req.resource_name):
+                value = instance.data.get(req.resource_field) if req.resource_name else None
+                if value is None:
+                    continue
+                if self._is_tombstoned(req.resource_name, value):
+                    continue
+                if any(instance.context.get(k) not in (None, v) for k, v in chosen.items()):
+                    continue
+                best = value
+                break
+            if best is not None:
+                chosen[slot.lookup_key] = best
+        if chosen:
+            variants.append(_assemble_variant(slots, chosen))
         return variants
 
     def _collect_values(self, requirement: ParameterRequirement) -> list[Any]:
-        """Collect unique values from captured resource instances."""
+        """Collect unique non-tombstoned values from captured resource instances."""
         instances = self.repository.iter_instances(requirement.resource_name)
         values: list[Any] = []
         seen: set[DedupKey] = set()
@@ -324,6 +401,8 @@ class OpenApiExtraDataSource(ExtraDataSource):
         for instance in instances:
             value = instance.data.get(requirement.resource_field, NOT_SET)
             if value is NOT_SET:
+                continue
+            if self._is_tombstoned(requirement.resource_name, value):
                 continue
 
             dedup_key: DedupKey
@@ -349,16 +428,31 @@ class OpenApiExtraDataSource(ExtraDataSource):
         operation: APIOperation,
         location: ParameterLocation,
         name: str,
+        context_constraints: dict[str, Any] | None = None,
     ) -> Any | None:
-        """Return one weighted-selected pool value for a resource-bound parameter, or None."""
+        """Return one weighted-selected pool value for a resource-bound parameter, or None.
+
+        `context_constraints` keeps draws on the same parent chain; missing context keys
+        match anything, and the filter falls through when no constrained instance exists.
+        """
         requirement = self.requirements.get((operation.label, location, name))
         if requirement is None:
             return None
-        candidates: list[tuple[ResourceInstance, Any]] = []
+        all_candidates: list[tuple[ResourceInstance, Any]] = []
+        constrained: list[tuple[ResourceInstance, Any]] = []
         for instance in self.repository.iter_instances(requirement.resource_name):
             value = instance.data.get(requirement.resource_field)
-            if value is not None:
-                candidates.append((instance, value))
+            if value is None:
+                continue
+            if self._is_tombstoned(requirement.resource_name, value):
+                continue
+            all_candidates.append((instance, value))
+            if context_constraints and any(
+                instance.context.get(k) not in (None, v) for k, v in context_constraints.items()
+            ):
+                continue
+            constrained.append((instance, value))
+        candidates = constrained or all_candidates
         if not candidates:
             return None
         variant_keys = [jsonschema_rs.canonical.json.to_string(instance.data) for instance, _ in candidates]
@@ -407,7 +501,9 @@ class OpenApiExtraDataSource(ExtraDataSource):
             self.usage_tracker.record_draw(variant_keys[idx])
             return satisfying[idx][1]
 
+        # Independent picks with chained context constraints so child resources track parent.
         result: dict[tuple[ParameterLocation, str], Any] = {}
+        context_constraints: dict[str, Any] = {}
         for slot in slots:
             param_name = slot.parameter_name
             assert isinstance(param_name, str)
@@ -415,9 +511,11 @@ class OpenApiExtraDataSource(ExtraDataSource):
                 operation=operation,
                 location=slot.parameter_location,
                 name=param_name,
+                context_constraints=context_constraints,
             )
             if value is not None:
                 result[(slot.parameter_location, param_name)] = value
+                context_constraints[param_name] = value
         return result
 
     def should_record(self, *, operation: str) -> bool:
@@ -516,3 +614,15 @@ class OpenApiExtraDataSource(ExtraDataSource):
 
         variant_key = jsonschema_rs.canonical.json.to_string(resource_params)
         self.usage_tracker.record_successful_delete(variant_key)
+
+        # Tombstone + evict the deleted resource: subsequent pool draws skip it, and the
+        # underlying entries no longer linger in the repository.
+        for param_name, param_value in case.path_parameters.items():
+            requirement = self.requirements.get((operation.label, ParameterLocation.PATH, param_name))
+            if requirement is None:
+                continue
+            try:
+                self._tombstoned.add((requirement.resource_name, param_value))
+            except TypeError:  # unhashable value (e.g. list); fall through, eviction still runs
+                pass
+            self.repository.remove_by_value(requirement.resource_name, param_value)

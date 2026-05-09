@@ -299,3 +299,43 @@ class InternalUtils:
         if not domain_id:
             raise ValueError("domain_id must be provided.")
         self._validate_project_parameters(project_id, project_name)
+
+    def _resolve_connection_id_from_notebook(self, config) -> str:
+        """Resolve the default spark connection ID from notebook metadata.
+
+        Reads NotebookId from the local resource-metadata.json file (same source as domain_id),
+        then calls GetNotebook API to read notebook.metadata.defaultSparkConnectionId.
+        Returns the connection ID string, or empty string if not found/not in notebook context.
+        Raises on API/infrastructure errors so the caller can decide how to handle.
+        """
+        from sagemaker_studio.sagemaker_studio_api import SageMakerStudioAPI
+
+        domain_id = self._get_domain_id()
+        notebook_id = self._get_field_from_environment("NotebookId")
+
+        if not domain_id or not notebook_id:
+            logging.info("Missing domain_id or notebook_id, skipping notebook metadata lookup")
+            return ""
+
+        logging.info(f"Resolving connection from notebook_id={notebook_id}")
+        api = SageMakerStudioAPI(config)
+        try:
+            response = api.datazone_api.get_notebook_wip(
+                domainIdentifier=domain_id,
+                identifier=notebook_id,
+            )
+        except Exception as e:
+            logging.info(f"get_notebook_wip failed ({e}), falling back to get_notebook")
+            response = api.datazone_api.get_notebook(
+                domainId=domain_id,
+                notebookId=notebook_id,
+            )
+        metadata = response.get("metadata") or {}
+        connection_id = metadata.get("defaultSparkConnectionId", "")
+        if connection_id:
+            logging.info(
+                f"Resolved defaultSparkConnectionId from notebook metadata: {connection_id}"
+            )
+        else:
+            logging.info("No defaultSparkConnectionId in notebook metadata")
+        return connection_id

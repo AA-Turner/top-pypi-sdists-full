@@ -2,7 +2,6 @@
 
 from cortex.rl.feature_extractors.config import (
     BoxCNNFeatureExtractorConfig,
-    BoxMLPFeatureExtractorConfig,
     FeatureExtractorConfig,
     TokenMLPFeatureExtractorConfig,
     TokenPerceiverFeatureExtractorConfig,
@@ -15,7 +14,6 @@ from cortex.rl.feature_extractors.factory import build_feature_extractor
 
 __all__ = [
     "BoxCNNFeatureExtractorConfig",
-    "BoxMLPFeatureExtractorConfig",
     "FeatureExtractorConfig",
     "TokenMLPFeatureExtractorConfig",
     "TokenPerceiverFeatureExtractorConfig",

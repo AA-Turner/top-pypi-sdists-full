@@ -258,42 +258,11 @@ def test_docstring_non_serialisable_default_excluded():
     assert "default" not in schema["properties"]["data"]
 
 
-@pytest.mark.parametrize(
-    "has_registry, has_event_from_event_type, app_spec, expect_result",
-    [
-        (True, True, AppEnterprise, True),
-        (False, True, AppEnterprise, False),
-        (True, False, AppEnterprise, False),
-        (False, False, AppEnterprise, False),
-    ],
-    ids=[
-        "all_present",
-        "missing_registry",
-        "missing_event_from_event_type",
-        "both_missing",
-    ],
-)
-def test_check_requirements_returns(
-    mocker, has_registry, has_event_from_event_type, app_spec, expect_result
-):
-    mocker.patch(
-        "reflex_enterprise.plugins.event_handler_api._HAS_REGISTRY", has_registry
-    )
-    mocker.patch(
-        "reflex_enterprise.plugins.event_handler_api._HAS_EVENT_FROM_EVENT_TYPE",
-        has_event_from_event_type,
-    )
-    assert (
-        EventHandlerAPIPlugin()._check_requirements(Mock(spec=app_spec))
-        is expect_result
-    )
+def test_check_requirements_accepts_app_enterprise():
+    assert EventHandlerAPIPlugin()._check_requirements(Mock(spec=AppEnterprise)) is True
 
 
-def test_check_requirements_rejects_plain_app(mocker):
-    mocker.patch("reflex_enterprise.plugins.event_handler_api._HAS_REGISTRY", True)
-    mocker.patch(
-        "reflex_enterprise.plugins.event_handler_api._HAS_EVENT_FROM_EVENT_TYPE", True
-    )
+def test_check_requirements_rejects_plain_app():
     with pytest.raises(RuntimeError, match="AppEnterprise"):
         EventHandlerAPIPlugin()._check_requirements(Mock(spec=App))
 
@@ -321,11 +290,7 @@ def test_post_compile_skips_when_no_api(mocker):
     plugin.post_compile(app=mock_app)
 
 
-def test_post_compile_raises_for_plain_app(mocker):
-    mocker.patch("reflex_enterprise.plugins.event_handler_api._HAS_REGISTRY", True)
-    mocker.patch(
-        "reflex_enterprise.plugins.event_handler_api._HAS_EVENT_FROM_EVENT_TYPE", True
-    )
+def test_post_compile_raises_for_plain_app():
     with pytest.raises(RuntimeError, match="AppEnterprise"):
         EventHandlerAPIPlugin().post_compile(app=Mock(spec=App))
 

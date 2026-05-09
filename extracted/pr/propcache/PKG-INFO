@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: propcache
-Version: 0.4.1
+Version: 0.5.2
 Summary: Accelerated property cache
 Home-page: https://github.com/aio-libs/propcache
 Author: Andrew Svetlov
@@ -24,7 +24,6 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -32,7 +31,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: NOTICE
@@ -41,7 +40,7 @@ Dynamic: license-file
 propcache
 =========
 
-The module provides a fast implementation of cached properties for Python 3.9+.
+The module provides a fast implementation of cached properties for Python 3.10+.
 
 .. image:: https://github.com/aio-libs/propcache/actions/workflows/ci-cd.yml/badge.svg
   :target: https://github.com/aio-libs/propcache/actions?query=workflow%3ACI
@@ -152,6 +151,103 @@ Changelog
     WARNING: Don't drop the next directive!
 
 .. towncrier release notes start
+
+0.5.2
+=====
+
+*(2026-05-08)*
+
+
+No significant changes.
+
+
+----
+
+
+0.5.1
+=====
+
+*(2026-05-08)*
+
+
+No significant changes.
+
+
+----
+
+
+0.5.0
+=====
+
+*(2026-05-08)*
+
+
+Features
+--------
+
+- Added support for newer type hints and remove ``Optional`` and ``Union`` from all annotations
+  -- by `@Vizonex <https://github.com/sponsors/Vizonex>`__
+
+  *Related issues and pull requests on GitHub:*
+  `#193 <https://github.com/aio-libs/propcache/issues/193>`__.
+
+
+Removals and backward incompatible breaking changes
+---------------------------------------------------
+
+- Dropped support for Python 3.9 as it has reached end of life.
+
+  *Related issues and pull requests on GitHub:*
+  `#216 <https://github.com/aio-libs/propcache/issues/216>`__.
+
+
+Packaging updates and notes for downstreams
+-------------------------------------------
+
+- Changed the Cython build dependency from ``~= 3.1.0`` to ``>= 3.2.0``,
+  removing the upper version bound to avoid conflicts for downstream packagers
+  -- by `@jameshilliard <https://github.com/sponsors/jameshilliard>`__ and `@gundalow <https://github.com/sponsors/gundalow>`__.
+
+  The upstream Cython version is pinned to 3.2.4 in the CI/CD environment.
+
+  *Related issues and pull requests on GitHub:*
+  `#184 <https://github.com/aio-libs/propcache/issues/184>`__, `#188 <https://github.com/aio-libs/propcache/issues/188>`__, `#214 <https://github.com/aio-libs/propcache/issues/214>`__.
+
+- Start building and shipping riscv64 wheels
+  -- by `@justeph <https://github.com/sponsors/justeph>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#194 <https://github.com/aio-libs/propcache/issues/194>`__.
+
+- The `PEP 517 <https://peps.python.org/pep-517>`__ build backend now supports a new ``build-inplace``
+  config setting (and ``PROPCACHE_BUILD_INPLACE`` environment variable)
+  for controlling whether to build the project in-tree or in a
+  temporary directory. It only affects wheels and is set up to build
+  in a temporary directory by default. It does not affect editable
+  wheel builds; they will keep being built in-tree regardless.
+
+  Here's an example of using this setting:
+
+  .. code-block:: console
+
+     $ python -m build --config-setting=build-inplace=true
+
+  Additionally, when building wheels in an automatically created
+  temporary directory, the build backend now normalizes the
+  respective file system path to a deterministic source checkout
+  directory by injecting the ``-ffile-prefix-map`` compiler option
+  into the ``CFLAGS`` environment variable, as suggested by known
+  `reproducible build practices
+  <https://reproducible-builds.org/docs/build-path/>`__.
+
+  The effect is that downstreams will get reproducible build results.
+
+  *Related issues and pull requests on GitHub:*
+  `#218 <https://github.com/aio-libs/propcache/issues/218>`__.
+
+
+----
+
 
 0.4.1
 =====

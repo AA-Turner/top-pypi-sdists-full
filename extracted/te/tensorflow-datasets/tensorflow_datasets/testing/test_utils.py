@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ from unittest import mock
 from etils import epath
 from etils import epy
 import numpy as np
+from tensorflow_datasets.core import constants
 from tensorflow_datasets.core import dataset_builder
 from tensorflow_datasets.core import dataset_collection_builder
 from tensorflow_datasets.core import dataset_info
@@ -147,7 +148,7 @@ class MockFs(object):
       with self._mock() as m:
         yield m
       self._tmp_dir = None
-      # TODO(epot): recursivelly record all
+      # TODO(epot): recursively record all.
 
   def _to_tmp(self, p, *, with_state: bool = False):
     """Normalize the path by returning `tmp_path / p`."""
@@ -884,3 +885,13 @@ def dummy_croissant_file(
     croissant_file.write_text(json.dumps(dummy_metadata.to_json(), indent=2))
 
     yield croissant_file
+
+
+@contextlib.contextmanager
+def mock_default_data_dir() -> Iterator[str]:
+  """Mocks the `constants.DATA_DIR`."""
+  with tempfile.TemporaryDirectory() as tempdir:
+    tmp_data_dir = os.path.join(tempdir, 'default_dir')
+    os.makedirs(tmp_data_dir)
+    constants.DATA_DIR = tmp_data_dir
+    yield tmp_data_dir

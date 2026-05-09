@@ -20,4 +20,4 @@ line_length = 100
 
 [tool.pytest.ini_options]
 addopts = "-vv --cov sagemaker_studio --cov-config .coveragerc --cov-report term-missing --durations=5 --color=yes --cov-report html:build/coverage --cov-report xml:build/coverage/coverage.xml"
-testpaths = ["src/sagemaker_studio/_test", "src/sagemaker_studio/sql_engine/_sqlalchemy_redshift_data_api/_test", "src/sagemaker_studio/sql_engine/_sqlalchemy_opensearch/_test"]
+testpaths = ["src/sagemaker_studio/_test", "src/sagemaker_studio/sql_engine/_sqlalchemy_redshift_data_api/_test", "src/sagemaker_studio/sql_engine/_sqlalchemy_opensearch/_test", "src/sagemaker_studio/sql_engine/_sqlalchemy_vertica/_test"]

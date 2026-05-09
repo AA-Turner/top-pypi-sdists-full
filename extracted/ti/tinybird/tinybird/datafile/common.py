@@ -1394,7 +1394,8 @@ def try_to_fix_nullable_in_simple_aggregating_function(t: str) -> Optional[str]:
     if match := _PATTERN_SIMPLE_AGG_FUNC.search(t):
         fn = match.group(1)
         inner_type = match.group(2)
-        result = f"SimpleAggregateFunction({fn}, Nullable({inner_type}))"
+        if "Nullable(" not in inner_type:
+            result = f"SimpleAggregateFunction({fn}, Nullable({inner_type}))"
     return result
 
 
@@ -2366,7 +2367,7 @@ def get_project_fixtures(folder: str) -> List[str]:
 def has_internal_datafiles(folder: str) -> bool:
     folder = folder or "."
     filenames = get_project_filenames(folder)
-    return any([f for f in filenames if "spans" in str(f) and "vendor" not in str(f)])
+    return any(f for f in filenames if "spans" in str(f) and "vendor" not in str(f))
 
 
 def peek(iterable):

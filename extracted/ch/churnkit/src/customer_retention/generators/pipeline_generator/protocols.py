@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from typing_extensions import Protocol, runtime_checkable
 
@@ -66,6 +66,24 @@ class PipelineGeneratorBase(ABC):
         self._snapshot_feature_spec_into_namespace(config)
         self._materialize_patched_feature_spec(config)
         return config
+
+    def diagnostic_summary(
+        self, config: Optional[PipelineConfig] = None,
+    ) -> Dict[str, Any]:
+        """Structured pre-codegen audit for the operator (PA-5).
+
+        Delegates to ``FindingsParser.diagnostic_summary`` so callers
+        can introspect what the parser produced without building a
+        separate parser instance. Pass a pre-built ``PipelineConfig``
+        (e.g. the one returned by ``_build_config()``) to avoid a
+        second parse — otherwise the parser parses lazily.
+
+        Returns the same dict shape documented on
+        ``FindingsParser.diagnostic_summary`` (target_column,
+        target_dataset, landing, bronze_event, silver, gold,
+        feature_spec, parity).
+        """
+        return self._parser.diagnostic_summary(config)
 
     def _snapshot_feature_spec_into_namespace(self, config: PipelineConfig) -> None:
         """Mirror the spec that was used for generation into the current run's
@@ -288,6 +306,15 @@ class PipelineGeneratorBase(ABC):
             self._parser, "user_extensions_disabled", False
         )
         harvested_names = self._harvested_function_names(kill_switch_active)
+        # PA-5: bake the parser's diagnostic_summary into the manifest so
+        # the post-generation audit (operator-readable JSON) carries
+        # per-dataset landing/bronze_event datetime sources, the silver
+        # declared-vs-emitted A4 check, and gold encoding methods. By
+        # the time `_write_generation_manifest` runs, `parse()` has
+        # already succeeded (every `_write_*` call before this consumed
+        # the same `config`), so summary errors here would be real
+        # bugs — propagate them rather than swallowing.
+        diag_summary = self._parser.diagnostic_summary(config)
         manifest = build_generation_manifest(
             config,
             generated_files,
@@ -295,6 +322,7 @@ class PipelineGeneratorBase(ABC):
             template_versions=template_versions,
             kill_switch_active=kill_switch_active,
             harvested_functions=harvested_names,
+            diagnostic_summary=diag_summary,
         )
         return write_generation_manifest(manifest, self._output_dir)
 

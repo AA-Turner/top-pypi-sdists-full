@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,15 +105,19 @@ class DatasetBuilderTestCase(
       BUILDER_CONFIGS from the class will be tested.
     * DL_EXTRACT_RESULT: `dict[str, str]`, the returned result of mocked
       `download_and_extract` method. The values should be the path of files
-      present in the `fake_examples` directory, relative to that directory.
-      If not specified, path to `fake_examples` will always be returned.
+      present in the `fake_examples` (or `dummy_data`) directory, relative to
+      that directory.
+      If not specified, path to `fake_examples` (or `dummy_data`) will always be
+      returned.
     * DL_EXTRACT_ONLY_RESULT: `dict[str, str]`, the returned result of mocked
       `extract` method. The values should be the path of files present in the
-      `fake_examples` directory, relative to that directory. If not specified:
+      `fake_examples` (or `dummy_data`) directory, relative to that directory.
+      If not specified:
       will call DownloadManager `extract` method.
     * DL_DOWNLOAD_RESULT: `dict[str, str]`, the returned result of mocked
       `download_and_extract` method. The values should be the path of files
-      present in the `fake_examples` directory, relative to that directory.
+      present in the `fake_examples` (or `dummy_data`) directory, relative to
+      that directory.
       If not specified: will use DL_EXTRACT_RESULT (this is due to backwards
       compatibility and will be removed in the future).
     * EXAMPLE_DIR: `str`, the base directory in in which fake examples are
@@ -167,11 +171,9 @@ class DatasetBuilderTestCase(
           "Assign your DatasetBuilder class to %s.DATASET_CLASS." % name
       )
 
-    cls._available_cm = visibility.set_availables_tmp(
-        [
-            visibility.DatasetType.TFDS_PUBLIC,
-        ]
-    )
+    cls._available_cm = visibility.set_availables_tmp([
+        visibility.DatasetType.TFDS_PUBLIC,
+    ])
     cls._available_cm.__enter__()  # pylint: disable=protected-access
 
   @classmethod
@@ -191,7 +193,7 @@ class DatasetBuilderTestCase(
     # The `dl_manager.download` and `dl_manager.download_and_extract` are
     # patched to record the urls in `_download_urls`.
     # Calling `dl_manager.download_checksums` stop the url
-    # registration (as checksums are stored remotelly)
+    # registration (as checksums are stored remotely)
     # `_test_checksums` validates the recorded urls.
     self._download_urls = set()
     self._stop_record_download = False
@@ -291,7 +293,7 @@ class DatasetBuilderTestCase(
   def _add_url(self, url_or_urls):
     if self._stop_record_download:
       # Stop record the checksums if dl_manager.download_checksums has been
-      # called (as checksums may be stored remotelly)
+      # called (as checksums may be stored remotely).
       return
     if isinstance(url_or_urls, download.resource.Resource):
       self._download_urls.add(url_or_urls.url)
@@ -398,9 +400,9 @@ class DatasetBuilderTestCase(
     err_msg = (
         "Did you forget to record checksums with `--register_checksums` ? See"
         " instructions at:"
-        " https://www.tensorflow.org/datasets/add_dataset#run_the_generation_codeIf"
-        " want to opt-out of checksums validation, please add `SKIP_CHECKSUMS ="
-        " True` to the `DatasetBuilderTestCase`.\n"
+        " https://www.tensorflow.org/datasets/add_dataset#run_the_generation_code"
+        " If you want to opt-out of checksums validation, please add "
+        " `SKIP_CHECKSUMS = True` to the `DatasetBuilderTestCase`.\n"
     )
     url_infos = self.dataset_class.url_infos
     filepath = self.dataset_class._checksums_path  # pylint: disable=protected-access
@@ -423,7 +425,10 @@ class DatasetBuilderTestCase(
         f"Some urls checksums are missing at: {filepath}\n{err_msg}",
     )
 
-  def _download_and_prepare_as_dataset(self, builder):
+  def _download_and_prepare_as_dataset(
+      self,
+      builder,
+  ):
     # Provide the manual dir only if builder has MANUAL_DOWNLOAD_INSTRUCTIONS
     # set.
 
@@ -459,7 +464,9 @@ class DatasetBuilderTestCase(
           beam_runner=beam_runner,
       )
       with self._test_key_not_local_path(builder):
-        builder.download_and_prepare(download_config=download_config)
+        builder.download_and_prepare(
+            download_config=download_config,
+        )
 
     with self._subTest("as_dataset"):
       self._assertAsDataset(builder)
@@ -574,15 +581,13 @@ class DatasetBuilderTestCase(
 
     # If configs specified, ensure they are all valid
     if builder.builder_config and builder.builder_config.description:
-      err_msg = textwrap.dedent(
-          """\
+      err_msg = textwrap.dedent("""\
           The BuilderConfig description should be a one-line description of
           the config.
           It shouldn't be the same as `builder.info.description` to avoid
           redundancy. Both `config.description` and `builder.info.description`
           will be displayed in the catalog.
-          """
-      )
+          """)
       ratio = difflib.SequenceMatcher(
           None,
           builder.builder_config.description,

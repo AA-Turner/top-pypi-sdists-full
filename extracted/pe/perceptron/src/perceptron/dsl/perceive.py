@@ -44,7 +44,7 @@ from ..config import settings
 from ..errors import AnchorError, AuthError, BadRequestError, ExpectationError
 from ..pointing.geometry import scale_points_to_pixels
 from ..pointing.parser import PointParser_serialize
-from ..pointing.types import BoundingBox, Polygon, SinglePoint
+from ..pointing.types import BoundingBox, Clip, Polygon, SinglePoint
 from .nodes import (
     Agent,
     DSLNode,
@@ -64,6 +64,9 @@ from .nodes import (
 from .nodes import (
     PolygonTag as PolygonTagNode,
 )
+from .nodes import (
+    Video as VideoNode,
+)
 
 _IMAGE_SIGNATURES = (
     b"\x89PNG\r\n\x1a\n",
@@ -76,6 +79,9 @@ _IMAGE_SIGNATURES = (
 )
 
 _WEBP_SIGNATURE_LENGTH = 12
+
+# Maps PIL's format names to the wire-protocol MIME subtype.
+_PIL_FORMAT_TO_WIRE = {"PNG": "png", "JPEG": "jpeg", "WEBP": "webp"}
 
 
 def _is_webp(data: bytes) -> bool:
@@ -95,8 +101,10 @@ def _validate_image_bytes(data: bytes, *, origin: str) -> dict[str, Any]:
         try:
             with PILImage.open(BytesIO(data)) as im:
                 meta["width"], meta["height"] = im.size
+                if im.format and im.format in _PIL_FORMAT_TO_WIRE:
+                    meta["format"] = _PIL_FORMAT_TO_WIRE[im.format]
                 return meta
-        except Exception as exc:  # Let imghdr double-check before failing
+        except Exception as exc:
             pil_exc = exc
     if not _looks_like_image(data):
         reason = "decoder_failed" if pil_exc is not None else "unknown_format"
@@ -113,6 +121,8 @@ def _encode_bytes(data: bytes) -> tuple[str, dict[str, Any]]:
         try:
             with PILImage.open(BytesIO(data)) as im:
                 meta["width"], meta["height"] = im.size
+                if im.format and im.format in _PIL_FORMAT_TO_WIRE:
+                    meta["format"] = _PIL_FORMAT_TO_WIRE[im.format]
         except Exception:
             pass
     b64 = base64.b64encode(data).decode("ascii")
@@ -125,26 +135,29 @@ def _to_b64_image(obj: Any) -> tuple[str, dict]:
     Accepts: Path/str (path or http/https URL), bytes, file-like, PIL.Image.Image, numpy.ndarray (HxWxC, uint8)
     """
     meta: dict[str, Any] = {}
+
+    if isinstance(obj, str) and urlparse(obj).scheme in {"http", "https"}:
+        return obj, {}
+
     if isinstance(obj, (str, Path)):
-        if isinstance(obj, str):
-            parsed = urlparse(obj)
-            if parsed.scheme in {"http", "https"}:
-                return obj, {}
         p = Path(obj)
-        with open(p, "rb") as f:
-            data = f.read()
+        data = p.read_bytes()
         meta = _validate_image_bytes(data, origin=str(p))
         b64 = base64.b64encode(data).decode("ascii")
         return b64, meta
+
     if isinstance(obj, bytes):
         b64, meta = _encode_bytes(obj)
         return b64, meta
+
     if PILImage is not None and isinstance(obj, PILImage.Image):  # type: ignore[attr-defined]
         meta["width"], meta["height"] = obj.size
         buf = BytesIO()
         obj.save(buf, format="PNG")
+        meta["format"] = "png"
         b64 = base64.b64encode(buf.getvalue()).decode("ascii")
         return b64, meta
+
     if np is not None and isinstance(obj, np.ndarray):  # type: ignore[arg-type]
         h, w = obj.shape[:2]
         meta["width"], meta["height"] = int(w), int(h)
@@ -153,9 +166,65 @@ def _to_b64_image(obj: Any) -> tuple[str, dict]:
         im = PILImage.fromarray(obj)
         buf = BytesIO()
         im.save(buf, format="PNG")
+        meta["format"] = "png"
         b64 = base64.b64encode(buf.getvalue()).decode("ascii")
         return b64, meta
+
     raise TypeError(f"Unsupported image object: {type(obj)}")
+
+
+def _detect_video_format(data: bytes) -> str | None:
+    """Wire-protocol video format from magic bytes (mp4/webm only)."""
+
+    # mp4 / quicktime: bytes [4:8] == b"ftyp"
+    if len(data) >= 8 and data[4:8] == b"ftyp":
+        return "mp4"
+    # webm / matroska: EBML header
+    if data.startswith(b"\x1a\x45\xdf\xa3"):
+        return "webm"
+    return None
+
+
+def _to_b64_video(obj: Any) -> tuple[str, dict[str, Any]]:
+    """Return (base64-or-URL, metadata).
+
+    Accepts: Path/str (path or http/https URL) or bytes. URLs are returned
+    verbatim with ``meta["url"]=True``; bytes are base64-encoded and the
+    format is detected from magic bytes (mp4 / webm).
+    """
+
+    meta: dict[str, Any] = {}
+
+    if isinstance(obj, str) and urlparse(obj).scheme in {"http", "https"}:
+        meta["url"] = True
+        return obj, meta
+
+    if isinstance(obj, (str, Path)):
+        p = Path(obj)
+        data = p.read_bytes()
+        fmt = _detect_video_format(data)
+        if fmt is None:
+            raise BadRequestError(
+                "Video format could not be detected. The wire protocol supports mp4 and webm.",
+                code="invalid_video",
+                details={"origin": str(p)},
+            )
+        meta["format"] = fmt
+        b64 = base64.b64encode(data).decode("ascii")
+        return b64, meta
+
+    if isinstance(obj, bytes):
+        fmt = _detect_video_format(obj)
+        if fmt is None:
+            raise BadRequestError(
+                "Video format could not be detected from bytes. The wire protocol supports mp4 and webm.",
+                code="invalid_video",
+            )
+        meta["format"] = fmt
+        b64 = base64.b64encode(obj).decode("ascii")
+        return b64, meta
+
+    raise TypeError(f"Unsupported video object: {type(obj)}")
 
 
 def _compile(nodes: DSLNode | Sequence, *, expects: str | None, strict: bool) -> tuple[dict, list[dict]]:
@@ -200,10 +269,22 @@ def _compile(nodes: DSLNode | Sequence, *, expects: str | None, strict: bool) ->
                     "type": "image",
                     "role": "user",
                     "content": b64,
+                    "format": meta.get("format"),
                     "metadata": {
                         "width": meta.get("width"),
                         "height": meta.get("height"),
                     },
+                }
+            )
+        elif isinstance(node, VideoNode):
+            payload, meta = _to_b64_video(node.obj)
+            content.append(
+                {
+                    "type": "video",
+                    "role": "user",
+                    "content": payload,
+                    "format": meta.get("format"),
+                    "url": bool(meta.get("url")),
                 }
             )
         elif isinstance(node, (PointTagNode, BoxTagNode, PolygonTagNode)):
@@ -295,17 +376,30 @@ def _compile(nodes: DSLNode | Sequence, *, expects: str | None, strict: bool) ->
 @dataclass
 class PerceiveResult:
     text: str | None
-    points: list[Any] | None
+    points: list[SinglePoint] | None
+    boxes: list[BoundingBox] | None
+    polygons: list[Polygon] | None
+    clips: list[Clip] | None
     parsed: list[dict] | None
     reasoning: str | None
     usage: dict | None
     errors: list[dict]
     raw: Any
 
-    def points_to_pixels(self, width: int, height: int, *, clamp: bool = True) -> list[Any] | None:
+    def points_to_pixels(self, width: int, height: int, *, clamp: bool = True) -> list[SinglePoint] | None:
         """Return a pixel-space copy of ``points`` given the image dimensions."""
 
         return scale_points_to_pixels(self.points, width=width, height=height, clamp=clamp)
+
+    def boxes_to_pixels(self, width: int, height: int, *, clamp: bool = True) -> list[BoundingBox] | None:
+        """Return a pixel-space copy of ``boxes`` given the image dimensions."""
+
+        return scale_points_to_pixels(self.boxes, width=width, height=height, clamp=clamp)
+
+    def polygons_to_pixels(self, width: int, height: int, *, clamp: bool = True) -> list[Polygon] | None:
+        """Return a pixel-space copy of ``polygons`` given the image dimensions."""
+
+        return scale_points_to_pixels(self.polygons, width=width, height=height, clamp=clamp)
 
 
 def _prepare_client_kwargs(
@@ -378,15 +472,14 @@ def _maybe_compile_only_result(
 
 
 def _perceive_result_from_response(resp: dict, issues: list[dict]) -> PerceiveResult:
-    text = resp.get("text")
-    points = resp.get("points")
-    parsed = resp.get("parsed")
-    reasoning = resp.get("reasoning")
     return PerceiveResult(
-        text=text,
-        points=points,
-        parsed=parsed,
-        reasoning=reasoning,
+        text=resp.get("text"),
+        points=resp.get("points"),
+        boxes=resp.get("boxes"),
+        polygons=resp.get("polygons"),
+        clips=resp.get("clips"),
+        parsed=resp.get("parsed"),
+        reasoning=resp.get("reasoning"),
         usage=None,
         errors=issues,
         raw=resp.get("raw"),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Missing
-Version: 5.1
+Version: 5.2
 Summary: Special Missing objects used in Zope.
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -50,6 +50,14 @@ Missing provides special objects used in some Zope internals like the ZCatalog.
 
 Changelog
 =========
+
+5.2 (2026-05-08)
+----------------
+
+- Switch to Trusted Publishing for the tag and release process.
+  When a tag is pushed to GitHub, the ``tests`` action will automatically
+  build a source distribution and a wheel and publish them to PyPI.
+
 
 5.1 (2026-03-18)
 ----------------

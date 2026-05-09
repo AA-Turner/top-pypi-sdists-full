@@ -4,9 +4,8 @@ import os
 from typing import TYPE_CHECKING, Callable, Tuple
 
 import torch
-from cortex.kernels.cuda.extension_loader import safe_load_extension
-from cortex.utils import autograd_function_vmap_passthrough
 from torch.autograd import Function
+from torch.utils.cpp_extension import load
 
 if not TYPE_CHECKING:
     from torch._dynamo import disable
@@ -32,18 +31,15 @@ def _load_ext():
         os.path.join(_mod_path, "discounted_sum_binding.cpp"),
         os.path.join(_mod_path, "discounted_sum_kernels.cu"),
     ]
-    _ext = safe_load_extension(
+    _ext = load(
         name="agalite_discounted_sum",
         sources=sources,
         extra_cflags=["-O3"],
         extra_cuda_cflags=["-O3", "-Xptxas", "-O3"],
+        build_directory=None,
         verbose=False,
     )
     return _ext
-
-
-def prewarm_discounted_sum_cuda() -> None:
-    _load_ext()
 
 
 def _prepare_start_state(start_state: torch.Tensor, x: torch.Tensor) -> Tuple[torch.Tensor, Tuple[int, ...]]:
@@ -58,7 +54,7 @@ def _prepare_start_state(start_state: torch.Tensor, x: torch.Tensor) -> Tuple[to
 
 class _DiscountedSumCUDA(Function):
     @staticmethod
-    def forward(start_state: torch.Tensor, x: torch.Tensor, discounts: torch.Tensor) -> torch.Tensor:
+    def forward(ctx, start_state: torch.Tensor, x: torch.Tensor, discounts: torch.Tensor) -> torch.Tensor:
         ext = _load_ext()
         if ext is None:
             raise RuntimeError("AGaLiTe CUDA extension unavailable")
@@ -86,34 +82,13 @@ class _DiscountedSumCUDA(Function):
 
         output_flat = ext.discounted_sum_forward(start_flat, x_flat, discounts_flat)
 
-        return output_flat.view_as(x_acc).to(orig_dtype)
-
-    @staticmethod
-    def setup_context(ctx, inputs, output):
-        start_state, x, discounts = inputs
-
-        x_contig = x.contiguous()
-        discounts_contig = discounts.contiguous()
-        orig_dtype = output.dtype
-        if orig_dtype in (torch.float16, torch.bfloat16):
-            acc_dtype = torch.float32
-        else:
-            acc_dtype = orig_dtype
-
-        x_acc = x_contig.to(acc_dtype)
-        discounts_acc = discounts_contig.to(acc_dtype)
-        start_state_acc = start_state.to(acc_dtype)
-        start_aligned_acc, broadcast_shape = _prepare_start_state(start_state_acc, x_acc)
-
-        ctx.save_for_backward(
-            start_aligned_acc.reshape(-1).contiguous(),
-            discounts_acc.view(x_acc.shape[0], -1),
-            output.to(acc_dtype).contiguous().view(x_acc.shape[0], -1),
-        )
+        ctx.save_for_backward(start_flat, discounts_flat, output_flat)
         ctx.start_shape = start_state.shape
         ctx.broadcast_shape = broadcast_shape
         ctx.x_shape = x_contig.shape
         ctx.orig_dtype = orig_dtype
+
+        return output_flat.view_as(x_acc).to(orig_dtype)
 
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor):
@@ -146,10 +121,6 @@ class _DiscountedSumCUDA(Function):
 
         return grad_start, grad_x, grad_discounts
 
-    @staticmethod
-    def vmap(info, in_dims, *args):
-        return autograd_function_vmap_passthrough("discounted_sum_cuda", _DiscountedSumCUDA.forward, in_dims, *args)
-
 
 @disable
 def discounted_sum_cuda(start_state: torch.Tensor, x: torch.Tensor, discounts: torch.Tensor) -> torch.Tensor:
@@ -157,4 +128,4 @@ def discounted_sum_cuda(start_state: torch.Tensor, x: torch.Tensor, discounts: t
     return _DiscountedSumCUDA.apply(start_state, x, discounts)
 
 
-__all__ = ["discounted_sum_cuda", "prewarm_discounted_sum_cuda"]
+__all__ = ["discounted_sum_cuda"]

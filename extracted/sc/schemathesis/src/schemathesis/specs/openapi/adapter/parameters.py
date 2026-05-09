@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -16,7 +17,9 @@ from schemathesis.core.adapter import OperationParameter
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, BundleError, Bundler, make_validator
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, BundleCache
+from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject
+from schemathesis.core.media_types import FORM_MEDIA_TYPES
 from schemathesis.core.parameters import HEADER_LOCATIONS, ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.validation import check_header_name
@@ -24,16 +27,18 @@ from schemathesis.generation.modes import GenerationMode
 from schemathesis.resources import ExtraDataSource
 from schemathesis.schemas import APIOperation, ParameterSet
 from schemathesis.specs.openapi.adapter.protocol import SpecificationAdapter
-from schemathesis.specs.openapi.adapter.references import maybe_resolve
+from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
 from schemathesis.specs.openapi.converter import to_json_schema
 from schemathesis.specs.openapi.formats import HEADER_FORMAT, STRING_FORMATS
 from schemathesis.specs.openapi.headers import KNOWN_HEADER_FORMATS
+from schemathesis.transport.serialization import quote_all
 
 if TYPE_CHECKING:
     from hypothesis import strategies as st
 
-    from schemathesis.core.compat import RefResolver
+    from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.specs.openapi.extra_data_source import VariantUsageTracker
+    from schemathesis.specs.openapi.negative.mutations import MutationTargetDescriptor
 
 
 MISSING_SCHEMA_OR_CONTENT_MESSAGE = (
@@ -45,7 +50,21 @@ INVALID_SCHEMA_MESSAGE = (
     "Can not generate data for {location} parameter `{name}`! Its schema should be an object or boolean, got {schema}"
 )
 
-FORM_MEDIA_TYPES = frozenset(["multipart/form-data", "application/x-www-form-urlencoded"])
+# `parameter["in"]` value -> `ParameterLocation`. `querystring` is a known alias for
+# `query` that some specs use; everything else falls back to UNKNOWN at the call site.
+_IN_TO_LOCATION: dict[str | None, ParameterLocation] = {
+    "query": ParameterLocation.QUERY,
+    "querystring": ParameterLocation.QUERY,
+    "header": ParameterLocation.HEADER,
+    "path": ParameterLocation.PATH,
+    "cookie": ParameterLocation.COOKIE,
+    "body": ParameterLocation.BODY,
+    None: ParameterLocation.UNKNOWN,
+}
+
+# Reused for the common case where no parameters are excluded — avoids
+# allocating a fresh empty frozenset on every cache lookup.
+_EMPTY_EXCLUDE_KEY: frozenset[str] = frozenset()
 
 # Probability of using captured resource values vs generated values in hybrid strategy.
 CAPTURED_VALUES_PROBABILITY = 0.8
@@ -111,7 +130,7 @@ def build_hybrid_strategy(
         # Single variant: no selection needed
         if n_variants == 1:
             usage_tracker.record_draw(variant_keys[0])
-            base.update(captured_variants[0])
+            _deep_merge_overlay(base, captured_variants[0])
             return base
 
         # Shuffle indices before weighted selection to avoid Hypothesis's bias
@@ -120,10 +139,19 @@ def build_hybrid_strategy(
 
         # Record this draw for future weighting
         usage_tracker.record_draw(variant_keys[idx])
-        base.update(captured_variants[idx])
+        _deep_merge_overlay(base, captured_variants[idx])
         return base
 
     return hybrid()
+
+
+def _deep_merge_overlay(target: dict[str, Any], overlay: dict[str, Any]) -> None:
+    """Apply `overlay` onto `target` in place, recursing into nested dicts so leaf overlays don't drop generated siblings."""
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _deep_merge_overlay(target[key], value)
+        else:
+            target[key] = value
 
 
 def _schema_has_integer_properties(schema: JsonSchemaObject) -> bool:
@@ -289,6 +317,7 @@ class OpenApiComponent(ABC):
         "_raw_schema",
         "_validation_schema",
         "_examples",
+        "_mutation_targets",
     )
 
     def __post_init__(self) -> None:
@@ -297,6 +326,7 @@ class OpenApiComponent(ABC):
         self._raw_schema: JsonSchema | NotSet = NOT_SET
         self._validation_schema: JsonSchema | NotSet = NOT_SET
         self._examples: list | NotSet = NOT_SET
+        self._mutation_targets: tuple | NotSet = NOT_SET
 
     @property
     def optimized_schema(self) -> JsonSchema:
@@ -386,6 +416,23 @@ class OpenApiComponent(ABC):
         assert not isinstance(self._examples, NotSet)
         return self._examples
 
+    @property
+    def mutation_targets(self) -> tuple[MutationTargetDescriptor, ...]:
+        """Pre-computed walk recipes for every mutation target reachable from `optimized_schema`.
+
+        Cached for the component's lifetime so strategy rebuilds against the unmodified
+        `optimized_schema` skip the walk. Callers must NOT pass these descriptors when
+        the schema reaching the strategy has been transformed (e.g. by error-feedback
+        adjustments) — those calls fall through to a fresh `compute_mutation_targets` against
+        the transformed schema so newly-synthesized targets are picked up.
+        """
+        from schemathesis.specs.openapi.negative.mutations import compute_mutation_targets
+
+        if self._mutation_targets is NOT_SET:
+            self._mutation_targets = compute_mutation_targets(self.optimized_schema)
+        assert not isinstance(self._mutation_targets, NotSet)
+        return self._mutation_targets
+
     def _extract_examples(self) -> list[object]:
         """Extract examples from definition and schema.
 
@@ -473,14 +520,9 @@ class OpenApiParameter(OpenApiComponent):
     @property
     def location(self) -> ParameterLocation:
         """Where this parameter is located."""
-        location = self.definition.get("in")
-        if location == "querystring":
-            # It is checked explicitly as the `ParameterLocation.QUERY` has a different value
-            return ParameterLocation.QUERY
-        try:
-            return ParameterLocation(location)
-        except ValueError:
-            return ParameterLocation.UNKNOWN
+        # Direct dict lookup beats `ParameterLocation(value)` — the enum dispatch
+        # (`EnumType.__call__` → `Enum.__new__`) is the slow path here.
+        return _IN_TO_LOCATION.get(self.definition.get("in"), ParameterLocation.UNKNOWN)
 
     def _get_raw_schema(self) -> JsonSchema:
         """Get raw parameter schema."""
@@ -516,6 +558,7 @@ class OpenApiBody(OpenApiComponent):
         "_raw_schema",
         "_validation_schema",
         "_examples",
+        "_mutation_targets",
         "_positive_strategy_cache",
         "_negative_strategy_cache",
         "_is_negatable",
@@ -561,8 +604,8 @@ class OpenApiBody(OpenApiComponent):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self._positive_strategy_cache: st.SearchStrategy | NotSet = NOT_SET
-        self._negative_strategy_cache: st.SearchStrategy | NotSet = NOT_SET
+        self._positive_strategy_cache: tuple[st.SearchStrategy, int | None] | NotSet = NOT_SET
+        self._negative_strategy_cache: tuple[st.SearchStrategy, int | None] | NotSet = NOT_SET
         self._is_negatable: bool | NotSet = NOT_SET
 
     @property
@@ -599,6 +642,17 @@ class OpenApiBody(OpenApiComponent):
         property_encoding = encoding.get(property_name, {})
         return property_encoding.get("contentType")
 
+    def get_property_filename(self, property_name: str) -> str | None:
+        """Get filename from encoding.headers.Content-Disposition for a form property."""
+        encoding = self.definition.get("encoding", {})
+        headers = encoding.get(property_name, {}).get("headers", {})
+        cd = headers.get("Content-Disposition", {})
+        value = cd.get("example") or (cd.get("schema") or {}).get("example")
+        if not value:
+            return None
+        match = re.search(r'filename="([^"]*)"', value) or re.search(r"filename=(\S+)", value)
+        return match.group(1) if match else None
+
     def get_strategy(
         self,
         operation: APIOperation,
@@ -606,21 +660,28 @@ class OpenApiBody(OpenApiComponent):
         generation_mode: GenerationMode,
         extra_data_source: ExtraDataSource | None = None,
         mix_examples: bool = True,
+        error_feedback: ErrorFeedbackStore | None = None,
     ) -> st.SearchStrategy:
         """Get a Hypothesis strategy for this body parameter."""
         # Don't cache when mix_examples is False since we need different strategies
         # for EXAMPLES phase vs fuzzing/stateful phases
         use_cache = extra_data_source is None and mix_examples
+        feedback_generation = error_feedback.generation if error_feedback is not None else None
 
         # Check cache based on generation mode (only when extra data sources are not used)
         if use_cache:
             if generation_mode == GenerationMode.POSITIVE:
-                if self._positive_strategy_cache is not NOT_SET:
-                    assert not isinstance(self._positive_strategy_cache, NotSet)
-                    return self._positive_strategy_cache
-            elif self._negative_strategy_cache is not NOT_SET:
-                assert not isinstance(self._negative_strategy_cache, NotSet)
-                return self._negative_strategy_cache
+                cached = self._positive_strategy_cache
+                if cached is not NOT_SET and not isinstance(cached, NotSet):
+                    cached_strategy, cached_generation = cached
+                    if cached_generation == feedback_generation:
+                        return cached_strategy
+            else:
+                cached = self._negative_strategy_cache
+                if cached is not NOT_SET and not isinstance(cached, NotSet):
+                    cached_strategy, cached_generation = cached
+                    if cached_generation == feedback_generation:
+                        return cached_strategy
 
         # Import here to avoid circular dependency
         from schemathesis.specs.openapi._hypothesis import GENERATOR_MODE_TO_STRATEGY_FACTORY
@@ -641,7 +702,21 @@ class OpenApiBody(OpenApiComponent):
         # Build the strategy
         strategy_factory = GENERATOR_MODE_TO_STRATEGY_FACTORY[generation_mode]
         schema = self.optimized_schema
+        if error_feedback is not None:
+            from schemathesis.specs.openapi.error_feedback import apply_adjustments
+
+            schema = apply_adjustments(
+                operation=operation,
+                location=ParameterLocation.BODY,
+                schema=schema,
+                store=error_feedback,
+            )
         assert isinstance(operation.schema, OpenApiSchema)
+        # Reuse the precomputed target walk recipes when the strategy is generating against
+        # `optimized_schema` directly (no error-feedback adjustment fired).
+        target_descriptors = (
+            self.mutation_targets if generation_mode.is_negative and schema is self.optimized_schema else None
+        )
         strategy = strategy_factory(
             schema,
             operation.label,
@@ -650,14 +725,28 @@ class OpenApiBody(OpenApiComponent):
             generation_config,
             operation.schema.adapter.jsonschema_validator_cls,
             self.name_to_uri,
+            target_descriptors=target_descriptors,
         )
 
         # Mix in schema examples for positive mode (20% example, 80% generated)
         # Skip during EXAMPLES phase since examples are handled separately there
         if mix_examples and generation_mode == GenerationMode.POSITIVE:
+            # Filter against the adjustment-applied schema so spec examples that the API
+            # has demonstrated to be invalid (e.g. `"dd-MM-yyyy"` after format inference)
+            # don't leak into the mixer.
+            validation_schema = self.validation_schema
+            if error_feedback is not None:
+                from schemathesis.specs.openapi.error_feedback import apply_adjustments
+
+                validation_schema = apply_adjustments(
+                    operation=operation,
+                    location=ParameterLocation.BODY,
+                    schema=validation_schema,
+                    store=error_feedback,
+                )
             strategy_examples = filter_schema_valid_examples(
                 self._get_strategy_examples(operation),
-                self.validation_schema,
+                validation_schema,
                 self.adapter.jsonschema_validator_cls,
             )
             if strategy_examples:
@@ -672,12 +761,13 @@ class OpenApiBody(OpenApiComponent):
             else:
                 strategy = build_hybrid_strategy(strategy, captured_variants, usage_tracker)
 
-        # Cache the strategy
+        # Cache the strategy keyed by feedback generation
         if use_cache:
+            slot = (strategy, feedback_generation)
             if generation_mode == GenerationMode.POSITIVE:
-                self._positive_strategy_cache = strategy
+                self._positive_strategy_cache = slot
             else:
-                self._negative_strategy_cache = strategy
+                self._negative_strategy_cache = slot
 
         return strategy
 
@@ -759,7 +849,7 @@ def extract_parameter_schema_v3(parameter: Mapping[str, Any]) -> JsonSchema:
 
 def _bundle_parameter(
     parameter: Mapping,
-    resolver: RefResolver,
+    resolver: Resolver,
     bundler: Bundler,
     bundle_cache: dict[int, tuple[dict[str, Any], dict[str, str]]],
 ) -> tuple[dict[str, Any], dict[str, str]]:
@@ -769,27 +859,24 @@ def _bundle_parameter(
         cached_definition, cached_name_to_uri = bundle_cache[param_id]
         return deepclone(cached_definition), dict(cached_name_to_uri)
 
-    scope, definition = maybe_resolve(parameter, resolver, "")
+    parameter_resolver, definition = maybe_resolve_with_resolver(parameter, resolver)
     schema = definition.get("schema")
     name_to_uri = {}
     if schema is not None:
         definition = dict(definition)
-        # Push the resolved scope so nested $refs are resolved relative to the parameter's location
-        resolver.push_scope(scope)
         try:
-            bundled = bundler.bundle(schema, resolver, inline_recursive=True)
+            bundled = bundler.bundle_for_generation(
+                schema,
+                parameter_resolver,
+            )
             definition["schema"] = bundled.schema
             name_to_uri.update(bundled.name_to_uri)
         except BundleError as exc:
             location = parameter.get("in", "")
             name = parameter.get("name", "<UNKNOWN>")
             raise InvalidSchema.from_bundle_error(exc, location, name) from exc
-        finally:
-            resolver.pop_scope()
     elif "content" in definition:
         definition = dict(definition)
-        # Push the resolved scope so nested $refs are resolved relative to the parameter's location
-        resolver.push_scope(scope)
         try:
             updated_content: dict[str, Any] = {}
             for media_type, media_type_object in definition["content"].items():
@@ -799,7 +886,10 @@ def _bundle_parameter(
                 media_type_object = dict(media_type_object)
                 nested_schema = media_type_object.get("schema")
                 if isinstance(nested_schema, dict):
-                    bundled = bundler.bundle(nested_schema, resolver, inline_recursive=True)
+                    bundled = bundler.bundle_for_generation(
+                        nested_schema,
+                        parameter_resolver,
+                    )
                     media_type_object["schema"] = bundled.schema
                     name_to_uri.update(bundled.name_to_uri)
                 updated_content[media_type] = media_type_object
@@ -808,8 +898,6 @@ def _bundle_parameter(
             location = parameter.get("in", "")
             name = parameter.get("name", "<UNKNOWN>")
             raise InvalidSchema.from_bundle_error(exc, location, name) from exc
-        finally:
-            resolver.pop_scope()
 
     definition_ = cast(dict, definition)
     result = definition_, name_to_uri
@@ -821,11 +909,22 @@ OPENAPI_20_DEFAULT_BODY_MEDIA_TYPE = "application/json"
 OPENAPI_20_DEFAULT_FORM_MEDIA_TYPE = "multipart/form-data"
 
 
+def _validated_parameters(definition: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
+    """Return the operation's `parameters` list, validating its shape."""
+    parameters = definition.get("parameters", [])
+    if not isinstance(parameters, list):
+        raise InvalidSchema("'parameters' must be a list of parameter objects")
+    for index, parameter in enumerate(parameters):
+        if not isinstance(parameter, dict):
+            raise InvalidSchema(f"'parameters[{index}]' must be a parameter object")
+    return parameters
+
+
 def iter_parameters_v2(
     definition: Mapping[str, Any],
     shared_parameters: Sequence[Mapping[str, Any]],
     default_media_types: list[str],
-    resolver: RefResolver,
+    resolver: Resolver,
     adapter: SpecificationAdapter,
     bundler: Bundler,
     bundle_cache: BundleCache,
@@ -838,9 +937,11 @@ def iter_parameters_v2(
     # the default because it is broader since it allows us to upload files.
     form_data_media_types = media_types or (OPENAPI_20_DEFAULT_FORM_MEDIA_TYPE,)
 
+    operation_parameters = _validated_parameters(definition)
+
     form_parameters = []
     form_name_to_uri = {}
-    for parameter in chain(definition.get("parameters", []), shared_parameters):
+    for parameter in chain(operation_parameters, shared_parameters):
         parameter, name_to_uri = _bundle_parameter(parameter, resolver, bundler, bundle_cache)
         location = parameter.get("in")
         if not isinstance(location, str):
@@ -855,8 +956,8 @@ def iter_parameters_v2(
         elif location == ParameterLocation.BODY:
             # Take the original definition & extract the resource_name from there
             resource_name = None
-            for param in chain(definition.get("parameters", []), shared_parameters):
-                _, param = maybe_resolve(param, resolver, "")
+            for param in chain(operation_parameters, shared_parameters):
+                _, param = maybe_resolve_with_resolver(param, resolver)
                 if param.get("in") == ParameterLocation.BODY:
                     if "$ref" in param["schema"]:
                         resource_name = resource_name_from_ref(param["schema"]["$ref"])
@@ -885,7 +986,7 @@ def iter_parameters_v3(
     definition: Mapping[str, Any],
     shared_parameters: Sequence[Mapping[str, Any]],
     default_media_types: list[str],
-    resolver: RefResolver,
+    resolver: Resolver,
     adapter: SpecificationAdapter,
     bundler: Bundler,
     bundle_cache: BundleCache,
@@ -897,7 +998,9 @@ def iter_parameters_v3(
     seen_querystring = False
     seen_query = False
 
-    for parameter in chain(definition.get("parameters", []), shared_parameters):
+    operation_parameters = _validated_parameters(definition)
+
+    for parameter in chain(operation_parameters, shared_parameters):
         parameter, name_to_uri = _bundle_parameter(parameter, resolver, bundler, bundle_cache)
         location = parameter.get("in")
         if not isinstance(location, str):
@@ -919,9 +1022,9 @@ def iter_parameters_v3(
 
     request_body_or_ref = operation.get("requestBody")
     if request_body_or_ref is not None:
-        scope, request_body_or_ref = maybe_resolve(request_body_or_ref, resolver, "")
+        body_resolver, request_body_or_ref = maybe_resolve_with_resolver(request_body_or_ref, resolver)
         # It could be an object inside `requestBodies`, which could be a reference itself
-        body_scope, request_body = maybe_resolve(request_body_or_ref, resolver, scope)
+        body_resolver, request_body = maybe_resolve_with_resolver(request_body_or_ref, body_resolver)
 
         required = request_body.get("required", False)
         for media_type, content in request_body["content"].items():
@@ -932,17 +1035,20 @@ def iter_parameters_v3(
                 content = dict(content)
                 if "$ref" in schema:
                     resource_name = resource_name_from_ref(schema["$ref"])
-                # Push the resolved scope so nested $refs are resolved relative to the requestBody's location
-                resolver.push_scope(body_scope)
+                else:
+                    items = schema.get("items")
+                    if isinstance(items, dict) and "$ref" in items:
+                        resource_name = resource_name_from_ref(items["$ref"])
                 try:
                     to_bundle = cast(dict[str, Any], schema)
-                    bundled = bundler.bundle(to_bundle, resolver, inline_recursive=True)
+                    bundled = bundler.bundle_for_generation(
+                        to_bundle,
+                        body_resolver,
+                    )
                     content["schema"] = bundled.schema
                     name_to_uri = bundled.name_to_uri
                 except BundleError as exc:
                     raise InvalidSchema.from_bundle_error(exc, "body") from exc
-                finally:
-                    resolver.pop_scope()
             yield OpenApiBody.from_definition(
                 definition=content,
                 is_required=required,
@@ -1020,7 +1126,7 @@ class OpenApiParameterSet(ParameterSet):
         self.items = items or []
         self._schema: dict | NotSet = NOT_SET
         self._schema_cache: dict[frozenset[str], dict[str, Any]] = {}
-        self._strategy_cache: dict[tuple[frozenset[str], GenerationMode], st.SearchStrategy] = {}
+        self._strategy_cache: dict[tuple[frozenset[str], GenerationMode, int | None], st.SearchStrategy] = {}
         self._strict_validator: jsonschema_rs.Validator | NotSet = NOT_SET
 
     def get_strict_validator(self) -> jsonschema_rs.Validator:
@@ -1051,7 +1157,7 @@ class OpenApiParameterSet(ParameterSet):
 
     def get_schema_with_exclusions(self, exclude: Iterable[str]) -> dict[str, Any]:
         """Get cached schema with specified parameters excluded."""
-        exclude_key = frozenset(exclude)
+        exclude_key = _EMPTY_EXCLUDE_KEY if not exclude else frozenset(exclude)
 
         if exclude_key in self._schema_cache:
             return self._schema_cache[exclude_key]
@@ -1072,12 +1178,21 @@ class OpenApiParameterSet(ParameterSet):
                 key: value for key, value in schema["properties"].items() if key.lower() not in exclude_lower
             }
             if "required" in schema:
-                schema["required"] = [key for key in schema["required"] if key.lower() not in exclude_lower]
+                kept = [key for key in schema["required"] if key.lower() not in exclude_lower]
+                if kept:
+                    schema["required"] = kept
+                else:
+                    # `required` must contain at least one item per JSON Schema; drop the key.
+                    del schema["required"]
         else:
             # Non-header locations: remove by exact name
             schema["properties"] = {key: value for key, value in schema["properties"].items() if key not in exclude_key}
             if "required" in schema:
-                schema["required"] = [key for key in schema["required"] if key not in exclude_key]
+                kept = [key for key in schema["required"] if key not in exclude_key]
+                if kept:
+                    schema["required"] = kept
+                else:
+                    del schema["required"]
         return schema
 
     def get_strategy(
@@ -1088,10 +1203,12 @@ class OpenApiParameterSet(ParameterSet):
         exclude: Iterable[str] = (),
         extra_data_source: ExtraDataSource | None = None,
         mix_examples: bool = True,
+        error_feedback: ErrorFeedbackStore | None = None,
     ) -> st.SearchStrategy:
         """Get a Hypothesis strategy for this parameter set with specified exclusions."""
-        exclude_key = frozenset(exclude)
-        cache_key = (exclude_key, generation_mode)
+        exclude_key = _EMPTY_EXCLUDE_KEY if not exclude else frozenset(exclude)
+        feedback_generation = error_feedback.generation if error_feedback is not None else None
+        cache_key = (exclude_key, generation_mode, feedback_generation)
 
         use_cache = extra_data_source is None and mix_examples
 
@@ -1107,7 +1224,6 @@ class OpenApiParameterSet(ParameterSet):
             _can_skip_header_filter,
             jsonify_python_specific_types,
             make_negative_strategy,
-            quote_all,
         )
         from schemathesis.specs.openapi.negative import GeneratedValue
         from schemathesis.specs.openapi.schemas import OpenApiSchema
@@ -1122,6 +1238,15 @@ class OpenApiParameterSet(ParameterSet):
 
         # Get schema with exclusions
         schema: JsonSchema = self.get_schema_with_exclusions(exclude)
+        if error_feedback is not None:
+            from schemathesis.specs.openapi.error_feedback import apply_adjustments
+
+            schema = apply_adjustments(
+                operation=operation,
+                location=self.location,
+                schema=schema,
+                store=error_feedback,
+            )
 
         # Check for captured variants for hybrid approach
         captured_variants: list[dict[str, Any]] | None = None
@@ -1173,11 +1298,19 @@ class OpenApiParameterSet(ParameterSet):
             # Skip during EXAMPLES phase since examples are handled separately there
             if mix_examples and not is_negative:
                 validator_cls = operation.schema.adapter.jsonschema_validator_cls
+                # Splice inferred constraints (format / min / max etc.) onto each parameter's
+                # validation schema so examples the API has demonstrated to be invalid get evicted.
+                adjusted_properties = schema_obj.get("properties") if isinstance(schema_obj, dict) else None
                 parameter_examples: dict[str, list[Any]] = {}
                 for param in self.items:
                     if param.name in exclude_key or not param.examples:
                         continue
-                    valid = filter_schema_valid_examples(param.examples, param.validation_schema, validator_cls)
+                    validation_schema = param.validation_schema
+                    if isinstance(adjusted_properties, dict) and isinstance(validation_schema, dict):
+                        inferred = adjusted_properties.get(param.name)
+                        if isinstance(inferred, dict):
+                            validation_schema = {**validation_schema, **inferred}
+                    valid = filter_schema_valid_examples(param.examples, validation_schema, validator_cls)
                     if valid:
                         parameter_examples[param.name] = valid
                 if parameter_examples:

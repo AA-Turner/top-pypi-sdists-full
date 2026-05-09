@@ -320,3 +320,230 @@ def run_history() -> pd.DataFrame:
         ORDER BY as_of_date DESC
         LIMIT 20
     """)
+
+
+# ---------------------------------------------------------------------------
+# Self-assignment — ``account_assignments`` Delta table
+# ---------------------------------------------------------------------------
+# A CSM clicks "Assign to me" on the L4 customer profile to claim ownership
+# of an account. One row per assigned entity: no row means unassigned. The
+# table is additive (no view modification, no schema migration) and lazy-
+# created on first read or write so the dashboard can drop into existing
+# deployments without an out-of-band DDL step.
+#
+# Race semantics: two CSMs clicking the same unassigned entity within the
+# same second land on a Delta MERGE with ``WHEN NOT MATCHED THEN INSERT``,
+# so exactly one INSERT wins and the loser's next rerun reads the winner's
+# row and renders "Claimed by …". Unassign is restricted to the current
+# owner -- you cannot clear someone else's claim from the UI.
+_ASSIGNMENTS_TABLE = "account_assignments"
+
+_TOGGLE_ASSIGNED = "assigned"
+_TOGGLE_UNASSIGNED = "unassigned"
+_TOGGLE_CLAIMED_BY_OTHER = "claimed_by_other"
+
+
+def _assignments_fqn(cfg: AppConfig) -> str:
+    return f"{cfg.fqn_prefix}.{_ASSIGNMENTS_TABLE}"
+
+
+def _ensure_assignments_table(cfg: AppConfig) -> None:
+    """Idempotent ``CREATE TABLE IF NOT EXISTS`` for the assignments table.
+
+    Runs once per process — the Streamlit session keeps a flag so we don't
+    fire DDL on every rerun. Safe to call concurrently: ``CREATE TABLE IF
+    NOT EXISTS`` is a no-op on a pre-existing table.
+    """
+    flag_key = f"_assignments_table_ready::{cfg.fqn_prefix}"
+    try:
+        if st.session_state.get(flag_key):
+            return
+    except Exception:
+        pass
+    with _connect(cfg) as conn:
+        cur = conn.cursor()
+        try:
+            cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS {_assignments_fqn(cfg)} (
+                    entity_id    STRING NOT NULL,
+                    assigned_to  STRING NOT NULL,
+                    assigned_at  TIMESTAMP NOT NULL
+                ) USING DELTA
+            """)
+        finally:
+            cur.close()
+    try:
+        st.session_state[flag_key] = True
+    except Exception:
+        pass
+
+
+@st.cache_data(ttl=10, show_spinner=False)
+def assignments() -> pd.DataFrame:
+    """Return all current account assignments.
+
+    Two columns: ``entity_id`` and ``assigned_to`` (the owner's email).
+    Cached for 10s so the In-scope table stays fresh without hammering the
+    warehouse on every rerun. Bust the cache via ``data.assignments.clear()``
+    after a toggle so the UI reflects the change immediately.
+
+    Returns an empty DataFrame on the first call before any rows exist —
+    callers can safely left-merge against it.
+    """
+    cfg = load_config()
+    _ensure_assignments_table(cfg)
+    return _query(
+        cfg,
+        f"SELECT entity_id, assigned_to FROM {_assignments_fqn(cfg)}",
+    )
+
+
+def toggle_assignment(entity_id: str, user_email: str) -> str:
+    """Self-assign or unassign ``entity_id`` for ``user_email``.
+
+    Returns one of:
+      - ``"assigned"``           — row was inserted (entity now owned by user)
+      - ``"unassigned"``         — row was deleted (user released their own claim)
+      - ``"claimed_by_other"``   — entity is owned by someone else; no DML
+
+    The MERGE-on-INSERT path protects against the read-then-write race
+    where another CSM claimed the entity between our SELECT and our
+    INSERT: ``WHEN NOT MATCHED`` collapses to a no-op and we surface
+    ``claimed_by_other`` on the next rerun via the cached read.
+    """
+    if not entity_id or not user_email:
+        raise ValueError("entity_id and user_email are required")
+    cfg = load_config()
+    _ensure_assignments_table(cfg)
+    fqn = _assignments_fqn(cfg)
+    user = user_email.strip().lower()
+
+    with _connect(cfg) as conn:
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                f"SELECT assigned_to FROM {fqn} WHERE entity_id = :eid LIMIT 1",
+                {"eid": entity_id},
+            )
+            rows = cur.fetchall()
+            current = rows[0][0] if rows else None
+
+            if current is not None and current.strip().lower() != user:
+                return _TOGGLE_CLAIMED_BY_OTHER
+
+            if current is not None:
+                cur.execute(
+                    f"DELETE FROM {fqn} WHERE entity_id = :eid AND assigned_to = :user",
+                    {"eid": entity_id, "user": user},
+                )
+                return _TOGGLE_UNASSIGNED
+
+            # No prior row -- MERGE so a concurrent claim by another CSM
+            # cannot produce a duplicate row. The source row carries the
+            # candidate (entity, user, now()); the target only inserts when
+            # ``entity_id`` is still absent.
+            cur.execute(
+                f"""
+                MERGE INTO {fqn} t
+                USING (
+                    SELECT :eid AS entity_id, :user AS assigned_to, current_timestamp() AS assigned_at
+                ) s
+                ON t.entity_id = s.entity_id
+                WHEN NOT MATCHED THEN INSERT (entity_id, assigned_to, assigned_at)
+                                  VALUES (s.entity_id, s.assigned_to, s.assigned_at)
+                """,
+                {"eid": entity_id, "user": user},
+            )
+
+            cur.execute(
+                f"SELECT assigned_to FROM {fqn} WHERE entity_id = :eid LIMIT 1",
+                {"eid": entity_id},
+            )
+            verify = cur.fetchall()
+            winner = verify[0][0] if verify else None
+            if winner is None:
+                return _TOGGLE_CLAIMED_BY_OTHER
+            if winner.strip().lower() == user:
+                return _TOGGLE_ASSIGNED
+            return _TOGGLE_CLAIMED_BY_OTHER
+        finally:
+            cur.close()
+
+
+def assignment_for(entity_id: str) -> str | None:
+    """Return the current owner email for ``entity_id``, or ``None``.
+
+    Reads through the cached ``assignments()`` frame so the L4 button can
+    label itself ("Assign to me" / "Unassign" / "Claimed") without firing
+    its own SQL on every rerun.
+    """
+    if not entity_id:
+        return None
+    df = assignments()
+    if df is None or df.empty or "entity_id" not in df.columns:
+        return None
+    hit = df[df["entity_id"].astype(str) == str(entity_id)]
+    if hit.empty:
+        return None
+    return str(hit.iloc[0]["assigned_to"])
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def entity_exists_in_latest_run(entity_id: str) -> bool:
+    """Return ``True`` when ``entity_id`` was scored in the latest run.
+
+    Used by the Search tab to validate the typed ID before rendering the
+    profile. Reads ``eligibility_snapshot`` rather than ``v_account_explanation``
+    because the snapshot is the canonical "scored entities" pool — covers
+    every entity the model produced a prediction for, not just the in-scope
+    top-K. SHAP availability is a separate concern handled by the template
+    (which gates the driver block on ``account_top_shap_features``).
+    """
+    if not entity_id or not entity_id.strip():
+        return False
+    cfg = load_config()
+    df = _query(
+        cfg,
+        f"""
+        WITH latest_run AS (
+            SELECT scoring_run_id
+            FROM {cfg.fqn_prefix}.eligibility_snapshot
+            WHERE as_of_date = (
+                SELECT MAX(as_of_date) FROM {cfg.fqn_prefix}.eligibility_snapshot
+            )
+            LIMIT 1
+        )
+        SELECT 1 AS hit
+        FROM {cfg.fqn_prefix}.eligibility_snapshot s
+        JOIN latest_run lr ON s.scoring_run_id = lr.scoring_run_id
+        WHERE s.entity_id = :eid
+        LIMIT 1
+        """,
+        {"eid": entity_id.strip()},
+    )
+    return not df.empty
+
+
+def account_is_holdout(entity_id: str) -> bool:
+    """Return ``True`` when ``entity_id`` is a holdout row.
+
+    Reads the ``is_holdout`` field from the same cached ``account_explanation``
+    call that ``customer_profile.render()`` already issues for the L4 panel,
+    so this lookup adds zero extra SQL when the profile is open. Holdout
+    accounts are deliberately excluded from CSM intervention to measure
+    model lift; the L4 button uses this to refuse self-assignment.
+    """
+    if not entity_id:
+        return False
+    df = account_explanation(entity_id)
+    if df is None or df.empty or "is_holdout" not in df.columns:
+        return False
+    val = df.iloc[0]["is_holdout"]
+    if val is None:
+        return False
+    try:
+        if pd.isna(val):
+            return False
+    except (TypeError, ValueError):
+        pass
+    return bool(val)

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,6 +68,38 @@ class RobonetConfig(tfds.core.BuilderConfig):
     self.sample_dataset = sample_dataset
     self.width = width
     self.height = height
+
+
+def _process_example(filename):
+  """Converts one video from hdf5 format.
+
+  Args:
+    filename: The path to the hdf5 file.
+
+  Returns:
+    A tuple containing the basename of the file and a dictionary with the
+    extracted features: 'video', 'actions', 'states', and 'filename'.
+  """
+  h5py = tfds.core.lazy_imports.h5py
+  with h5py.File(filename) as hf:
+    video_bytes = hf['env']['cam0_video']['frames'][:].tobytes()
+    states = hf['env']['state'][:].astype(np.float32)
+    states = np.pad(
+        states, ((0, 0), (0, STATES_DIM - states.shape[1])), 'constant'
+    )
+    actions = hf['policy']['actions'][:].astype(np.float32)
+    actions = np.pad(
+        actions, ((0, 0), (0, ACTIONS_DIM - actions.shape[1])), 'constant'
+    )
+
+  basename = os.path.basename(filename)
+  features = {
+      'video': video_bytes,
+      'actions': actions,
+      'states': states,
+      'filename': basename,
+  }
+  return basename, features
 
 
 class Builder(tfds.core.BeamBasedBuilder):
@@ -164,29 +196,6 @@ class Builder(tfds.core.BeamBasedBuilder):
   def _build_pcollection(self, pipeline, filedir):
     """Generate examples as dicts."""
     beam = tfds.core.lazy_imports.apache_beam
-
-    def _process_example(filename):
-      """Converts one video from hdf5 format."""
-      h5py = tfds.core.lazy_imports.h5py
-      with h5py.File(filename) as hf:
-        video_bytes = hf['env']['cam0_video']['frames'][:].tobytes()
-        states = hf['env']['state'][:].astype(np.float32)
-        states = np.pad(
-            states, ((0, 0), (0, STATES_DIM - states.shape[1])), 'constant'
-        )
-        actions = hf['policy']['actions'][:].astype(np.float32)
-        actions = np.pad(
-            actions, ((0, 0), (0, ACTIONS_DIM - actions.shape[1])), 'constant'
-        )
-
-      basename = os.path.basename(filename)
-      features = {
-          'video': video_bytes,
-          'actions': actions,
-          'states': states,
-          'filename': basename,
-      }
-      return basename, features
 
     filenames = tf.io.gfile.glob(os.path.join(filedir, '*.hdf5'))
     return pipeline | beam.Create(filenames) | beam.Map(_process_example)

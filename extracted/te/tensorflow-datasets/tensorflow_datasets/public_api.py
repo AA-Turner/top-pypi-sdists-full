@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ from tensorflow_datasets.core import deprecated
 from tensorflow_datasets.core import download
 from tensorflow_datasets.core import features
 from tensorflow_datasets.core import folder_dataset
-from tensorflow_datasets.core import transform  # pylint: disable=unused-import
+from tensorflow_datasets.core import transform
 from tensorflow_datasets.core import visualization
 from tensorflow_datasets.core.as_dataframe import as_dataframe
 from tensorflow_datasets.core.dataset_utils import as_numpy

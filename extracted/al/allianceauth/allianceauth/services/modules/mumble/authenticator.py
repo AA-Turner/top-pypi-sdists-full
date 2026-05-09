@@ -39,7 +39,7 @@ import sys
 from datetime import datetime, timezone
 from hashlib import sha1
 from threading import Timer
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.request import urlopen
 
 import Ice
@@ -484,7 +484,9 @@ def main(server_id: int = 1) -> None:
 
         @fortifyIceFu(authenticateFortifyResult)
         @checkSecret
-        def authenticate(self, name: str, pw: str, certlist, certhash: str, certstrong: bool, current=None) -> tuple[int, str | None, str | None]:
+        def authenticate(
+            self, name: str, pw: str, certlist, certhash: str, certstrong: bool, current=None
+        ) -> tuple[int, None, None] | tuple[Any, str, str] | tuple[Any, str, list[str]]:
             """Authenticate a user.
 
             Args:
@@ -496,45 +498,55 @@ def main(server_id: int = 1) -> None:
                 current (_type_, optional): Current Context = None
 
             Returns:
-                tuple[int, str | None, str | None]: User ID, Display Name, Group String
+                tuple[int, str | None, str | None]: User ID, Display Name, Group List
             """
 
             if name == "SuperUser":
                 logger.debug("Forced fall through for SuperUser")
+
                 return (FALL_THROUGH, None, None)
 
             try:
                 auth_user = MumbleUser.objects.get(username=name)
                 logger.debug(f"checking password with hash function: {auth_user.hashfn}")
+
                 if allianceauth_check_hash(pw, auth_user.pwhash, auth_user.hashfn):
                     logger.info(f'User authenticated: {auth_user.display_name} {auth_user.pk + server_config_obj.offset}')
-                    logger.debug(f"Group memberships: {auth_user.group_string()}")
+                    logger.debug(f"Group memberships: {auth_user.groups}")
+
                     auth_user.certhash = certhash
                     auth_user.save(update_fields=["certhash"])
-                    return (auth_user.pk + server_config_obj.offset, auth_user.display_name, auth_user.group_string())
+
+                    return auth_user.pk + server_config_obj.offset, auth_user.display_name, auth_user.groups
                 else:
                     logger.info(f'Failed authentication attempt for user: {name} {auth_user.pk}')
+
                     return (AUTH_REFUSED, None, None)
             except MumbleUser.DoesNotExist:
                 try:
                     temp_user = TempUser.objects.get(username=name)
                     logger.debug(f"checking password with hash function: {temp_user.hashfn}")
+
                     if allianceauth_check_hash(pw, temp_user.pwhash, temp_user.hashfn):
                         logger.info(f'TEMP User authenticated: {temp_user.display_name} {temp_user.pk + server_config_obj.offset}')
-                        logger.debug(f"TEMP Group memberships: {temp_user.group_string()}")
+                        logger.debug(f"TEMP Group memberships: {temp_user.groups}")
                         temp_user.certhash = certhash
                         temp_user.save(update_fields=["certhash"])
-                        return (temp_user.pk + server_config_obj.offset * 2, temp_user.display_name, temp_user.group_string())
+
+                        return (temp_user.pk + server_config_obj.offset * 2, temp_user.display_name, temp_user.groups)
                     else:
                         logger.info(f'Failed authentication attempt for TEMP user: {name} {temp_user.pk + server_config_obj.offset}')
+
                         return (AUTH_REFUSED, None, None)
                 except TempUser.DoesNotExist:
                     return (FALL_THROUGH, None, None)  # No Standard or Temp User
                 except Exception as a:
                     logger.exception(a)
+
                     return (FALL_THROUGH, None, None)  # An unexpected error, but same result, fail the auth
             except Exception as b:
                 logger.exception(b)
+
                 return (FALL_THROUGH, None, None)  # An unexpected error, but same result, fail the auth
 
         @fortifyIceFu((False, None))

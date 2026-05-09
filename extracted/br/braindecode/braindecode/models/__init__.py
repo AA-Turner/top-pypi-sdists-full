@@ -4,10 +4,11 @@ from .atcnet import ATCNet
 from .attentionbasenet import AttentionBaseNet
 from .attn_sleep import AttnSleep
 from .base import EEGModuleMixin
-from .bendr import BENDR
-from .biot import BIOT
+from .bendr import BENDR, InterpolatedBENDR
+from .biot import BIOT, InterpolatedBIOT
 from .brainmodule import BrainModule
 from .cbramod import CBraMod
+from .codebrain import CodeBrain
 from .contrawr import ContraWR
 from .ctnet import CTNet
 from .deep4 import Deep4Net
@@ -24,20 +25,24 @@ from .eegpt import EEGPT
 from .eegsimpleconv import EEGSimpleConv
 from .eegsym import EEGSym
 from .eegtcnet import EEGTCNet
+from .emg2qwerty import EMG2QwertyNet
 from .fbcnet import FBCNet
 from .fblightconvnet import FBLightConvNet
 from .fbmsnet import FBMSNet
 from .hybrid import HybridNet
 from .ifnet import IFNet
-from .labram import Labram
+from .interpolated import InterpolatedModel
+from .labram import InterpolatedLaBraM, Labram
 from .luna import LUNA
 from .medformer import MEDFormer
+from .meta_neuromotor import MetaNeuromotorHand
 from .msvtnet import MSVTNet
 from .patchedtransformer import PBT
 from .reve import REVE
 from .sccnet import SCCNet
 from .shallow_fbcsp import ShallowFBCSPNet
 from .signal_jepa import (
+    InterpolatedSignalJEPA,
     SignalJEPA,
     SignalJEPA_Contextual,
     SignalJEPA_PostLocal,
@@ -72,6 +77,7 @@ __all__ = [
     "BIOT",
     "BENDR",
     "CBraMod",
+    "CodeBrain",
     "ContraWR",
     "CTNet",
     "Deep4Net",
@@ -90,11 +96,18 @@ __all__ = [
     "EEGSimpleConv",
     "EEGTCNet",
     "DGCNN",
+    "EMG2QwertyNet",
     "FBCNet",
     "FBLightConvNet",
     "FBMSNet",
+    "MetaNeuromotorHand",
     "HybridNet",
     "IFNet",
+    "InterpolatedBENDR",
+    "InterpolatedBIOT",
+    "InterpolatedLaBraM",
+    "InterpolatedModel",
+    "InterpolatedSignalJEPA",
     "Labram",
     "LUNA",
     "extract_channel_locations_from_chs_info",

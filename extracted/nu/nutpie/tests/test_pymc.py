@@ -9,6 +9,7 @@ if find_spec("pymc") is None:
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor
 import pytest
 
 import nutpie
@@ -31,6 +32,38 @@ def test_pymc_model(backend, gradient_backend):
     )
     trace = nutpie.sample(compiled, chains=1)
     trace.posterior.a  # noqa: B018
+
+
+@pytest.mark.pymc
+@parameterize_backends
+def test_progress_callback(backend, gradient_backend):
+    with pm.Model() as model:
+        pm.Normal("a")
+
+    compiled = nutpie.compile_pymc_model(
+        model, backend=backend, gradient_backend=gradient_backend
+    )
+
+    received = []
+
+    def callback(chains):
+        received.append(chains)
+
+    nutpie.sample(
+        compiled,
+        chains=2,
+        progress_bar=False,
+        progress_callback=callback,
+    )
+
+    assert len(received) > 0
+    chains = received[-1]
+    assert len(chains) == 2
+    chain = chains[0]
+    assert chain.total_draws > 0
+    assert chain.finished_draws == chain.total_draws
+    assert isinstance(chain.step_size, float)
+    assert isinstance(chain.divergent_draws, list)
 
 
 @pytest.mark.pymc
@@ -89,11 +122,11 @@ def test_low_rank(backend, gradient_backend):
     compiled = nutpie.compile_pymc_model(
         model, backend=backend, gradient_backend=gradient_backend
     )
-    trace = nutpie.sample(compiled, chains=1, low_rank_modified_mass_matrix=True)
+    trace = nutpie.sample(compiled, chains=1, adaptation="low_rank")
 
     assert "mass_matrix_eigvals" not in trace.sample_stats
     trace = nutpie.sample(
-        compiled, chains=1, low_rank_modified_mass_matrix=True, store_mass_matrix=True
+        compiled, chains=1, adaptation="low_rank", store_mass_matrix=True
     )
     assert "mass_matrix_eigvals" in trace.sample_stats
 
@@ -109,7 +142,35 @@ def test_low_rank_half_normal(backend, gradient_backend):
     compiled = nutpie.compile_pymc_model(
         model, backend=backend, gradient_backend=gradient_backend
     )
-    trace = nutpie.sample(compiled, chains=1, low_rank_modified_mass_matrix=True)
+    trace = nutpie.sample(compiled, chains=1, adaptation="low_rank")
+    trace.posterior.a  # noqa: B018
+
+
+@pytest.mark.pymc
+@parameterize_backends
+def test_deprecated_low_rank_modified_mass_matrix(backend, gradient_backend):
+    with pm.Model() as model:
+        pm.Normal("a")
+
+    compiled = nutpie.compile_pymc_model(
+        model, backend=backend, gradient_backend=gradient_backend
+    )
+    with pytest.warns(FutureWarning, match="low_rank_modified_mass_matrix"):
+        trace = nutpie.sample(compiled, chains=1, low_rank_modified_mass_matrix=True)
+    trace.posterior.a  # noqa: B018
+
+
+@pytest.mark.pymc
+@parameterize_backends
+def test_deprecated_use_grad_based_mass_matrix(backend, gradient_backend):
+    with pm.Model() as model:
+        pm.Normal("a")
+
+    compiled = nutpie.compile_pymc_model(
+        model, backend=backend, gradient_backend=gradient_backend
+    )
+    with pytest.warns(FutureWarning, match="use_grad_based_mass_matrix"):
+        trace = nutpie.sample(compiled, chains=1, use_grad_based_mass_matrix=False)
     trace.posterior.a  # noqa: B018
 
 
@@ -244,7 +305,11 @@ def test_pymc_model_with_coordinate(backend, gradient_backend):
 def test_pymc_model_store_extra(backend, gradient_backend):
     with pm.Model() as model:
         model.add_coord("foo", length=5)
+        model.add_coord("bar", length=4)
         pm.Normal("a", dims="foo")
+        pm.HalfNormal("b", sigma=1.0, dims="foo")
+        pm.ZeroSumNormal("c", sigma=1.0, dims="foo")
+        pm.Dirichlet("d", a=np.ones(4), dims="bar")
 
     compiled = nutpie.compile_pymc_model(
         model, backend=backend, gradient_backend=gradient_backend
@@ -258,6 +323,26 @@ def test_pymc_model_store_extra(backend, gradient_backend):
         store_gradient=True,
     )
     trace.posterior.a  # noqa: B018
+    trace.posterior.b  # noqa: B018
+    trace.posterior.c  # noqa: B018
+    trace.posterior.d  # noqa: B018
+    assert trace.posterior.c.dims == ("chain", "draw", "foo")
+    assert trace.posterior.d.dims == ("chain", "draw", "bar")
+    assert trace.unconstrained_posterior.b_log__.dims == ("chain", "draw", "foo")
+    # ZeroSumNormal's unconstrained value has one fewer element along the
+    # zero-sum axis, so it should NOT inherit the "foo" dim.
+    assert trace.unconstrained_posterior.c_zerosum__.dims != (
+        "chain",
+        "draw",
+        "foo",
+    )
+    # Dirichlet's simplex transform reduces dimensionality by one, so it
+    # should NOT inherit the "bar" dim.
+    assert trace.unconstrained_posterior.d_simplex__.dims != (
+        "chain",
+        "draw",
+        "bar",
+    )
     _ = trace.sample_stats.unconstrained_draw
     _ = trace.sample_stats.gradient
     _ = trace.sample_stats.divergence_start
@@ -296,7 +381,7 @@ def test_det(backend, gradient_backend):
 @parameterize_backends
 def test_non_identifier_names(backend, gradient_backend):
     with pm.Model() as model:
-        a = pm.Uniform("a/b", shape=2)
+        a = pm.Uniform("a::b", shape=2)
         with pm.Model("foo"):
             c = pm.Data("c", np.array([2.0, 3.0]))
             pm.Deterministic("b", c * a)
@@ -305,7 +390,7 @@ def test_non_identifier_names(backend, gradient_backend):
         model, backend=backend, gradient_backend=gradient_backend
     )
     trace = nutpie.sample(compiled, chains=1)
-    assert trace.posterior["a/b"].shape[-1] == 2
+    assert trace.posterior["a::b"].shape[-1] == 2
     assert trace.posterior["foo::b"].shape[-1] == 2
 
 
@@ -402,7 +487,7 @@ def test_normalizing_flow():
     trace = nutpie.sample(
         compiled,
         chains=1,
-        transform_adapt=True,
+        adaptation="flow",
         window_switch_freq=128,
         seed=1,
         draws=500,
@@ -548,3 +633,20 @@ def test_dims_model(backend, gradient_backend):
     assert post["one_sum"].dims == ("chain", "draw", "b", "a")
     np.testing.assert_allclose(post["zero_sum"].sum(dim="a"), 0, atol=1e-5)
     np.testing.assert_allclose(post["one_sum"].sum(dim="a"), 1, atol=1e-5)
+
+
+@pytest.mark.pymc
+@parameterize_backends
+def test_unnamed_shared(backend, gradient_backend):
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=100)
+    y = x + rng.normal(scale=1e-2, size=100)
+
+    x_shared = pytensor.shared(x)
+
+    with pm.Model() as model:
+        b = pm.Normal("b", 0.0, 10.0)
+        pm.Normal("obs", b * x_shared, np.sqrt(1e-2), observed=y, shape=x_shared.shape)
+
+    compiled = nutpie.compile_pymc_model(model)
+    nutpie.sample(compiled)

@@ -1,17 +1,14 @@
 """Utility functions for Reflex Enterprise."""
 
 import asyncio
-import dataclasses
 import inspect
 from collections.abc import Sequence
-from typing import Any, Callable, TypedDict
+from typing import Any, Callable
 
 import psutil
-import reflex as rx
-from packaging import version
-from reflex import ImportVar, constants
+from reflex import constants
 from reflex.config import get_config
-from reflex.event import Event, IndividualEventType, fix_events
+from reflex.event import Event, IndividualEventType
 from reflex.state import BaseState, StateUpdate
 from reflex.utils import console, prerequisites
 from reflex.utils.decorator import once
@@ -99,26 +96,6 @@ def get_backend_url(relative_url: str | Var[str]) -> Var[str]:
     Returns:
         A Var representing the full backend URL.
     """
-    # Remove when reflex-enterprise drops support for < 0.8.27
-    use_compatible_get_backend_url = version.parse(
-        rx.constants.Reflex.VERSION
-    ) < version.parse("0.8.27")
-    if use_compatible_get_backend_url:
-        # This is the older, less ideal implementation
-        return ArgsFunctionOperation.create(
-            args_names=("url",),
-            return_expr=Var(
-                r"`${getBackendURL(typeof env !== 'undefined' ? env.UPLOAD : env_default.UPLOAD).origin}/${url.replace(/^\/+/, '')}`"
-            ),
-            _var_data=VarData(
-                imports={
-                    "$/utils/state": ["getBackendURL"],
-                    "$/env.json": ImportVar(tag="env", is_default=True),
-                }
-            ),
-        )(relative_url).to(str)
-
-    # Reflex 0.8.27+ use the newer getBackendURL that doesn't require an argument.
     backend_url = Var(
         "getBackendURL()",
         _var_data=VarData(imports={"$/utils/state": ["getBackendURL"]}),
@@ -230,27 +207,6 @@ def is_new_session() -> bool:
     return is_new
 
 
-class CallEventPayload(TypedDict):
-    """Payload for calling an event from a computed var."""
-
-    handler: rx.EventHandler
-    state: BaseState
-    payload: Any
-
-
-def _call_event_payload(state: BaseState, fixed_event: Event) -> CallEventPayload:
-    substate, handler = state._get_root_state()._get_event_handler(fixed_event)  # pyright: ignore[reportAttributeAccessIssue]
-
-    if handler.is_background or not isinstance(substate, BaseState):
-        msg = "Background events cannot be called from computed vars. Use chain_event_out_of_band instead."
-        raise RuntimeError(msg)
-    return CallEventPayload(
-        handler=handler,
-        state=substate,
-        payload=fixed_event.payload,
-    )
-
-
 async def call_event_from_computed_var(
     state: BaseState, events: IndividualEventType | list[IndividualEventType]
 ):
@@ -269,35 +225,13 @@ async def call_event_from_computed_var(
     # Clean the current dirty vars, since the original ones are saved in the `get_delta` frame.
     state._clean()
 
-    # reflex > 0.9.0 method:
-    if (event_processor := getattr(app, "event_processor", None)) is not None:
-        for event_future in asyncio.as_completed(
-            [
-                event_processor.enqueue(token, event)
-                for event in Event.from_event_type(events)
-            ]
-        ):
-            await event_future
-        return
-
-    # Fallback method.
-    event_payloads = [
-        _call_event_payload(state, fixed_event)
-        for fixed_event in fix_events(
-            events=events,  # pyright: ignore[reportArgumentType]
-            token=token,
-            router_data=state.router_data,
-        )
-    ]
-
-    for ep in event_payloads:
-        async for update in state._process_event(**ep):  # pyright: ignore[reportAttributeAccessIssue]
-            # In-bound updates are not final! The delta that triggered the computed
-            # var may be final and we don't want to override that.
-            update = dataclasses.replace(update, final=None)
-
-            # Send the update to the client.
-            await app.event_namespace.emit_update(update=update, token=token)
+    for event_future in asyncio.as_completed(
+        [
+            app.event_processor.enqueue(token, event)
+            for event in Event.from_event_type(events)
+        ]
+    ):
+        await event_future
 
 
 async def chain_event_out_of_band(
@@ -317,14 +251,7 @@ async def chain_event_out_of_band(
     if not isinstance(events, Sequence):
         events = [events]
     token = state.router.session.client_token
-    try:
-        fixed_events = Event.from_event_type(events)
-    except AttributeError:
-        fixed_events = fix_events(
-            events=events,  # pyright: ignore[reportArgumentType]
-            token=token,
-            router_data=state.router_data,
-        )
+    fixed_events = Event.from_event_type(events)
     app = get_app().app
     # Send the update to the client.
     await app.event_namespace.emit_update(

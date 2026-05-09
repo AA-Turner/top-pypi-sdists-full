@@ -3,7 +3,7 @@ from hypothesis import Phase, given, settings
 from hypothesis import strategies as st
 from requests.structures import CaseInsensitiveDict
 
-import schemathesis
+from schemathesis.core.mutations import OperatorKind
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
@@ -16,6 +16,7 @@ from schemathesis.generation.meta import (
     PhaseInfo,
     TestPhase,
 )
+from schemathesis.specs.openapi.negative.mutations import Mutation, MutationChannel
 
 
 def make_negative_meta(location, parameter=None, description="Test mutation"):
@@ -77,8 +78,8 @@ def simple_schema():
 
 
 @pytest.fixture
-def simple_operation(simple_schema):
-    schema = schemathesis.openapi.from_dict(simple_schema)
+def simple_operation(ctx, simple_schema):
+    schema = ctx.openapi.load_schema(simple_schema["paths"], version=simple_schema["openapi"])
     return schema["/items"]["POST"]
 
 
@@ -147,11 +148,9 @@ def test_no_metadata_no_crash(simple_operation):
     assert case.meta is None
 
 
-def test_nested_dict_modification_detected():
-    raw_schema = {
-        "openapi": "3.0.0",
-        "info": {"title": "Test", "version": "1.0.0"},
-        "paths": {
+def test_nested_dict_modification_detected(ctx):
+    schema = ctx.openapi.load_schema(
+        {
             "/items": {
                 "post": {
                     "requestBody": {
@@ -177,9 +176,8 @@ def test_nested_dict_modification_detected():
                     "responses": {"200": {"description": "OK"}},
                 }
             }
-        },
-    }
-    schema = schemathesis.openapi.from_dict(raw_schema)
+        }
+    )
     operation = schema["/items"]["POST"]
 
     meta = make_positive_meta(ParameterLocation.BODY)
@@ -197,12 +195,10 @@ def test_nested_dict_modification_detected():
     assert case.meta.generation.mode == GenerationMode.NEGATIVE
 
 
-def test_hook_adds_required_field_metadata_updates():
+def test_hook_adds_required_field_metadata_updates(ctx):
     # See GH-3073
-    raw_schema = {
-        "openapi": "3.0.0",
-        "info": {"title": "Test", "version": "1.0.0"},
-        "paths": {
+    schema = ctx.openapi.load_schema(
+        {
             "/locations": {
                 "post": {
                     "requestBody": {
@@ -235,10 +231,8 @@ def test_hook_adds_required_field_metadata_updates():
                     "responses": {"201": {"description": "Created"}},
                 }
             }
-        },
-    }
-
-    schema = schemathesis.openapi.from_dict(raw_schema)
+        }
+    )
     operation = schema["/locations"]["POST"]
 
     meta = make_negative_meta(ParameterLocation.BODY, "address_id", "Required property removed")
@@ -261,11 +255,9 @@ def test_hook_adds_required_field_metadata_updates():
 
 
 @pytest.mark.hypothesis_nested
-def test_before_call_hook_with_negative_cases():
-    raw_schema = {
-        "openapi": "3.0.0",
-        "info": {"title": "Test", "version": "1.0.0"},
-        "paths": {
+def test_before_call_hook_with_negative_cases(ctx):
+    schema = ctx.openapi.load_schema(
+        {
             "/items": {
                 "post": {
                     "requestBody": {
@@ -286,10 +278,8 @@ def test_before_call_hook_with_negative_cases():
                     "responses": {"200": {"description": "OK"}},
                 }
             }
-        },
-    }
-
-    schema = schemathesis.openapi.from_dict(raw_schema)
+        }
+    )
     operation = schema["/items"]["POST"]
 
     @schema.hook
@@ -318,11 +308,9 @@ def test_before_call_hook_with_negative_cases():
 
 
 @pytest.mark.hypothesis_nested
-def test_map_case_hook_with_metadata():
-    raw_schema = {
-        "openapi": "3.0.0",
-        "info": {"title": "Test", "version": "1.0.0"},
-        "paths": {
+def test_map_case_hook_with_metadata(ctx):
+    schema = ctx.openapi.load_schema(
+        {
             "/users/{user_id}": {
                 "get": {
                     "parameters": [
@@ -336,10 +324,8 @@ def test_map_case_hook_with_metadata():
                     "responses": {"200": {"description": "OK"}},
                 }
             }
-        },
-    }
-
-    schema = schemathesis.openapi.from_dict(raw_schema)
+        }
+    )
     operation = schema["/users/{user_id}"]["GET"]
 
     @schema.hook
@@ -360,11 +346,9 @@ def test_map_case_hook_with_metadata():
     test_case()
 
 
-def test_query_parameter_modification_revalidates():
-    raw_schema = {
-        "openapi": "3.0.0",
-        "info": {"title": "Test", "version": "1.0.0"},
-        "paths": {
+def test_query_parameter_modification_revalidates(ctx):
+    schema = ctx.openapi.load_schema(
+        {
             "/users": {
                 "get": {
                     "parameters": [
@@ -377,10 +361,8 @@ def test_query_parameter_modification_revalidates():
                     "responses": {"200": {"description": "OK"}},
                 }
             }
-        },
-    }
-
-    schema = schemathesis.openapi.from_dict(raw_schema)
+        }
+    )
     operation = schema["/users"]["GET"]
 
     meta = make_negative_meta(ParameterLocation.QUERY, "include_deleted", "Invalid type")
@@ -399,11 +381,9 @@ def test_query_parameter_modification_revalidates():
     assert case.meta.components[ParameterLocation.QUERY].mode == GenerationMode.POSITIVE
 
 
-def test_header_case_insensitive_dict_hash():
-    raw_schema = {
-        "openapi": "3.0.0",
-        "info": {"title": "Test", "version": "1.0.0"},
-        "paths": {
+def test_header_case_insensitive_dict_hash(ctx):
+    schema = ctx.openapi.load_schema(
+        {
             "/users": {
                 "get": {
                     "parameters": [
@@ -417,10 +397,8 @@ def test_header_case_insensitive_dict_hash():
                     "responses": {"200": {"description": "OK"}},
                 }
             }
-        },
-    }
-
-    schema = schemathesis.openapi.from_dict(raw_schema)
+        }
+    )
     operation = schema["/users"]["GET"]
 
     meta = make_positive_meta(ParameterLocation.HEADER)
@@ -440,11 +418,9 @@ def test_header_case_insensitive_dict_hash():
     _ = case.meta.generation.mode
 
 
-def test_path_parameter_modification_revalidates():
-    raw_schema = {
-        "openapi": "3.0.0",
-        "info": {"title": "Test", "version": "1.0.0"},
-        "paths": {
+def test_path_parameter_modification_revalidates(ctx):
+    schema = ctx.openapi.load_schema(
+        {
             "/users/{user_id}": {
                 "get": {
                     "parameters": [
@@ -458,10 +434,8 @@ def test_path_parameter_modification_revalidates():
                     "responses": {"200": {"description": "OK"}},
                 }
             }
-        },
-    }
-
-    schema = schemathesis.openapi.from_dict(raw_schema)
+        }
+    )
     operation = schema["/users/{user_id}"]["GET"]
 
     meta = make_negative_meta(ParameterLocation.PATH, "user_id", "Invalid pattern")
@@ -479,11 +453,9 @@ def test_path_parameter_modification_revalidates():
     assert case.meta.generation.mode == GenerationMode.POSITIVE
 
 
-def test_multiple_components_modified_all_revalidate():
-    raw_schema = {
-        "openapi": "3.0.0",
-        "info": {"title": "Test", "version": "1.0.0"},
-        "paths": {
+def test_multiple_components_modified_all_revalidate(ctx):
+    schema = ctx.openapi.load_schema(
+        {
             "/users/{user_id}": {
                 "post": {
                     "parameters": [
@@ -513,10 +485,8 @@ def test_multiple_components_modified_all_revalidate():
                     "responses": {"200": {"description": "OK"}},
                 }
             }
-        },
-    }
-
-    schema = schemathesis.openapi.from_dict(raw_schema)
+        }
+    )
     operation = schema["/users/{user_id}"]["POST"]
 
     meta = CaseMetadata(
@@ -584,7 +554,7 @@ def test_chained_modifications_all_tracked(simple_operation):
 
 
 @pytest.mark.hypothesis_nested
-def test_graphql_schema_ignores_modifications():
+def test_graphql_schema_ignores_modifications(ctx):
     graphql_schema = """
 type User {
   id: ID!
@@ -596,7 +566,7 @@ type Query {
 }
 """
 
-    schema = schemathesis.graphql.from_file(graphql_schema)
+    schema = ctx.graphql.load_sdl(graphql_schema)
     operation = schema["Query"]["user"]
 
     strategy = operation.as_strategy()
@@ -615,11 +585,9 @@ type Query {
     test_case()
 
 
-def test_case_without_metadata_no_crash():
-    raw_schema = {
-        "openapi": "3.0.0",
-        "info": {"title": "Test", "version": "1.0.0"},
-        "paths": {
+def test_case_without_metadata_no_crash(ctx):
+    schema = ctx.openapi.load_schema(
+        {
             "/items": {
                 "post": {
                     "requestBody": {
@@ -640,10 +608,8 @@ def test_case_without_metadata_no_crash():
                     "responses": {"200": {"description": "OK"}},
                 }
             }
-        },
-    }
-
-    schema = schemathesis.openapi.from_dict(raw_schema)
+        }
+    )
     operation = schema["/items"]["POST"]
 
     # Create case without metadata (as users would do)
@@ -667,7 +633,7 @@ def test_revalidation_with_openapi_30_boolean_exclusive_minimum(ctx):
     # OpenAPI 3.0 allows `exclusiveMinimum: true` (boolean form alongside `minimum`).
     # Revalidation must accept such schemas using the OpenAPI-3.0 validator class
     # rather than a newer JSON Schema draft that requires a numeric form.
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -694,7 +660,6 @@ def test_revalidation_with_openapi_30_boolean_exclusive_minimum(ctx):
         }
     )
 
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/items"]["POST"]
 
     meta = make_positive_meta(ParameterLocation.BODY)
@@ -711,3 +676,36 @@ def test_revalidation_with_openapi_30_boolean_exclusive_minimum(ctx):
     case.body = {"Pitch": 10}
 
     assert case.meta.components[ParameterLocation.BODY].mode == GenerationMode.POSITIVE
+
+
+def test_case_metadata_round_trip_preserves_fuzzing_mutations():
+    # xdist controller-side recorders rebuild metadata via from_dict; without
+    # serializing `mutations`, structured mutation records are lost in parallel runs.
+    mutation = Mutation(
+        path=("user", "email"),
+        schema_pointer="/properties/user/properties/email",
+        channel=MutationChannel.VALUE,
+        operator=OperatorKind.VALUE_VIOLATOR,
+        keywords=("format:email",),
+        parameter="email",
+        original_value="user@example.com",
+        new_value="useratexample.com",
+    )
+    meta = CaseMetadata(
+        generation=GenerationInfo(time=0.0, mode=GenerationMode.NEGATIVE),
+        components={ParameterLocation.BODY: ComponentInfo(mode=GenerationMode.NEGATIVE)},
+        phase=PhaseInfo(
+            name=TestPhase.FUZZING,
+            data=FuzzingPhaseData(
+                description="Violates `format:email`",
+                parameter="email",
+                parameter_location=ParameterLocation.BODY,
+                location="/properties/user/properties/email",
+                mutations=(mutation,),
+            ),
+        ),
+    )
+
+    restored = CaseMetadata.from_dict(meta.to_dict())
+
+    assert restored.phase.data.mutations == (mutation,)

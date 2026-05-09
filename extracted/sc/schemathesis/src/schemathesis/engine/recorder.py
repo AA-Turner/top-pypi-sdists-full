@@ -153,6 +153,31 @@ class ScenarioRecorder:
             return None
         return interaction.response
 
+    def iter_chain_cases(self, *, case_id: str, related_case_ids: tuple[str, ...] = ()) -> Iterator[Case]:
+        """Iterate over cases needed to reproduce a failure, in execution order.
+
+        Yields the failing case's parent chain plus any explicitly-referenced cases
+        (e.g. a sibling DELETE for `use_after_free`) and their ancestors.
+        """
+        interesting: set[str] = set()
+
+        def walk(start_id: str) -> None:
+            current: str | None = start_id
+            while current is not None and current not in interesting:
+                node = self.cases.get(current)
+                if node is None:
+                    return
+                interesting.add(current)
+                current = node.parent_id
+
+        walk(case_id)
+        for related_id in related_case_ids:
+            walk(related_id)
+
+        for case_id, node in self.cases.items():
+            if case_id in interesting:
+                yield node.value
+
 
 @dataclass
 class CaseNode:
@@ -161,7 +186,7 @@ class CaseNode:
     value: Case
     parent_id: str | None
     # Transition may be absent if `parent_id` is present for cases when a case is derived inside a check
-    # and outside of the implemented transition logic (e.g. Open API links)
+    # and outside of the implemented transition logic (e.g. spec-specific stateful transitions)
     transition: Transition | None
     is_transition_applied: bool
 

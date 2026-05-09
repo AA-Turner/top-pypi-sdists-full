@@ -6036,6 +6036,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSMARKETPLACE_DISCOVERY_FULL_ACCESS = "AWSMARKETPLACE_DISCOVERY_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

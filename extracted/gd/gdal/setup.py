@@ -18,7 +18,7 @@ from setuptools import setup
 from setuptools import find_packages
 from setuptools import Extension
 
-version = '3.12.4'
+version = '3.13.0'
 
 # If CXX is defined in the environment, it will be used to link the .so
 # but setuptools will be confused if it is made of several words like 'ccache g++'
@@ -52,7 +52,7 @@ if is_standalone_build:
     include_dirs = []
     library_dirs = []
 else:
-    include_dirs = ['/home/runner/work/gdal/gdal/python_pkgs/port', '/home/runner/work/gdal/gdal/port', '/home/runner/work/gdal/gdal/python_pkgs/gcore', '/home/runner/work/gdal/gdal/gcore', '/home/runner/work/gdal/gdal/alg', '/home/runner/work/gdal/gdal/ogr/', '/home/runner/work/gdal/gdal/ogr/ogrsf_frmts', '/home/runner/work/gdal/gdal/gnm', '/home/runner/work/gdal/gdal/apps']
+    include_dirs = ['/home/runner/work/gdal/gdal/python_pkgs/port', '/home/runner/work/gdal/gdal/port', '/home/runner/work/gdal/gdal/python_pkgs/gcore', '/home/runner/work/gdal/gdal/gcore',  '/home/runner/work/gdal/gdal/gcore/multidim', '/home/runner/work/gdal/gdal/alg', '/home/runner/work/gdal/gdal/ogr/', '/home/runner/work/gdal/gdal/ogr/ogrsf_frmts', '/home/runner/work/gdal/gdal/gnm', '/home/runner/work/gdal/gdal/apps']
     library_dirs = ['/home/runner/work/gdal/gdal/python_pkgs']
 libraries = ['gdal']
 

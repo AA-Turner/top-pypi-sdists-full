@@ -67,7 +67,12 @@ from deepeval.tracing.utils import (
     validate_sampling_rate,
 )
 from deepeval.utils import dataclass_to_dict
-from deepeval.tracing.context import current_span_context, current_trace_context
+from deepeval.tracing.context import (
+    apply_pending_to_span,
+    current_span_context,
+    current_trace_context,
+    pop_pending_for,
+)
 from deepeval.tracing.types import TestCaseMetricPair
 from deepeval.tracing.api import PromptApi
 from deepeval.tracing.trace_test_manager import trace_testing_manager
@@ -414,11 +419,41 @@ class TraceManager:
                     span.parent_uuid = None
                     trace.root_spans.remove(parent_span)
                     trace.root_spans.append(span)
+                    self._reparent_orphan_roots(trace, span)
                     return
 
                 parent_span.children.append(span)
             else:
                 trace.root_spans.append(span)
+
+        # Adopt any already-rooted spans whose ``parent_uuid`` matches this
+        # span. Without this step, the OTel-via-SimpleSpanProcessor flow
+        # produces sibling roots when a child's ``on_end`` lands at the
+        # exporter BEFORE its parent's: the exporter calls add_span_to_trace
+        # for the child first, finds no parent in ``active_spans``, and parks
+        # the child in ``root_spans``. When the parent finally arrives we
+        # need to re-knit the tree, otherwise the trace ships with multiple
+        # logical roots and downstream walkers (e.g. the evals_iterator DFS
+        # which only visits ``root_spans[0]``) silently drop subtrees.
+        self._reparent_orphan_roots(trace, span)
+
+    @staticmethod
+    def _reparent_orphan_roots(trace: Trace, parent: BaseSpan) -> None:
+        """Move root_spans whose ``parent_uuid == parent.uuid`` under
+        ``parent`` and remove them from ``trace.root_spans``.
+
+        Mutates ``trace.root_spans`` and ``parent.children`` in place. No-op
+        if no orphan roots match. Iterates a snapshot of ``root_spans`` so we
+        can safely remove items as we go.
+        """
+        if not trace.root_spans:
+            return
+        for orphan in list(trace.root_spans):
+            if orphan is parent:
+                continue
+            if orphan.parent_uuid == parent.uuid:
+                trace.root_spans.remove(orphan)
+                parent.children.append(orphan)
 
     def get_trace_by_uuid(self, trace_uuid: str) -> Optional[Trace]:
         """Get a trace by its UUID."""
@@ -865,6 +900,7 @@ class TraceManager:
             output=output_data,
             metadata=span.metadata,
             error=span.error,
+            integration=span.integration,
             metricCollection=span.metric_collection,
             metricsData=(
                 [create_metric_data(metric) for metric in span.metrics]
@@ -890,6 +926,7 @@ class TraceManager:
             api_span.chunk_size = span.chunk_size
         elif isinstance(span, LlmSpan):
             api_span.model = span.model
+            api_span.provider = span.provider
             # api_span.prompt = PromptApi(alias=alias, version=version, hash=hash) # Legacy won't be using anymore
             api_span.cost_per_input_token = span.cost_per_input_token
             api_span.cost_per_output_token = span.cost_per_output_token
@@ -992,6 +1029,16 @@ class Observer:
 
         # Now create the span instance with the correct trace_uuid and parent_uuid
         span_instance = self.create_span_instance()
+
+        # Apply any ``next_*_span(...)`` defaults the user staged before
+        # we push the span into context, so ``update_current_span(...)``
+        # and downstream readers see them as the baseline. Mirrors what
+        # ``SpanInterceptor.on_start`` does for the OTel path; without
+        # this the native ``@observe`` path silently drops staged
+        # ``metrics``/``available_tools``/etc.
+        pending = pop_pending_for(self.span_type)
+        if pending:
+            apply_pending_to_span(span_instance, pending)
 
         # stash call arguments so they are available during the span lifetime
         setattr(span_instance, "_function_kwargs", self.function_kwargs)

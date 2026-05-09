@@ -1,9 +1,0 @@
-name: Hisense Product Information
-description: Loading Hisense Product Info
-steps:
-  - LangchainLoader:
-      path: "/home/ubuntu/symbits/hisense/files/training"
-      source_type: "Product-Knowledge"
-      extensions: ['.docx']
-      loader: MSWordLoader
-      chunk_size: 2048

@@ -695,11 +695,13 @@ def register_nodes(nodes_package: str = "nodes") -> tuple:
     isolation_envs = {}  # {resolved_dir: env_config}
     config_files = list(pkg_dir.rglob("comfy-env.toml"))
 
-    try:
-        import folder_paths
-        comfyui_base = folder_paths.base_path
-    except ImportError:
-        comfyui_base = None
+    from ..environment.cache import find_comfyui_source_dir
+    comfyui_base = find_comfyui_source_dir(pkg_dir)
+    if comfyui_base:
+        comfyui_base = str(comfyui_base)
+        _log(f"[comfy-env] ComfyUI source dir: {comfyui_base}")
+    else:
+        _log("[comfy-env] ComfyUI source dir not found")
 
     for cf in config_files:
         if cf.name == "comfy-env-root.toml":
@@ -723,6 +725,14 @@ def register_nodes(nodes_package: str = "nodes") -> tuple:
             _log(f"[comfy-env] Failed to parse {cf}: {e}")
         if comfyui_base:
             env_vars["COMFYUI_BASE"] = str(comfyui_base)
+        # On Desktop app, folder_paths needs the user data dir for input/output/models
+        try:
+            import folder_paths
+            user_data = folder_paths.base_path
+            if user_data and str(user_data) != str(comfyui_base):
+                env_vars["COMFYUI_USER_DIR"] = str(user_data)
+        except ImportError:
+            pass
 
         package_root = pkg_dir
         isolation_envs[cf.parent.resolve()] = {

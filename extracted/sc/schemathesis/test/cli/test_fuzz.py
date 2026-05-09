@@ -33,62 +33,34 @@ class _RaisingEngine:
         raise RuntimeError("internal error")
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_fuzz_basic(cli, ctx, app_runner, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-
-    @app.route("/users")
-    def users():
-        return jsonify([])
-
-    port = app_runner.run_flask_app(app)
-    assert_cli_snapshot(cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2"), snapshot_cli)
+USERS_OK_PATHS = {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}}
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_fuzz_final_line_with_failure(cli, ctx, app_runner, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+def test_fuzz_basic(cli, app_runner, ctx, snapshot_cli):
+    url = _make_fuzz_app(ctx, app_runner)
+    assert_cli_snapshot(cli.main("fuzz", url, "--max-time=3"), snapshot_cli)
 
-    @app.route("/users")
-    def users():
-        return jsonify({}), 500
 
-    port = app_runner.run_flask_app(app)
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_fuzz_final_line_with_failure(cli, app_runner, ctx, snapshot_cli):
+    url = _make_fuzz_failure_app(ctx, app_runner)
+    assert_cli_snapshot(cli.main("fuzz", url, "--max-time=3"), snapshot_cli)
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_fuzz_final_line_with_error(cli, app_runner, ctx, snapshot_cli):
+    url = _make_slow_fuzz_app(ctx, app_runner)
     assert_cli_snapshot(
-        cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2", "--seed=42"), snapshot_cli
-    )
-
-
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_fuzz_final_line_with_error(cli, ctx, app_runner, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-
-    @app.route("/users")
-    def users():
-        time.sleep(0.1)
-        return jsonify([])
-
-    port = app_runner.run_flask_app(app)
-    assert_cli_snapshot(
-        cli.main(
-            "fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2", "--request-timeout=0.001", "--seed=42"
-        ),
+        cli.main("fuzz", url, "--max-time=3", "--request-timeout=0.001"),
         snapshot_cli,
     )
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_fuzz_final_line_empty_test_suite(cli, ctx, app_runner, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-
-    @app.route("/users")
-    def users():
-        return jsonify([])
-
-    port = app_runner.run_flask_app(app)
-    assert_cli_snapshot(
-        cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--include-path=/nonexistent"), snapshot_cli
-    )
+def test_fuzz_final_line_empty_test_suite(cli, app_runner, ctx, snapshot_cli):
+    url = _make_fuzz_app(ctx, app_runner)
+    assert_cli_snapshot(cli.main("fuzz", url, "--include-path=/nonexistent"), snapshot_cli)
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -97,37 +69,42 @@ def test_fuzz_fatal_error_loader(cli, snapshot_cli):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_fuzz_fatal_error_internal(cli, ctx, app_runner, snapshot_cli, monkeypatch):
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-
-    @app.route("/users")
-    def users():
-        return jsonify([])
-
+def test_fuzz_fatal_error_internal(cli, app_runner, ctx, snapshot_cli, monkeypatch):
+    url = _make_fuzz_app(ctx, app_runner)
     monkeypatch.setattr(fuzz_executor, "from_schema", lambda schema: _RaisingEngine())
 
-    port = app_runner.run_flask_app(app)
-    assert_cli_snapshot(cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json"), snapshot_cli)
+    assert_cli_snapshot(cli.main("fuzz", url), snapshot_cli)
 
 
 def _make_fuzz_app(ctx, app_runner):
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    app, _ = ctx.openapi.make_flask_app(USERS_OK_PATHS)
 
     @app.route("/users")
     def users():
         return jsonify([])
 
-    return f"http://127.0.0.1:{app_runner.run_flask_app(app)}/openapi.json"
+    return app_runner.openapi_url(app)
 
 
 def _make_fuzz_failure_app(ctx, app_runner):
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    app, _ = ctx.openapi.make_flask_app(USERS_OK_PATHS)
 
     @app.route("/users")
     def users():
         return jsonify({}), 500
 
-    return f"http://127.0.0.1:{app_runner.run_flask_app(app)}/openapi.json"
+    return app_runner.openapi_url(app)
+
+
+def _make_slow_fuzz_app(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(USERS_OK_PATHS)
+
+    @app.route("/users")
+    def users():
+        time.sleep(0.1)
+        return jsonify([])
+
+    return app_runner.openapi_url(app)
 
 
 def _make_unsatisfiable_fuzz_app(ctx, app_runner):
@@ -151,7 +128,7 @@ def _make_unsatisfiable_fuzz_app(ctx, app_runner):
     def users_post():
         return jsonify({"ok": True})
 
-    return f"http://127.0.0.1:{app_runner.run_flask_app(app)}/openapi.json"
+    return app_runner.openapi_url(app)
 
 
 def _make_fuzz_failure_event(operation, response_factory):
@@ -178,13 +155,11 @@ def _make_fuzz_failure_event(operation, response_factory):
 
 
 def _make_fuzz_multi_operation_event(ctx):
-    schema = schemathesis.openapi.from_dict(
-        ctx.openapi.build_schema(
-            {
-                "/users": {"get": {"responses": {"200": {"description": "OK"}}}},
-                "/orders": {"get": {"responses": {"200": {"description": "OK"}}}},
-            }
-        )
+    schema = ctx.openapi.load_schema(
+        {
+            "/users": {"get": {"responses": {"200": {"description": "OK"}}}},
+            "/orders": {"get": {"responses": {"200": {"description": "OK"}}}},
+        }
     )
     recorder = ScenarioRecorder(label=FUZZ_TESTS_LABEL)
     elapsed_by_label = {"GET /users": 0.2, "GET /orders": 0.3}
@@ -221,7 +196,7 @@ def _make_fuzz_multi_operation_event(ctx):
 def test_fuzz_report_junit(cli, ctx, app_runner, tmp_path):
     url = _make_fuzz_app(ctx, app_runner)
     xml_path = tmp_path / "junit.xml"
-    result = cli.main("fuzz", url, "--max-time=2", f"--report-junit-path={xml_path}")
+    result = cli.main("fuzz", url, "--max-time=3", f"--report-junit-path={xml_path}")
     assert result.exit_code == 0, result.output
     assert xml_path.exists()
     ElementTree.parse(xml_path)
@@ -230,7 +205,7 @@ def test_fuzz_report_junit(cli, ctx, app_runner, tmp_path):
 def test_fuzz_report_junit_uses_operation_labels_for_failures(cli, ctx, app_runner, tmp_path):
     url = _make_fuzz_failure_app(ctx, app_runner)
     xml_path = tmp_path / "junit.xml"
-    result = cli.main("fuzz", url, "--max-time=2", "--seed=42", f"--report-junit-path={xml_path}")
+    result = cli.main("fuzz", url, "--max-time=3", f"--report-junit-path={xml_path}")
     assert result.exit_code == 1, result.output
 
     tree = ElementTree.parse(xml_path)
@@ -243,7 +218,7 @@ def test_fuzz_report_junit_uses_operation_labels_for_failures(cli, ctx, app_runn
 def test_fuzz_report_vcr(cli, ctx, app_runner, tmp_path):
     url = _make_fuzz_app(ctx, app_runner)
     vcr_path = tmp_path / "cassette.yaml"
-    result = cli.main("fuzz", url, "--max-time=2", f"--report-vcr-path={vcr_path}")
+    result = cli.main("fuzz", url, "--max-time=3", f"--report-vcr-path={vcr_path}")
     assert result.exit_code == 0, result.output
     assert vcr_path.exists()
     cassette = yaml.safe_load(vcr_path.read_text())
@@ -253,7 +228,7 @@ def test_fuzz_report_vcr(cli, ctx, app_runner, tmp_path):
 def test_fuzz_report_har(cli, ctx, app_runner, tmp_path):
     url = _make_fuzz_app(ctx, app_runner)
     har_path = tmp_path / "recording.har"
-    result = cli.main("fuzz", url, "--max-time=2", f"--report-har-path={har_path}")
+    result = cli.main("fuzz", url, "--max-time=3", f"--report-har-path={har_path}")
     assert result.exit_code == 0, result.output
     assert har_path.exists()
     har = json.loads(har_path.read_text())
@@ -263,7 +238,7 @@ def test_fuzz_report_har(cli, ctx, app_runner, tmp_path):
 def test_fuzz_report_ndjson(cli, ctx, app_runner, tmp_path):
     url = _make_fuzz_app(ctx, app_runner)
     ndjson_path = tmp_path / "events.ndjson"
-    result = cli.main("fuzz", url, "--max-time=2", f"--report-ndjson-path={ndjson_path}")
+    result = cli.main("fuzz", url, "--max-time=3", f"--report-ndjson-path={ndjson_path}")
     assert result.exit_code == 0, result.output
     assert ndjson_path.exists()
     events = [json.loads(line) for line in ndjson_path.read_text().splitlines() if line]
@@ -273,7 +248,7 @@ def test_fuzz_report_ndjson(cli, ctx, app_runner, tmp_path):
 def test_fuzz_report_allure(cli, ctx, app_runner, tmp_path):
     url = _make_fuzz_app(ctx, app_runner)
     allure_dir = tmp_path / "allure-results"
-    result = cli.main("fuzz", url, "--max-time=2", f"--report-allure-path={allure_dir}")
+    result = cli.main("fuzz", url, "--max-time=3", f"--report-allure-path={allure_dir}")
     assert result.exit_code == 0, result.output
     assert any(allure_dir.glob("*-result.json"))
 
@@ -281,7 +256,7 @@ def test_fuzz_report_allure(cli, ctx, app_runner, tmp_path):
 def test_fuzz_report_allure_uses_operation_labels_for_failures(cli, ctx, app_runner, tmp_path):
     url = _make_fuzz_failure_app(ctx, app_runner)
     allure_dir = tmp_path / "allure-results"
-    result = cli.main("fuzz", url, "--max-time=2", "--seed=42", f"--report-allure-path={allure_dir}")
+    result = cli.main("fuzz", url, "--max-time=3", f"--report-allure-path={allure_dir}")
     assert result.exit_code == 1, result.output
 
     results = [json.loads(f.read_text()) for f in allure_dir.glob("*-result.json")]
@@ -291,9 +266,7 @@ def test_fuzz_report_allure_uses_operation_labels_for_failures(cli, ctx, app_run
 
 
 def test_fuzz_junit_report_does_not_duplicate_old_failures(ctx, response_factory):
-    schema = schemathesis.openapi.from_dict(
-        ctx.openapi.build_schema({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    )
+    schema = ctx.openapi.load_schema(USERS_OK_PATHS)
     operation = schema["/users"]["GET"]
     execution_ctx = FuzzExecutionContext(config=SchemathesisConfig().projects.get_default())
     stream = StringIO()
@@ -365,38 +338,28 @@ def test_fuzz_max_time_from_config(cli, ctx, app_runner, monkeypatch):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_fuzz_custom_handler_error(cli, ctx, app_runner, snapshot_cli):
+def test_fuzz_custom_handler_error(cli, app_runner, ctx, snapshot_cli):
     @schemathesis.cli.handler()
     class BrokenHandler(EventHandler):
         def handle_event(self, run_ctx, event) -> None:
             raise AttributeError("oops")
 
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-
-    @app.route("/users")
-    def users():
-        return jsonify([])
-
-    port = app_runner.run_flask_app(app)
-    assert_cli_snapshot(cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2"), snapshot_cli)
+    url = _make_fuzz_app(ctx, app_runner)
+    assert_cli_snapshot(cli.main("fuzz", url, "--max-time=3"), snapshot_cli)
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_fuzz_custom_handler(cli, ctx, app_runner, snapshot_cli):
+def test_fuzz_custom_handler(cli, app_runner, ctx, snapshot_cli):
     class SummaryHandler(EventHandler):
         def handle_event(self, run_ctx, event):
-            if isinstance(event, EngineFinished):
+            if isinstance(event, schemathesis.cli.LoadingFinished):
+                run_ctx.add_initialization_line("custom: fuzzing initialized")
+            elif isinstance(event, EngineFinished):
                 run_ctx.add_summary_line("custom: fuzzing done")
 
     schemathesis.cli.handler()(SummaryHandler)
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-
-    @app.route("/users")
-    def users():
-        return jsonify([])
-
-    port = app_runner.run_flask_app(app)
-    assert_cli_snapshot(cli.main("fuzz", f"http://127.0.0.1:{port}/openapi.json", "--max-time=2"), snapshot_cli)
+    url = _make_fuzz_app(ctx, app_runner)
+    assert_cli_snapshot(cli.main("fuzz", url, "--max-time=3"), snapshot_cli)
 
 
 def test_fuzz_custom_handler_with_custom_option(ctx, cli, app_runner):
@@ -412,17 +375,12 @@ def test_fuzz_custom_handler_with_custom_option(ctx, cli, app_runner):
             if isinstance(event, EngineFinished):
                 run_ctx.add_summary_line(f"Counter: {self.counter}")
 
-    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    url = _make_fuzz_app(ctx, app_runner)
 
-    @app.route("/users")
-    def users():
-        return jsonify([])
-
-    port = app_runner.run_flask_app(app)
     result = cli.main(
         "fuzz",
-        f"http://127.0.0.1:{port}/openapi.json",
-        "--max-time=2",
+        url,
+        "--max-time=3",
         "--fuzz-counter=42",
     )
 
@@ -431,7 +389,7 @@ def test_fuzz_custom_handler_with_custom_option(ctx, cli, app_runner):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_fuzz_chains_post_with_get_via_link(cli, ctx, app_runner, snapshot_cli):
+def test_fuzz_chains_post_with_get_via_link(cli, app_runner, ctx, snapshot_cli):
     # Server-generated productId means GET path can only match if it comes from POST's response.
     paths = {
         "/products": {
@@ -499,13 +457,11 @@ def test_fuzz_chains_post_with_get_via_link(cli, ctx, app_runner, snapshot_cli):
         # Planted bug: required `name` is null for products that exist.
         return jsonify({"name": None}), 200
 
-    port = app_runner.run_flask_app(app)
     assert_cli_snapshot(
         cli.main(
             "fuzz",
-            f"http://127.0.0.1:{port}/openapi.json",
+            app_runner.openapi_url(app),
             "--max-time=15",
-            "--seed=42",
             "-c",
             "response_schema_conformance",
         ),
@@ -514,7 +470,7 @@ def test_fuzz_chains_post_with_get_via_link(cli, ctx, app_runner, snapshot_cli):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_fuzz_chains_via_request_body_link(cli, ctx, app_runner, snapshot_cli):
+def test_fuzz_chains_via_request_body_link(cli, app_runner, ctx, snapshot_cli):
     # POST /products returns a fixed high-entropy (productId, secret) pair; only when /audit
     # body carries that exact pair does the planted schema violation surface. Random fuzz
     # has no way to guess the pair, so without body-link forwarding the bug is invisible.
@@ -603,13 +559,11 @@ def test_fuzz_chains_via_request_body_link(cli, ctx, app_runner, snapshot_cli):
         # Planted bug: required `name` is null for valid pairs.
         return jsonify({"name": None}), 200
 
-    port = app_runner.run_flask_app(app)
     assert_cli_snapshot(
         cli.main(
             "fuzz",
-            f"http://127.0.0.1:{port}/openapi.json",
+            app_runner.openapi_url(app),
             "--max-time=5",
-            "--seed=42",
             "-c",
             "response_schema_conformance",
         ),
@@ -617,7 +571,7 @@ def test_fuzz_chains_via_request_body_link(cli, ctx, app_runner, snapshot_cli):
     )
 
 
-def test_fuzz_deadline_does_not_flake_strategy(cli, ctx, app_runner):
+def test_fuzz_deadline_does_not_flake_strategy(cli, app_runner, ctx):
     # Time limit tripping mid-scenario must not surface as a Runtime Error.
     paths = {
         "/products": {
@@ -657,12 +611,10 @@ def test_fuzz_deadline_does_not_flake_strategy(cli, ctx, app_runner):
     def get_product(product_id):
         return "", 404
 
-    port = app_runner.run_flask_app(app)
     result = cli.main(
         "fuzz",
-        f"http://127.0.0.1:{port}/openapi.json",
+        app_runner.openapi_url(app),
         "--max-time=5",
-        "--seed=42",
         "-c",
         "not_a_server_error",
     )

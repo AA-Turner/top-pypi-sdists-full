@@ -110,6 +110,27 @@ def test_lazy_init_creates_clients(manager, mock_boto3_clients, mock_internal_ut
     assert manager.workgroup_name == "test_workgroup"
 
 
+def test_lazy_init_without_endpoint_override(mock_internal_utils):
+    """Ensure _lazy_init does NOT pass endpoint_url when no athena override is configured."""
+    with patch("boto3.client") as mock_boto_client:
+        athena_client = MagicMock()
+        sts_client = MagicMock()
+        mock_boto_client.side_effect = lambda service_name, **kwargs: (
+            athena_client if service_name == "athena" else sts_client
+        )
+
+        mgr = AthenaSparkSessionManager(
+            connection_name="test",
+            config=MagicMock(overrides={}),
+        )
+        mgr._lazy_init()
+
+        # Verify endpoint_url was NOT forwarded to the boto3 athena client call
+        call_kwargs = mock_boto_client.call_args_list
+        athena_call = [c for c in call_kwargs if c[0][0] == "athena"][0]
+        assert "endpoint_url" not in athena_call.kwargs
+
+
 @patch("sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager._SparkSession")
 @patch(
     "sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager.CustomChannelBuilder"
@@ -153,7 +174,7 @@ def test_get_user_id_parses_correctly_from_metadata(manager, mock_boto3_clients)
 
     # Mock InternalUtils to return metadata values
     with patch(
-        "sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager.InternalUtils"
+        "sagemaker_studio.utils.spark.session.spark_session_manager.InternalUtils"
     ) as mock_utils:
         mock_utils_instance = mock_utils.return_value
         mock_utils_instance._get_account_id.return_value = "9876543210"
@@ -177,7 +198,7 @@ def test_get_user_id_parses_correctly_from_sts(manager, mock_boto3_clients):
 
     # Mock InternalUtils to return None/empty values to trigger STS fallback
     with patch(
-        "sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager.InternalUtils"
+        "sagemaker_studio.utils.spark.session.spark_session_manager.InternalUtils"
     ) as mock_utils:
         mock_utils_instance = mock_utils.return_value
         mock_utils_instance._get_account_id.return_value = None
@@ -237,3 +258,124 @@ def test_stop_cleans_up(mock_terminate, manager):
     mock_terminate.assert_called_once_with("sess-123")
     assert manager._spark_session is None
     assert manager.athena_session_id is None
+
+
+def test_lazy_init_with_endpoint_url_override(mock_internal_utils):
+    """Ensure _lazy_init passes endpoint_url when athena override is configured."""
+    with patch("boto3.client") as mock_boto_client:
+        athena_client = MagicMock()
+        sts_client = MagicMock()
+        mock_boto_client.side_effect = lambda service_name, **kwargs: (
+            athena_client if service_name == "athena" else sts_client
+        )
+
+        mgr = AthenaSparkSessionManager(
+            connection_name="test",
+            config=MagicMock(
+                overrides={"athena": {"endpoint_url": "https://custom.athena.endpoint"}}
+            ),
+        )
+        mgr._lazy_init()
+
+        # Verify endpoint_url was forwarded to the boto3 client call
+        call_kwargs = mock_boto_client.call_args_list
+        athena_call = [c for c in call_kwargs if c[0][0] == "athena"][0]
+        assert athena_call.kwargs["endpoint_url"] == "https://custom.athena.endpoint"
+
+
+def test_lazy_init_with_connection_id(mock_boto3_clients, mock_internal_utils):
+    """Ensure _lazy_init resolves connection by id when connection_id is provided."""
+    _, mock_project = mock_internal_utils
+    mgr = AthenaSparkSessionManager(connection_id="conn-123")
+    mgr._lazy_init()
+
+    mock_project.return_value.connection.assert_called_once_with(id="conn-123")
+
+
+def test_lazy_init_with_pre_resolved_connection(mock_boto3_clients, mock_internal_utils):
+    """Ensure _lazy_init skips re-fetching when a pre-resolved connection is provided."""
+    _, mock_project = mock_internal_utils
+    pre_resolved = MagicMock()
+    pre_resolved.data.workgroup_name = "pre-resolved-wg"
+
+    mgr = AthenaSparkSessionManager(connection_name="test", connection=pre_resolved)
+    mgr._lazy_init()
+
+    # Project.connection() should NOT be called since connection was pre-resolved
+    mock_project.return_value.connection.assert_not_called()
+    assert mgr.workgroup_name == "pre-resolved-wg"
+
+
+def test_lazy_init_default_connection(mock_boto3_clients, mock_internal_utils):
+    """Ensure _lazy_init resolves default SPARK_CONNECT connection when no name or id."""
+    _, mock_project = mock_internal_utils
+    mgr = AthenaSparkSessionManager()
+    mgr._lazy_init()
+
+    mock_project.return_value.connection.assert_called_once_with(type="SPARK_CONNECT")
+
+
+def test_create_returns_existing_session(manager):
+    """Ensure create() returns existing session without re-creating."""
+    manager._spark_session = "existing_session"
+    assert manager.create() == "existing_session"
+
+
+def test_create_raises_on_failure(manager, mock_boto3_clients, mock_internal_utils):
+    """Ensure create() re-raises exceptions from session creation."""
+    manager._lazy_init = MagicMock(side_effect=RuntimeError("init failed"))
+
+    with pytest.raises(RuntimeError, match="init failed"):
+        manager.create()
+
+
+def test_get_session_id(manager):
+    """Ensure get_session_id returns the stored athena session id."""
+    manager.athena_session_id = "athena-sess-1"
+    assert manager.get_session_id() == "athena-sess-1"
+
+
+def test_get_session_id_none(manager):
+    """Ensure get_session_id returns None when no session exists."""
+    assert manager.get_session_id() is None
+
+
+def test_stop_no_sessions(manager):
+    """Ensure stop() works cleanly when no sessions exist."""
+    manager._spark_session = None
+    manager.athena_session_id = None
+    manager.stop()
+    assert manager._spark_session is None
+    assert manager.athena_session_id is None
+
+
+def test_wait_for_athena_session_timeout(manager, mock_boto3_clients):
+    """Ensure _wait_for_athena_session raises on timeout."""
+    athena_client, _ = mock_boto3_clients
+    athena_client.get_session.return_value = {"Status": {"State": "CREATING"}}
+    manager.athena_client = athena_client
+
+    with pytest.raises(RuntimeError, match="was not ready within"):
+        manager._wait_for_athena_session("sess-timeout", timeout=0.1, poll_interval=0.05)
+
+
+def test_wait_for_athena_session_terminated(manager, mock_boto3_clients):
+    """Ensure _wait_for_athena_session raises on TERMINATED state."""
+    athena_client, _ = mock_boto3_clients
+    athena_client.get_session.return_value = {
+        "Status": {"State": "TERMINATED", "StateChangeReason": "User terminated"},
+    }
+    manager.athena_client = athena_client
+
+    with pytest.raises(RuntimeError, match="User terminated"):
+        manager._wait_for_athena_session("sess-term", timeout=5, poll_interval=0.1)
+
+
+def test_terminate_session_raises_on_error(manager, mock_boto3_clients):
+    """Ensure _terminate_athena_session re-raises exceptions."""
+    athena_client, _ = mock_boto3_clients
+    athena_client.terminate_session.side_effect = Exception("terminate failed")
+    manager.athena_client = athena_client
+
+    with pytest.raises(Exception, match="terminate failed"):
+        manager._terminate_athena_session("sess-err")

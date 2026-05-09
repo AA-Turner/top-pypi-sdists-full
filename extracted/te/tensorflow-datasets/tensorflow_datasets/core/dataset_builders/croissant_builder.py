@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ print(ds['default'][0])
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+import datetime
 import json
 from typing import Any
 
@@ -48,13 +49,16 @@ from tensorflow_datasets.core import dataset_info
 from tensorflow_datasets.core import download
 from tensorflow_datasets.core import split_builder as split_builder_lib
 from tensorflow_datasets.core import splits as splits_lib
+from tensorflow_datasets.core.features import audio_feature
 from tensorflow_datasets.core.features import bounding_boxes
+from tensorflow_datasets.core.features import bounding_boxes_utils as bb_utils
 from tensorflow_datasets.core.features import feature as feature_lib
 from tensorflow_datasets.core.features import features_dict
 from tensorflow_datasets.core.features import image_feature
 from tensorflow_datasets.core.features import sequence_feature
 from tensorflow_datasets.core.features import tensor_feature
 from tensorflow_datasets.core.features import text_feature
+from tensorflow_datasets.core.features import video_feature
 from tensorflow_datasets.core.utils import conversion_utils
 from tensorflow_datasets.core.utils import croissant_utils
 from tensorflow_datasets.core.utils import type_utils
@@ -81,6 +85,7 @@ def array_datatype_converter(
     feature: type_utils.TfdsDType | feature_lib.FeatureConnector | None,
     field: mlc.Field,
     dtype_mapping: Mapping[type_utils.TfdsDType, type_utils.TfdsDType],
+    language: str | None = None,
 ):
   """Includes the given feature in a sequence or tensor feature.
 
@@ -93,6 +98,10 @@ def array_datatype_converter(
     field: The mlc.Field object.
     dtype_mapping: A mapping of dtypes to the corresponding dtypes that will be
       used in TFDS.
+    language: For Croissant jsonld which include multi-lingual descriptions, the
+      language code to use to extract the description to be used in TFDS. If
+      None, it will extract the description in English or the first available
+      language in the dictionary.
 
   Returns:
     A sequence or tensor feature including the inner feature.
@@ -103,17 +112,21 @@ def array_datatype_converter(
   elif enp.lazy.is_np_dtype(field.data_type):
     field_dtype = field.data_type
 
+  description = croissant_utils.extract_localized_string(
+      field.description, language=language, field_name='description'
+  )
+
   if len(field.array_shape_tuple) == 1:
-    return sequence_feature.Sequence(feature, doc=field.description)
+    return sequence_feature.Sequence(feature, doc=description)
   elif (-1 in field.array_shape_tuple) or (field_dtype is None):
     for _ in range(len(field.array_shape_tuple)):
-      feature = sequence_feature.Sequence(feature, doc=field.description)
+      feature = sequence_feature.Sequence(feature, doc=description)
     return feature
   else:
     return tensor_feature.Tensor(
         shape=field.array_shape_tuple,
         dtype=field_dtype,
-        doc=field.description,
+        doc=description,
     )
 
 
@@ -121,6 +134,7 @@ def datatype_converter(
     field: mlc.Field,
     int_dtype: type_utils.TfdsDType = np.int64,
     float_dtype: type_utils.TfdsDType = np.float32,
+    language: str | None = None,
 ):
   """Converts a Croissant field to a TFDS-compatible feature.
 
@@ -129,12 +143,17 @@ def datatype_converter(
     int_dtype: The dtype to use for TFDS integer features. Defaults to np.int64.
     float_dtype: The dtype to use for TFDS float features. Defaults to
       np.float32.
+    language: For Croissant jsonld which include multi-lingual descriptions, the
+      language code to use to extract the description to be used in TFDS. If
+      None, it will extract the description in English or the first available
+      language in the dictionary.
 
   Returns:
-    Converted datatype for TFDS.
+    Converted datatype for TFDS, or None when a Field does not specify a type.
 
   Raises:
-    NotImplementedError
+    NotImplementedError when the feature is not supported yet, or ValueError
+    when a Field is malformed.
   """
   if field.is_enumeration:
     raise NotImplementedError('Not implemented yet.')
@@ -146,45 +165,70 @@ def datatype_converter(
   }
 
   field_data_type = field.data_type
+  description = croissant_utils.extract_localized_string(
+      field.description, language=language, field_name='description'
+  )
 
   if not field_data_type:
-    # Fields with sub fields are of type None
+    # Fields with sub fields are of type None.
     if field.sub_fields:
       feature = features_dict.FeaturesDict(
           {
               subfield.id: datatype_converter(
-                  subfield, int_dtype=int_dtype, float_dtype=float_dtype
+                  subfield,
+                  int_dtype=int_dtype,
+                  float_dtype=float_dtype,
+                  language=language,
               )
               for subfield in field.sub_fields
           },
-          doc=field.description,
+          doc=description,
       )
     else:
       feature = None
   elif field_data_type == bytes:
-    feature = text_feature.Text(doc=field.description)
+    feature = text_feature.Text(doc=description)
   elif field_data_type in dtype_mapping:
     feature = dtype_mapping[field_data_type]
   elif enp.lazy.is_np_dtype(field_data_type):
     feature = field_data_type
-  # We return a text feature for mlc.DataType.DATE features.
-  elif field_data_type == pd.Timestamp:
-    feature = text_feature.Text(doc=field.description)
+  # We return a text feature for date-time features (mlc.DataType.DATE,
+  # mlc.DataType.DATETIME, and mlc.DataType.TIME).
+  elif field_data_type == pd.Timestamp or field_data_type == datetime.time:
+    feature = text_feature.Text(doc=description)
   elif field_data_type == mlc.DataType.IMAGE_OBJECT:
-    feature = image_feature.Image(doc=field.description)
+    feature = image_feature.Image(doc=description)
   elif field_data_type == mlc.DataType.BOUNDING_BOX:
     # TFDS uses REL_YXYX by default, but Hugging Face doesn't enforce a format.
+    if bbox_format := field.source.format:
+      try:
+        bbox_format = bb_utils.BBoxFormat(bbox_format)
+      except ValueError as e:
+        raise ValueError(
+            f'Unsupported bounding box format: {bbox_format}. Currently'
+            ' supported bounding box formats are: '
+            f'{[format.value for format in bb_utils.BBoxFormat]}'
+        ) from e
     feature = bounding_boxes.BBoxFeature(
-        doc=field.description, bbox_format=None
+        doc=description, bbox_format=bbox_format
     )
+  elif field_data_type == mlc.DataType.AUDIO_OBJECT:
+    feature = audio_feature.Audio(
+        doc=description, sample_rate=field.source.sampling_rate
+    )
+  elif field_data_type == mlc.DataType.VIDEO_OBJECT:
+    feature = video_feature.Video(doc=description)
   else:
-    raise ValueError(f'Unknown data type: {field_data_type}.')
+    raise ValueError(
+        f'Unknown data type: {field_data_type} for field {field.id}.'
+    )
 
   if feature and field.is_array:
     feature = array_datatype_converter(
         feature=feature,
         field=field,
         dtype_mapping=dtype_mapping,
+        language=language,
     )
   # If the field is repeated, we return a sequence feature. `field.repeated` is
   # deprecated starting from Croissant 1.1, but we still support it for
@@ -194,7 +238,7 @@ def datatype_converter(
   return feature
 
 
-def _extract_license(license_: Any) -> str | None:
+def _extract_license(license_: Any) -> str:
   """Extracts the full terms of a license as a string.
 
   In case the license is a CreativeWork, we join the name, description and url
@@ -214,12 +258,13 @@ def _extract_license(license_: Any) -> str | None:
     fields = [field for field in possible_fields if field]
     return '[' + ']['.join(fields) + ']'
   raise ValueError(
-      f'license_ should be mlc.CreativeWork | str. Got {type(license_)}'
+      'license_ should be mlc.CreativeWork | str. Got'
+      f' {type(license_)}: {license_}.'
   )
 
 
 def _get_license(metadata: Any) -> str | None:
-  """Gets the license from the metadata."""
+  """Gets the license from the metadata (if any) else returns None."""
   if not isinstance(metadata, mlc.Metadata):
     raise ValueError(f'metadata should be mlc.Metadata. Got {type(metadata)}')
   licenses = metadata.license

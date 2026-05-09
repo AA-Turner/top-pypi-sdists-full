@@ -48,13 +48,24 @@ class PyFuncModel(CompiledModel):
     def with_transform_adapt(self, **kwargs):
         return dataclasses.replace(self, _transform_adapt_args=kwargs)
 
-    def _make_sampler(self, settings, init_mean, cores, progress_type, store):
+    def _make_sampler(
+        self,
+        settings,
+        init_mean,
+        cores,
+        progress_type,
+        extra_callback,
+        extra_callback_rate,
+        store,
+    ):
         model = self._make_model(init_mean)
         return _lib.PySampler.from_pyfunc(
             settings,
             cores,
             model,
             progress_type,
+            extra_callback,
+            extra_callback_rate,
             store,
         )
 
@@ -108,6 +119,7 @@ def from_pyfunc(
     make_initial_point_fn: Callable[[SeedType], np.ndarray] | None = None,
     make_transform_adapter=None,
     raw_logp_fn=None,
+    reparameterized_names=None,
 ):
     if coords is None:
         coords = {}
@@ -139,4 +151,5 @@ def from_pyfunc(
         _variables=variables,
         _shared_data=shared_data,
         _raw_logp_fn=raw_logp_fn,
+        reparameterized_names=reparameterized_names,
     )

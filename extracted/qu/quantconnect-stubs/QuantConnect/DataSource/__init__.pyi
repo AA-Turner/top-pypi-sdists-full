@@ -1466,8 +1466,117 @@ class QuiverLobbyingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollect
         ...
 
 
-class QuiverQuantCongressUniverse(QuantConnect.DataSource.QuiverCongress):
+class QuiverQuantCongressUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
     """Universe Selection helper class for QuiverQuant Congress dataset"""
+
+    @property
+    def record_date(self) -> datetime.datetime:
+        """The date the transaction was recorded by QuiverQuant. Value will always exist."""
+        ...
+
+    @record_date.setter
+    def record_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def updated_at(self) -> datetime.datetime:
+        """The date the recorded transaction was updated by QuiverQuant. Alias for EndTime."""
+        ...
+
+    @property
+    def report_date(self) -> typing.Optional[datetime.datetime]:
+        """The date the transaction was reported. Value will always exist."""
+        ...
+
+    @report_date.setter
+    def report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def transaction_date(self) -> datetime.datetime:
+        """The date the transaction took place"""
+        ...
+
+    @transaction_date.setter
+    def transaction_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def representative(self) -> str:
+        """The Representative making the transaction"""
+        ...
+
+    @representative.setter
+    def representative(self, value: str) -> None:
+        ...
+
+    @property
+    def transaction(self) -> QuantConnect.Orders.OrderDirection:
+        """The type of transaction"""
+        ...
+
+    @transaction.setter
+    def transaction(self, value: QuantConnect.Orders.OrderDirection) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """The amount of the transaction (in USD). The Representative can report a range (see maximum_amount)."""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maximum_amount(self) -> typing.Optional[float]:
+        """The maximum amount of the transaction (in USD). The Representative can report a range (see amount)."""
+        ...
+
+    @maximum_amount.setter
+    def maximum_amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def house(self) -> QuantConnect.DataSource.Congress:
+        """The Chamber of Congress that the trader belongs to"""
+        ...
+
+    @house.setter
+    def house(self, value: QuantConnect.DataSource.Congress) -> None:
+        ...
+
+    @property
+    def party(self) -> QuantConnect.DataSource.Party:
+        """The political party that the trader belongs to"""
+        ...
+
+    @party.setter
+    def party(self, value: QuantConnect.DataSource.Party) -> None:
+        ...
+
+    @property
+    def district(self) -> str:
+        """The district that the trader belongs to (null or empty for Senators)"""
+        ...
+
+    @district.setter
+    def district(self, value: str) -> None:
+        ...
+
+    @property
+    def state(self) -> str:
+        """The state that the trader belongs to"""
+        ...
+
+    @state.setter
+    def state(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
@@ -1475,6 +1584,18 @@ class QuiverQuantCongressUniverse(QuantConnect.DataSource.QuiverCongress):
         
         :returns: A clone of the object.
         """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -1485,6 +1606,15 @@ class QuiverQuantCongressUniverse(QuantConnect.DataSource.QuiverCongress):
         :param date: Date of this source file
         :param is_live_mode: true if we're in live mode, false for backtesting mode
         :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
         """
         ...
 
@@ -1500,12 +1630,8 @@ class QuiverQuantCongressUniverse(QuantConnect.DataSource.QuiverCongress):
         """
         ...
 
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
         ...
 
     def to_string(self) -> str:

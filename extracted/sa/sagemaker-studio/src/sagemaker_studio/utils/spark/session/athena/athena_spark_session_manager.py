@@ -17,29 +17,14 @@ from pyspark.sql.connect.session import SparkSession as _SparkSession
 from sagemaker_studio.project import ClientConfig, Project
 from sagemaker_studio.utils._internal import InternalUtils
 from sagemaker_studio.utils.loggerutils import sync_with_metrics
+from sagemaker_studio.utils.spark.internal_spark_utils import generate_spark_configs
 from sagemaker_studio.utils.spark.session.athena.interceptors import CustomChannelBuilder
-from sagemaker_studio.utils.spark.session.athena.internal_spark_utils import generate_spark_configs
+from sagemaker_studio.utils.spark.session.constants import SPARK_CONNECT_LOG_FILE
 from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSessionManager
 
-logger = logging.getLogger("SparkConnect")
-log_file = "/var/log/studio/data-notebook-kernel-server/athena_spark_session.log"
-
-try:
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    )
-    logger.addHandler(file_handler)
-    logger.setLevel(logging.INFO)
-except (PermissionError, OSError) as e:
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    )
-    logger.addHandler(console_handler)
-    logger.setLevel(logging.INFO)
-    logger.warning(f"Failed to create log file {log_file}: {e}.")
+_parent_logger = logging.getLogger("SparkConnect")
+SparkSessionManager.setup_logger(_parent_logger, SPARK_CONNECT_LOG_FILE)
+logger = logging.getLogger("SparkConnect.Athena")
 
 
 class AthenaSparkSessionManager(SparkSessionManager):
@@ -50,15 +35,32 @@ class AthenaSparkSessionManager(SparkSessionManager):
     SparkSession that can be used directly for Spark operations.
     """
 
-    def __init__(self, connection_name, config: ClientConfig = ClientConfig()):
+    def __init__(
+        self,
+        connection_name=None,
+        connection_id=None,
+        config: ClientConfig = ClientConfig(),
+        spark_conf=None,
+        *,
+        connection=None,
+    ):
         """
         Initialize the Athena Spark session.
 
         Args:
-            workgroup_name (str): The Athena workgroup name to use for the session.
+            connection_name (str, optional): Connection name for lookup by name.
+            connection_id (str, optional): Connection ID resolved from notebook metadata.
+                If both are None, falls back to the default SPARK_CONNECT connection.
+            config (ClientConfig, optional): Client configuration overrides.
+            spark_conf (dict, optional): Additional Spark configuration properties.
+                These will be merged with the default configs, with user values taking precedence.
+            connection: Pre-resolved Connection object (from connection_resolver routing). Keyword-only.
         """
+        self._connection = connection
         self.connection_name = connection_name
+        self.connection_id = connection_id
         self.config = config
+        self.spark_conf = spark_conf
         self.workgroup_name = None
         self.athena_session_id = None
         self._spark_session = None
@@ -84,11 +86,22 @@ class AthenaSparkSessionManager(SparkSessionManager):
         self.sts_client = boto3.client("sts", region_name=region)
         self.project = Project()
 
-        if self.connection_name:
-            connection = self.project.connection(self.connection_name)
-        else:
-            connection = self.project.connection(type="SPARK_CONNECT")
+        # Use pre-resolved connection if available, otherwise look up
+        connection = self._connection
+        if connection is None:
+            if self.connection_id:
+                logger.info(f"Resolving connection by id={self.connection_id}")
+                connection = self.project.connection(id=self.connection_id)
+            elif self.connection_name:
+                logger.info(f"Resolving connection by name={self.connection_name}")
+                connection = self.project.connection(self.connection_name)
+            else:
+                logger.info("Resolving default SPARK_CONNECT connection")
+                connection = self.project.connection(type="SPARK_CONNECT")
         self.workgroup_name = connection.data.workgroup_name
+        logger.info(
+            f"Resolved workgroup_name={self.workgroup_name} for connection type={getattr(connection, 'type', 'unknown')}"
+        )
         logger.debug("Successfully created Athena client")
 
     def create(self):
@@ -170,12 +183,13 @@ class AthenaSparkSessionManager(SparkSessionManager):
             # 1. Start Athena session
             logger.debug(f"Creating Athena Spark session for workgroup: {athena_wg_name}")
             user_id, account_id = self._get_user_id_account_id()
+            spark_properties = generate_spark_configs(account_id)
+            if self.spark_conf:
+                spark_properties.update(self.spark_conf)
             start_session_response = self.athena_client.start_session(
                 WorkGroup=athena_wg_name,
                 EngineConfiguration={
-                    "Classifications": [
-                        {"Name": "spark-defaults", "Properties": generate_spark_configs(account_id)}
-                    ]
+                    "Classifications": [{"Name": "spark-defaults", "Properties": spark_properties}]
                 },
                 SessionIdleTimeoutInMinutes=15,
                 ClientRequestToken=client_token,
@@ -214,24 +228,6 @@ class AthenaSparkSessionManager(SparkSessionManager):
             endpoint_url = endpoint_url.replace("https://", "sc://", 1)
 
         return f"{endpoint_url}:443/;use_ssl=true;x-aws-proxy-port=15002;x-aws-force-h2=true;x-aws-proxy-auth={auth_token}"
-
-    def _get_user_id_account_id(self):
-        _utils = InternalUtils()
-        account_id = _utils._get_account_id()
-        user_id = _utils._get_user_id()
-
-        if not account_id or not user_id:
-            response = self.sts_client.get_caller_identity()
-            account_id = response["Account"]
-            user_id = response["UserId"]
-            tokens = user_id.split(":")
-            if len(tokens) >= 2:
-                return tokens[1], account_id
-            else:
-                # this should never happen unless sts breaks!
-                raise Exception("Invalid user id!")
-
-        return user_id, account_id
 
     def _wait_for_athena_session(self, session_id, timeout=120, poll_interval=2):
         """

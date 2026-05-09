@@ -8,9 +8,10 @@ import jsonschema_rs
 
 from schemathesis.core.errors import InfiniteRecursiveReference
 from schemathesis.core.jsonschema.bundler import BundleError
+from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import get_type
 from schemathesis.specs.openapi.adapter.parameters import resource_name_from_ref
-from schemathesis.specs.openapi.adapter.references import maybe_resolve
+from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
 from schemathesis.specs.openapi.stateful.dependencies import naming
 from schemathesis.specs.openapi.stateful.dependencies.models import (
     CanonicalizationCache,
@@ -32,7 +33,6 @@ from schemathesis.specs.openapi.stateful.dependencies.schemas import (
 )
 
 if TYPE_CHECKING:
-    from schemathesis.core.compat import RefResolver
     from schemathesis.schemas import APIOperation
     from schemathesis.specs.openapi.adapter.responses import OpenApiResponse
 
@@ -48,6 +48,8 @@ class ExtractedResource:
     cardinality: Cardinality
     # True when response is a primitive value (string/number) that IS the identifier
     is_primitive_identifier: bool = False
+    # True when the response is a map keyed by identifier (`{<id>: <object>, ...}`)
+    extract_object_keys: bool = False
 
 
 def extract_resources_from_responses(
@@ -55,7 +57,7 @@ def extract_resources_from_responses(
     operation: APIOperation,
     resources: ResourceMap,
     updated_resources: set[str],
-    resolver: RefResolver,
+    resolver: Resolver,
     canonicalization_cache: CanonicalizationCache,
 ) -> Iterator[tuple[OpenApiResponse, ExtractedResource]]:
     """Extract resource definitions from operation's successful responses.
@@ -84,7 +86,7 @@ def iter_resources_from_response(
     response: OpenApiResponse,
     resources: ResourceMap,
     updated_resources: set[str],
-    resolver: RefResolver,
+    resolver: Resolver,
     canonicalization_cache: CanonicalizationCache,
 ) -> Iterator[ExtractedResource]:
     schema = response.get_raw_schema()
@@ -118,107 +120,144 @@ def iter_resources_from_response(
                 yield primitive_array
                 return None
 
-    # Push the response's scope so all nested $refs are resolved relative to the response's location
-    resolver.push_scope(response.scope)
-    try:
-        parent_ref = schema.get("$ref")
-        _, resolved = maybe_resolve(schema, resolver, "")
+    # Handle map-by-id GET responses: `{type: object, additionalProperties: <object>}` with no
+    # explicit properties. Keys are the identifiers (Kubernetes pod-statuses, TBA team-statuses).
+    if method == "get" and schema_type == "object" and not schema.get("properties"):
+        additional = schema.get("additionalProperties")
+        if isinstance(additional, dict) and (additional.get("type") == "object" or "$ref" in additional):
+            map_resource = _resource_from_map_by_id(path=path, resources=resources)
+            if map_resource is not None:
+                yield map_resource
+                return None
 
-        # Sometimes data is wrapped in a single wrapper field
-        # Common patterns: {data: {...}}, {result: {...}}, {response: {...}}
-        pointer = None
-        properties = resolved.get("properties", {})
-        if properties and len(properties) == 1:
-            wrapper_field = list(properties)[0]
-            # Check if it's a known wrapper field name
-            common_wrappers = {"data", "result", "response", "payload"}
-            if wrapper_field.lower() in common_wrappers:
-                pointer = f"/{wrapper_field}"
-                resolved = properties[wrapper_field]
+    current_resolver = response.resolver if response.resolver is not None else resolver
+    parent_ref = schema.get("$ref")
+    _, resolved = maybe_resolve_with_resolver(schema, current_resolver)
 
-        resolved = try_unwrap_composition(resolved, resolver)
+    # Sometimes data is wrapped in a single wrapper field
+    # Common patterns: {data: {...}}, {result: {...}}, {response: {...}}
+    pointer = None
+    properties = resolved.get("properties", {})
+    if properties and len(properties) == 1:
+        wrapper_field = list(properties)[0]
+        # Check if it's a known wrapper field name
+        common_wrappers = {"data", "result", "response", "payload"}
+        if wrapper_field.lower() in common_wrappers:
+            pointer = f"/{wrapper_field}"
+            resolved = properties[wrapper_field]
 
-        if "allOf" in resolved:
-            if parent_ref is not None and parent_ref in canonicalization_cache:
-                canonicalized = canonicalization_cache[parent_ref]
-            else:
-                try:
-                    canonicalized = canonicalize(
-                        cast(dict, resolved),
-                        resolver,
-                        nullable_keyword=response.adapter.nullable_keyword,
-                        upgrade_legacy_exclusive_bounds=(
-                            response.adapter.jsonschema_validator_cls is jsonschema_rs.Draft202012Validator
-                        ),
-                    )
-                except (InfiniteRecursiveReference, BundleError):
-                    canonicalized = resolved
-                if parent_ref is not None:
-                    canonicalization_cache[parent_ref] = canonicalized
+    resolved = try_unwrap_composition(resolved, current_resolver)
+
+    if "allOf" in resolved:
+        if parent_ref is not None and parent_ref in canonicalization_cache:
+            canonicalized = canonicalization_cache[parent_ref]
         else:
-            canonicalized = resolved
+            try:
+                canonicalized = canonicalize(
+                    cast(dict, resolved),
+                    current_resolver,
+                    nullable_keyword=response.adapter.nullable_keyword,
+                    upgrade_legacy_exclusive_bounds=(
+                        response.adapter.jsonschema_validator_cls is jsonschema_rs.Draft202012Validator
+                    ),
+                )
+            except (InfiniteRecursiveReference, BundleError):
+                canonicalized = resolved
+            if parent_ref is not None:
+                canonicalization_cache[parent_ref] = canonicalized
+    else:
+        canonicalized = resolved
 
-        # Detect wrapper pattern and navigate to data
-        unwrapped = unwrap_schema(schema=canonicalized, path=path, parent_ref=parent_ref, resolver=resolver)
+    # Detect wrapper pattern and navigate to data
+    unwrapped = unwrap_schema(schema=canonicalized, path=path, parent_ref=parent_ref, resolver=current_resolver)
 
-        # Recover $ref lost during allOf canonicalization
-        recovered_ref = None
-        if unwrapped.pointer != ROOT_POINTER and "allOf" in resolved:
-            recovered_ref = _recover_ref_from_allof(
-                branches=resolved["allOf"],
-                pointer=unwrapped.pointer,
-                resolver=resolver,
-            )
-
-        # Extract resource and determine cardinality
-        result = _extract_resource_and_cardinality(
-            schema=unwrapped.schema,
-            path=path,
-            resources=resources,
-            updated_resources=updated_resources,
-            resolver=resolver,
-            parent_ref=recovered_ref or unwrapped.ref or parent_ref,
+    # Recover $ref lost during allOf canonicalization
+    recovered_ref = None
+    if unwrapped.pointer != ROOT_POINTER and "allOf" in resolved:
+        recovered_ref = _recover_ref_from_allof(
+            branches=resolved["allOf"],
+            pointer=unwrapped.pointer,
+            resolver=current_resolver,
         )
 
-        if result is not None:
-            resource, cardinality = result
-            if pointer:
-                if unwrapped.pointer != ROOT_POINTER:
-                    pointer += unwrapped.pointer
-            else:
-                pointer = unwrapped.pointer
-            yield ExtractedResource(resource=resource, cardinality=cardinality, pointer=pointer)
-            # Look for sub-resources
-            properties = unwrapped.schema.get("properties")
-            if isinstance(properties, dict):
-                for field, subschema in properties.items():
-                    if isinstance(subschema, dict):
-                        # Check for direct $ref or $ref inside array items
-                        reference = subschema.get("$ref")
-                        if reference is None:
-                            items = subschema.get("items")
-                            if isinstance(items, dict):
-                                reference = items.get("$ref")
-                        if isinstance(reference, str):
-                            result = _extract_resource_and_cardinality(
-                                schema=subschema,
-                                path=path,
-                                resources=resources,
-                                updated_resources=updated_resources,
-                                resolver=resolver,
-                                parent_ref=reference,
+    # Extract resource and determine cardinality
+    result = _extract_resource_and_cardinality(
+        schema=unwrapped.schema,
+        path=path,
+        resources=resources,
+        updated_resources=updated_resources,
+        resolver=current_resolver,
+        parent_ref=recovered_ref or unwrapped.ref or parent_ref,
+    )
+
+    if result is not None:
+        resource, cardinality = result
+        if pointer:
+            if unwrapped.pointer != ROOT_POINTER:
+                pointer += unwrapped.pointer
+        else:
+            pointer = unwrapped.pointer
+        yield ExtractedResource(resource=resource, cardinality=cardinality, pointer=pointer)
+        parent_cardinality = cardinality
+        # Look for sub-resources. When the unwrapped schema is an array (MANY producer),
+        # descend into `items` so we examine the per-element object's properties.
+        sub_search_schema: Mapping[str, Any] = unwrapped.schema
+        if cardinality == Cardinality.MANY:
+            items = sub_search_schema.get("items")
+            if isinstance(items, dict):
+                _, sub_search_schema = maybe_resolve_with_resolver(items, current_resolver)
+        properties = sub_search_schema.get("properties")
+        if isinstance(properties, dict):
+            for field, subschema in properties.items():
+                if isinstance(subschema, dict):
+                    # Check for direct $ref or $ref inside array items
+                    reference = subschema.get("$ref")
+                    if reference is None:
+                        items = subschema.get("items")
+                        if isinstance(items, dict):
+                            reference = items.get("$ref")
+                    if isinstance(reference, str):
+                        sub_result = _extract_resource_and_cardinality(
+                            schema=subschema,
+                            path=path,
+                            resources=resources,
+                            updated_resources=updated_resources,
+                            resolver=current_resolver,
+                            parent_ref=reference,
+                        )
+                        if sub_result is not None:
+                            subresource, sub_cardinality = sub_result
+                            subresource_pointer = extend_pointer(pointer, field, parent_cardinality=parent_cardinality)
+                            yield ExtractedResource(
+                                resource=subresource, cardinality=sub_cardinality, pointer=subresource_pointer
                             )
-                            if result is not None:
-                                subresource, cardinality = result
-                                subresource_pointer = extend_pointer(pointer, field, cardinality=cardinality)
-                                yield ExtractedResource(
-                                    resource=subresource, cardinality=cardinality, pointer=subresource_pointer
+                            # When the sub-schema is itself a pagination/list wrapper (e.g. Spring
+                            # `CustomResponse{response: {content: [...]}}`), descend one more level
+                            # so the leaf array of resource items enters the pool, not the envelope.
+                            if sub_cardinality == Cardinality.ONE:
+                                _, resolved_sub = maybe_resolve_with_resolver(subschema, current_resolver)
+                                sub_unwrapped = unwrap_schema(
+                                    schema=resolved_sub, path=path, parent_ref=reference, resolver=current_resolver
                                 )
-    finally:
-        resolver.pop_scope()
+                                if sub_unwrapped.pointer != ROOT_POINTER:
+                                    inner_result = _extract_resource_and_cardinality(
+                                        schema=sub_unwrapped.schema,
+                                        path=path,
+                                        resources=resources,
+                                        updated_resources=updated_resources,
+                                        resolver=current_resolver,
+                                        parent_ref=sub_unwrapped.ref or reference,
+                                    )
+                                    if inner_result is not None:
+                                        inner_resource, inner_cardinality = inner_result
+                                        yield ExtractedResource(
+                                            resource=inner_resource,
+                                            cardinality=inner_cardinality,
+                                            pointer=subresource_pointer + sub_unwrapped.pointer,
+                                        )
 
 
-def _recover_ref_from_allof(*, branches: list[dict], pointer: str, resolver: RefResolver) -> str | None:
+def _recover_ref_from_allof(*, branches: list[dict], pointer: str, resolver: Resolver) -> str | None:
     """Recover original $ref from allOf branches after canonicalization.
 
     Canonicalization inlines all $refs, losing resource name information.
@@ -230,7 +269,7 @@ def _recover_ref_from_allof(*, branches: list[dict], pointer: str, resolver: Ref
 
     # Search each branch for the property
     for branch in branches:
-        _, resolved_branch = maybe_resolve(branch, resolver, "")
+        _, resolved_branch = maybe_resolve_with_resolver(branch, resolver)
         properties = resolved_branch.get("properties", {})
 
         # Check if this branch defines the target property
@@ -278,6 +317,35 @@ def _resource_from_primitive_response(*, path: str, resources: ResourceMap) -> E
     )
 
 
+def _resource_from_map_by_id(*, path: str, resources: ResourceMap) -> ExtractedResource | None:
+    """Handle a `{<id>: <object>}` map response by capturing each key as a resource id.
+
+    The resource is derived from the parent path segment, since the last segment names the
+    sub-collection (`statuses`, `metrics`, ...) rather than the resource type. For example,
+    `GET /teams/statuses` -> `/teams` -> `Team`.
+    """
+    segments = [s for s in path.split("/") if s]
+    if len(segments) < 2:
+        name = from_path(path)
+    else:
+        parent_path = "/" + "/".join(segments[:-1])
+        name = from_path(parent_path) or from_path(path)
+    if name is None:
+        return None
+
+    resource = resources.get(name)
+    if resource is None:
+        resource = ResourceDefinition.inferred_from_parameter(name=name, parameter_name="id")
+        resources[name] = resource
+
+    return ExtractedResource(
+        resource=resource,
+        cardinality=Cardinality.MANY,
+        pointer=ROOT_POINTER,
+        extract_object_keys=True,
+    )
+
+
 def _resource_from_primitive_array(*, path: str, resources: ResourceMap) -> ExtractedResource | None:
     """Handle GET returning a bare array of primitive identifiers (e.g., ["foo", "bar"])."""
     name = from_path(path)
@@ -305,7 +373,7 @@ def _extract_resource_and_cardinality(
     path: str,
     resources: ResourceMap,
     updated_resources: set[str],
-    resolver: RefResolver,
+    resolver: Resolver,
     parent_ref: str | None = None,
 ) -> tuple[ResourceDefinition, Cardinality] | None:
     """Extract resource from schema and determine cardinality."""
@@ -316,7 +384,7 @@ def _extract_resource_and_cardinality(
             return None
 
         # Resolve items if it's a $ref
-        _, resolved_items = maybe_resolve(items, resolver, "")
+        _, resolved_items = maybe_resolve_with_resolver(items, resolver)
 
         # Extract resource from items
         resource = _extract_resource_from_schema(
@@ -356,7 +424,7 @@ def _extract_resource_from_schema(
     path: str,
     resources: ResourceMap,
     updated_resources: set[str],
-    resolver: RefResolver,
+    resolver: Resolver,
     parent_ref: str | None = None,
 ) -> ResourceDefinition | None:
     """Extract resource definition from a schema."""
@@ -376,7 +444,7 @@ def _extract_resource_from_schema(
     resource = resources.get(resource_name)
 
     if resource is None or resource.source < DefinitionSource.SCHEMA_WITH_PROPERTIES:
-        _, resolved = maybe_resolve(schema, resolver, "")
+        _, resolved = maybe_resolve_with_resolver(schema, resolver)
 
         if "type" in resolved and resolved["type"] != "object" and "properties" not in resolved:
             # Skip strings, etc
@@ -388,7 +456,7 @@ def _extract_resource_from_schema(
             types = {}
             for field, subschema in properties.items():
                 if isinstance(subschema, dict):
-                    _, resolved_subschema = maybe_resolve(subschema, resolver, "")
+                    _, resolved_subschema = maybe_resolve_with_resolver(subschema, resolver)
                 else:
                     resolved_subschema = subschema
                 types[field] = set(get_type(cast(dict, resolved_subschema)))

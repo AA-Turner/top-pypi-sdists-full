@@ -26,7 +26,7 @@ from config import (
 )
 
 
-VERSION = "1.50.37"
+VERSION = "1.50.40"
 console = Console()
 
 BANNER = """[bold cyan]
@@ -349,18 +349,13 @@ def do_refresh(client, cfg, status_obj, args, agent, silent=False):
             if client.token:
                 ctrl_headers["X-Controller-API-Key"] = client.token
 
-            # Strategy: try 3 sources in priority order
-            #   1. /status → llm_current_model — brain's own tracked ACTIVE
-            #      chat model (set by set_ollama_model). Authoritative.
-            #   2. /api/ps — models resident in VRAM. Multiple can be loaded
-            #      (chat + embed), and order is unstable — so we prefer the
-            #      one matching client.model when available, else any non-embed.
-            #   3. /api/tags — every model ever pulled. Last resort.
+            # Strategy (priority order, matches startup detect):
+            #   1. /api/ps → last_known_chat_model — brain's tracked UI pick.
+            #      This is what the GUI shows. Trust it over resident VRAM.
+            #   2. /api/ps resident — when no last_known (fresh brain).
+            #   3. /api/tags — every pulled model. Last resort.
             running_model = None
 
-            # 1. /api/ps — actual VRAM state. Ground truth. /status's
-            # llm_current_model is a tracked-state cache that goes stale
-            # when the user loads a model outside set_ollama_model.
             ps_chat_models = []
             try:
                 ps_resp = requests.get(
@@ -368,13 +363,17 @@ def do_refresh(client, cfg, status_obj, args, agent, silent=False):
                     headers=headers, timeout=5,
                 )
                 if ps_resp.status_code == 200:
-                    ps_chat_models = [m for m in ps_resp.json().get("models", []) if not _is_embed_model(m.get("name", ""))]
-                    if len(ps_chat_models) == 1:
+                    body = ps_resp.json()
+                    last_known = body.get("last_known_chat_model") or ""
+                    ps_chat_models = [m for m in body.get("models", []) if not _is_embed_model(m.get("name", ""))]
+                    if last_known and not _is_embed_model(last_known):
+                        running_model = last_known
+                    elif len(ps_chat_models) == 1:
                         running_model = ps_chat_models[0].get("name")
             except Exception:
                 pass
 
-            # 2. /status — only to disambiguate when multiple chat models loaded
+            # /status tiebreaker for no-last_known + multi-resident
             if not running_model and len(ps_chat_models) > 1:
                 try:
                     status_resp = requests.get(
@@ -535,14 +534,16 @@ def print_models(client: LLMClient):
     table.add_column("Status", justify="right")
 
     for d in devices:
-        is_active = d["device_id"] == client.device_id
+        is_active = d.get("device_id") == client.device_id
         status = "[bold green]● Active[/bold green]" if is_active else "[dim]Idle[/dim]"
-        model_display = d["llm_model"] or "—"
+        model_display = d.get("llm_model") or "—"
+        vram = d.get("vram_gb")
+        vram_display = f"{vram}GB" if vram else "—"
         table.add_row(
-            str(d["slot"]),
-            f"{d['device_name']}\n[dim]{d['gpu']}[/dim]",
+            str(d.get("slot", "?")),
+            f"{d.get('device_name', 'Unknown')}\n[dim]{d.get('gpu', 'Unknown')}[/dim]",
             model_display,
-            f"{d['vram_gb']}GB",
+            vram_display,
             status,
         )
 
@@ -821,9 +822,13 @@ def main():
             except Exception:
                 pass
         client = LLMClient(brain_url=brain_arg, model=model, token=resolved_token)
+        if args.model:
+            client.model_locked = True
         console.print(f"  [dim]Mode: Direct brain ({brain_arg})[/dim]")
     elif args.token:
         client = LLMClient(token=args.token, model=args.model or "", api_url=args.api_url)
+        if args.model:
+            client.model_locked = True
         console.print(f"  [dim]Mode: PastaWater cloud (CLI token)[/dim]")
     else:
         # --instance N flag to pick a specific instance
@@ -860,9 +865,14 @@ def main():
         if not client:
             console.print("[red]Invalid instance config. Run: pw-agent --setup[/red]")
             sys.exit(1)
+        if args.model:
+            client.model = args.model
+            client.model_locked = True
         mode_label = inst.get("name", inst.get("mode", "unknown"))
         if not quiet:
             console.print(f"  [dim]Instance: {mode_label}[/dim]")
+            if args.model:
+                console.print(f"  [dim]Model override: {args.model} (locked — Ollama will load it on first chat)[/dim]")
 
     # ─── Verify PW token is valid ────────────────────────────────────
     # Prefer client.token (covers --brain by-name resolution where we filled in
@@ -888,7 +898,8 @@ def main():
         console.print("  [dim]Connecting...[/dim]")
 
     # For brain mode, re-detect what model is actually available
-    if client.direct_mode:
+    # (skipped when --model was passed explicitly — user choice wins)
+    if client.direct_mode and not args.model:
         try:
             resp = requests.get(
                 f"{client.brain_url}/api/tags",
@@ -947,48 +958,53 @@ def main():
     # in quiet/one-shot mode — otherwise pw-agent sends /api/chat with
     # the stale config model name and forces Ollama to swap away from
     # whatever the user actually loaded.
-    if client:
+    # Skipped entirely when --model was passed: user explicitly chose
+    # a model and we want Ollama to swap to it on the first chat call.
+    if client and not args.model:
         try:
             if client.direct_mode:
-                # Detect actual running model: /status → /api/ps → /api/tags.
-                # /status (set by brain's set_ollama_model) is the AUTHORITATIVE
-                # "which chat model is active" value. /api/ps just lists what
-                # happens to be in VRAM and its order is unstable — multiple
-                # chat models can coexist (gemma + qwen) so we can't assume
-                # models[0] is "the" active one.
+                # Detect actual running model. Priority:
+                #   1. /api/ps → last_known_chat_model — brain's tracked UI
+                #      pick. This is what the GUI shows. Trust it over
+                #      whatever happens to be resident in VRAM, because a
+                #      stale prior pw-agent session (or any /api/chat caller)
+                #      can leave a different model in VRAM than the user
+                #      actually wants. The dashboard is source of truth.
+                #   2. /api/ps resident — only when last_known is empty
+                #      (e.g. brain freshly started, never picked a model).
+                #   3. /api/tags fallback — every pulled model.
                 running_model = None
                 ctrl_headers = dict(client.session.headers)
                 if client.token:
                     ctrl_headers["X-Controller-API-Key"] = client.token
 
-                # 1. /api/ps — what's ACTUALLY in VRAM right now. Ground
-                # truth. Don't trust /status's llm_current_model — it's the
-                # brain's last tracked set_ollama_model call which goes
-                # stale when the user loads a model another way.
                 ps_chat_models = []
                 try:
                     ps_resp = client.session.get(f"{client.brain_url}/api/ps", timeout=5)
                     if ps_resp.status_code == 200:
-                        ps_chat_models = [m for m in ps_resp.json().get("models", []) if not _is_embed_model(m.get("name", ""))]
-                        if len(ps_chat_models) == 1:
+                        body = ps_resp.json()
+                        last_known = body.get("last_known_chat_model") or ""
+                        ps_chat_models = [m for m in body.get("models", []) if not _is_embed_model(m.get("name", ""))]
+                        # 1. Brain's tracked UI pick wins (matches GUI display).
+                        if last_known and not _is_embed_model(last_known):
+                            running_model = last_known
+                        # 2. Otherwise fall back to whatever's resident.
+                        elif len(ps_chat_models) == 1:
                             running_model = ps_chat_models[0].get("name")
                 except Exception:
                     pass
 
-                # 2. /status — only used to disambiguate when /api/ps shows
-                # multiple chat models loaded (which one is "active"?).
+                # /status as a tiebreaker for the no-last_known + multi-resident case
                 if not running_model and len(ps_chat_models) > 1:
                     try:
                         sr = client.session.get(f"{client.brain_url}/status", headers=ctrl_headers, timeout=5)
                         if sr.status_code == 200:
                             llm_model = sr.json().get("llm_current_model")
                             if llm_model and not _is_embed_model(llm_model):
-                                # Only trust /status if it points to a model that's actually loaded
                                 if any(m.get("name") == llm_model for m in ps_chat_models):
                                     running_model = llm_model
                     except Exception:
                         pass
-                    # Still nothing matched? Just pick first /api/ps entry
                     if not running_model and ps_chat_models:
                         running_model = ps_chat_models[0].get("name")
 

@@ -1,4 +1,0 @@
-name: unknown_component
-steps:
-  - DoesNotExist:
-      foo: bar

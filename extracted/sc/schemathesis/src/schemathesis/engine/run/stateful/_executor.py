@@ -8,12 +8,14 @@ from warnings import catch_warnings
 
 import hypothesis
 import requests
+from hypothesis import reject
 from hypothesis.control import current_build_context
-from hypothesis.errors import Flaky, Unsatisfiable
+from hypothesis.errors import Flaky, Unsatisfiable, UnsatisfiedAssumption
 from hypothesis.stateful import Rule
 from requests.exceptions import ChunkedEncodingError
 
 from schemathesis.checks import CheckContext, CheckFunction, run_checks
+from schemathesis.core.error_feedback.collector import record_response
 from schemathesis.core.failures import Failure, FailureGroup
 from schemathesis.core.transport import Response
 from schemathesis.engine import Status, events
@@ -22,6 +24,7 @@ from schemathesis.engine.context import EngineContext
 from schemathesis.engine.control import ExecutionControl
 from schemathesis.engine.errors import (
     TestingState,
+    UnhealthyAPIError,
     UnrecoverableNetworkError,
     clear_hypothesis_notes,
     is_unrecoverable_network_error,
@@ -40,6 +43,8 @@ from schemathesis.generation.stateful.state_machine import (
     StepOutput,
 )
 from schemathesis.generation.metrics import MetricCollector
+from schemathesis.openapi.checks import UseAfterFree
+from schemathesis.specs.openapi.auth_inference import record_auth_inference
 
 
 def _get_hypothesis_settings_kwargs_override(settings: hypothesis.settings) -> dict[str, Any]:
@@ -77,6 +82,15 @@ def execute_state_machine_loop(
     class _InstrumentedStateMachine(state_machine):  # type: ignore[valid-type,misc]
         """State machine with additional hooks for emitting events."""
 
+        def __init__(self) -> None:
+            super().__init__()
+            # The state machine creates a fresh `TransitionController` per scenario.
+            # Inject the engine's supervisor so transitions targeting operations with
+            # a SKIP verdict (consistently-405 operations detected during the unit
+            # phases) are filtered out of rule preconditions before Hypothesis selects
+            # them.
+            self.control.supervisor = engine.supervisor
+
         def setup(self) -> None:
             scenario_started = events.ScenarioStarted(label=None, phase=PhaseName.STATEFUL_TESTING, suite_id=suite_id)
             self._start_time = time.monotonic()
@@ -104,6 +118,13 @@ def execute_state_machine_loop(
             # The idea is to stop the execution as soon as possible
             if engine.has_to_stop:
                 raise KeyboardInterrupt
+
+            operation_label = input.case.operation.label
+            use_probability = engine.health.use_probability(operation_label)
+            # Always draw — keeps data-tree topology stable across replays as `use_probability` transitions from 1.0 to <1.0.
+            if not current_build_context().data.draw_boolean(p=use_probability):
+                reject()
+
             try:
                 if generation.unique_inputs:
                     cached = ctx.get_step_outcome(input.case)
@@ -113,16 +134,30 @@ def execute_state_machine_loop(
                         return None
                 result = super().step(input)
                 ctx.step_succeeded()
+                engine.health.record_completion(operation_label=operation_label)
+            except UnsatisfiedAssumption:
+                raise
             except FailureGroup as exc:
+                engine.health.record_completion(operation_label=operation_label)
                 if generation.unique_inputs:
                     for failure in exc.exceptions:
                         ctx.store_step_outcome(input.case, failure)
                 ctx.step_failed()
                 raise
             except Exception as exc:
+                # A timeout is per-request: a slow operation shouldn't abort the phase. Connection-level
+                # failures (reset, chunked-encoding break) usually mean the server crashed; surface
+                # those immediately on the first occurrence.
                 if isinstance(
                     exc, requests.ConnectionError | ChunkedEncodingError | requests.Timeout
                 ) and is_unrecoverable_network_error(exc):
+                    now = time.monotonic()
+                    engine.health.record_transport_failure(operation_label=operation_label, now=now)
+                    reason: str | None = None
+                    if isinstance(exc, requests.Timeout):
+                        reason = engine.health.abort_reason(now=now)
+                        if reason is None:
+                            raise UnsatisfiedAssumption("transport failure absorbed by health monitor") from exc
                     transport_kwargs = engine.get_transport_kwargs(operation=input.case.operation)
                     if exc.request is not None:
                         headers = dict(exc.request.headers)
@@ -133,6 +168,7 @@ def execute_state_machine_loop(
                         UnrecoverableNetworkError(
                             error=exc,
                             code_sample=input.case.as_curl_command(headers=headers, verify=verify),
+                            reason=reason,
                         )
                     )
 
@@ -157,6 +193,22 @@ def execute_state_machine_loop(
         ) -> None:
             ctx.collect_metric(case, response)
             ctx.current_response = response
+
+            if engine.error_feedback is not None:
+                record_response(
+                    store=engine.error_feedback,
+                    operation=case.operation,
+                    case=case,
+                    response=response,
+                )
+                record_auth_inference(
+                    store=engine.error_feedback,
+                    recorder=self.recorder,
+                    operation=case.operation,
+                    case=case,
+                    response=response,
+                    transport_kwargs=engine.get_transport_kwargs(operation=case.operation),
+                )
 
             cached = check_context_cache.get_or_create(operation=case.operation, ctx=engine, phase="stateful")
 
@@ -202,6 +254,8 @@ def execute_state_machine_loop(
 
     while True:
         # This loop is running until no new failures are found in a single iteration
+        if engine.error_feedback is not None:
+            engine.error_feedback.checkpoint()
         suite_started = events.SuiteStarted(phase=PhaseName.STATEFUL_TESTING)
         suite_id = suite_started.id
         event_queue.put(suite_started)
@@ -264,9 +318,13 @@ def execute_state_machine_loop(
             # Any other exception is an inner error and the test run should be stopped
             suite_status = Status.ERROR
             code_sample: str | None = None
-            if state.unrecoverable_network_error is not None:
-                exc = state.unrecoverable_network_error.error
-                code_sample = state.unrecoverable_network_error.code_sample
+            stored = state.unrecoverable_network_error
+            if stored is not None:
+                if stored.reason is not None:
+                    exc = UnhealthyAPIError(stored.reason)
+                else:
+                    exc = stored.error
+                code_sample = stored.code_sample
             event_queue.put(
                 events.NonFatalError(
                     error=exc,
@@ -308,13 +366,16 @@ def validate_response(
             return
         failure_data = recorder.find_failure_data(parent_id=case.id, failure=failure)
 
-        # Collect the whole chain of cURL commands
-        commands = []
-        parent = recorder.find_parent(case_id=failure_data.case.id)
-        while parent is not None:
-            commands.append(parent.as_curl_command(headers=failure_data.headers, verify=failure_data.verify))
-            parent = recorder.find_parent(case_id=parent.id)
-        commands.append(failure_data.case.as_curl_command(headers=failure_data.headers, verify=failure_data.verify))
+        # Collect the chain of cURL commands needed to reproduce the failure.
+        # `use_after_free` references the prior DELETE that may live on a sibling branch;
+        # include it so the reproduce isn't missing the step that triggered the check.
+        related_case_ids: tuple[str, ...] = ()
+        if isinstance(failure, UseAfterFree) and failure.deleted_case_id is not None:
+            related_case_ids = (failure.deleted_case_id,)
+        commands = [
+            chain_case.as_curl_command(headers=failure_data.headers, verify=failure_data.verify)
+            for chain_case in recorder.iter_chain_cases(case_id=failure_data.case.id, related_case_ids=related_case_ids)
+        ]
         recorder.record_check_failure(
             name=name,
             case_id=failure_data.case.id,

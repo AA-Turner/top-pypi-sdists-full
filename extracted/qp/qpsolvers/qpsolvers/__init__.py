@@ -36,6 +36,7 @@ from .solvers import (
     pdhcg_solve_qp,
     piqp_solve_qp,
     proxqp_solve_qp,
+    pyqpmad_solve_qp,
     qpalm_solve_qp,
     qpoases_solve_qp,
     qpswift_solve_qp,
@@ -47,7 +48,7 @@ from .solvers import (
 )
 from .utils import print_matrix_vector
 
-__version__ = "4.11.0"
+__version__ = "4.12.0"
 
 __all__ = [
     "ActiveSet",
@@ -76,6 +77,7 @@ __all__ = [
     "pdhcg_solve_qp",
     "piqp_solve_qp",
     "proxqp_solve_qp",
+    "pyqpmad_solve_qp",
     "qpalm_solve_qp",
     "qpoases_solve_qp",
     "qpswift_solve_qp",

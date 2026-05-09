@@ -625,8 +625,10 @@ def cli(
         config["dev_mode"] = tinybird_dev_mode
 
     # Resolve project folder from tinybird.config.json (preferred) or legacy .tinyb cwd.
-    folder = get_project_folder_from_tinybird_config(os.getcwd())
-    if not folder:
+    folder_from_config = get_project_folder_from_tinybird_config(os.getcwd())
+    if folder_from_config:
+        folder = folder_from_config
+    else:
         tinyb_dir = os.path.dirname(config_temp._path)  # Directory containing .tinyb file
         cwd_config = config.get("cwd", ".")
 
@@ -870,9 +872,7 @@ def sql(
         if output == "json":
             echo_json(res, indent=8)
         else:
-            dd = []
-            for d in res["data"]:
-                dd.append(d.values())
+            dd = [d.values() for d in res["data"]]
             echo_safe_format_table(dd, columns=res["meta"])
     else:
         click.echo(FeedbackManager.info_no_rows())

@@ -3,17 +3,29 @@ from queue import Queue
 
 import pytest
 
-import schemathesis
 from schemathesis.engine.context import EngineContext
 from schemathesis.engine.run import Phase, PhaseName
 from schemathesis.engine.run.unit import _create_scheduler
 from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
-from schemathesis.engine.run.unit._ordering import compute_operation_layers
+from schemathesis.specs.openapi._ordering import compute_operation_layers
 from schemathesis.specs.openapi.stateful.dependencies.layers import compute_dependency_layers
 
 
+def _operations(schema):
+    return [operation.ok() for operation in schema.get_all_operations()]
+
+
+def _ops_by_method(operations, method):
+    method = method.upper()
+    return [operation for operation in operations if operation.method.upper() == method]
+
+
+def _path_param(name="id", param_type="integer"):
+    return {"name": name, "in": "path", "required": True, "schema": {"type": param_type}}
+
+
 def test_restful_heuristic_ordering(ctx):
-    schema_dict = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/users": {
                 "post": {"responses": {"201": {"description": "Created"}}},
@@ -21,24 +33,22 @@ def test_restful_heuristic_ordering(ctx):
             },
             "/users/{id}": {
                 "get": {
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "parameters": [_path_param()],
                     "responses": {"200": {"description": "OK"}},
                 },
                 "patch": {
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "parameters": [_path_param()],
                     "responses": {"200": {"description": "OK"}},
                 },
                 "delete": {
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "parameters": [_path_param()],
                     "responses": {"204": {"description": "Deleted"}},
                 },
             },
         }
     )
-    loaded = schemathesis.openapi.from_dict(schema_dict)
 
-    operations = list(loaded.get_all_operations())
-    ops = [op.ok() for op in operations]
+    ops = _operations(loaded)
 
     layers = compute_operation_layers(loaded, ops)
 
@@ -60,16 +70,14 @@ def test_restful_heuristic_ordering(ctx):
 
 
 def test_layered_scheduler_single_layer(ctx):
-    schema_dict = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/health": {"get": {"responses": {"200": {"description": "OK"}}}},
             "/status": {"get": {"responses": {"200": {"description": "OK"}}}},
         }
     )
-    loaded = schemathesis.openapi.from_dict(schema_dict)
 
-    operations = list(loaded.get_all_operations())
-    ops = [op.ok() for op in operations]
+    ops = _operations(loaded)
 
     scheduler = LayeredScheduler([ops])
 
@@ -86,25 +94,23 @@ def test_layered_scheduler_single_layer(ctx):
 
 
 def test_layered_scheduler_multiple_layers(ctx):
-    schema_dict = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/users": {"post": {"responses": {"201": {"description": "Created"}}}},
             "/users/{id}": {
                 "get": {
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "parameters": [_path_param()],
                     "responses": {"200": {"description": "OK"}},
                 }
             },
         }
     )
-    loaded = schemathesis.openapi.from_dict(schema_dict)
 
-    operations = list(loaded.get_all_operations())
-    ops = [op.ok() for op in operations]
+    ops = _operations(loaded)
 
     # Manually create layers: POST first, then GET
-    post_ops = [op for op in ops if op.method.upper() == "POST"]
-    get_ops = [op for op in ops if op.method.upper() == "GET"]
+    post_ops = _ops_by_method(ops, "POST")
+    get_ops = _ops_by_method(ops, "GET")
 
     scheduler = LayeredScheduler([post_ops, get_ops])
 
@@ -124,25 +130,25 @@ def test_layered_scheduler_multiple_layers(ctx):
 
 
 def test_layered_scheduler_multi_worker_coordination(ctx):
-    schema_dict = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/users/{id}": {
                 "get": {
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "parameters": [_path_param()],
                     "responses": {"200": {"description": "OK"}},
                 },
                 "delete": {
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "parameters": [_path_param()],
                     "responses": {"204": {"description": "Deleted"}},
                 },
             },
             "/products/{id}": {
                 "get": {
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "parameters": [_path_param()],
                     "responses": {"200": {"description": "OK"}},
                 },
                 "delete": {
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "parameters": [_path_param()],
                     "responses": {"204": {"description": "Deleted"}},
                 },
             },
@@ -150,14 +156,12 @@ def test_layered_scheduler_multi_worker_coordination(ctx):
             "/products": {"post": {"responses": {"201": {"description": "Created"}}}},
         }
     )
-    loaded = schemathesis.openapi.from_dict(schema_dict)
 
-    operations = list(loaded.get_all_operations())
-    ops = [op.ok() for op in operations]
+    ops = _operations(loaded)
 
-    post_ops = [op for op in ops if op.method.upper() == "POST"]
-    get_ops = [op for op in ops if op.method.upper() == "GET"]
-    delete_ops = [op for op in ops if op.method.upper() == "DELETE"]
+    post_ops = _ops_by_method(ops, "POST")
+    get_ops = _ops_by_method(ops, "GET")
+    delete_ops = _ops_by_method(ops, "DELETE")
 
     scheduler = LayeredScheduler([post_ops, get_ops, delete_ops])
 
@@ -197,7 +201,7 @@ def test_layered_scheduler_multi_worker_coordination(ctx):
 
 
 def test_dependency_layers_restful_order_within_layer(ctx):
-    schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/users": {
                 "get": {
@@ -269,7 +273,6 @@ def test_dependency_layers_restful_order_within_layer(ctx):
             },
         }
     )
-    loaded = schemathesis.openapi.from_dict(schema)
 
     layers = compute_dependency_layers(loaded.analysis.dependency_graph)
 
@@ -282,7 +285,7 @@ def test_dependency_layers_restful_order_within_layer(ctx):
 
 
 def test_dependency_layers_with_links(ctx):
-    schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/users": {
                 "post": {
@@ -307,13 +310,12 @@ def test_dependency_layers_with_links(ctx):
             "/users/{id}": {
                 "get": {
                     "operationId": "getUser",
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "parameters": [_path_param()],
                     "responses": {"200": {"description": "OK"}},
                 }
             },
         }
     )
-    loaded = schemathesis.openapi.from_dict(schema)
 
     # Dependency graph should show POST -> GET relationship
     graph = loaded.analysis.dependency_graph
@@ -482,7 +484,7 @@ def _merge_operations(*ops):
                     },
                 },
             },
-            [{"GET /users"}, {"GET /users/{id}", "PUT /users/{id}"}],
+            [{"GET /users", "GET /users/{id}", "PUT /users/{id}"}],
             id="multi-operation-cycle",
         ),
         pytest.param(
@@ -557,8 +559,7 @@ def _merge_operations(*ops):
     ],
 )
 def test_cycle_detection_inferred_dependencies(ctx, operations, expected_layers):
-    schema = ctx.openapi.build_schema(operations)
-    loaded = schemathesis.openapi.from_dict(schema)
+    loaded = ctx.openapi.load_schema(operations)
 
     graph = loaded.analysis.dependency_graph
     layers = compute_dependency_layers(graph)
@@ -573,7 +574,7 @@ def test_create_scheduler_respects_layer_order_for_single_layer(ctx):
     # Methods listed GET-first to demonstrate that schema-iteration order does
     # not happen to match the desired RESTful order. The scheduler should
     # follow the layer's POST-first sort regardless of dict order.
-    schema_dict = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/products/{productName}": {
                 "get": {
@@ -607,7 +608,6 @@ def test_create_scheduler_respects_layer_order_for_single_layer(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(schema_dict)
 
     engine = EngineContext(schema=loaded, stop_event=threading.Event())
     phase = Phase(name=PhaseName.FUZZING, is_supported=True, is_enabled=True)

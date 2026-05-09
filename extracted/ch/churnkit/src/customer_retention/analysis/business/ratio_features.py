@@ -39,10 +39,35 @@ Contract (Cycle 005, closes G7):
     failure mode this cycle closes).
 
     Returns `(df_with_new_cols, emitted_column_names)`.
+
+PA-6 — Lane-1 registration companion:
+
+    register_event_ratio_features(registry, dataset=..., windows=...,
+        source_notebook=..., rationale=...)
+    register_contract_ratio_features(registry, ...)
+    register_subscription_ratio_features(registry, ...)
+
+    Emits one ``add_silver_ratio(column, numerator, denominator, ...)``
+    per window using the dataset-PREFIXED column names. Codegen's
+    ``apply_derived_ratio`` reads the ``numerator`` / ``denominator``
+    keys to materialise the ratio at silver-transform time; passing
+    them through ``add_silver_ratio`` (rather than ``add_silver_derived``)
+    is what makes the rec actually fire in production — the executor
+    ignores the ``expression`` / ``source_columns`` form.
+
+    Because the production path uses ``apply_derived_ratio``
+    (``numerator / denominator.replace(0, NaN)``) and the in-cell math
+    helper uses a safe-divide ``term.fillna(0) / (start.fillna(0) + 1)``
+    formula, NB06's canonical exploration-vs-production parity comes
+    from running the registered rec through ``apply_gold_transforms``
+    (which calls ``apply_derived_ratio``) — not from the math helper.
+    The math helper remains useful as a one-off NB04/NB06 inspection
+    aid; for full parity, register the rec and let ``apply_gold_transforms``
+    materialise the column.
 """
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Optional, Sequence
 
 from customer_retention.core.compat import DataFrame
 
@@ -140,9 +165,93 @@ def derive_subscription_ratio_features(
     return derive_event_ratio_features(df, dataset="subscription", windows=windows)
 
 
+def register_event_ratio_features(
+    registry: Any,
+    *,
+    dataset: str,
+    windows: Sequence[str] = DEFAULT_RATIO_WINDOWS,
+    source_notebook: str = "06_feature_opportunities",
+    rationale: Optional[str] = None,
+) -> list[str]:
+    """Emit one ``add_silver_ratio`` rec per window for the dataset's
+    terminate-to-start ratio (PA-6).
+
+    Uses ``add_silver_ratio`` (not ``add_silver_derived``) so the rec
+    parameters carry the ``numerator`` / ``denominator`` keys that
+    ``gold_transform_applicator._derived_source_columns`` reads to
+    plumb sources into ``apply_derived_ratio`` at codegen time. The
+    ``add_silver_derived`` path leaves source columns in
+    ``parameters["source_columns"]`` only — the executor's ratio
+    handler does not look at that field, so a rec emitted via
+    ``add_silver_derived`` would be silently no-op'd in production.
+
+    Column names use the dataset-PREFIXED form so the rec round-trips
+    through ``TemporalMerger`` (which prepends ``{dataset}__`` on
+    column collision — the production case for any multi-source
+    merge).
+
+    Returns the list of emitted ratio column names so the caller can
+    print or count them.
+    """
+    if not dataset:
+        raise ValueError("register_event_ratio_features requires a non-empty dataset")
+    if not windows:
+        raise ValueError("register_event_ratio_features requires a non-empty windows sequence")
+    emitted: list[str] = []
+    for w in windows:
+        term = f"{dataset}__event_type_terminate_count_{w}"
+        start = f"{dataset}__event_type_start_count_{w}"
+        ratio = f"{dataset}_terminate_to_start_ratio_{w}"
+        per_window_rationale = rationale or (
+            f"Per-window cancellation gradient for {dataset} at {w}: "
+            f"terminate / start ratio with safe-divide via "
+            f"`apply_derived_ratio` (NaN on zero start, median-imputed "
+            f"downstream). Source columns are per-grid-date event_type "
+            f"counts emitted by the bronze aggregator."
+        )
+        registry.add_silver_ratio(
+            column=ratio,
+            numerator=term,
+            denominator=start,
+            rationale=per_window_rationale,
+            source_notebook=source_notebook,
+        )
+        emitted.append(ratio)
+    return emitted
+
+
+def register_contract_ratio_features(
+    registry: Any,
+    *,
+    windows: Sequence[str] = DEFAULT_RATIO_WINDOWS,
+    source_notebook: str = "06_feature_opportunities",
+    rationale: Optional[str] = None,
+) -> list[str]:
+    return register_event_ratio_features(
+        registry, dataset="contract", windows=windows,
+        source_notebook=source_notebook, rationale=rationale,
+    )
+
+
+def register_subscription_ratio_features(
+    registry: Any,
+    *,
+    windows: Sequence[str] = DEFAULT_RATIO_WINDOWS,
+    source_notebook: str = "06_feature_opportunities",
+    rationale: Optional[str] = None,
+) -> list[str]:
+    return register_event_ratio_features(
+        registry, dataset="subscription", windows=windows,
+        source_notebook=source_notebook, rationale=rationale,
+    )
+
+
 __all__ = [
     "DEFAULT_RATIO_WINDOWS",
     "derive_event_ratio_features",
     "derive_contract_ratio_features",
     "derive_subscription_ratio_features",
+    "register_event_ratio_features",
+    "register_contract_ratio_features",
+    "register_subscription_ratio_features",
 ]

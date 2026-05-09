@@ -4,7 +4,6 @@ import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any, cast
-from urllib.parse import quote_plus, unquote
 
 import jsonschema_rs
 from hypothesis import event, note, reject
@@ -15,6 +14,7 @@ from requests.structures import CaseInsensitiveDict
 from schemathesis.config import GenerationConfig
 from schemathesis.core import NOT_SET, media_types
 from schemathesis.core.control import SkipTest
+from schemathesis.core.error_feedback import ErrorFeedbackStore, ObservationKind
 from schemathesis.core.errors import (
     SERIALIZERS_SUGGESTION_MESSAGE,
     InvalidSchema,
@@ -22,6 +22,7 @@ from schemathesis.core.errors import (
     SerializationNotPossible,
 )
 from schemathesis.core.jsonschema.types import JsonSchema
+from schemathesis.core.media_types import FORM_MEDIA_TYPES, find_media_type_strategy
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import prepare_urlencoded
 from schemathesis.generation.meta import (
@@ -37,9 +38,10 @@ from schemathesis.generation.meta import (
 from schemathesis.openapi.generation.filters import is_valid_urlencoded
 from schemathesis.resources import ExtraDataSource
 from schemathesis.schemas import APIOperation
-from schemathesis.specs.openapi.adapter.parameters import FORM_MEDIA_TYPES, OpenApiBody, OpenApiParameterSet
+from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameterSet
 from schemathesis.specs.openapi.negative.mutations import MutationMetadata
 from schemathesis.specs.openapi.negative.utils import is_binary_format
+from schemathesis.transport.serialization import quote_all
 
 from ... import auths
 from ...generation import GenerationMode
@@ -53,14 +55,23 @@ from .formats import (
     header_values,
 )
 from .headers import KNOWN_HEADER_FORMATS, get_header_format_strategies
-from .media_types import MEDIA_TYPES
-from .negative import GeneratedValue, negative_schema
+from .negative import (
+    GeneratedValue,
+    negative_schema,
+    wrap_filter_hook_for_generated_value,
+    wrap_flatmap_hook_for_generated_value,
+    wrap_map_hook_for_generated_value,
+)
 from .negative.utils import can_negate
 
 SLASH = "/"
 # Probability of generating valid headers in negative mode
 VALID_HEADER_PROBABILITY = 0.95
 _PLAIN_HEADER_FORMATS = {HEADER_FORMAT} | set(KNOWN_HEADER_FORMATS.values())
+# Strategies that take no varying input are deterministic and reusable; allocating
+# them once at import avoids ~300–600ns of fresh `LazyStrategy` construction per call.
+_NONE_STRATEGY: st.SearchStrategy = st.none()
+_JUST_NOT_SET: st.SearchStrategy = st.just(NOT_SET)
 StrategyFactory = Callable[
     [JsonSchema, str, ParameterLocation, str | None, GenerationConfig, type[jsonschema_rs.Validator]],
     st.SearchStrategy,
@@ -95,6 +106,7 @@ def openapi_cases(
     media_type: str | None = None,
     phase: TestPhase = TestPhase.FUZZING,
     extra_data_source: ExtraDataSource | None = None,
+    error_feedback: ErrorFeedbackStore | None = None,
 ) -> Any:
     """A strategy that creates `Case` instances.
 
@@ -127,6 +139,7 @@ def openapi_cases(
         generation_mode,
         generation_config,
         extra_data_source=extra_data_source,
+        error_feedback=error_feedback,
         mix_examples=mix_examples,
     )
     headers_ = generate_parameter(
@@ -139,6 +152,7 @@ def openapi_cases(
         generation_mode,
         generation_config,
         extra_data_source=extra_data_source,
+        error_feedback=error_feedback,
         mix_examples=mix_examples,
     )
     cookies_ = generate_parameter(
@@ -151,6 +165,7 @@ def openapi_cases(
         generation_mode,
         generation_config,
         extra_data_source=extra_data_source,
+        error_feedback=error_feedback,
         mix_examples=mix_examples,
     )
     query_ = generate_parameter(
@@ -163,6 +178,7 @@ def openapi_cases(
         generation_mode,
         generation_config,
         extra_data_source=extra_data_source,
+        error_feedback=error_feedback,
         mix_examples=mix_examples,
     )
 
@@ -186,6 +202,7 @@ def openapi_cases(
                 draw,
                 body_generator,
                 extra_data_source=extra_data_source,
+                error_feedback=error_feedback,
                 mix_examples=mix_examples,
             )
             strategy = apply_hooks(operation, ctx, hooks, strategy, ParameterLocation.BODY)
@@ -247,7 +264,7 @@ def openapi_cases(
     else:
         # This explicit body payload comes for a media type that has a custom strategy registered
         # Such strategies only support binary payloads, otherwise they can't be serialized
-        if not isinstance(body, bytes) and media_type and _find_media_type_strategy(media_type) is not None:
+        if not isinstance(body, bytes) and media_type and find_media_type_strategy(media_type) is not None:
             all_media_types = operation.get_request_payload_content_types()
             raise SerializationNotPossible.from_media_types(*all_media_types)
         body_ = ValueContainer(value=body, location="body", generator=None, meta=None)
@@ -292,18 +309,21 @@ def openapi_cases(
                     parameter=metadata.parameter,
                     parameter_location=parameter_location,
                     location=metadata.location,
+                    mutations=metadata.mutations,
                 ),
                 TestPhase.FUZZING: FuzzingPhaseData(
                     description=metadata.description,
                     parameter=metadata.parameter,
                     parameter_location=parameter_location,
                     location=metadata.location,
+                    mutations=metadata.mutations,
                 ),
                 TestPhase.STATEFUL: StatefulPhaseData(
                     description=metadata.description,
                     parameter=metadata.parameter,
                     parameter_location=parameter_location,
                     location=metadata.location,
+                    mutations=metadata.mutations,
                 ),
             }[phase]
             phase_data = cast(ExamplesPhaseData | FuzzingPhaseData | StatefulPhaseData, _phase_data)
@@ -405,46 +425,33 @@ class FormBodyWithContentTypes:
     content_types: dict[str, str]  # property_name -> selected content type
 
 
+def _body_required_per_feedback(operation: APIOperation, error_feedback: ErrorFeedbackStore | None) -> bool:
+    """Return True when the server reported the body itself as missing for this operation."""
+    if error_feedback is None:
+        return False
+    for observation in error_feedback.observations(operation_label=operation.label, location=ParameterLocation.BODY):
+        if observation.kind == ObservationKind.MUST_NOT_BE_BLANK and not observation.parameter_path:
+            return True
+    return False
+
+
 def _maybe_set_optional_body(
     strategy: st.SearchStrategy,
     parameter: OpenApiBody,
+    operation: APIOperation,
     draw: st.DrawFn,
+    error_feedback: ErrorFeedbackStore | None,
 ) -> st.SearchStrategy:
     """Add NOT_SET option to strategy for optional body parameters."""
+    if _body_required_per_feedback(operation, error_feedback):
+        return strategy
     if (
         not parameter.is_required
         and draw(st.floats(min_value=0.0, max_value=1.0, allow_infinity=False, allow_nan=False, allow_subnormal=False))
         < OPTIONAL_BODY_RATE
     ):
-        strategy |= st.just(NOT_SET)
+        strategy |= _JUST_NOT_SET
     return strategy
-
-
-def _find_media_type_strategy(content_type: str) -> st.SearchStrategy[bytes] | None:
-    """Find a registered strategy for a content type, supporting wildcard patterns."""
-    # Try exact match first
-    if content_type in MEDIA_TYPES:
-        return MEDIA_TYPES[content_type]
-
-    try:
-        main, sub = media_types.parse(content_type)
-    except MalformedMediaType:
-        return None
-
-    # Check registered media types for wildcard matches
-    for registered_type, strategy in MEDIA_TYPES.items():
-        try:
-            target_main, target_sub = media_types.parse(registered_type)
-        except MalformedMediaType:
-            continue
-        # Match if both main and sub types are compatible
-        # "*" in either the requested or registered type acts as a wildcard
-        main_match = main == "*" or target_main == "*" or main == target_main
-        sub_match = sub == "*" or target_sub == "*" or sub == target_sub
-        if main_match and sub_match:
-            return strategy
-
-    return None
 
 
 def _build_form_strategy_with_encoding(
@@ -485,7 +492,7 @@ def _build_form_strategy_with_encoding(
         if content_types:
             strategies_for_types = []
             for ct in content_types:
-                strategy = _find_media_type_strategy(ct)
+                strategy = find_media_type_strategy(ct)
                 if strategy is not None:
                     # Pair strategy with its content type so we know which was selected
                     strategies_for_types.append(st.tuples(st.just(ct), strategy))
@@ -533,7 +540,7 @@ def _build_form_strategy_with_encoding(
     # Build fixed dictionary strategy with optional properties
     required = set(schema.get("required", []))
     required_strategies = {k: v for k, v in property_strategies.items() if k in required}
-    optional_strategies = {k: st.just(NOT_SET) | v for k, v in property_strategies.items() if k not in required}
+    optional_strategies = {k: _JUST_NOT_SET | v for k, v in property_strategies.items() if k not in required}
 
     def _unwrap(value: Any) -> Any:
         return value.value if isinstance(value, GeneratedValue) else value
@@ -585,6 +592,7 @@ def _get_body_strategy(
     generation_mode: GenerationMode,
     extra_data_source: ExtraDataSource | None = None,
     mix_examples: bool = True,
+    error_feedback: ErrorFeedbackStore | None = None,
 ) -> st.SearchStrategy:
     # Check for custom encoding in form bodies (multipart/form-data or application/x-www-form-urlencoded)
     if parameter.media_type in FORM_MEDIA_TYPES:
@@ -593,7 +601,7 @@ def _get_body_strategy(
             return custom_strategy
 
     # Check for custom media type strategy
-    custom_strategy = _find_media_type_strategy(parameter.media_type)
+    custom_strategy = find_media_type_strategy(parameter.media_type)
     if custom_strategy is not None:
         # Always use custom strategies for raw bodies - they produce transmittable bytes.
         # In negative mode, bypassing them would generate non-bytes values (e.g., integers)
@@ -602,9 +610,14 @@ def _get_body_strategy(
 
     # Use the cached strategy from the parameter
     strategy = parameter.get_strategy(
-        operation, generation_config, generation_mode, extra_data_source=extra_data_source, mix_examples=mix_examples
+        operation,
+        generation_config,
+        generation_mode,
+        extra_data_source=extra_data_source,
+        error_feedback=error_feedback,
+        mix_examples=mix_examples,
     )
-    return _maybe_set_optional_body(strategy, parameter, draw)
+    return _maybe_set_optional_body(strategy, parameter, operation, draw, error_feedback)
 
 
 def get_parameters_value(
@@ -618,6 +631,7 @@ def get_parameters_value(
     generation_config: GenerationConfig,
     extra_data_source: ExtraDataSource | None = None,
     mix_examples: bool = True,
+    error_feedback: ErrorFeedbackStore | None = None,
 ) -> tuple[dict[str, Any] | None, Any]:
     """Get the final value for the specified location.
 
@@ -632,6 +646,7 @@ def get_parameters_value(
             generation_config,
             extra_data_source=extra_data_source,
             mix_examples=mix_examples,
+            error_feedback=error_feedback,
         )
         strategy = apply_hooks(operation, ctx, hooks, strategy, location)
         result = _draw(draw, strategy, operation)
@@ -646,6 +661,7 @@ def get_parameters_value(
         generation_config,
         exclude=value.keys(),
         extra_data_source=extra_data_source,
+        error_feedback=error_feedback,
         mix_examples=mix_examples,
     )
     strategy = apply_hooks(operation, ctx, hooks, strategy, location)
@@ -694,6 +710,7 @@ def generate_parameter(
     generation_config: GenerationConfig,
     extra_data_source: ExtraDataSource | None = None,
     mix_examples: bool = True,
+    error_feedback: ErrorFeedbackStore | None = None,
 ) -> ValueContainer:
     """Generate a value for a parameter.
 
@@ -716,6 +733,7 @@ def generate_parameter(
         generator,
         generation_config,
         extra_data_source=extra_data_source,
+        error_feedback=error_feedback,
         mix_examples=mix_examples,
     )
     if value is not None and location == ParameterLocation.PATH:
@@ -757,10 +775,12 @@ def get_parameters_strategy(
     exclude: Iterable[str] = (),
     extra_data_source: ExtraDataSource | None = None,
     mix_examples: bool = True,
+    error_feedback: ErrorFeedbackStore | None = None,
 ) -> st.SearchStrategy:
     """Create a new strategy for the case's component from the API operation parameters."""
     container = getattr(operation, location.container_name)
-    if container:
+    # Direct list bool check skips ParameterSet.__len__ method dispatch.
+    if container.items:
         return container.get_strategy(
             operation,
             generation_config,
@@ -768,9 +788,10 @@ def get_parameters_strategy(
             exclude,
             extra_data_source=extra_data_source,
             mix_examples=mix_examples,
+            error_feedback=error_feedback,
         )
     # No parameters defined for this location
-    return st.none()
+    return _NONE_STRATEGY
 
 
 def jsonify_python_specific_types(value: dict[str, Any]) -> dict[str, Any]:
@@ -836,6 +857,7 @@ def make_positive_strategy(
     validator_cls: type[jsonschema_rs.Validator],
     name_to_uri: dict[str, str] | None = None,
     validation_schema: JsonSchema | None = None,
+    target_descriptors: tuple | None = None,
 ) -> st.SearchStrategy:
     """Strategy for generating values that fit the schema."""
     custom_formats = _build_custom_formats(generation_config, GenerationMode.POSITIVE)
@@ -863,6 +885,7 @@ def make_negative_strategy(
     validator_cls: type[jsonschema_rs.Validator],
     name_to_uri: dict[str, str] | None = None,
     validation_schema: JsonSchema | None = None,
+    target_descriptors: tuple | None = None,
 ) -> st.SearchStrategy:
     custom_formats = _build_custom_formats(generation_config, GenerationMode.NEGATIVE)
     return negative_schema(
@@ -875,6 +898,7 @@ def make_negative_strategy(
         validator_cls=validator_cls,
         validation_schema=validation_schema,
         name_to_uri=name_to_uri,
+        target_descriptors=target_descriptors,
     )
 
 
@@ -884,28 +908,6 @@ GENERATOR_MODE_TO_STRATEGY_FACTORY = {
 }
 
 
-def quote_all(parameters: dict[str, Any]) -> dict[str, Any]:
-    """Apply URL quotation for all values in a dictionary."""
-    # Even though, "." is an unreserved character, it has a special meaning in "." and ".." strings.
-    # It will change the path:
-    #   - http://localhost/foo/./ -> http://localhost/foo/
-    #   - http://localhost/foo/../ -> http://localhost/
-    # Which is not desired as we need to test precisely the original path structure.
-
-    for key, value in parameters.items():
-        if isinstance(value, str):
-            # Unquote first to keep quoting idempotent for already-escaped inputs.
-            # E.g. "%2E" should stay escaped and not become a raw "."
-            decoded = unquote(value)
-            if decoded == ".":
-                parameters[key] = "%2E"
-            elif decoded == "..":
-                parameters[key] = "%2E%2E"
-            else:
-                parameters[key] = quote_plus(decoded)
-    return parameters
-
-
 def apply_hooks(
     operation: APIOperation,
     ctx: HookContext,
@@ -913,5 +915,18 @@ def apply_hooks(
     strategy: st.SearchStrategy,
     location: ParameterLocation,
 ) -> st.SearchStrategy:
-    """Apply all hooks related to the given location."""
-    return apply_to_all_dispatchers(operation, ctx, hooks, strategy, location.container_name)
+    """Apply all hooks related to the given location.
+
+    Passes `GeneratedValue` (de)wrapping helpers so user hooks see plain values even
+    when negative-mode strategies wrap them.
+    """
+    return apply_to_all_dispatchers(
+        operation,
+        ctx,
+        hooks,
+        strategy,
+        location.container_name,
+        filter_wrapper=wrap_filter_hook_for_generated_value,
+        map_wrapper=wrap_map_hook_for_generated_value,
+        flatmap_wrapper=wrap_flatmap_hook_for_generated_value,
+    )

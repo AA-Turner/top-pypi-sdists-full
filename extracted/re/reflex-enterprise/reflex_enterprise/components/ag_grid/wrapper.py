@@ -153,10 +153,7 @@ class AbstractWrapper(rx.ComponentState, Generic[DATASOURCE_PARAMS]):
             params = state_cls.__data_source_params_class__.from_request(  # pyright: ignore [reportAttributeAccessIssue, reportArgumentType]
                 request.query_params
             )
-            try:
-                token = rx.BaseStateToken(ident=client_token, cls=state_cls)
-            except AttributeError:
-                token = rx.state._substate_key(client_token, state_cls)
+            token = rx.BaseStateToken(ident=client_token, cls=state_cls)
             async with app.modify_state(token) as _state:
                 s_instance = await _state.get_state(state_cls)
                 result = s_instance._get_data(params)

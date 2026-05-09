@@ -10,6 +10,7 @@ import schemathesis
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.specs.openapi.stateful import dependencies
 from schemathesis.specs.openapi.stateful.dependencies import analyze, naming
+from schemathesis.specs.openapi.stateful.dependencies.models import infer_fk_target
 from test.utils import flaky
 
 KNOWN_INCORRECT_FIELD_MAPPINGS = {
@@ -104,6 +105,11 @@ def operation_with_body(
     if operation_id:
         op["operationId"] = operation_id
     return {path: {method: op}}
+
+
+def analyze_dependencies(ctx, paths, **kwargs):
+    schema = ctx.openapi.load_schema(paths, **kwargs)
+    return schema, analyze(schema)
 
 
 ORDER_REQUEST_WITH_CUSTOMER = {
@@ -3159,10 +3165,7 @@ def test_dependency_graph(request, ctx, paths, components, snapshot_json):
     kwargs = {}
     if components is not None:
         kwargs["components"] = components
-    raw_schema = ctx.openapi.build_schema(paths, **kwargs)
-    schema = schemathesis.openapi.from_dict(raw_schema)
-
-    graph = analyze(schema)
+    schema, graph = analyze_dependencies(ctx, paths, **kwargs)
 
     graph.assert_incorrect_field_mappings(request.node.callspec.id, KNOWN_INCORRECT_FIELD_MAPPINGS)
     assert graph.serialize() == snapshot_json
@@ -3175,6 +3178,978 @@ def test_dependency_graph(request, ctx, paths, components, snapshot_json):
             _ = schema.find_operation_by_reference(link.operation_ref)
 
     assert [[entry.status_code, entry.producer_operation_ref, entry.to_openapi()] for entry in data] == snapshot_json
+
+    assert (
+        sorted((d.resource_name, d.operation, d.status_code, d.pointer) for d in schema.analysis.resource_descriptors)
+        == snapshot_json
+    )
+
+
+def test_nested_fk_inference_independent_of_path_order(ctx):
+    # Inference must register a nested-body FK input slot regardless of whether the consumer
+    # appears before or after its producer in the spec's `paths` order.
+    location_response = {
+        "type": "object",
+        "properties": {"id": {"type": "integer"}},
+        "required": ["id"],
+    }
+    department_body = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "shipping": {
+                "type": "object",
+                "properties": {"location_id": {"type": "integer"}},
+            },
+        },
+    }
+    consumer_path = {
+        "/departments": {
+            "post": {
+                "operationId": "createDepartment",
+                "requestBody": {
+                    "required": True,
+                    "content": {"application/json": {"schema": department_body}},
+                },
+                "responses": {"201": {"description": "OK"}},
+            }
+        }
+    }
+    producer_path = {
+        "/locations": {
+            "post": {
+                "operationId": "createLocation",
+                "responses": {"201": {"content": {"application/json": {"schema": location_response}}}},
+            }
+        }
+    }
+
+    def _slot_for(graph):
+        for op in graph.operations.values():
+            for slot in op.inputs:
+                if slot.parameter_name == "shipping/location_id":
+                    return slot.resource.name, slot.resource_field
+        return None
+
+    _, producer_first = analyze_dependencies(ctx, {**producer_path, **consumer_path})
+    _, consumer_first = analyze_dependencies(ctx, {**consumer_path, **producer_path})
+
+    expected = ("Location", "id")
+    assert _slot_for(producer_first) == expected
+    assert _slot_for(consumer_first) == expected
+
+
+def test_nested_fk_inference_array_items_consumer_first(ctx):
+    # Consumer references the producer through an array of nested objects (`items: [{location_id}]`),
+    # not a sibling object. The replay path must land the array-branch FK regardless of declaration order.
+    bulk_body = {
+        "type": "object",
+        "properties": {
+            "rows": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {"location_id": {"type": "integer"}},
+                },
+            }
+        },
+    }
+    consumer_path = {
+        "/bulk-departments": {
+            "post": {
+                "operationId": "createBulkDepartments",
+                "requestBody": {
+                    "required": True,
+                    "content": {"application/json": {"schema": bulk_body}},
+                },
+                "responses": {"201": {"description": "OK"}},
+            }
+        }
+    }
+    producer_path = {
+        "/locations": {
+            "post": {
+                "operationId": "createLocation",
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"id": {"type": "integer"}},
+                                    "required": ["id"],
+                                }
+                            }
+                        }
+                    }
+                },
+            }
+        }
+    }
+    _, graph = analyze_dependencies(ctx, {**consumer_path, **producer_path})
+
+    array_slot = next(
+        (slot for op in graph.operations.values() for slot in op.inputs if slot.parameter_name == "rows/0/location_id"),
+        None,
+    )
+    assert array_slot is not None
+    assert (array_slot.resource.name, array_slot.resource_field) == ("Location", "id")
+
+
+def test_nested_fk_inference_drops_slot_when_target_never_registered(ctx):
+    # A nested FK whose target resource is never declared anywhere stays dropped:
+    # the replay loop sees `resources.get(target) is None` and skips it.
+    consumer_only = {
+        "/orders": {
+            "post": {
+                "operationId": "createOrder",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "shipping": {
+                                        "type": "object",
+                                        "properties": {"phantom_id": {"type": "integer"}},
+                                    }
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {"201": {"description": "OK"}},
+            }
+        }
+    }
+    _, graph = analyze_dependencies(ctx, consumer_only)
+
+    assert "Phantom" not in graph.resources
+    for op in graph.operations.values():
+        for slot in op.inputs:
+            assert slot.parameter_name != "shipping/phantom_id"
+
+
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        pytest.param("locationId", ("Location", "id", False), id="locationId"),
+        pytest.param("userUuid", ("User", "uuid", False), id="userUuid"),
+        pytest.param("orderId", ("Order", "id", False), id="orderId"),
+        pytest.param("customerGuid", ("Customer", "guid", False), id="customerGuid"),
+        pytest.param("warehouseId", ("Warehouse", "id", False), id="warehouseId"),
+        pytest.param("locationIds", ("Location", "id", True), id="locationIds"),
+        pytest.param("userUuids", ("User", "uuid", True), id="userUuids"),
+        pytest.param("orderGuids", ("Order", "guid", True), id="orderGuids"),
+    ],
+)
+def test_infer_fk_target_recognizes_camelcase(field, expected):
+    assert infer_fk_target(field) == expected
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "id",
+        "uuid",
+        "guid",
+        "bid",
+        "fid",
+        "lid",
+        "eid",
+        "paid",
+        "valid",
+        "applied",
+        "denied",
+        "void",
+        "customerName",
+        "displayLabel",
+    ],
+)
+def test_infer_fk_target_avoids_false_positives(field):
+    assert infer_fk_target(field) is None
+
+
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        pytest.param("customer_id", ("Customer", "id", False), id="customer_id"),
+        pytest.param("user_uuid", ("User", "uuid", False), id="user_uuid"),
+        pytest.param("session_guid", ("Session", "guid", False), id="session_guid"),
+        pytest.param("site_ids", ("Site", "id", True), id="site_ids"),
+        pytest.param("user_uuids", ("User", "uuid", True), id="user_uuids"),
+    ],
+)
+def test_infer_fk_target_snake_case_unchanged(field, expected):
+    assert infer_fk_target(field) == expected
+
+
+def test_camelcase_nested_fk_produces_input_slot(ctx):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/locations": {
+                "post": {
+                    "operationId": "createLocation",
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "integer"}},
+                                        "required": ["id"],
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            "/departments": {
+                "post": {
+                    "operationId": "createDepartment",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "shipping": {
+                                            "type": "object",
+                                            "properties": {"locationId": {"type": "integer"}},
+                                        },
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "OK"}},
+                }
+            },
+        },
+    )
+
+    nested_slot = next(
+        (
+            slot
+            for operation in graph.operations.values()
+            for slot in operation.inputs
+            if slot.parameter_name == "shipping/locationId"
+        ),
+        None,
+    )
+    assert nested_slot is not None
+    assert (nested_slot.resource.name, nested_slot.resource_field) == ("Location", "id")
+
+
+def test_body_name_suffix_without_path_or_schema_backing_is_dropped(ctx):
+    # `_name` body fields are attributes, not FKs, when nothing in the spec backs the name.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/people": {
+                "post": {
+                    "operationId": "createPerson",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "first_name": {"type": "string"},
+                                        "last_name": {"type": "string"},
+                                    },
+                                    "required": ["first_name", "last_name"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "integer"}},
+                                        "required": ["id"],
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+        },
+    )
+
+    assert "First" not in graph.resources, sorted(graph.resources)
+    assert "Last" not in graph.resources, sorted(graph.resources)
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): (slot.resource.name, slot.resource_field)
+        for slot in graph.operations["POST /people"].inputs
+    }
+    assert ("body", "first_name") not in bindings, bindings
+    assert ("body", "last_name") not in bindings, bindings
+
+
+def test_body_name_suffix_with_matching_path_keeps_slot(ctx):
+    # `_name` gate must let a `file_name` body field through when `/files` exists.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/files": {
+                "post": {
+                    "operationId": "createFile",
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "integer"}},
+                                        "required": ["id"],
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            "/backups": {
+                "post": {
+                    "operationId": "createBackup",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"file_name": {"type": "string"}},
+                                    "required": ["file_name"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "OK"}},
+                }
+            },
+        },
+    )
+
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): slot.resource.name
+        for slot in graph.operations["POST /backups"].inputs
+    }
+    assert bindings.get(("body", "file_name")) == "File", bindings
+
+
+def test_body_id_suffix_without_backing_still_creates_slot(ctx):
+    # The gate is `_name`-only — strong FK suffixes like `_id` keep current behavior.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/orders": {
+                "post": {
+                    "operationId": "createOrder",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"customer_id": {"type": "integer"}},
+                                    "required": ["customer_id"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "OK"}},
+                }
+            },
+        },
+    )
+
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): slot.resource.name
+        for slot in graph.operations["POST /orders"].inputs
+    }
+    assert bindings.get(("body", "customer_id")) == "Customer", bindings
+
+
+def test_body_self_fk_rebinds_to_path_parent_when_parent_has_field(ctx):
+    # `spouse_id` references another Contact, not a Spouse resource — when the path-derived
+    # parent (Contact) has the same field, the slot rebinds and the ghost Spouse is dropped.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/contacts": {
+                "post": {
+                    "operationId": "createContact",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "spouse_id": {"type": "integer"},
+                                    },
+                                    "required": ["name"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "integer"},
+                                            "name": {"type": "string"},
+                                            "spouse_id": {"type": "integer"},
+                                        },
+                                        "required": ["id"],
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+        },
+    )
+
+    assert "Spouse" not in graph.resources, sorted(graph.resources)
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): (slot.resource.name, slot.resource_field)
+        for slot in graph.operations["POST /contacts"].inputs
+    }
+    assert bindings.get(("body", "spouse_id")) == ("Contact", "spouse_id"), bindings
+
+
+def test_query_self_fk_rebinds_to_path_parent_when_parent_has_field(ctx):
+    # `?sequence_id=` filters events by another event's sequence_id (a self-FK), not a Sequence resource.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/events": {
+                "get": {
+                    "operationId": "listEvents",
+                    "parameters": [
+                        {"name": "sequence_id", "in": "query", "schema": {"type": "integer"}},
+                    ],
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {"type": "integer"},
+                                                "sequence_id": {"type": "integer"},
+                                            },
+                                            "required": ["id"],
+                                        },
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+        },
+    )
+
+    assert "Sequence" not in graph.resources, sorted(graph.resources)
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): (slot.resource.name, slot.resource_field)
+        for slot in graph.operations["GET /events"].inputs
+    }
+    assert bindings.get(("query", "sequence_id")) == ("Event", "sequence_id"), bindings
+
+
+def _module_disambiguation_paths():
+    # Two modules with same-shaped resource (Group / Group1 in different schemas).
+    children_group_response = {
+        "200": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Group"}}}}
+    }
+    smallgroups_group_response = {
+        "200": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Group1"}}}}
+    }
+    return {
+        "/children/groups": {
+            "get": {
+                "operationId": "listChildrenGroups",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {"$ref": "#/components/schemas/Group"},
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+        },
+        "/children/groups/{id}": {
+            "get": {
+                "operationId": "getChildrenGroup",
+                "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": children_group_response,
+            },
+        },
+        "/smallgroups/groups": {
+            "get": {
+                "operationId": "listSmallgroupsGroups",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {"$ref": "#/components/schemas/Group1"},
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+        },
+        "/smallgroups/groups/{id}": {
+            "get": {
+                "operationId": "getSmallgroupsGroup",
+                "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                "responses": smallgroups_group_response,
+            },
+        },
+    }
+
+
+def test_path_consumer_picks_same_module_resource_variant(ctx):
+    # Path-id consumers route to their own module's variant when the spec has Group / Group1.
+    _, graph = analyze_dependencies(
+        ctx,
+        _module_disambiguation_paths(),
+        components={
+            "schemas": {
+                "Group": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+                    "required": ["id"],
+                },
+                "Group1": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "title": {"type": "string"}},
+                    "required": ["id"],
+                },
+            }
+        },
+    )
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): slot.resource.name
+        for slot in graph.operations["GET /smallgroups/groups/{id}"].inputs
+    }
+    assert bindings.get(("path", "id")) == "Group1", bindings
+
+
+def test_body_fk_picks_same_module_resource_variant(ctx):
+    # Body FK fields prefer the same-module variant — `group_id` here picks Group1, not Group.
+    paths = _module_disambiguation_paths()
+    paths["/smallgroups/members"] = {
+        "post": {
+            "operationId": "createSmallgroupMember",
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"group_id": {"type": "string"}},
+                            "required": ["group_id"],
+                        }
+                    }
+                },
+            },
+            "responses": {"201": {"description": "OK"}},
+        }
+    }
+    _, graph = analyze_dependencies(
+        ctx,
+        paths,
+        components={
+            "schemas": {
+                "Group": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+                    "required": ["id"],
+                },
+                "Group1": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "title": {"type": "string"}},
+                    "required": ["id"],
+                },
+            }
+        },
+    )
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): slot.resource.name
+        for slot in graph.operations["POST /smallgroups/members"].inputs
+    }
+    assert bindings.get(("body", "group_id")) == "Group1", bindings
+
+
+def test_path_consumer_picks_same_module_suffix_match(ctx):
+    # `/bookings/resources/{id}` infers `Resource`; both `KeyDateResource` (addressbook)
+    # and `ResourceItem` (bookings) are suffix-affine, so the same-module one wins.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/addressbook/key_date_resources": {
+                "get": {
+                    "operationId": "listAddressbookKeyDateResources",
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "array",
+                                        "items": {"$ref": "#/components/schemas/KeyDateResource"},
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            "/bookings/resources": {
+                "get": {
+                    "operationId": "listBookingsResources",
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "array",
+                                        "items": {"$ref": "#/components/schemas/ResourceItem"},
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            "/bookings/resources/{id}": {
+                "get": {
+                    "operationId": "getBookingsResource",
+                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {
+                        "200": {
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ResourceItem"}}}
+                        }
+                    },
+                }
+            },
+        },
+        components={
+            "schemas": {
+                "KeyDateResource": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+                    "required": ["id"],
+                },
+                "ResourceItem": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "title": {"type": "string"}},
+                    "required": ["id"],
+                },
+            }
+        },
+    )
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): slot.resource.name
+        for slot in graph.operations["GET /bookings/resources/{id}"].inputs
+    }
+    assert bindings.get(("path", "id")) == "ResourceItem", bindings
+
+
+def test_body_fk_inside_all_of_with_one_of_branches(ctx):
+    # FK fields hidden behind allOf siblings or oneOf branches must still be discovered.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/categories": {
+                "post": {
+                    "operationId": "createCategory",
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "integer"}},
+                                        "required": ["id"],
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            "/brands": {
+                "post": {
+                    "operationId": "createBrand",
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "integer"}},
+                                        "required": ["id"],
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            "/events": {
+                "post": {
+                    "operationId": "createEvent",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {"type": "string"},
+                                                "category_id": {"type": "integer"},
+                                            },
+                                            "required": ["name", "category_id"],
+                                        },
+                                        {
+                                            "oneOf": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {"all_sites": {"type": "boolean"}},
+                                                    "required": ["all_sites"],
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {"brand_id": {"type": "integer"}},
+                                                    "required": ["brand_id"],
+                                                },
+                                            ]
+                                        },
+                                    ]
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "OK"}},
+                }
+            },
+        },
+    )
+
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): (slot.resource.name, slot.resource_field)
+        for slot in graph.operations["POST /events"].inputs
+    }
+    assert bindings.get(("body", "category_id")) == ("Category", "id"), bindings
+    assert bindings.get(("body", "brand_id")) == ("Brand", "id"), bindings
+
+
+def test_body_composition_with_boolean_branch_does_not_crash(ctx):
+    # Boolean schemas (`true`/`false`) inside allOf are spec-legal and must not break traversal.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/categories": {
+                "post": {
+                    "operationId": "createCategory",
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "integer"}},
+                                        "required": ["id"],
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            "/events": {
+                "post": {
+                    "operationId": "createEvent",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        True,
+                                        {
+                                            "type": "object",
+                                            "properties": {"category_id": {"type": "integer"}},
+                                            "required": ["category_id"],
+                                        },
+                                    ]
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "OK"}},
+                }
+            },
+        },
+    )
+
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): (slot.resource.name, slot.resource_field)
+        for slot in graph.operations["POST /events"].inputs
+    }
+    assert bindings.get(("body", "category_id")) == ("Category", "id"), bindings
+
+
+def test_nested_body_fk_inside_composition_branch(ctx):
+    # Composition keywords inside nested objects must still be traversed for FK fields.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/warehouses": {
+                "post": {
+                    "operationId": "createWarehouse",
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "integer"}},
+                                        "required": ["id"],
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            "/orders": {
+                "post": {
+                    "operationId": "createOrder",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "shipping": {
+                                            "allOf": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {"warehouse_id": {"type": "integer"}},
+                                                }
+                                            ]
+                                        }
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "OK"}},
+                }
+            },
+        },
+    )
+
+    nested_slot = next(
+        (
+            slot
+            for operation in graph.operations.values()
+            for slot in operation.inputs
+            if slot.parameter_name == "shipping/warehouse_id"
+        ),
+        None,
+    )
+    assert nested_slot is not None, "nested warehouse_id behind allOf was not discovered"
+    assert (nested_slot.resource.name, nested_slot.resource_field) == ("Warehouse", "id")
+
+
+def test_body_plural_id_array_field_produces_input_slot(ctx):
+    # Plural FK array fields like `site_ids` are FKs to Site.id; the analyzer used
+    # to recognize only singular `_id` body fields.
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/sites": {
+                "post": {
+                    "operationId": "createSite",
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "integer"}},
+                                        "required": ["id"],
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            "/events": {
+                "post": {
+                    "operationId": "createEvent",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "site_ids": {"type": "array", "items": {"type": "integer"}},
+                                    },
+                                    "required": ["name", "site_ids"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "OK"}},
+                }
+            },
+        },
+    )
+
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): (slot.resource.name, slot.resource_field)
+        for slot in graph.operations["POST /events"].inputs
+    }
+    assert bindings.get(("body", "site_ids")) == ("Site", "id"), bindings
 
 
 @pytest.mark.parametrize(
@@ -3223,11 +4198,7 @@ def test_dependency_graph(request, ctx, paths, components, snapshot_json):
     ],
 )
 def test_recursion(ctx, paths, kwargs, version, snapshot_json):
-    raw_schema = ctx.openapi.build_schema(paths, **kwargs, version=version)
-
-    schema = schemathesis.openapi.from_dict(raw_schema)
-
-    graph = analyze(schema)
+    _, graph = analyze_dependencies(ctx, paths, **kwargs, version=version)
     assert graph.serialize() == snapshot_json
 
 
@@ -3306,7 +4277,7 @@ def test_resource_name_from_path_with_param(path, param_name, expected):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_schema_inference_discovers_state_corruption(cli, app_runner, snapshot_cli, ctx):
+def test_schema_inference_discovers_state_corruption(cli, snapshot_cli, ctx):
     product_schema = {
         "type": "object",
         "properties": {
@@ -3454,13 +4425,11 @@ def test_schema_inference_discovers_state_corruption(cli, app_runner, snapshot_c
 
         return "", 204
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
+        cli.run_openapi_app(
+            app,
             "--max-examples=10",
             "-c response_schema_conformance",
-            f"http://127.0.0.1:{port}/openapi.json",
             "--mode=positive",
             "--phases=stateful",
         )
@@ -3469,9 +4438,7 @@ def test_schema_inference_discovers_state_corruption(cli, app_runner, snapshot_c
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_stateful_discovers_bug_with_no_body_producer_with_explicit_links_mixed_with_others(
-    cli, app_runner, snapshot_cli, ctx
-):
+def test_stateful_discovers_bug_with_no_body_producer_with_explicit_links_mixed_with_others(cli, snapshot_cli, ctx):
     app, schema = ctx.openapi.make_flask_app(
         {
             "/sessions": {
@@ -3563,13 +4530,11 @@ def test_stateful_discovers_bug_with_no_body_producer_with_explicit_links_mixed_
         # Always fails with 500 for valid sessions
         return jsonify({"error": "Internal error"}), 500
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
+        cli.run_openapi_app(
+            app,
             "--max-examples=10",
             "-c not_a_server_error",
-            f"http://127.0.0.1:{port}/openapi.json",
             "--phases=stateful",
         )
         == snapshot_cli
@@ -3578,7 +4543,7 @@ def test_stateful_discovers_bug_with_no_body_producer_with_explicit_links_mixed_
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
 @flaky(max_runs=5, min_passes=1)
-def test_stateful_discovers_requestbody_dependency_bug(cli, app_runner, snapshot_cli, ctx):
+def test_stateful_discovers_requestbody_dependency_bug(cli, snapshot_cli, ctx):
     order_response_schema = {
         "type": "object",
         "properties": {
@@ -3636,56 +4601,33 @@ def test_stateful_discovers_requestbody_dependency_bug(cli, app_runner, snapshot
         }
     )
 
-    customers = {}
-    next_customer_id = 1
-    next_order_id = 1
+    customers: set[str] = set()
 
     @app.route("/customers", methods=["POST"])
     def create_customer():
-        nonlocal next_customer_id
-        data = request.get_json() or {}
-
-        if not isinstance(data, dict):
+        if not isinstance(request.get_json() or {}, dict):
             return {"error": "Invalid input"}
-
-        customer_id = str(next_customer_id)
-        next_customer_id += 1
-
-        customers[customer_id] = {"id": customer_id, "name": data.get("name", "Unknown")}
-
-        return jsonify({"id": customer_id}), 201
+        customers.add("customer-1")
+        return jsonify({"id": "customer-1"}), 201
 
     @app.route("/orders", methods=["POST"])
     def create_order():
-        nonlocal next_order_id
         data = request.get_json() or {}
-
         if not isinstance(data, dict):
             return {"error": "Invalid input"}
-
         customer_id = data.get("customer_id")
-        order_id = str(next_order_id)
-        next_order_id += 1
-
-        # Bug: When customer_id is exists, we return total as string instead of number
+        if not isinstance(customer_id, (str, int)):
+            return jsonify({"detail": "Invalid customer_id"}), 400
         if customer_id in customers:
-            return jsonify(
-                {
-                    "id": order_id,
-                    "customer_id": customer_id,
-                    "total": str(data.get("total", 0)),
-                }
-            ), 201
-
+            # Bug: server returns `total` as a string while the response schema declares it a number.
+            return jsonify({"id": "order-1", "customer_id": customer_id, "total": "0"}), 201
         return jsonify({"detail": "Customer does not exist"}), 404
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
+        cli.run_openapi_app(
+            app,
             "--max-examples=10",
             "-c response_schema_conformance",
-            f"http://127.0.0.1:{port}/openapi.json",
             "--phases=stateful",
         )
         == snapshot_cli
@@ -3694,7 +4636,7 @@ def test_stateful_discovers_requestbody_dependency_bug(cli, app_runner, snapshot
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
 @flaky(max_runs=5, min_passes=1)
-def test_stateful_discovers_invalid_resource_id_bug(cli, app_runner, snapshot_cli, ctx):
+def test_stateful_discovers_invalid_resource_id_bug(cli, snapshot_cli, ctx):
     order_response_schema = {
         "type": "object",
         "properties": {
@@ -3752,61 +4694,31 @@ def test_stateful_discovers_invalid_resource_id_bug(cli, app_runner, snapshot_cl
         }
     )
 
-    customers = {}
-    next_customer_id = 1
-    next_order_id = 1
+    customers: set[str] = set()
 
     @app.route("/customers", methods=["POST"])
     def create_customer():
-        nonlocal next_customer_id
-        data = request.get_json() or {}
-
-        if not isinstance(data, dict):
+        if not isinstance(request.get_json() or {}, dict):
             return {"error": "Invalid input"}
-
-        customer_id = str(next_customer_id)
-        next_customer_id += 1
-
-        customers[customer_id] = {"id": customer_id, "name": data.get("name", "Unknown")}
-
-        return jsonify({"id": customer_id}), 201
+        customers.add("customer-1")
+        return jsonify({"id": "customer-1"}), 201
 
     @app.route("/orders", methods=["POST"])
     def create_order():
-        nonlocal next_order_id
         data = request.get_json() or {}
-
         if not isinstance(data, dict):
             return {"error": "Invalid input"}
-
         customer_id = data.get("customer_id")
-        next_order_id += 1
-
-        # Bug: When customer_id doesn't exist, missing required field
         if customer_id not in customers:
-            return jsonify(
-                {
-                    "id": "0",
-                    "total": 0,
-                }
-            ), 201
-
-        # Valid customers get correct response
-        return jsonify(
-            {
-                "id": "0",
-                "customer_id": customer_id,
-                "total": 0,
-            }
-        ), 201
-
-    port = app_runner.run_flask_app(app)
+            # Bug: response missing required `customer_id` field.
+            return jsonify({"id": "order-1", "total": 0}), 201
+        return jsonify({"id": "order-1", "customer_id": customer_id, "total": 0}), 201
 
     assert (
-        cli.run(
+        cli.run_openapi_app(
+            app,
             "--max-examples=50",
             "-c response_schema_conformance",
-            f"http://127.0.0.1:{port}/openapi.json",
             "--phases=stateful",
         )
         == snapshot_cli
@@ -3814,7 +4726,7 @@ def test_stateful_discovers_invalid_resource_id_bug(cli, app_runner, snapshot_cl
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_schema_inference_link_extraction_fails_due_to_producer_missing_id(cli, app_runner, snapshot_cli, ctx):
+def test_schema_inference_link_extraction_fails_due_to_producer_missing_id(cli, snapshot_cli, ctx):
     product_schema = {
         "type": "object",
         "properties": {
@@ -3905,13 +4817,11 @@ def test_schema_inference_link_extraction_fails_due_to_producer_missing_id(cli, 
         p = products[product_id]
         return jsonify({"id": p["id"], "name": p["name"], "price": p["price"]}), 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
+        cli.run_openapi_app(
+            app,
             "--max-examples=10",
             "-c not_a_server_error",
-            f"http://127.0.0.1:{port}/openapi.json",
             "--mode=positive",
             "--phases=stateful",
         )
@@ -3920,7 +4830,7 @@ def test_schema_inference_link_extraction_fails_due_to_producer_missing_id(cli, 
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_stateful_discovers_requestbody_dependency_bug_producer_missing_field(cli, app_runner, snapshot_cli, ctx):
+def test_stateful_discovers_requestbody_dependency_bug_producer_missing_field(cli, snapshot_cli, ctx):
     order_response_schema = {
         "type": "object",
         "properties": {
@@ -3978,58 +4888,32 @@ def test_stateful_discovers_requestbody_dependency_bug_producer_missing_field(cl
         }
     )
 
-    customers = {}
-    next_customer_id = 1
-    next_order_id = 1
+    customers: set[str] = set()
 
     @app.route("/customers", methods=["POST"])
     def create_customer():
-        nonlocal next_customer_id
-        data = request.get_json() or {}
-
-        if not isinstance(data, dict):
+        if not isinstance(request.get_json() or {}, dict):
             return {"error": "Invalid input"}
-
-        customer_id = str(next_customer_id)
-        next_customer_id += 1
-
-        customers[customer_id] = {"id": customer_id, "name": data.get("name", "Unknown")}
-
+        customers.add("customer-1")
         return jsonify({}), 201
 
     @app.route("/orders", methods=["POST"])
     def create_order():
-        nonlocal next_order_id
         data = request.get_json() or {}
-
         if not isinstance(data, dict):
             return {"error": "Invalid input"}
-
         customer_id = data.get("customer_id")
         if not isinstance(customer_id, str):
             return {"error": "Invalid input"}
-
-        order_id = str(next_order_id)
-        next_order_id += 1
-
         if customer_id in customers:
-            return jsonify(
-                {
-                    "id": order_id,
-                    "customer_id": customer_id,
-                    "total": str(data.get("total", 0)),
-                }
-            ), 201
-
+            return jsonify({"id": "order-1", "customer_id": customer_id, "total": "0"}), 201
         return jsonify({"detail": "Customer does not exist"}), 404
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
+        cli.run_openapi_app(
+            app,
             "--max-examples=10",
             "-c not_a_server_error",
-            f"http://127.0.0.1:{port}/openapi.json",
             "--phases=stateful",
         )
         == snapshot_cli
@@ -4037,7 +4921,7 @@ def test_stateful_discovers_requestbody_dependency_bug_producer_missing_field(cl
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_schemathesis_stateful_finds_checksum_match_bug(ctx, cli, app_runner, snapshot_cli):
+def test_schemathesis_stateful_finds_checksum_match_bug(ctx, cli, snapshot_cli):
     openapi = {
         "openapi": "3.0.0",
         "info": {"title": "Minimal Blog", "version": "1.0.0"},
@@ -4142,14 +5026,12 @@ def test_schemathesis_stateful_finds_checksum_match_bug(ctx, cli, app_runner, sn
         stored["body"] = payload.get("body", stored["body"])
         return "", 204
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
+        cli.run_openapi_app(
+            app,
             "--max-examples=10",
             "--mode=positive",
             "-c not_a_server_error",
-            f"http://127.0.0.1:{port}/openapi.json",
             "--phases=stateful",
         )
         == snapshot_cli
@@ -4157,7 +5039,7 @@ def test_schemathesis_stateful_finds_checksum_match_bug(ctx, cli, app_runner, sn
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_stateful_bug_when_link_always_used(cli, app_runner, snapshot_cli, ctx):
+def test_stateful_bug_when_link_always_used(cli, snapshot_cli, ctx):
     item_schema = {
         "type": "object",
         "properties": {
@@ -4259,13 +5141,11 @@ def test_stateful_bug_when_link_always_used(cli, app_runner, snapshot_cli, ctx):
         item = items[item_id]
         return jsonify({"id": item["id"], "name": item["name"]}), 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
+        cli.run_openapi_app(
+            app,
             "--max-examples=10",
             "-c not_a_server_error",
-            f"http://127.0.0.1:{port}/openapi.json",
             "--phases=stateful",
         )
         == snapshot_cli
@@ -4576,8 +5456,7 @@ def link(target_operation, parameters=None, request_body=None, use_ref=False):
     ],
 )
 def test_inject_links_deduplication(ctx, schema, expected):
-    raw_schema = ctx.openapi.build_schema(schema)
-    schema = schemathesis.openapi.from_dict(raw_schema)
+    schema = ctx.openapi.load_schema(schema)
     assert dependencies.inject_links(schema) == expected
 
 
@@ -4605,8 +5484,7 @@ def test_inject_links_invalid_link_missing_operation_ref_and_id(ctx):
         },
     }
 
-    raw_schema = ctx.openapi.build_schema(schema_dict)
-    schema = schemathesis.openapi.from_dict(raw_schema)
+    schema = ctx.openapi.load_schema(schema_dict)
 
     with pytest.raises(InvalidSchema, match="Link definition is missing both.*operationRef.*operationId"):
         dependencies.inject_links(schema)
@@ -4635,7 +5513,7 @@ def test_inject_links_with_reference_to_components(ctx):
         },
     }
 
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         schema_dict,
         components={
             "links": {
@@ -4645,7 +5523,6 @@ def test_inject_links_with_reference_to_components(ctx):
             }
         },
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
 
     assert dependencies.inject_links(schema) == 1
 
@@ -4683,7 +5560,7 @@ def test_iter_links_with_nested_refs(ctx):
         },
     }
 
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         schema_dict,
         version="3.1.0",
         components={
@@ -4696,7 +5573,6 @@ def test_iter_links_with_nested_refs(ctx):
             }
         },
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
 
     # Verify that recursive $refs are fully resolved when iterating links
     for result in schema.get_all_operations():
@@ -4727,7 +5603,7 @@ def test_iter_links_with_circular_refs(ctx):
         },
     }
 
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         schema_dict,
         version="3.1.0",
         components={
@@ -4737,7 +5613,6 @@ def test_iter_links_with_circular_refs(ctx):
             }
         },
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
 
     # Should not hang or crash - circular refs are gracefully handled
     for result in schema.get_all_operations():
@@ -4751,7 +5626,7 @@ def test_iter_links_with_circular_refs(ctx):
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
 @flaky(max_runs=5, min_passes=1)
-def test_stateful_discovers_bug_with_custom_deserializer(cli, app_runner, snapshot_cli, ctx):
+def test_stateful_discovers_bug_with_custom_deserializer(cli, snapshot_cli, ctx):
     @schemathesis.deserializer("application/vnd.custom")
     def deserialize_custom(ctx, response):
         text = response.content.decode(response.encoding or "utf-8")
@@ -4854,17 +5729,14 @@ def test_stateful_discovers_bug_with_custom_deserializer(cli, app_runner, snapsh
     )
 
     users = {}
-    next_id = 1
 
     @app.route("/users", methods=["POST"])
     def create_user():
-        nonlocal next_id
         data = request.get_json() or {}
         if not isinstance(data, dict):
             return {"error": "Invalid input"}, 400
 
-        user_id = str(next_id)
-        next_id += 1
+        user_id = "1"
         users[user_id] = {
             "id": user_id,
             "first_name": str(data.get("first_name", "")),
@@ -4917,13 +5789,11 @@ def test_stateful_discovers_bug_with_custom_deserializer(cli, app_runner, snapsh
             {"Content-Type": "application/vnd.custom"},
         )
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
+        cli.run_openapi_app(
+            app,
             "--max-examples=10",
             "-c response_schema_conformance",
-            f"http://127.0.0.1:{port}/openapi.json",
             "--mode=positive",
             "--phases=stateful",
         )
@@ -4932,7 +5802,7 @@ def test_stateful_discovers_bug_with_custom_deserializer(cli, app_runner, snapsh
 
 
 def test_canonicalize_with_merged_returning_none(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -4961,15 +5831,12 @@ def test_canonicalize_with_merged_returning_none(ctx):
             }
         },
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     analyze(schema)
 
 
 def test_merged_returning_none_with_anyof_schema(ctx):
-    raw_schema = {
-        "openapi": "3.1.0",
-        "info": {"title": "Test", "version": "1.0"},
-        "paths": {
+    schema = ctx.openapi.load_schema(
+        {
             "/items": {
                 "post": {
                     "responses": {
@@ -5000,7 +5867,8 @@ def test_merged_returning_none_with_anyof_schema(ctx):
                 }
             }
         },
-        "components": {
+        version="3.1.0",
+        components={
             "schemas": {
                 "Base": {
                     "type": "object",
@@ -5015,6 +5883,5 @@ def test_merged_returning_none_with_anyof_schema(ctx):
                 }
             }
         },
-    }
-    schema = schemathesis.openapi.from_dict(raw_schema)
+    )
     analyze(schema)

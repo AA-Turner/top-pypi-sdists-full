@@ -22,6 +22,7 @@ _COMPONENTS: dict[Component, str] = {
     TextRenderer: "_text_renderer",
     Animator: "_animator",
     SoundEmitter: "_sound_emitter",
+    VideoPlayer: "_video_player",
 }
 
 # ======================================== OBJECT ========================================
@@ -62,6 +63,7 @@ class Entity:
         self._ground_sensor: GroundSensor = None
         self._animator: Animator = None
         self._sound_emitter: SoundEmitter = None
+        self._video_player: VideoPlayer = None
 
         # Ajouts
         for component in components:
@@ -90,53 +92,58 @@ class Entity:
     
     @property
     def transform(self) -> Transform | None:
-        """composant ``Transform`` *(lecture seule)*"""
+        """Composant ``Transform`` *(lecture seule)*"""
         return self._transform
     
     @property
     def follow(self) -> Follow | None:
-        """composant ``Follow`` *(lecture seule)*"""
+        """Composant ``Follow`` *(lecture seule)*"""
         return self._follow
     
     @property
     def shape_renderer(self) -> ShapeRenderer | None:
-        """composant ``ShapeRenderer`` *(lecture seule)*"""
+        """Composant ``ShapeRenderer`` *(lecture seule)*"""
         return self._shape_renderer
     
     @property
     def sprite_renderer(self) -> SpriteRenderer | None:
-        """composant ``SpriteRenderer`` *(lecture seule)*"""
+        """Composant ``SpriteRenderer`` *(lecture seule)*"""
         return self._sprite_renderer
     
     @property
     def text_renderer(self) -> TextRenderer | None:
-        """composant ``TextRenderer`` *(lecture seule)*"""
+        """Composant ``TextRenderer`` *(lecture seule)*"""
         return self._text_renderer
     
     @property
     def collider(self) -> Collider | None:
-        """composant ``Collider`` *(lecture seule)*"""
+        """Composant ``Collider`` *(lecture seule)*"""
         return self._collider
     
     @property
     def rigid_body(self) -> RigidBody | None:
-        """composant ``RigidBody`` *(lecture seule)*"""
+        """Composant ``RigidBody`` *(lecture seule)*"""
         return self._rigid_body
     
     @property
     def ground_sensor(self) -> GroundSensor | None:
-        """composant ``GroundSensor`` *(lecture seule)*"""
+        """Composant ``GroundSensor`` *(lecture seule)*"""
         return self._ground_sensor
     
     @property
     def animator(self) -> Animator | None:
-        """composant ``Animator`` *(lecture seule)*"""
+        """Composant ``Animator`` *(lecture seule)*"""
         return self._animator
     
     @property
     def sound_emitter(self) -> SoundEmitter | None:
-        """composant ``SoundEmitter`` *(lecture seule)*"""
+        """Composant ``SoundEmitter`` *(lecture seule)*"""
         return self._sound_emitter
+    
+    @property
+    def video_player(self) -> VideoPlayer | None:
+        """Composant ``VideoPlayer`` *(lecture seule)*"""
+        return self._video_player
 
     # ======================================== PREDICATES ========================================
     def __eq__(self, other: Entity) -> bool:

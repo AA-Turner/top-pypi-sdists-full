@@ -41,8 +41,9 @@ def from_parameter(parameter: str, path: str, *, body_field: bool = False) -> st
     if lower in ("id", "ids"):
         return from_path(path, parameter_name=parameter)
 
-    # Capital-sensitive
-    capital_suffixes = ("Id", "Uuid", "Guid")
+    # Capital-sensitive — plurals first so array-shaped FK fields (`siteIds`) resolve
+    # before the singular check would otherwise apply.
+    capital_suffixes = ("Ids", "Uuids", "Guids", "Id", "Uuid", "Guid", "Arn", "Address")
     for suffix in capital_suffixes:
         if parameter.endswith(suffix):
             prefix = parameter[: -len(suffix)]
@@ -58,16 +59,26 @@ def from_parameter(parameter: str, path: str, *, body_field: bool = False) -> st
     snake_suffixes = (
         "_id_or_slug",
         "-id-or-slug",
+        "_uuids",
+        "_guids",
+        "_ids",
+        "-uuids",
+        "-guids",
+        "-ids",
         "_guid",
         "_uuid",
         "_id",
         "_slug",
         "_name",
+        "_arn",
+        "_address",
         "-guid",
         "-uuid",
         "-id",
         "-slug",
         "-name",
+        "-arn",
+        "-address",
     )
     for suffix in snake_suffixes:
         if lower.endswith(suffix):
@@ -86,9 +97,10 @@ def from_parameter(parameter: str, path: str, *, body_field: bool = False) -> st
         if len(prefix) >= 2:
             return to_pascal_case(prefix)
 
-    # Bare "slug" / "name" parameter - use path context if it's a path parameter.
+    # Bare identifier-shaped parameter - use path context if it's a path parameter.
     # Strip API version prefixes first so `/v1/{name}` doesn't infer a fictitious `V1`.
-    if lower in ("slug", "name") and f"{{{parameter}}}" in path:
+    BARE_IDENTIFIER_NAMES = ("slug", "name", "username", "namespace", "token", "tag", "uri", "address", "arn")
+    if lower in BARE_IDENTIFIER_NAMES and f"{{{parameter}}}" in path:
         return from_path(strip_version_prefix(path), parameter_name=parameter)
 
     # Concatenated identifier suffix without separator (e.g., `username`, `userid`).
@@ -643,3 +655,44 @@ def normalize_schema_name(name: str) -> str:
                 return base
 
     return name
+
+
+def collect_candidate_resource_names(raw_schema: dict) -> frozenset[str]:
+    """Resource names backed by a path segment or component schema in this spec.
+
+    Used to gate synthetic-resource creation from body-field FK suffixes — without
+    backing, a `<word>_name` is more likely an attribute (`first_name`) than an FK.
+    """
+    names: set[str] = set()
+
+    paths = raw_schema.get("paths") or {}
+    if isinstance(paths, dict):
+        for path in paths:
+            if not isinstance(path, str):
+                continue
+            stripped = strip_version_prefix(path)
+            for segment in stripped.split("/"):
+                if not segment or "{" in segment:
+                    continue
+                singular = to_singular(segment)
+                names.add(to_pascal_case(singular))
+
+    schema_containers: list[dict] = []
+    components = raw_schema.get("components")
+    if isinstance(components, dict):
+        component_schemas = components.get("schemas")
+        if isinstance(component_schemas, dict):
+            schema_containers.append(component_schemas)
+    definitions = raw_schema.get("definitions")
+    if isinstance(definitions, dict):
+        schema_containers.append(definitions)
+    for container in schema_containers:
+        for name in container:
+            if not isinstance(name, str) or not name:
+                continue
+            names.add(name)
+            normalized = normalize_schema_name(name)
+            if normalized:
+                names.add(normalized)
+
+    return frozenset(names)

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import numpy as np
 import pytest
 import tensorflow as tf
 from tensorflow_datasets import testing
-from tensorflow_datasets.core import constants
 from tensorflow_datasets.core import dataset_builder
 from tensorflow_datasets.core import dataset_info
 from tensorflow_datasets.core import dataset_utils
@@ -803,6 +802,31 @@ class DatasetBuilderTest(parameterized.TestCase, testing.TestCase):
     assert len(data_source) == 10
     assert data_source[0]["x"] == 28
 
+  def test_load_as_data_source_with_multi_split_info(self):
+    data_dir = self.get_temp_dir()
+    builder = DummyDatasetWithConfigs(
+        data_dir=data_dir,
+        config="plus1",
+        file_format=file_adapters.FileFormat.ARRAY_RECORD,
+    )
+    builder.download_and_prepare()
+
+    # Make it a multi-split dataset.
+    multi_split_info = splits_lib.MultiSplitInfo(
+        name="train", split_infos=[builder.info.splits["train"]]
+    )
+    builder.info.set_splits(splits_lib.SplitDict([multi_split_info]))
+
+    self.assertIsInstance(
+        builder.info.splits["train"], splits_lib.MultiSplitInfo
+    )
+    self.assertIsNone(builder.info.splits["train"].filename_template)
+
+    data_source = builder.as_data_source(split="train")
+    self.assertIsNotNone(data_source)
+    self.assertLen(data_source, 20)
+    self.assertEqual(data_source[0]["x"], 7)
+
   @parameterized.named_parameters(
       *[
           {"file_format": file_format, "testcase_name": file_format.value}
@@ -831,32 +855,19 @@ class DatasetBuilderMultiDirTest(testing.TestCase):
 
   @classmethod
   def setUpClass(cls):
-    super(DatasetBuilderMultiDirTest, cls).setUpClass()
+    super().setUpClass()
     cls.builder = DummyDatasetSharedGenerator()
 
   def setUp(self):
-    super(DatasetBuilderMultiDirTest, self).setUp()
+    super().setUp()
     # Sanity check to make sure that no dir is registered
     file_utils.clear_registered_data_dirs()
-    # Create a new temp dir
-    self.other_data_dir = os.path.join(self.get_temp_dir(), "other_dir")
     # Overwrite the default data_dir (as files get created)
-
-    self._original_data_dir = constants.DATA_DIR
-    constants.DATA_DIR = os.path.join(self.get_temp_dir(), "default_dir")
-    self.default_data_dir = constants.DATA_DIR
-
-  def tearDown(self):
-    super(DatasetBuilderMultiDirTest, self).tearDown()
-    # Restore to the default `_registered_data_dir`
-    file_utils._registered_data_dir = set()
-    # Clear-up existing dirs
-    if tf.io.gfile.exists(self.other_data_dir):
-      tf.io.gfile.rmtree(self.other_data_dir)
-    if tf.io.gfile.exists(self.default_data_dir):
-      tf.io.gfile.rmtree(self.default_data_dir)
-    # Restore the orgininal data dir
-    constants.DATA_DIR = self._original_data_dir
+    default_data_dir = self.enter_context(testing.mock_default_data_dir())
+    # Create a new temp dir
+    self.other_data_dir = os.path.join(
+        os.path.dirname(default_data_dir), "other_dir"
+    )
 
   def test_load_data_dir(self):
     """Ensure that `tfds.load` also supports multiple data_dir."""

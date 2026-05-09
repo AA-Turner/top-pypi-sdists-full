@@ -7,36 +7,10 @@ from cortex.kernels.triton.slstm.triton_fused.slstm_bw import (
 from cortex.kernels.triton.slstm.triton_fused.slstm_fw import (
     forward_sequence as slstm_forward_sequence,
 )
-from cortex.utils import autograd_function_vmap_passthrough
 from torch.amp import custom_bwd, custom_fwd
 
 
 def _rnn_fwbw_generator(autocast_kernel_dtype: torch.dtype) -> torch.autograd.Function:
-    def _forward_impl(
-        states_initial: torch.Tensor,  # (NS, B, NH, D)
-        Wx: torch.Tensor,  # (B, T, NGI, NH, D)
-        R: torch.Tensor,  # (NGR, NH, Dout, Din)
-        b: torch.Tensor,  # (NGI, NH, D)
-        resets: Optional[torch.Tensor] = None,  # (B, T) reset mask
-        backward_recurrent_clip_val: float | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        true_batch_size = Wx.size(0)
-        (all_states, last_state), all_gates = slstm_forward_sequence(
-            states_initial=states_initial,
-            Wx=Wx,
-            R=R,
-            b=b,
-            resets=resets,
-            output_gates_and_states_initial=True,
-        )
-        if last_state.ndim == 4:
-            last_state_out = last_state[:, :true_batch_size, ...]
-        elif last_state.ndim == 5:
-            last_state_out = last_state[:, :, :true_batch_size, ...]
-        else:
-            raise ValueError(f"Invalid last_state shape: {last_state.shape}")
-        return all_states[1:, :, :true_batch_size, ...], last_state_out, all_states, all_gates
-
     class _rnn_fwbw(torch.autograd.Function):
         @staticmethod
         @custom_fwd(device_type="cuda", cast_inputs=autocast_kernel_dtype)
@@ -48,19 +22,26 @@ def _rnn_fwbw_generator(autocast_kernel_dtype: torch.dtype) -> torch.autograd.Fu
             b: torch.Tensor,  # (NGI, NH, D)
             resets: Optional[torch.Tensor] = None,  # (B, T) reset mask
             backward_recurrent_clip_val: float | None = None,
-        ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-            all_states_visible, last_state, all_states, all_gates = _forward_impl(
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            true_batch_size = Wx.size(0)
+            (all_states, last_state), all_gates = slstm_forward_sequence(
                 states_initial=states_initial,
                 Wx=Wx,
                 R=R,
                 b=b,
                 resets=resets,
-                backward_recurrent_clip_val=backward_recurrent_clip_val,
+                output_gates_and_states_initial=True,
             )
             ctx.save_for_backward(all_states, all_gates, R)
             ctx.backward_recurrent_clip_val = backward_recurrent_clip_val
             ctx.resets = resets.detach() if resets is not None else None
-            return all_states_visible, last_state, all_states, all_gates
+            if last_state.ndim == 4:
+                last_state_out = last_state[:, :true_batch_size, ...]
+            elif last_state.ndim == 5:
+                last_state_out = last_state[:, :, :true_batch_size, ...]
+            else:
+                raise ValueError(f"Invalid last_state shape: {last_state.shape}")
+            return all_states[1:, :, :true_batch_size, ...], last_state_out
 
         @staticmethod
         @custom_bwd(device_type="cuda")
@@ -68,8 +49,6 @@ def _rnn_fwbw_generator(autocast_kernel_dtype: torch.dtype) -> torch.autograd.Fu
             ctx,
             delta_states_all_outside: torch.Tensor,  # (T, NS, B, NH, D)
             delta_states_last_outside: torch.Tensor,  # (NS, B, NH, D)
-            _grad_all_states: torch.Tensor,
-            _grad_all_gates: torch.Tensor,
         ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None, None]:
             true_batch_size = delta_states_all_outside.size(2)
             all_states, all_gates, R = ctx.saved_tensors
@@ -87,10 +66,6 @@ def _rnn_fwbw_generator(autocast_kernel_dtype: torch.dtype) -> torch.autograd.Fu
                 resets=resets,
             )
             return delta_states_initial, delta_Wx, delta_R, delta_b, None, None
-
-        @staticmethod
-        def vmap(info, in_dims, *args):
-            return autograd_function_vmap_passthrough("slstm_tr_fwbw", _forward_impl, in_dims, *args)
 
     return _rnn_fwbw
 
@@ -117,7 +92,7 @@ def slstm_tr_fwbw(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     slstm_func = slstm_pt_registry[autocast_kernel_dtype]
 
-    all_states, last_state, _all_states_full, _all_gates = slstm_func.apply(
+    all_states, last_state = slstm_func.apply(
         states_initial,
         Wx,
         R,

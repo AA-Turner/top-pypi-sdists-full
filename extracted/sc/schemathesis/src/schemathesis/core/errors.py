@@ -10,13 +10,13 @@ from dataclasses import dataclass
 from textwrap import indent
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, NoReturn
+from urllib.parse import urldefrag
 
 from jsonschema_rs import ValidationError
 
 from schemathesis.core.output import truncate_json
 
 if TYPE_CHECKING:
-    from jsonschema import SchemaError as JsonSchemaError
     from requests import RequestException
 
     from schemathesis.config import OutputConfig
@@ -349,20 +349,6 @@ class InvalidRegexPattern(InvalidSchema):
         return cls(message)
 
     @classmethod
-    def from_schema_error(cls, error: JsonSchemaError, *, from_examples: bool) -> InvalidRegexPattern:
-        if from_examples:
-            message = (
-                "Failed to generate test cases from examples for this API operation because of "
-                f"unsupported regular expression `{error.instance}`"
-            )
-        else:
-            message = (
-                "Failed to generate test cases for this API operation because of "
-                f"unsupported regular expression `{error.instance}`"
-            )
-        return cls(message)
-
-    @classmethod
     def from_jsonschema_rs_error(cls, error: ValidationError) -> InvalidRegexPattern:
         return cls(
             "Failed to generate test cases for this API operation because of "
@@ -417,6 +403,15 @@ class NoLinksFound(IncorrectUsage):
     """Raised when no valid links are available for stateful testing."""
 
 
+class NoProducers(IncorrectUsage):
+    """Raised when GraphQL stateful testing has no producer mutations to seed bundles.
+
+    A producer is a mutation whose return type is an Object with an `id` field —
+    e.g. `Mutation.addBook(...): Book!`. Without at least one, every consumer
+    rule's bundle stays empty and no scenario can make progress.
+    """
+
+
 class InvalidRateLimit(IncorrectUsage):
     """Incorrect input for rate limiting."""
 
@@ -463,6 +458,23 @@ class UnresolvableReference(SchemathesisError):
         return f"Reference `{self.reference}` cannot be resolved"
 
 
+def _normalize_cycle_item(item: str) -> str:
+    _, fragment = urldefrag(item)
+    if fragment:
+        return f"#{fragment}"
+    return item
+
+
+def _trim_cycle_to_first_repeat(items: list[str]) -> list[str]:
+    start = items[0]
+    result: list[str] = []
+    for idx, item in enumerate(items):
+        if idx > 0 and item == start:
+            break
+        result.append(item)
+    return result
+
+
 class InfiniteRecursiveReference(SchemathesisError):
     """A schema has required references forming an infinite cycle."""
 
@@ -471,9 +483,10 @@ class InfiniteRecursiveReference(SchemathesisError):
         self.cycle = cycle
 
     def __str__(self) -> str:
-        if len(self.cycle) == 1:
+        cycle = _trim_cycle_to_first_repeat([_normalize_cycle_item(item) for item in self.cycle])
+        if len(cycle) == 1:
             return f"Schema `{self.reference}` has a required reference to itself"
-        cycle_str = " ->\n  ".join(self.cycle + [self.cycle[0]])
+        cycle_str = " ->\n  ".join(cycle + [cycle[0]])
         return f"Schema `{self.reference}` has required references forming a cycle:\n\n  {cycle_str}"
 
 

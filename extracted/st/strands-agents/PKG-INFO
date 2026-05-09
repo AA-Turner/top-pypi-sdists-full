@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.38.0
+Version: 1.39.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -45,6 +45,7 @@ Provides-Extra: all
 Requires-Dist: a2a-sdk<0.4.0,>=0.3.0; extra == 'all'
 Requires-Dist: a2a-sdk[sql]<0.4.0,>=0.3.0; extra == 'all'
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'all'
+Requires-Dist: aws-bedrock-token-generator<2.0.0,>=1.1.0; extra == 'all'
 Requires-Dist: boto3-stubs[sagemaker-runtime]<2.0.0,>=1.26.0; extra == 'all'
 Requires-Dist: fastapi<1.0.0,>=0.115.12; extra == 'all'
 Requires-Dist: google-genai<2.0.0,>=1.32.0; extra == 'all'
@@ -119,6 +120,7 @@ Requires-Dist: mistralai<2.0.0,>=1.8.2; extra == 'mistral'
 Provides-Extra: ollama
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'ollama'
 Provides-Extra: openai
+Requires-Dist: aws-bedrock-token-generator<2.0.0,>=1.1.0; extra == 'openai'
 Requires-Dist: openai<3.0.0,>=1.68.0; extra == 'openai'
 Provides-Extra: otel
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'otel'

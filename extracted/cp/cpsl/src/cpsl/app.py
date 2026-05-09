@@ -48,6 +48,8 @@ from .decorators import (
     _MESSAGE_ATTR,
     _MESSAGE_LABEL_ATTR,
     _MESSAGE_NAME_ATTR,
+    _ACTION_ATTR,
+    _ACTION_NAME_ATTR,
     _SCHEDULE_ATTR,
     _ENDPOINT_ATTR,
     _ASGI_ATTR,
@@ -160,6 +162,7 @@ class App:
         self._workflows: list[Workflow] = []
         self._message_handlers: dict[str, Callable] = {}
         self._message_handler_labels: dict[str, str] = {}
+        self._action_handlers: dict[str, Callable] = {}
         self._home_title: str | None = None
         self._home_subtitle: str | None = None
         self._home_suggestions: tuple[Suggestion, ...] = ()
@@ -169,6 +172,7 @@ class App:
         self._home_suggestions_access: AccessLevel = ACCESS_PUBLIC
         self._home_suggestions_ttl: int = 0
         self._chat_widget_tree: dict[str, Any] | None = None
+        self._onboarding: dict[str, Any] | None = None
         self._shell_config: dict[str, Any] | None = None
         self.collections: CollectionManager | None = None
 
@@ -211,9 +215,11 @@ class App:
                 "workflows": [],
                 "home": None,
                 "chat": None,
+                "onboarding": None,
                 "shell": None,
                 "has_message_handler": False,
                 "message_handlers": [],
+                "actions": [],
                 "theme": None,
                 "module": None,
                 "class_name": None,
@@ -635,6 +641,54 @@ class App:
 
         return decorator
 
+    def add_onboarding(
+        self,
+        *,
+        component: str,
+        packages: list[str] | None = None,
+        redirect: str | None = None,
+    ) -> None:
+        """Declare a React/TSX onboarding surface.
+
+        ``redirect`` is an optional page name to navigate to after completion.
+        """
+        if self._onboarding is not None:
+            raise ValueError("only one onboarding surface can be defined")
+        d: dict[str, Any] = {
+            "type": PAGE_TYPE_REACT,
+            "component": component,
+            "packages": packages or [],
+        }
+        if redirect:
+            d["redirect"] = redirect
+        self._onboarding = d
+
+    def onboarding(self, *, redirect: str | None = None) -> Callable[[Callable], Callable]:
+        """Decorator for Python DSL onboarding. The function must return ui.Page.
+
+        ``redirect`` is an optional page name to navigate to after completion.
+        """
+
+        def decorator(fn: Callable) -> Callable:
+            if self._onboarding is not None:
+                raise ValueError("only one onboarding surface can be defined")
+            widget_tree = fn()
+            if not hasattr(widget_tree, "to_dict"):
+                raise TypeError(
+                    f"@app.onboarding() handler must return a ui.Page widget, "
+                    f"got {type(widget_tree).__name__}"
+                )
+            d: dict[str, Any] = {
+                "type": PAGE_TYPE_DSL,
+                "widget_tree": widget_tree.to_dict(),
+            }
+            if redirect:
+                d["redirect"] = redirect
+            self._onboarding = d
+            return fn
+
+        return decorator
+
     # -- chat shell ----------------------------------------------------------
 
     def chat_page(
@@ -841,6 +895,22 @@ class App:
 
         return decorator
 
+    def action(self, name: str | None = None) -> Callable[[F], F]:
+        """Register a component-triggered action handler (functional apps)."""
+        self._require_functional("action")
+
+        def decorator(fn: F) -> F:
+            action_name = name or fn.__name__
+            setattr(fn, _ACTION_ATTR, True)
+            setattr(fn, _ACTION_NAME_ATTR, action_name)
+            self._action_handlers[action_name] = fn
+            self._cpsl_config.setdefault("actions", [])
+            if action_name not in self._cpsl_config["actions"]:
+                self._cpsl_config["actions"].append(action_name)
+            return fn
+
+        return decorator
+
     def schedule(self, cron: str) -> Callable[[F], F]:
         """Register a handler that runs on a cron schedule.
 
@@ -1038,10 +1108,12 @@ class App:
         theme_dict = self._theme.to_dict() if self._theme else None
         home_dict = self._serialize_home()
         chat_dict = dict(self._chat_widget_tree) if self._chat_widget_tree else None
+        onboarding_dict = dict(self._onboarding) if self._onboarding else None
 
         def decorator(klass: type[T]) -> type[T]:
             schedule_specs: list[dict[str, str]] = []
             message_specs: list[dict[str, str]] = []
+            action_specs: list[str] = []
             for attr_name in dir(klass):
                 fn = getattr(klass, attr_name, None)
                 cron_val = getattr(fn, _SCHEDULE_ATTR, None)
@@ -1052,6 +1124,8 @@ class App:
                     msg_label = getattr(fn, _MESSAGE_LABEL_ATTR, "") or msg_name
                     if msg_name:
                         message_specs.append({"name": msg_name, "label": msg_label})
+                if getattr(fn, _ACTION_ATTR, False):
+                    action_specs.append(getattr(fn, _ACTION_NAME_ATTR, attr_name))
 
             config = {
                 "app_name": app_name,
@@ -1075,12 +1149,14 @@ class App:
                 "workflows": [w.to_dict() for w in self._workflows],
                 "home": home_dict,
                 "chat": chat_dict,
+                "onboarding": onboarding_dict,
                 "shell": self._shell_config,
                 "has_message_handler": any(
                     getattr(getattr(klass, attr_name, None), _MESSAGE_ATTR, False)
                     for attr_name in dir(klass)
                 ),
                 "message_handlers": message_specs,
+                "actions": sorted(action_specs),
                 "theme": theme_dict,
                 "module": klass.__module__,
                 "class_name": klass.__qualname__,
@@ -1112,9 +1188,11 @@ class App:
         cfg["workflows"] = [w.to_dict() for w in self._workflows]
         cfg["home"] = self._serialize_home()
         cfg["chat"] = dict(self._chat_widget_tree) if self._chat_widget_tree else None
+        cfg["onboarding"] = dict(self._onboarding) if self._onboarding else None
         cfg["shell"] = self._shell_config
         cfg["has_message_handler"] = bool(self._message_handlers)
         cfg["message_handlers"] = self._message_meta()
+        cfg["actions"] = sorted(self._action_handlers.keys())
         cfg["theme"] = self._theme.to_dict() if self._theme else None
 
     def _serialize(self) -> dict[str, Any] | None:

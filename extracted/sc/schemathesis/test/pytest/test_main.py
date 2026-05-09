@@ -418,11 +418,12 @@ def test(case):
     result.assert_outcomes(failed=1)
 
 
-def test_failure_reproduction_message(testdir, openapi3_base_url):
+def test_failure_reproduction_message(testdir, ctx):
     # When a test fails
+    api = ctx.openapi.apps.failure()
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 
 @schema.include(path_regex="failure").parametrize()
 def test(case):
@@ -454,11 +455,12 @@ def test(case):
     assert "Schema `#/components/schemas/Node` has a required reference to itself" in result.stdout.str()
 
 
-def test_checks_as_a_list(testdir, openapi3_base_url):
+def test_checks_as_a_list(testdir, ctx):
     # When the user passes a list of checks instead of a tuple
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 
 def my_check(ctx, response, case):
     note("CHECKING!")
@@ -475,14 +477,15 @@ def test(case):
     assert "CHECKING!" in result.stdout.str()
 
 
-def test_excluded_checks(testdir, openapi3_base_url):
+def test_excluded_checks(testdir, ctx):
     # When the user would like to exclude a check
+    api = ctx.openapi.apps.failure()
     testdir.make_test(
         f"""
 from schemathesis.checks import not_a_server_error
 from schemathesis.specs.openapi.checks import status_code_conformance, positive_data_acceptance
 
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 
 @schema.include(path_regex="failure").parametrize()
 def test(case):
@@ -503,11 +506,12 @@ def test(case):
         ("raise AssertionError('My message')", "My message"),
     ],
 )
-def test_failing_custom_check(testdir, openapi3_base_url, body, expected):
+def test_failing_custom_check(testdir, ctx, body, expected):
     # When the user passes a custom check that fails
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 
 def my_check(ctx, response, case):
     {body}
@@ -709,10 +713,11 @@ def test_(request, case):
     result.stdout.re_match_lines([r"Hypothesis calls: 1"])
 
 
-def test_trimmed_output(testdir, openapi3_base_url):
+def test_trimmed_output(testdir, ctx):
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 
 @schema.parametrize()
 def test_a(case):
@@ -788,11 +793,13 @@ def test(value):
 
 
 @pytest.mark.parametrize("value", [True, False])
-def test_output_sanitization(testdir, openapi3_base_url, value):
+def test_output_sanitization(testdir, ctx, value):
+    api = ctx.openapi.apps.failure()
+    base_url = f"{api.base_url}/api"
     auth = "secret-auth"
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{base_url}")
 
 @schema.include(path_regex="failure").parametrize()
 def test(case):
@@ -805,15 +812,15 @@ def test(case):
     # We should skip checking for a server error
     result.assert_outcomes(failed=1)
     if value:
-        expected = rf"curl -X GET -H 'Authorization: [Filtered]' {openapi3_base_url}/failure"
+        expected = rf"curl -X GET -H 'Authorization: [Filtered]' {base_url}/failure"
     else:
-        expected = rf"curl -X GET -H 'Authorization: {auth}' {openapi3_base_url}/failure"
+        expected = rf"curl -X GET -H 'Authorization: {auth}' {base_url}/failure"
     assert expected in result.stdout.str()
 
 
 @pytest.mark.parametrize("enabled", [True, False])
-@pytest.mark.operations("basic")
-def test_output_sanitization_via_config_file(testdir, openapi3_schema_url, enabled):
+def test_output_sanitization_via_config_file(ctx, testdir, enabled):
+    api = ctx.openapi.apps.basic()
     testdir.make_test(
         f"""
 config = schemathesis.Config.from_dict({{
@@ -822,10 +829,10 @@ config = schemathesis.Config.from_dict({{
         "sanitization": {{"enabled": {enabled}}}
     }}
 }})
-schema = schemathesis.openapi.from_url('{openapi3_schema_url}', config=config)
+schema = schemathesis.openapi.from_url('{api.schema_url}', config=config)
 schema.config.generation.update(modes=[GenerationMode.POSITIVE])
 
-@schema.include(name="GET /basic").parametrize()
+@schema.include(name="GET /api/basic").parametrize()
 def test(case):
     case.call_and_validate()
 """
@@ -855,11 +862,11 @@ def extract_hypothesis_error(text):
     return "\n".join(result_lines)
 
 
-@pytest.mark.operations("success")
-def test_filter_case_rejects_all(testdir, openapi3_schema_url):
+def test_filter_case_rejects_all(ctx, testdir):
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
-schema = schemathesis.openapi.from_url('{openapi3_schema_url}')
+schema = schemathesis.openapi.from_url('{api.schema_url}')
 
 @schema.hook
 def filter_case(context, case):
@@ -878,11 +885,11 @@ def test(case):
     assert "hook rejected all generated test cases" in output
 
 
-@pytest.mark.operations("unsatisfiable")
-def test_unsatisfiable_schema(testdir, openapi3_schema_url, snapshot):
+def test_unsatisfiable_schema(ctx, testdir, snapshot):
+    api = ctx.openapi.apps.unsatisfiable()
     testdir.make_test(
         f"""
-schema = schemathesis.openapi.from_url('{openapi3_schema_url}')
+schema = schemathesis.openapi.from_url('{api.schema_url}')
 schema.config.generation.update(modes=[GenerationMode.POSITIVE])
 
 @schema.parametrize()
@@ -896,8 +903,8 @@ def test(case):
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Requires a more complex test setup")
-@pytest.mark.operations("unsatisfiable")
-def test_health_check_failure(ctx, testdir, openapi3_base_url, snapshot):
+def test_health_check_failure(ctx, testdir, snapshot):
+    api = ctx.openapi.apps.unsatisfiable()
     schema_path = ctx.openapi.write_schema(
         {
             "/items/{item_id}/": {
@@ -924,7 +931,7 @@ def test_health_check_failure(ctx, testdir, openapi3_base_url, snapshot):
         f"""
 schema = schemathesis.openapi.from_path('{schema_path}')
 schema.config.generation.update(modes=[GenerationMode.POSITIVE])
-schema.config.base_url = '{openapi3_base_url}'
+schema.config.base_url = '{api.base_url}/api'
 
 @schema.parametrize()
 def test(case):
@@ -936,10 +943,11 @@ def test(case):
     assert extract_hypothesis_error(result.stdout.str()) == snapshot
 
 
-def test_unsatisfiable_example(testdir, openapi3_base_url):
+def test_unsatisfiable_example(testdir, ctx):
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 schema.config.phases.coverage.enabled = False
 schema.config.phases.fuzzing.enabled = False
 
@@ -987,11 +995,12 @@ def test(case):
     )
 
 
-def test_unsupported_regex_pattern_removed(testdir, openapi3_base_url):
+def test_unsupported_regex_pattern_removed(testdir, ctx):
     # When a schema contains an unsupported regex pattern, it is removed and tests can proceed
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 
 @schema.include(path_regex="success").parametrize()
 @settings(phases=[Phase.explicit, Phase.generate])
@@ -1038,10 +1047,11 @@ def test(case):
     "phases",
     ["Phase.explicit", "Phase.explicit, Phase.generate"],
 )
-def test_invalid_header_in_example(testdir, openapi3_base_url, phases):
+def test_invalid_header_in_example(testdir, ctx, phases):
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 
 @schema.include(path_regex="success").parametrize()
 @settings(phases=[{phases}])
@@ -1071,11 +1081,12 @@ def test(case):
     assert "Failed to generate test cases from examples for this API" in result.stdout.str()
 
 
-def test_coverage_phase(testdir, openapi3_base_url):
+def test_coverage_phase(testdir, ctx):
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
 schemathesis.openapi.media_type("image/jpeg", st.just(b""))
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 schema.config.phases.examples.enabled = False
 schema.config.phases.fuzzing.enabled = False
 
@@ -1106,10 +1117,11 @@ def test(case):
     result.assert_outcomes(passed=1)
 
 
-def test_non_serializable_example(testdir, openapi3_base_url):
+def test_non_serializable_example(testdir, ctx):
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 
 @schema.include(path_regex="success").parametrize()
 @settings(phases=[Phase.explicit])
@@ -1144,11 +1156,11 @@ def test(case):
     )
 
 
-@pytest.mark.operations("path_variable", "custom_format")
-def test_override(testdir, openapi3_schema_url):
+def test_override(ctx, testdir):
+    api = ctx.openapi.apps.path_variable_and_custom_format()
     testdir.make_test(
         f"""
-schema = schemathesis.openapi.from_url('{openapi3_schema_url}')
+schema = schemathesis.openapi.from_url('{api.schema_url}')
 schema.config.update(parameters={{"key": "foo", "id": "bar"}})
 
 @schema.include(path_regex="path_variable|custom_format").parametrize()
@@ -1166,11 +1178,11 @@ def test(case):
     result.assert_outcomes(passed=2)
 
 
-@pytest.mark.operations("csv_payload")
-def test_error_reporting(testdir, openapi3_schema_url):
+def test_error_reporting(ctx, testdir):
+    api = ctx.openapi.apps.csv_payload()
     testdir.make_test(
         f"""
-schema = schemathesis.openapi.from_url('{openapi3_schema_url}')
+schema = schemathesis.openapi.from_url('{api.schema_url}')
 
 @schema.include(path_regex="csv").parametrize()
 def test(case):
@@ -1181,11 +1193,11 @@ def test(case):
     assert "while generating" not in result.stdout.str()
 
 
-@pytest.mark.operations("missing_path_parameter")
-def test_missing_path_parameter(testdir, openapi3_schema_url):
+def test_missing_path_parameter(ctx, testdir):
+    api = ctx.openapi.apps.missing_path_parameter()
     testdir.make_test(
         f"""
-schema = schemathesis.openapi.from_url('{openapi3_schema_url}')
+schema = schemathesis.openapi.from_url('{api.schema_url}')
 
 @schema.parametrize()
 @settings(max_examples=3)
@@ -1199,8 +1211,8 @@ def test(case):
     result.assert_outcomes(failed=1)
 
 
-@pytest.mark.operations("failure")
-def test_disable_checks_via_config(testdir, openapi3_schema_url):
+def test_disable_checks_via_config(ctx, testdir):
+    api = ctx.openapi.apps.failure()
     testdir.make_test(
         f"""
 config = schemathesis.Config.from_dict({{
@@ -1209,9 +1221,9 @@ config = schemathesis.Config.from_dict({{
         "content_type_conformance": {{"enabled": False}},
     }}
 }})
-schema = schemathesis.openapi.from_url('{openapi3_schema_url}', config=config)
+schema = schemathesis.openapi.from_url('{api.schema_url}', config=config)
 
-@schema.include(name="GET /failure").parametrize()
+@schema.include(name="GET /api/failure").parametrize()
 def test(case):
     case.call_and_validate()
 """
@@ -1223,23 +1235,27 @@ def test(case):
 @pytest.mark.parametrize(
     ["filter", "expected"],
     (
+        # Only POST /api/write_only is enabled by the config; it fails on random input.
         ("", {"failed": 1}),
-        # Adds two additional operations
-        (".include(name_regex='GET /(success|text)')", {"failed": 2, "passed": 1}),
-        # Also excludes the one defined in the config file
-        (".include(name_regex='GET /(success|text)').exclude(name='POST /write_only')", {"failed": 1, "passed": 1}),
+        # Adds /api/success (passes) and /api/text (content-type failure) on top of write_only.
+        (".include(name_regex='GET /api/(success|text)')", {"failed": 2, "passed": 1}),
+        # Also drops write_only via name exclusion, leaving success + text.
+        (
+            ".include(name_regex='GET /api/(success|text)').exclude(name='POST /api/write_only')",
+            {"failed": 1, "passed": 1},
+        ),
     ),
 )
-@pytest.mark.operations("__all__")
-def test_filter_combination(testdir, openapi3_schema_url, filter, expected):
+def test_filter_combination(ctx, testdir, filter, expected):
+    api = ctx.openapi.apps.success_text_and_write_only()
     testdir.make_test(f"""
 config = schemathesis.Config.from_dict({{
     "operations": [{{
-        "exclude-name": "POST /write_only",
+        "exclude-name": "POST /api/write_only",
         "enabled": False,
     }}]
 }})
-schema = schemathesis.openapi.from_url("{openapi3_schema_url}", config=config)
+schema = schemathesis.openapi.from_url("{api.schema_url}", config=config)
 
 @schema{filter}.parametrize()
 def test_api(case):
@@ -1249,7 +1265,8 @@ def test_api(case):
     result.assert_outcomes(**expected)
 
 
-def test_transport_kwargs_from_config(testdir, openapi3_schema_url):
+def test_transport_kwargs_from_config(ctx, testdir):
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
 config = schemathesis.Config.from_dict({{
@@ -1263,12 +1280,12 @@ config = schemathesis.Config.from_dict({{
         }}
     }}
 }})
-schema = schemathesis.openapi.from_url('{openapi3_schema_url}', config=config)
+schema = schemathesis.openapi.from_url('{api.schema_url}', config=config)
 
 def noop(*args, **kwargs):
     pass
 
-@schema.include(name="GET /success").parametrize()
+@schema.include(name="GET /api/success").parametrize()
 @settings(suppress_health_check=list(HealthCheck))
 def test(case, mocker):
     spy = mocker.patch("requests.Session.request")
@@ -1288,9 +1305,8 @@ def test(case, mocker):
 def test_config_using_headers(testdir):
     testdir.make_test(
         """
-raw_schema = {
-    "openapi": "3.1.0",
-    "paths": {
+raw_schema = make_openapi_schema(
+    {
         "/bookings": {
             "post": {
                 "parameters": [
@@ -1304,7 +1320,8 @@ raw_schema = {
             }
         },
     },
-}
+    version="3.1.0",
+)
 schema = schemathesis.openapi.from_dict(raw_schema)
 HEADERS = {"Authorization": "Bearer secret-token"}
 schema.config.update(headers=HEADERS)
@@ -1321,9 +1338,8 @@ def test(case):
 def test_config_using_auth(testdir):
     testdir.make_test(
         """
-raw_schema = {
-    "openapi": "3.1.0",
-    "paths": {
+raw_schema = make_openapi_schema(
+    {
         "/bookings": {
             "post": {
                 "parameters": [
@@ -1337,7 +1353,8 @@ raw_schema = {
             }
         },
     },
-}
+    version="3.1.0",
+)
 schema = schemathesis.openapi.from_dict(raw_schema)
 schema.config.update(basic_auth=("test", "test"))
 
@@ -1355,9 +1372,8 @@ def test_config_generation(testdir):
     MAX_EXAMPLES_B = 42
     testdir.make_test(
         f"""
-raw_schema = {{
-    "openapi": "3.1.0",
-    "paths": {{
+raw_schema = make_openapi_schema(
+    {{
         "/bookings": {{
             "post": {{
                 "parameters": [
@@ -1371,7 +1387,8 @@ raw_schema = {{
             }}
         }},
     }},
-}}
+    version="3.1.0",
+)
 schema = schemathesis.openapi.from_dict(raw_schema)
 schema.config.generation.update(
     modes=[GenerationMode.POSITIVE],
@@ -1398,14 +1415,15 @@ def test_b(request, case):
     )
 
 
-def test_csv_response_validation_direct(testdir, openapi3_base_url):
+def test_csv_response_validation_direct(testdir, ctx):
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
 import requests
 from schemathesis.core.transport import Response
 from schemathesis.specs.openapi.checks import response_schema_conformance
 
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 schema.config.generation.update(modes=[GenerationMode.POSITIVE])
 
 @schema.include(name="GET /success").parametrize()
@@ -1455,13 +1473,13 @@ def test_csv_validation(case):
     assert "res = hook_impl.function(*args)" not in result.stdout.str()
 
 
-@pytest.mark.operations("success")
-def test_graphql_lazy_loading(testdir, openapi3_schema_url):
+def test_graphql_lazy_loading(ctx, testdir):
+    api = ctx.openapi.apps.success()
     testdir.make_test(
         f"""
 import sys
 
-schema = schemathesis.openapi.from_url('{openapi3_schema_url}')
+schema = schemathesis.openapi.from_url('{api.schema_url}')
 for k in list(sys.modules):
     if k.startswith("graphql"):
         del sys.modules[k]
@@ -1563,11 +1581,10 @@ def test_urlencoded_type_mutations_should_not_cause_false_positives(testdir):
         test_case="""
 import schemathesis
 from hypothesis import settings
+from test.utils import make_openapi_schema
 
-raw_schema = {
-    "openapi": "3.0.2",
-    "info": {"title": "Test", "version": "1.0.0"},
-    "paths": {
+raw_schema = make_openapi_schema(
+    {
         "/success": {
             "post": {
                 "requestBody": {
@@ -1588,8 +1605,9 @@ raw_schema = {
                 }
             }
         }
-    }
-}
+    },
+    info={"title": "Test", "version": "1.0.0"},
+)
 
 schema_obj = schemathesis.openapi.from_dict(raw_schema)
 
@@ -1687,16 +1705,20 @@ def test_pytest_parametrize_multiple_schemas(testdir):
         """
 import asyncio
 
-users_schema = schemathesis.openapi.from_dict({
-    "openapi": "3.0.0",
-    "info": {"title": "Users", "description": "", "version": "0.1.0"},
-    "paths": {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}}
-})
-orders_schema = schemathesis.openapi.from_dict({
-    "openapi": "3.0.0",
-    "info": {"title": "Orders", "description": "", "version": "0.1.0"},
-    "paths": {"/orders": {"get": {"responses": {"200": {"description": "OK"}}}}}
-})
+users_schema = schemathesis.openapi.from_dict(
+    make_openapi_schema(
+        {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        version="3.0.0",
+        info={"title": "Users", "description": "", "version": "0.1.0"},
+    )
+)
+orders_schema = schemathesis.openapi.from_dict(
+    make_openapi_schema(
+        {"/orders": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        version="3.0.0",
+        info={"title": "Orders", "description": "", "version": "0.1.0"},
+    )
+)
 
 @schemathesis.pytest.parametrize(users=users_schema, orders=orders_schema)
 def test_sync(case):
@@ -1721,8 +1743,9 @@ async def test_async(case):
     )
 
 
-def test_pytest_coverage_undeclared_method_probes_dedup_per_path(testdir, openapi3_base_url, tmp_path):
+def test_pytest_coverage_undeclared_method_probes_dedup_per_path(testdir, ctx, tmp_path):
     # Each (path, unexpected_method) pair runs once across `@schema.parametrize()` operations.
+    api = ctx.openapi.apps.success()
     log_path = tmp_path / "unexpected_methods.log"
     schema_dict = {
         "openapi": "3.0.0",
@@ -1735,7 +1758,7 @@ def test_pytest_coverage_undeclared_method_probes_dedup_per_path(testdir, openap
     }
     testdir.make_test(
         f"""
-schema.config.update(base_url="{openapi3_base_url}")
+schema.config.update(base_url="{api.base_url}/api")
 schema.config.phases.examples.enabled = False
 schema.config.phases.fuzzing.enabled = False
 

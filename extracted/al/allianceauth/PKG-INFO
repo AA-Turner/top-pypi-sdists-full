@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth
-Version: 5.0.0
+Version: 5.0.1
 Summary: An auth system for EVE Online to help in-game organizations
 Keywords: allianceauth,eveonline
 Author-email: Alliance Auth <adarnof@gmail.com>
@@ -119,11 +119,11 @@ Here is an example of the Alliance Auth web site with a mixture of Services, App
 
 ### Flatly Theme
 
-![Flatly Theme](docs/_static/images/promotion/SampleInstallation-Flatly.png)
+![Flatly Theme](https://gitlab.com/allianceauth/allianceauth/-/raw/master/docs/_static/images/promotion/SampleInstallation-Flatly.png)
 
 ### Darkly Theme
 
-![Darkly Theme](docs/_static/images/promotion/SampleInstallation-Darkly.png)
+![Darkly Theme](https://gitlab.com/allianceauth/allianceauth/-/raw/master/docs/_static/images/promotion/SampleInstallation-Darkly.png)
 
 ## Support
 

@@ -121,6 +121,26 @@ impl From<&AutopilotConfig> for tensorzero_stored_config::StoredAutopilotConfig 
     }
 }
 
+/// A per-item error encountered during config loading from the database.
+/// Items with loading errors are skipped from the live config; this struct
+/// preserves enough context for the UI to display the error and for operators
+/// to copy/paste the raw config fragment for debugging.
+#[serde_with::skip_serializing_none]
+#[derive(ts_rs::TS, Clone, Debug, Serialize)]
+#[ts(export, optional_fields)]
+pub struct ConfigLoadingError {
+    /// The type of config item (e.g. `"function"`, `"variant"`, `"model"`).
+    pub kind: &'static str,
+    /// The name of the broken item.
+    pub name: String,
+    /// For variants: the parent function name.
+    pub parent: Option<String>,
+    /// Human-readable description of what went wrong.
+    pub error: String,
+    /// Best-effort TOML fragment of the raw stored config, for copy/paste debugging.
+    pub raw_toml: Option<String>,
+}
+
 // Note - the `Default` impl only exists for convenience in tests
 // It might produce a completely broken config - if a test fails,
 // use one of the public `Config` constructors instead.
@@ -144,12 +164,14 @@ pub struct Config {
     pub http_client: TensorzeroHttpClient,
     pub autopilot: AutopilotConfig,
     pub hash: SnapshotHash,
+    /// Errors encountered while loading config items from the database.
+    /// Non-empty only in config-in-database mode; always empty for file configs.
+    pub loading_errors: Vec<ConfigLoadingError>,
 }
 
 #[serde_with::skip_serializing_none]
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
+#[derive(ts_rs::TS, Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[ts(export, optional_fields)]
 #[serde(deny_unknown_fields)]
 pub struct NonStreamingTimeouts {
     /// The total time allowed for the non-streaming request to complete.
@@ -157,9 +179,8 @@ pub struct NonStreamingTimeouts {
 }
 
 #[serde_with::skip_serializing_none]
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
+#[derive(ts_rs::TS, Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[ts(export, optional_fields)]
 #[serde(deny_unknown_fields)]
 pub struct StreamingTimeouts {
     /// The time allowed for the first token to be produced.
@@ -171,9 +192,8 @@ pub struct StreamingTimeouts {
 /// Configures the timeouts for both streaming and non-streaming requests.
 /// This can be attached to various other configs (e.g. variants, models, model providers)
 #[serde_with::skip_serializing_none]
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
+#[derive(ts_rs::TS, Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[ts(export, optional_fields)]
 #[serde(deny_unknown_fields)]
 pub struct TimeoutsConfig {
     pub non_streaming: Option<NonStreamingTimeouts>,
@@ -697,8 +717,8 @@ pub enum OtlpTracesFormat {
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
+#[derive(ts_rs::TS)]
+#[ts(export, optional_fields)]
 pub struct MetricConfig {
     pub r#type: MetricConfigType,
     pub optimize: MetricConfigOptimize,
@@ -709,8 +729,8 @@ pub struct MetricConfig {
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[derive(ts_rs::TS)]
+#[ts(export)]
 pub enum MetricConfigType {
     Boolean,
     Float,
@@ -742,11 +762,10 @@ impl MetricConfigType {
     }
 }
 
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(ts_rs::TS, Copy, Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[ts(export)]
 pub enum MetricConfigOptimize {
     Min,
     Max,
@@ -764,8 +783,8 @@ impl From<MetricConfigOptimize> for StoredMetricOptimize {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[derive(ts_rs::TS)]
+#[ts(export)]
 pub enum MetricConfigLevel {
     Inference,
     Episode,
@@ -1117,6 +1136,10 @@ struct ProcessedConfigInput {
 
     /// Runtime overlay captured from the UninitializedConfig before defaults are resolved.
     runtime_overlay: RuntimeOverlay,
+
+    /// Errors collected during DB loading, to be stored on the final `Config`.
+    /// Always empty for fresh TOML and snapshot inputs.
+    loading_errors: Vec<ConfigLoadingError>,
 }
 
 pub(crate) fn validate_user_config_names(config: &UninitializedConfig) -> Result<(), Error> {
@@ -1265,9 +1288,17 @@ async fn process_config_input(
                 gateway_config,
                 object_store_info: overlay_object_store_info,
                 runtime_overlay: captured_runtime_overlay,
+                loading_errors: vec![],
             })
         }
-        ConfigInput::Database(config) => process_uninitialized_config(*config, templates).await,
+        ConfigInput::Database {
+            config,
+            loading_errors,
+        } => {
+            let mut processed = process_uninitialized_config(*config, templates).await?;
+            processed.loading_errors = loading_errors;
+            Ok(processed)
+        }
     }
 }
 
@@ -1371,6 +1402,7 @@ async fn process_uninitialized_config(
         object_store_info,
         uninitialized_config,
         runtime_overlay,
+        loading_errors: vec![],
     })
 }
 
@@ -1480,16 +1512,17 @@ impl Config {
         pool: &PgPool,
         validate_credentials: bool,
     ) -> Result<UnwrittenConfig, Vec<Error>> {
-        let config = crate::db::postgres::stored_config_queries::load_config_from_db(pool).await?;
-        let config = Box::new(config);
+        let loaded = crate::db::postgres::stored_config_queries::load_config_from_db(pool).await?;
+        let input = ConfigInput::Database {
+            config: Box::new(loaded.config),
+            loading_errors: loaded.loading_errors,
+        };
         let unwritten_config = if e2e_skip_credential_validation() || !validate_credentials {
-            with_skip_credential_validation(Box::pin(Self::load_unwritten_config(
-                ConfigInput::Database(config),
-            )))
-            .await
-            .map_err(|error| vec![error])?
+            with_skip_credential_validation(Box::pin(Self::load_unwritten_config(input)))
+                .await
+                .map_err(|error| vec![error])?
         } else {
-            Box::pin(Self::load_unwritten_config(ConfigInput::Database(config)))
+            Box::pin(Self::load_unwritten_config(input))
                 .await
                 .map_err(|error| vec![error])?
         };
@@ -1505,14 +1538,14 @@ impl Config {
         config: UninitializedConfig,
         validate_credentials: bool,
     ) -> Result<UnwrittenConfig, Error> {
-        let config = Box::new(config);
+        let input = ConfigInput::Database {
+            config: Box::new(config),
+            loading_errors: vec![],
+        };
         let unwritten_config = if e2e_skip_credential_validation() || !validate_credentials {
-            with_skip_credential_validation(Box::pin(Self::load_unwritten_config(
-                ConfigInput::Database(config),
-            )))
-            .await?
+            with_skip_credential_validation(Box::pin(Self::load_unwritten_config(input))).await?
         } else {
-            Box::pin(Self::load_unwritten_config(ConfigInput::Database(config))).await?
+            Box::pin(Self::load_unwritten_config(input)).await?
         };
 
         if validate_credentials && let Some(object_store) = &unwritten_config.object_store_info {
@@ -1579,7 +1612,7 @@ impl Config {
     async fn load_unwritten_config(input: ConfigInput) -> Result<UnwrittenConfig, Error> {
         let is_config_snapshot = match &input {
             ConfigInput::Snapshot { .. } => true,
-            ConfigInput::Fresh(_) | ConfigInput::Database(_) => false,
+            ConfigInput::Fresh(_) | ConfigInput::Database { .. } => false,
         };
         let mut templates = TemplateConfig::new();
         let ProcessedConfigInput {
@@ -1600,9 +1633,13 @@ impl Config {
             gateway_config,
             object_store_info,
             runtime_overlay,
+            loading_errors,
         } = process_config_input(input, &mut templates).await?;
 
-        let http_client = TensorzeroHttpClient::new(gateway_config.global_outbound_http_timeout)?;
+        let http_client = TensorzeroHttpClient::new(
+            gateway_config.global_outbound_http_timeout,
+            gateway_config.global_outbound_http_intra_stream_read_timeout,
+        )?;
         let relay_mode = gateway_config.relay.is_some();
 
         let tools = tools
@@ -1713,6 +1750,7 @@ impl Config {
             http_client,
             autopilot,
             hash: snapshot.hash.clone(),
+            loading_errors,
         };
 
         // Validate the config (before adding tensorzero:: prefixed evaluator artifacts)
@@ -2064,7 +2102,10 @@ impl Config {
 
 pub enum ConfigInput {
     Fresh(toml::Table),
-    Database(Box<UninitializedConfig>),
+    Database {
+        config: Box<UninitializedConfig>,
+        loading_errors: Vec<ConfigLoadingError>,
+    },
     Snapshot {
         snapshot: Box<ConfigSnapshot>,
         runtime_overlay: Box<RuntimeOverlay>,
@@ -2474,9 +2515,8 @@ pub struct UninitializedFunctionConfigJson {
 
 /// Holds all of the schemas used by a chat completion function.
 /// These are used by variants to construct a `TemplateWithSchema`
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Debug, Default, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
+#[derive(ts_rs::TS, Debug, Default, Serialize)]
+#[ts(export, optional_fields)]
 pub struct SchemaData {
     #[serde(flatten)]
     pub inner: HashMap<String, SchemaWithMetadata>,
@@ -2878,9 +2918,8 @@ impl UninitializedFunctionConfig {
 }
 
 #[serde_with::skip_serializing_none]
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
+#[derive(ts_rs::TS, Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[ts(export, optional_fields)]
 #[serde(rename_all = "snake_case")]
 // We don't use `#[serde(deny_unknown_fields)]` here - it needs to go on 'UninitializedVariantConfig',
 // since we use `#[serde(flatten)]` on the `inner` field.
@@ -2888,14 +2927,13 @@ pub struct UninitializedVariantInfo {
     #[serde(flatten)]
     pub inner: UninitializedVariantConfig,
     pub timeouts: Option<TimeoutsConfig>,
-    #[cfg_attr(feature = "ts-bindings", ts(optional))]
+    #[ts(optional)]
     pub namespace: Option<Namespace>,
 }
 
 /// NOTE: Contains deprecated variant `ChainOfThought` (#5298 / 2026.2+)
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, JsonSchema, PartialEq, TensorZeroDeserialize, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[derive(ts_rs::TS, Clone, Debug, JsonSchema, PartialEq, TensorZeroDeserialize, Serialize)]
+#[ts(export)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
@@ -3016,11 +3054,10 @@ impl UninitializedToolConfig {
     }
 }
 
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
+#[derive(ts_rs::TS, Debug, PartialEq, Serialize, Deserialize)]
+#[ts(export, optional_fields)]
 pub struct PathWithContents {
-    #[cfg_attr(feature = "ts-bindings", ts(type = "string"))]
+    #[ts(type = "string")]
     pub path: ResolvedTomlPathData,
     pub contents: String,
 }

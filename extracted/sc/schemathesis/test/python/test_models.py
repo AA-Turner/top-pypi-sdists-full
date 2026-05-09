@@ -4,6 +4,7 @@ from unittest.mock import ANY
 
 import pytest
 import requests
+from fastapi import FastAPI
 from hypothesis import HealthCheck, given, settings
 
 import schemathesis
@@ -22,7 +23,7 @@ from schemathesis.transport.prepare import get_default_headers
 
 @pytest.fixture
 def schema_with_payload(ctx):
-    schema = ctx.openapi.build_schema(
+    return ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -52,7 +53,6 @@ def schema_with_payload(ctx):
             }
         },
     )
-    return schemathesis.openapi.from_dict(schema)
 
 
 def test_make_case_explicit_media_type(schema_with_payload):
@@ -75,7 +75,7 @@ def test_make_case_automatic_media_type(schema_with_payload):
 
 def test_make_case_missing_media_type(ctx):
     # When there are multiple available media types
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -91,7 +91,6 @@ def test_make_case_missing_media_type(ctx):
             },
         }
     )
-    schema = schemathesis.openapi.from_dict(schema)
     # And the `media_type` argument is not passed to `make_case`
     # Then there should be a usage error
     with pytest.raises(IncorrectUsage):
@@ -123,8 +122,9 @@ def test_case_repr(swagger_20, kwargs, expected):
 
 @pytest.mark.parametrize("override", [False, True])
 @pytest.mark.parametrize("converter", [lambda x: x, lambda x: x + "/"])
-def test_as_transport_kwargs(override, server, base_url, swagger_20, converter):
-    base_url = converter(base_url)
+def test_as_transport_kwargs(ctx, override, swagger_20, converter):
+    api = ctx.openapi.apps.success()
+    base_url = converter(f"{api.base_url}/api")
     operation = APIOperation(
         "/success",
         "GET",
@@ -144,20 +144,21 @@ def test_as_transport_kwargs(override, server, base_url, swagger_20, converter):
         "method": "GET",
         "params": {},
         "cookies": {"TOKEN": "secret"},
-        "url": f"http://127.0.0.1:{server['port']}/api/success",
+        "url": f"{api.base_url}/api/success",
     }
     response = requests.request(**data)
     assert response.status_code == 200
     assert response.json() == {"success": True}
 
 
-@pytest.mark.operations("create_user")
-def test_mutate_body(openapi3_schema):
-    operation = openapi3_schema["/users/"]["post"]
+def test_mutate_body(ctx):
+    api = ctx.openapi.apps.users_crud()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    operation = schema["/users/"]["post"]
     case = operation.Case(body={"foo": "bar"})
     response = case.call()
     assert response.request.body == json.dumps(case.body).encode()
-    openapi3_schema.app = 42
+    schema.app = 42
     assert case.as_transport_kwargs()["json"] == case.body
 
 
@@ -186,13 +187,14 @@ def test_reserved_characters_in_operation_name(swagger_20):
         ({"UsEr-agEnT": "foo/1.0"}, {"UsEr-agEnT": "foo/1.0", "X-Key": "foo"}),
     ],
 )
-def test_as_transport_kwargs_override_user_agent(server, openapi2_base_url, swagger_20, headers, expected):
+def test_as_transport_kwargs_override_user_agent(ctx, swagger_20, headers, expected):
+    api = ctx.openapi.apps.success()
     operation = APIOperation(
         "/success",
         "GET",
         {},
         swagger_20,
-        base_url=openapi2_base_url,
+        base_url=f"{api.base_url}/api",
         responses=swagger_20._parse_responses({}, ""),
         security=swagger_20._parse_security({}),
     )
@@ -205,7 +207,7 @@ def test_as_transport_kwargs_override_user_agent(server, openapi2_base_url, swag
         "method": "GET",
         "params": {},
         "cookies": {},
-        "url": f"http://127.0.0.1:{server['port']}/api/success",
+        "url": f"{api.base_url}/api/success",
     }
     assert case.headers == original_headers
     response = requests.request(**data)
@@ -215,7 +217,7 @@ def test_as_transport_kwargs_override_user_agent(server, openapi2_base_url, swag
 
 @pytest.mark.parametrize("header", ["content-Type", "Content-Type"])
 def test_as_transport_kwargs_override_content_type(ctx, header):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -228,7 +230,6 @@ def test_as_transport_kwargs_override_content_type(ctx, header):
             },
         }
     )
-    schema = schemathesis.openapi.from_dict(schema)
     case = schema["/data"]["post"].Case(body="<html></html>", media_type="text/plain")
     # When the `Content-Type` header is explicitly passed
     data = case.as_transport_kwargs(headers={header: "text/html"})
@@ -249,7 +250,9 @@ def test_as_transport_kwargs_override_content_type(ctx, header):
 
 
 @pytest.mark.parametrize("override", [False, True])
-def test_call(override, base_url, swagger_20):
+def test_call(ctx, override, swagger_20):
+    api = ctx.openapi.apps.success()
+    base_url = f"{api.base_url}/api"
     operation = APIOperation(
         "/success",
         "GET",
@@ -280,11 +283,11 @@ def custom_check(ctx, response, case):
         {"excluded_checks": (not_a_server_error,)},
     ],
 )
-@pytest.mark.operations("success")
-def test_call_and_validate(openapi3_schema_url, kwargs):
-    api_schema = schemathesis.openapi.from_url(openapi3_schema_url)
+def test_call_and_validate(ctx, kwargs):
+    api = ctx.openapi.apps.success()
+    api_schema = schemathesis.openapi.from_url(api.schema_url)
 
-    @given(case=api_schema["/success"]["GET"].as_strategy())
+    @given(case=api_schema["/api/success"]["GET"].as_strategy())
     @settings(max_examples=1, deadline=None)
     def test(case):
         case.call_and_validate(**kwargs)
@@ -292,11 +295,11 @@ def test_call_and_validate(openapi3_schema_url, kwargs):
     test()
 
 
-@pytest.mark.operations("custom_format")
-def test_metadata_has_only_relevant_components(openapi3_schema_url):
-    api_schema = schemathesis.openapi.from_url(openapi3_schema_url)
+def test_metadata_has_only_relevant_components(ctx):
+    api = ctx.openapi.apps.custom_format()
+    api_schema = schemathesis.openapi.from_url(api.schema_url)
 
-    operation = api_schema["/custom_format"]["GET"]
+    operation = api_schema["/api/custom_format"]["GET"]
 
     @given(
         case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE)
@@ -311,9 +314,14 @@ def test_metadata_has_only_relevant_components(openapi3_schema_url):
     test()
 
 
-@pytest.mark.operations("success")
-def test_call_and_validate_for_asgi(fastapi_app):
-    api_schema = schemathesis.openapi.from_dict(fastapi_app.openapi())
+def test_call_and_validate_for_asgi():
+    app = FastAPI()
+
+    @app.get("/users")
+    async def users():
+        return {"success": True}
+
+    api_schema = schemathesis.openapi.from_dict(app.openapi())
 
     @given(case=api_schema["/users"]["GET"].as_strategy())
     @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
@@ -405,7 +413,7 @@ def test_validate_response_schema_path(
     instance,
     instance_path,
 ):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/test": {
                 "post": {
@@ -420,7 +428,6 @@ def test_validate_response_schema_path(
         },
         components={"schemas": {"Foo": {"type": "object"}}},
     )
-    schema = schemathesis.openapi.from_dict(schema)
     response = getattr(response_factory, factory_type)(content=json.dumps(payload).encode("utf-8"))
     with pytest.raises(Failure) as exc:
         schema["/test"]["POST"].validate_response(response)
@@ -432,9 +439,20 @@ def test_validate_response_schema_path(
     assert failure.instance_path == instance_path
 
 
-@pytest.mark.operations
-def test_response_from_requests(base_url):
-    response = requests.get(f"{base_url}/cookies", timeout=1)
+def test_response_from_requests(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app({"/cookies": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/api/cookies")
+    def set_cookies():
+        from flask import make_response
+
+        response = make_response("")
+        response.set_cookie("foo", "bar")
+        response.set_cookie("baz", "spam")
+        return response
+
+    port = app_runner.run_flask_app(app)
+    response = requests.get(f"http://127.0.0.1:{port}/api/cookies", timeout=1)
     serialized = Response.from_requests(response, True)
     assert serialized.content == b""
     assert serialized.status_code == 200
@@ -471,7 +489,7 @@ def test_method_suggestion_without_parameters(swagger_20):
 @pytest.mark.hypothesis_nested
 def test_generation_mode_is_available(ctx, mode):
     # When a new case is generated
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -485,9 +503,7 @@ def test_generation_mode_is_available(ctx, mode):
         }
     )
 
-    api_schema = schemathesis.openapi.from_dict(schema)
-
-    @given(case=api_schema["/data"]["POST"].as_strategy(generation_mode=mode))
+    @given(case=schema["/data"]["POST"].as_strategy(generation_mode=mode))
     @settings(max_examples=1)
     def test(case):
         # Then its generator mode should be available
@@ -498,7 +514,7 @@ def test_generation_mode_is_available(ctx, mode):
 
 @pytest.mark.hypothesis_nested
 def test_case_insensitive_headers(ctx):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -509,7 +525,6 @@ def test_case_insensitive_headers(ctx):
         }
     )
     # When headers are generated
-    schema = schemathesis.openapi.from_dict(schema)
 
     @given(case=schema["/data"]["POST"].as_strategy())
     @settings(max_examples=1)
@@ -524,7 +539,7 @@ def test_case_insensitive_headers(ctx):
 
 
 def test_iter_parameters(ctx):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -537,7 +552,6 @@ def test_iter_parameters(ctx):
             },
         }
     )
-    schema = schemathesis.openapi.from_dict(schema)
     params = list(schema["/data"]["POST"].iter_parameters())
     assert len(params) == 2
     assert params[0].name == "X-id"
@@ -547,7 +561,7 @@ def test_iter_parameters(ctx):
 @pytest.mark.parametrize("factory_type", ["httpx", "requests", "wsgi"])
 def test_checks_errors_deduplication(ctx, response_factory, factory_type):
     # See GH-1394
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "get": {
@@ -558,7 +572,6 @@ def test_checks_errors_deduplication(ctx, response_factory, factory_type):
             },
         }
     )
-    schema = schemathesis.openapi.from_dict(schema)
     case = schema["/data"]["GET"].Case()
     response = getattr(response_factory, factory_type)(content=b"42", content_type=None)
     # When there are two checks that raise the same failure
@@ -656,7 +669,7 @@ def test_call_overrides_wsgi(mocker, call_arg, client_arg, openapi_30):
     ],
 )
 def test_get_parameter(ctx, name, location, exists):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data/": {
                 "get": {
@@ -682,7 +695,6 @@ def test_get_parameter(ctx, name, location, exists):
         },
         security=[{"ApiKeyAuth": []}],
     )
-    schema = schemathesis.openapi.from_dict(schema)
 
     parameter = schema["/data/"]["GET"].get_parameter(name, location)
     assert (parameter is not None) is exists

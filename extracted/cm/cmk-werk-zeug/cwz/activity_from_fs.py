@@ -18,7 +18,6 @@ from datetime import date, datetime
 from pathlib import Path
 
 import rich
-from line_profiler import profile
 from rich import traceback
 from rich.color import Color
 from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
@@ -125,7 +124,6 @@ def _output_bars(
     return lines_printed
 
 
-@profile
 def investigate(start_dir: Path, status: Status) -> None:
     """Traverse filesystem and track traces of activity"""
     dates = {}

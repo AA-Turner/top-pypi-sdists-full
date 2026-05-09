@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import itertools
 import os
 import sys
 
-import pkg_resources
+from packaging.version import Version
 import setuptools
 
 # To enable importing version.py directly, we add its path to sys.path.
@@ -40,7 +40,7 @@ from version import __version__  # pytype: disable=import-error  # pylint: disab
 if datestring := os.environ.get('TFDS_NIGHTLY_TIMESTAMP'):
   project_name = 'tfds-nightly'
   # Version as `X.Y.Z.dev199912312459`
-  curr_version = pkg_resources.parse_version(__version__)
+  curr_version = Version(__version__)
   __version__ = f'{curr_version.base_version}.dev{datestring}'
 else:
   project_name = 'tensorflow-datasets'
@@ -77,11 +77,11 @@ TESTS_DEPENDENCIES = [
     'dill',
     'jax[cpu]==0.4.28',
     'jupyter',
+    'ipykernel<7.0.0',
     'pytest',
     'pytest-shard',
     'pytest-xdist',
     # Lazy-deps required by core
-    # TODO(b/418761065): Update to 2.65.0 once the bug is fixed.
     'apache-beam<2.65.0',
     'conllu',
     'mlcroissant>=1.0.9',
@@ -89,7 +89,6 @@ TESTS_DEPENDENCIES = [
     'pydub',
     # Required by scripts/documentation/
     'pyyaml',
-    'tensorflow-io[tensorflow];python_version<"3.12"',
 ]
 
 # Additional deps for formatting
@@ -151,10 +150,13 @@ DATASET_EXTRAS = {
         # nltk==3.8.2 is broken: https://github.com/nltk/nltk/issues/3293
         'nltk==3.8.1',
         'tldextract',
+        # tensorflow==2.20.0 is not compatible with gcld3 because of protobuf
+        # version conflict.
+        'tensorflow<2.20.0',
     ],
     'c4_wsrs': ['apache-beam<2.65.0'],
     'cats_vs_dogs': ['matplotlib'],
-    'colorectal_histology': ['Pillow'],
+    'colorectal_histology': ['Pillow<12.0.0'],
     'common_voice': ['pydub'],  # and ffmpeg installed
     'duke_ultrasound': ['scipy'],
     'eurosat': ['scikit-image', 'tifffile', 'imagecodecs'],
@@ -168,11 +170,17 @@ DATASET_EXTRAS = {
         'scipy',
     ],
     'librispeech': ['pydub'],  # and ffmpeg installed
-    'lsun': ['tensorflow-io[tensorflow]'],
-    # sklearn version required to avoid conflict with librosa from
-    # https://github.com/scikit-learn/scikit-learn/issues/14485
-    # See https://github.com/librosa/librosa/issues/1160
-    'nsynth': ['crepe>=0.0.11', 'librosa', 'scikit-learn==0.20.3'],
+    'lsun': [
+        # tensorflow-io is compiled against specific versions of TF.
+        'tensorflow-io[tensorflow]',
+    ],
+    'nsynth': [
+        'crepe',
+        'librosa',
+        # tensorflow==2.20.0 is not compatible with librosa because of protobuf
+        # version conflict.
+        'tensorflow<2.20.0',
+    ],
     'ogbg_molpcba': ['pandas', 'networkx'],
     'pet_finder': ['pandas'],
     'qm9': ['pandas'],
@@ -188,7 +196,7 @@ DATASET_EXTRAS = {
     'svhn': ['scipy'],
     'the300w_lp': ['scipy'],
     'wake_vision': ['pandas'],
-    'wider_face': ['Pillow'],
+    'wider_face': ['Pillow<12.0.0'],
     'wiki_dialog': ['apache-beam<2.65.0'],
     'wikipedia': ['apache-beam<2.65.0', 'mwparserfromhell', 'mwxml'],
     'wsc273': ['bs4', 'lxml'],
@@ -197,7 +205,7 @@ DATASET_EXTRAS = {
 
 # Those datasets have dependencies which conflict with the rest of TFDS, so
 # running them in an isolated environments.
-ISOLATED_DATASETS = ('nsynth', 'lsun')
+ISOLATED_DATASETS = ('c4', 'lsun', 'nsynth')
 
 # Extra dataset deps are required for the tests
 all_dataset_dependencies = list(
@@ -239,18 +247,21 @@ setuptools.setup(
     license='Apache 2.0',
     packages=setuptools.find_packages(),
     package_data={
-        'tensorflow_datasets': DATASET_FILES + [
-            # Bundle `datasets/` folder in PyPI releases
-            'datasets/*/*',
-            'core/utils/colormap.csv',
-            'scripts/documentation/templates/*',
-            'url_checksums/*',
-            'checksums.tsv',
-            'community-datasets.toml',
-            'dataset_collections/*/*.md',
-            'dataset_collections/*/*.bib',
-            'core/valid_tags.txt',
-        ],
+        'tensorflow_datasets': (
+            DATASET_FILES
+            + [
+                # Bundle `datasets/` folder in PyPI releases
+                'datasets/*/*',
+                'core/utils/colormap.csv',
+                'scripts/documentation/templates/*',
+                'url_checksums/*',
+                'checksums.tsv',
+                'community-datasets.toml',
+                'dataset_collections/*/*.md',
+                'dataset_collections/*/*.bib',
+                'core/valid_tags.txt',
+            ]
+        ),
     },
     exclude_package_data={
         'tensorflow_datasets': [

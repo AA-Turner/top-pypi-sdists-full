@@ -1,4 +1,7 @@
+import asyncio
 import logging
+import warnings
+from contextlib import suppress
 from typing import TYPE_CHECKING, Any, Sequence, overload
 
 import unique_sdk
@@ -6,8 +9,6 @@ from openai.types.chat import ChatCompletionToolChoiceOptionParam
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from openai.types.responses import (
     ResponseIncludable,
-    ResponseInputItemParam,
-    ResponseOutputItem,
     ResponseTextConfigParam,
     ToolParam,
     response_create_params,
@@ -16,8 +17,13 @@ from openai.types.shared_params import Metadata, Reasoning
 from pydantic import BaseModel
 from typing_extensions import Self, deprecated
 
+from unique_toolkit._common.metadata_filter_scope import (
+    build_folder_id_in_clause,
+    merge_scope_clause_into_metadata_filter,
+)
 from unique_toolkit._common.utils.files import is_file_content, is_image_content
 from unique_toolkit.agentic.feature_flags import feature_flags
+from unique_toolkit.agentic.message_log_order import next_message_log_order
 from unique_toolkit.app.unique_settings import UniqueContext, UniqueSettings
 from unique_toolkit.chat.cancellation import CancellationWatcher
 from unique_toolkit.chat.constants import (
@@ -76,10 +82,13 @@ from unique_toolkit.chat.schemas import (
     MessageLogStatus,
     MessageLogUncitedReferences,
 )
+from unique_toolkit.content.constants import DEFAULT_SEARCH_LANGUAGE
 from unique_toolkit.content.functions import (
     download_content_to_bytes,
     download_content_to_bytes_async,
+    search_content_chunks_async,
     search_contents,
+    search_contents_async,
     upload_content_from_bytes,
     upload_content_from_bytes_async,
 )
@@ -87,6 +96,8 @@ from unique_toolkit.content.schemas import (
     Content,
     ContentChunk,
     ContentReference,
+    ContentRerankerConfig,
+    ContentSearchType,
 )
 from unique_toolkit.elicitation.service import ElicitationService
 from unique_toolkit.language_model.constants import (
@@ -97,13 +108,13 @@ from unique_toolkit.language_model.infos import (
     LanguageModelName,
 )
 from unique_toolkit.language_model.schemas import (
-    LanguageModelMessageOptions,
     LanguageModelMessages,
     LanguageModelResponse,
     LanguageModelStreamResponse,
     LanguageModelTool,
     LanguageModelToolDescription,
     ResponsesLanguageModelStreamResponse,
+    ResponsesMessageInput,
 )
 from unique_toolkit.short_term_memory.functions import (
     create_memory,
@@ -1666,13 +1677,7 @@ class ChatService(ChatServiceDeprecated):
         self,
         *,
         model_name: LanguageModelName | str,
-        messages: str
-        | LanguageModelMessages
-        | Sequence[
-            ResponseInputItemParam
-            | LanguageModelMessageOptions
-            | ResponseOutputItem  # History is automatically convertible
-        ],
+        messages: ResponsesMessageInput,
         content_chunks: list[ContentChunk] | None = None,
         tools: Sequence[LanguageModelToolDescription | ToolParam] | None = None,
         temperature: float = DEFAULT_COMPLETE_TEMPERATURE,
@@ -1719,11 +1724,7 @@ class ChatService(ChatServiceDeprecated):
         self,
         *,
         model_name: LanguageModelName | str,
-        messages: str
-        | LanguageModelMessages
-        | Sequence[
-            ResponseInputItemParam | LanguageModelMessageOptions | ResponseOutputItem
-        ],
+        messages: ResponsesMessageInput,
         content_chunks: list[ContentChunk] | None = None,
         tools: Sequence[LanguageModelToolDescription | ToolParam] | None = None,
         temperature: float = DEFAULT_COMPLETE_TEMPERATURE,
@@ -1740,59 +1741,157 @@ class ChatService(ChatServiceDeprecated):
         reasoning: Reasoning | None = None,
         other_options: dict[str, Any] | None = None,
     ) -> ResponsesLanguageModelStreamResponse:
+        # UN-19878: rate-limit retry UX via message logs. After the streaming refactor
+        # (UN-20053) merges and is adopted, this should be integrated with the shared
+        # streaming layer instead of living on ChatService.
+        # Single-element box so nested callbacks and finally see assignments (pyright).
+        rate_limit_log_box: list[MessageLog | None] = [None]
+        _ticker_task: asyncio.Task[None] | None = None
+
+        async def _cancel_ticker() -> None:
+            nonlocal _ticker_task
+            if _ticker_task is not None and not _ticker_task.done():
+                _ = _ticker_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await _ticker_task
+            _ticker_task = None
+
         async def _on_rate_limit_retry(attempt: int, wait_secs: float) -> None:
+            nonlocal _ticker_task
+
             if not rate_limit_retry_config.log_message_on_retry:
                 return
             if not feature_flags.enable_new_answers_ui_un_14411.is_enabled(
                 self._company_id
             ):
                 return
-            from unique_toolkit.agentic.message_log_manager.service import (
-                _request_counters,
-            )
+
+            await _cancel_ticker()
 
             msg_id = self._assistant_message_id
-            _request_counters[msg_id] += 1
-            order = _request_counters[msg_id]
+            # Use round(), not int() and not :.0f in isolation: tenacity adds jitter, so
+            # wait_secs is often non-integer. Rounding once keeps the first banner and the
+            # countdown start value identical (e.g. avoid "31s" then 29, 28…).
+            wait_display_seconds = max(0, round(float(wait_secs)))
+            initial = (
+                f"Rate limit reached; retrying in {wait_display_seconds}s "
+                f"(attempt {attempt})"
+            )
+
             try:
-                await self.create_message_log_async(
-                    message_id=msg_id,
-                    text=f"Rate limit reached; retrying in {wait_secs:.0f}s (attempt {attempt})",
-                    status=MessageLogStatus.RUNNING,
-                    order=order,
-                )
+                if rate_limit_log_box[0] is None:
+                    order = next_message_log_order(message_id=msg_id)
+                    rate_limit_log_box[0] = await self.create_message_log_async(
+                        message_id=msg_id,
+                        text=initial,
+                        status=MessageLogStatus.RUNNING,
+                        order=order,
+                    )
+                else:
+                    existing = rate_limit_log_box[0]
+                    if existing.message_log_id is None:
+                        return
+                    rate_limit_log_box[0] = await self.update_message_log_async(
+                        message_log_id=existing.message_log_id,
+                        order=existing.order,
+                        text=initial,
+                        status=MessageLogStatus.RUNNING,
+                    )
             except Exception:
                 _LOGGER.warning(
                     "Failed to write rate-limit retry message log",
                     exc_info=True,
                 )
+                return
 
-        return await stream_responses_with_references_async(
-            company_id=self._company_id,
-            user_id=self._user_id,
-            assistant_message_id=self._assistant_message_id,
-            user_message_id=self._user_message_id,
-            chat_id=self._chat_id,
-            assistant_id=self._assistant_id,
-            model_name=model_name,
-            messages=messages,
-            content_chunks=content_chunks,
-            tools=tools,
-            temperature=temperature,
-            debug_info=debug_info,
-            start_text=start_text,
-            include=include,
-            instructions=instructions,
-            max_output_tokens=max_output_tokens,
-            metadata=metadata,
-            parallel_tool_calls=parallel_tool_calls,
-            text=text,
-            tool_choice=tool_choice,
-            top_p=top_p,
-            reasoning=reasoning,
-            other_options=other_options,
-            on_rate_limit_retry=_on_rate_limit_retry,
-        )
+            active = rate_limit_log_box[0]
+            if active is None or active.message_log_id is None:  # pyright: ignore[reportUnnecessaryComparison]
+                return
+
+            log_id = active.message_log_id
+            log_order = active.order
+
+            async def _countdown() -> None:
+                remaining = wait_display_seconds
+                while remaining > 0:
+                    await asyncio.sleep(1)
+                    remaining -= 1
+                    if remaining <= 0:
+                        break
+                    try:
+                        _ = await self.update_message_log_async(
+                            message_log_id=log_id,
+                            order=log_order,
+                            text=(
+                                f"Rate limit reached; retrying in {remaining}s "
+                                f"(attempt {attempt})"
+                            ),
+                            status=MessageLogStatus.RUNNING,
+                        )
+                    except Exception:
+                        _LOGGER.debug(
+                            "Rate limit countdown message log update failed",
+                            exc_info=True,
+                        )
+                        break
+
+            _ticker_task = asyncio.create_task(_countdown())
+
+        stream_error: BaseException | None = None
+        try:
+            return await stream_responses_with_references_async(
+                company_id=self._company_id,
+                user_id=self._user_id,
+                assistant_message_id=self._assistant_message_id,
+                user_message_id=self._user_message_id,
+                chat_id=self._chat_id,
+                assistant_id=self._assistant_id,
+                model_name=model_name,
+                messages=messages,
+                content_chunks=content_chunks,
+                tools=tools,
+                temperature=temperature,
+                debug_info=debug_info,
+                start_text=start_text,
+                include=include,
+                instructions=instructions,
+                max_output_tokens=max_output_tokens,
+                metadata=metadata,
+                parallel_tool_calls=parallel_tool_calls,
+                text=text,
+                tool_choice=tool_choice,
+                top_p=top_p,
+                reasoning=reasoning,
+                other_options=other_options,
+                on_rate_limit_retry=_on_rate_limit_retry,
+            )
+        except BaseException as exc:
+            stream_error = exc
+            raise
+        finally:
+            await _cancel_ticker()
+            fin = rate_limit_log_box[0]
+            if fin is not None and fin.message_log_id is not None:
+                try:
+                    if stream_error is None:
+                        _ = await self.update_message_log_async(
+                            message_log_id=fin.message_log_id,
+                            order=fin.order,
+                            text="Rate limit resolved; resuming.",
+                            status=MessageLogStatus.COMPLETED,
+                        )
+                    else:
+                        _ = await self.update_message_log_async(
+                            message_log_id=fin.message_log_id,
+                            order=fin.order,
+                            text="Rate limit retries exhausted.",
+                            status=MessageLogStatus.FAILED,
+                        )
+                except Exception:
+                    _LOGGER.warning(
+                        "Failed to finalize rate-limit message log",
+                        exc_info=True,
+                    )
 
     # Chat Content Methods
     ############################################################################
@@ -1909,6 +2008,63 @@ class ChatService(ChatServiceDeprecated):
             if is_image_content(filename=c.key):
                 images.append(c)
         return images, files
+
+    async def search_content_chunks_async(
+        self,
+        *,
+        search_string: str,
+        search_type: ContentSearchType,
+        limit: int,
+        search_language: str = DEFAULT_SEARCH_LANGUAGE,
+        reranker_config: ContentRerankerConfig | None = None,
+        scope_ids: list[str] | None = None,
+        metadata_filter: dict[str, Any] | None = None,
+        content_ids: list[str] | None = None,
+        score_threshold: float | None = None,
+    ) -> list[ContentChunk]:
+        """Search content chunks scoped to this chat session (chat_only=True)."""
+        if scope_ids:
+            warnings.warn(
+                "Passing scope_ids to ChatService.search_content_chunks_async is "
+                "deprecated; use metadata_filter with folderId operator 'in' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            clause = build_folder_id_in_clause(scope_ids)
+            metadata_filter = merge_scope_clause_into_metadata_filter(
+                clause, metadata_filter
+            )
+            scope_ids = None
+        return await search_content_chunks_async(
+            user_id=self._user_id,
+            company_id=self._company_id,
+            chat_id=self._content_scope_chat_id,
+            search_string=search_string,
+            search_type=search_type,
+            limit=limit,
+            search_language=search_language,
+            reranker_config=reranker_config,
+            scope_ids=scope_ids,
+            chat_only=True,
+            metadata_filter=metadata_filter,
+            content_ids=content_ids,
+            score_threshold=score_threshold,
+        )
+
+    async def search_contents_async(
+        self,
+        *,
+        where: dict[str, Any],
+        include_failed_content: bool = False,
+    ) -> list[Content]:
+        """Search content files uploaded to this chat session."""
+        return await search_contents_async(
+            user_id=self._user_id,
+            company_id=self._company_id,
+            chat_id=self._content_scope_chat_id,
+            where=where,
+            include_failed_content=include_failed_content,
+        )
 
     # Short Term Memories
     ############################################################################

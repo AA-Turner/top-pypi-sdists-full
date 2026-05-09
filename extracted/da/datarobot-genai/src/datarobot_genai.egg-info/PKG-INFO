@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.15.41
+Version: 0.15.42
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -202,6 +202,7 @@ Requires-Dist: nvidia-nat-mcp==1.6.0; extra == "dragent"
 Requires-Dist: anyio==4.11.0; extra == "dragent"
 Requires-Dist: fastapi<0.133.0; extra == "dragent"
 Requires-Dist: starlette<1.0.0; extra == "dragent"
+Requires-Dist: datarobot-moderations<12.0.0,>=11.2.24; extra == "dragent"
 Provides-Extra: memory
 Requires-Dist: mem0ai<2.0.0,>=1.0.4; extra == "memory"
 Dynamic: license-file

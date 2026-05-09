@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@
 from __future__ import annotations
 
 import collections
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
+import concurrent.futures  # pylint: disable=unused-import
 import contextlib
 import dataclasses
 import functools
@@ -156,21 +157,9 @@ def list_data_dirs(
     else:
       return [given_data_dir]
   else:
-    default_data_dir = get_default_data_dir(given_data_dir=given_data_dir)
+    default_data_dir = Path(constants.DATA_DIR)
     all_data_dirs = _REGISTERED_DATA_DIRS | {default_data_dir}
     return sorted(d.expanduser() for d in all_data_dirs)
-
-
-def get_default_data_dir(given_data_dir: epath.PathLike | None = None) -> Path:
-  """Returns the default data_dir."""
-  if given_data_dir:
-    data_dir = os.path.expanduser(given_data_dir)
-  elif 'TFDS_DATA_DIR' in os.environ:
-    data_dir = os.environ['TFDS_DATA_DIR']
-  else:
-    data_dir = constants.DATA_DIR
-
-  return Path(data_dir)
 
 
 def get_dataset_dir(
@@ -189,11 +178,11 @@ def get_dataset_dir(
 
 
 def get_data_dir_and_dataset_dir(
-    given_data_dir: epath.PathLike | None,
+    given_data_dir: PathLike | None,
     builder_name: str,
     config_name: str | None,
     version: version_lib.Version | str | None,
-) -> tuple[epath.Path, epath.Path]:
+) -> tuple[Path, Path]:
   """Returns the data and dataset directories for the given dataset.
 
   Args:
@@ -249,7 +238,7 @@ def get_data_dir_and_dataset_dir(
     return next(iter(dataset_dir_by_data_dir.items()))
 
   # No dataset found, use default directory
-  default_data_dir = get_default_data_dir()
+  default_data_dir = Path(constants.DATA_DIR)
   dataset_dir = get_dataset_dir(
       data_dir=default_data_dir,
       builder_name=builder_name,
@@ -596,3 +585,37 @@ def publish_data(
   to_data_dir.mkdir(parents=True, exist_ok=True)
   for filepath in from_data_dir.iterdir():
     filepath.copy(dst=to_data_dir / filepath.name, overwrite=overwrite)
+
+
+def bulk_rename(
+    old_paths: Sequence[epath.PathLike], new_paths: Sequence[epath.PathLike]
+) -> None:
+  """Renames a sequence of paths in bulk."""
+  if len(old_paths) != len(new_paths):
+    raise ValueError(
+        'old_paths and new_paths must have the same length, but got'
+        f' {len(old_paths)} and {len(new_paths)}'
+    )
+  for old_path, new_path in zip(old_paths, new_paths):
+    if old_path == new_path:
+      raise ValueError(
+          'old_paths and new_paths must not be the same, but got'
+          f' {old_path} and {new_path}'
+      )
+  if not old_paths:
+    return
+  def _rename(old_and_new_paths: tuple[epath.PathLike, epath.PathLike]):
+    old_path, new_path = old_and_new_paths
+    epath.Path(old_path).rename(new_path)
+  with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    executor.map(_rename, zip(old_paths, new_paths))
+
+
+def bulk_delete(paths: Sequence[epath.PathLike]) -> None:
+  """Deletes a sequence of paths in bulk."""
+  if not paths:
+    return
+  def _delete(path):
+    epath.Path(path).unlink()
+  with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    executor.map(_delete, paths)

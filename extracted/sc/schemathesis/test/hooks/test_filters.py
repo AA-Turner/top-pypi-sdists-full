@@ -37,40 +37,39 @@ def test_invalid_hook(request, dispatcher_factory, register):
         register(dispatcher)
 
 
-@pytest.mark.openapi_version("3.0")
-@pytest.mark.operations("payload")
 @pytest.mark.parametrize("is_include", [True, False])
-def test_simple_filter(schema_url, is_include):
-    schema = schemathesis.openapi.from_url(schema_url)
+def test_simple_filter(ctx, is_include):
+    api = ctx.openapi.apps.payload()
+    schema = schemathesis.openapi.from_url(api.schema_url)
 
     if is_include:
 
-        @schema.hook.apply_to(name="POST /payload")
+        @schema.hook.apply_to(name="POST /api/payload")
         def map_body(context, body):
             return 42
 
-        @schema.hook.apply_to(name="POST /payload")
+        @schema.hook.apply_to(name="POST /api/payload")
         def filter_body(context, body):
             return True
     else:
 
-        @schema.hook.skip_for(name="POST /payload")
+        @schema.hook.skip_for(name="POST /api/payload")
         def map_body(context, body):
             return 42
 
-        @schema.hook.skip_for(name="POST /payload")
+        @schema.hook.skip_for(name="POST /api/payload")
         def filter_body(context, body):
             return True
 
-        @schema.hook.skip_for(name="POST /payload")
+        @schema.hook.skip_for(name="POST /api/payload")
         def flatmap_body(context, body):
             return True
 
-        @schema.hook.skip_for(name="POST /payload")
+        @schema.hook.skip_for(name="POST /api/payload")
         def before_generate_body(context, body):
             return True
 
-    @given(case=schema["/payload"]["POST"].as_strategy())
+    @given(case=schema["/api/payload"]["POST"].as_strategy())
     @settings(max_examples=10)
     def test(case):
         if is_include:
@@ -81,8 +80,8 @@ def test_simple_filter(schema_url, is_include):
     test()
 
 
-@pytest.mark.operations("success")
-def test_map_case_filter(ctx, cli, openapi3_schema_url, snapshot_cli):
+def test_map_case_filter(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
     # All these hooks should not be called because of the applied filter
     with ctx.hook(
         r"""
@@ -111,9 +110,7 @@ except:
     pass
 """
     ) as module:
-        assert (
-            cli.main("run", openapi3_schema_url, "--phases=fuzzing", "--max-examples=1", hooks=module) == snapshot_cli
-        )
+        assert cli.main("run", api.schema_url, "--phases=fuzzing", "--max-examples=1", hooks=module) == snapshot_cli
 
 
 def multiple_skip_for(schema):
@@ -132,14 +129,13 @@ def map_body(ctx, body):
     """)
 
 
-@pytest.mark.openapi_version("3.0")
-@pytest.mark.operations("payload")
 @pytest.mark.parametrize("hook", [multiple_skip_for, multiple_apply_to])
-def test_filter_combo(schema_url, hook):
-    schema = schemathesis.openapi.from_url(schema_url)
+def test_filter_combo(ctx, hook):
+    api = ctx.openapi.apps.payload()
+    schema = schemathesis.openapi.from_url(api.schema_url)
     hook(schema)
 
-    @given(case=schema["/payload"]["POST"].as_strategy())
+    @given(case=schema["/api/payload"]["POST"].as_strategy())
     @settings(max_examples=10)
     def test(case):
         assert case.body == 42
@@ -148,20 +144,18 @@ def test_filter_combo(schema_url, hook):
 
 
 def test_filter_body_works_in_negative_mode(ctx):
-    schema = schemathesis.openapi.from_dict(
-        ctx.openapi.build_schema(
-            {
-                "/test": {
-                    "post": {
-                        "requestBody": {
-                            "required": True,
-                            "content": {"application/json": {"schema": {"type": "object"}}},
-                        },
-                        "responses": {"200": {"description": "OK"}},
-                    }
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
                 }
             }
-        )
+        }
     )
 
     @schema.hook("before_generate_body")
@@ -186,7 +180,7 @@ def test_filter_body_works_in_negative_mode(ctx):
 
 def _build_operation(ctx, operation_id, path):
     op = {"operationId": operation_id, "responses": {"200": {"description": "OK"}}}
-    schema = schemathesis.openapi.from_dict(ctx.openapi.build_schema({path: {"post": op}}))
+    schema = ctx.openapi.load_schema({path: {"post": op}})
     return schema[path]["POST"]
 
 

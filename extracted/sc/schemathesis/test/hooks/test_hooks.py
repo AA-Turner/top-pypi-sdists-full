@@ -57,10 +57,11 @@ def dispatcher():
 
 
 @pytest.mark.hypothesis_nested
-@pytest.mark.operations("custom_format")
 @pytest.mark.usefixtures("global_hook")
-def test_global_query_hook(wsgi_app_schema):
-    strategy = wsgi_app_schema["/custom_format"]["GET"].as_strategy()
+def test_global_query_hook(ctx):
+    api = ctx.openapi.apps.custom_format()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
+    strategy = schema["/api/custom_format"]["GET"].as_strategy()
 
     @given(case=strategy)
     @settings(max_examples=3, suppress_health_check=list(HealthCheck), deadline=None)
@@ -71,8 +72,9 @@ def test_global_query_hook(wsgi_app_schema):
 
 
 @pytest.mark.hypothesis_nested
-@pytest.mark.operations("create_user")
-def test_case_hook(wsgi_app_schema, ctx):
+def test_case_hook(ctx):
+    api = ctx.openapi.apps.users_crud()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
     with ctx.restore_hooks():
         dispatcher = HookDispatcher(scope=HookScope.TEST)
 
@@ -86,7 +88,7 @@ def test_case_hook(wsgi_app_schema, ctx):
             case.body["first_name"] = case.body["last_name"]
             return case
 
-        strategy = wsgi_app_schema["/users/"]["POST"].as_strategy(hooks=dispatcher)
+        strategy = schema["/users/"]["POST"].as_strategy(hooks=dispatcher)
 
         @given(case=strategy)
         @settings(max_examples=10, suppress_health_check=list(HealthCheck), deadline=None)
@@ -98,13 +100,15 @@ def test_case_hook(wsgi_app_schema, ctx):
 
 
 @pytest.mark.hypothesis_nested
-@pytest.mark.operations("custom_format")
-def test_schema_query_hook(wsgi_app_schema):
-    @wsgi_app_schema.hook
+def test_schema_query_hook(ctx):
+    api = ctx.openapi.apps.custom_format()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
+
+    @schema.hook
     def filter_query(context, query):
         return query["id"].isdigit() and query["id"].isascii()
 
-    strategy = wsgi_app_schema["/custom_format"]["GET"].as_strategy()
+    strategy = schema["/api/custom_format"]["GET"].as_strategy()
 
     @given(case=strategy)
     @settings(max_examples=3, suppress_health_check=list(HealthCheck), deadline=None)
@@ -116,14 +120,16 @@ def test_schema_query_hook(wsgi_app_schema):
 
 @pytest.mark.hypothesis_nested
 @pytest.mark.usefixtures("global_hook")
-@pytest.mark.operations("custom_format")
-def test_hooks_combination(wsgi_app_schema):
-    @wsgi_app_schema.hook("filter_query")
+def test_hooks_combination(ctx):
+    api = ctx.openapi.apps.custom_format()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
+
+    @schema.hook("filter_query")
     def extra(context, query):
-        assert context.operation == wsgi_app_schema["/custom_format"]["GET"]
+        assert context.operation == schema["/api/custom_format"]["GET"]
         return int(query["id"]) % 2 == 0
 
-    strategy = wsgi_app_schema["/custom_format"]["GET"].as_strategy()
+    strategy = schema["/api/custom_format"]["GET"].as_strategy()
 
     @given(case=strategy)
     @settings(max_examples=3, suppress_health_check=list(HealthCheck), deadline=None)
@@ -269,10 +275,12 @@ def test_register_invalid_hook_spec(dispatcher):
             pass
 
 
-def test_save_test_function(wsgi_app_schema):
-    assert wsgi_app_schema.test_function is None
+def test_save_test_function(ctx):
+    api = ctx.openapi.apps.success()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
+    assert schema.test_function is None
 
-    @wsgi_app_schema.parametrize()
+    @schema.parametrize()
     def test(case):
         pass
 
@@ -280,11 +288,13 @@ def test_save_test_function(wsgi_app_schema):
 
 
 @pytest.mark.parametrize("apply_first", [True, False])
-def test_local_dispatcher(wsgi_app_schema, apply_first):
-    assert wsgi_app_schema.hooks.scope == HookScope.SCHEMA
+def test_local_dispatcher(ctx, apply_first):
+    api = ctx.openapi.apps.success()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
+    assert schema.hooks.scope == HookScope.SCHEMA
 
     # When there are schema-level hooks
-    @wsgi_app_schema.hook("map_query")
+    @schema.hook("map_query")
     def schema_hook(context, query):
         return query
 
@@ -293,8 +303,8 @@ def test_local_dispatcher(wsgi_app_schema, apply_first):
         return cookies
 
     # And order of decorators is any
-    apply = wsgi_app_schema.hooks.apply(local_hook, name="map_cookies")
-    parametrize = wsgi_app_schema.parametrize()
+    apply = schema.hooks.apply(local_hook, name="map_cookies")
+    parametrize = schema.parametrize()
     if apply_first:
 
         def wrap(x):
@@ -325,19 +335,21 @@ def test_local_dispatcher(wsgi_app_schema, apply_first):
 
 @flaky(max_runs=3, min_passes=1)
 @pytest.mark.hypothesis_nested
-@pytest.mark.operations("custom_format")
-def test_multiple_hooks_per_spec(wsgi_app_schema):
-    @wsgi_app_schema.hook("filter_query")
+def test_multiple_hooks_per_spec(ctx):
+    api = ctx.openapi.apps.custom_format()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
+
+    @schema.hook("filter_query")
     def first_hook(context, query):
         return query["id"].isdigit() and query["id"].isascii()
 
-    @wsgi_app_schema.hook("filter_query")
+    @schema.hook("filter_query")
     def second_hook(context, query):
         return int(query["id"]) % 2 == 0
 
-    assert wsgi_app_schema.hooks.get_all_by_name("filter_query") == [first_hook, second_hook]
+    assert schema.hooks.get_all_by_name("filter_query") == [first_hook, second_hook]
 
-    strategy = wsgi_app_schema["/custom_format"]["GET"].as_strategy()
+    strategy = schema["/api/custom_format"]["GET"].as_strategy()
 
     @given(case=strategy)
     @settings(max_examples=3, suppress_health_check=list(HealthCheck), deadline=None)
@@ -349,18 +361,20 @@ def test_multiple_hooks_per_spec(wsgi_app_schema):
 
 
 @pytest.mark.hypothesis_nested
-@pytest.mark.operations("custom_format")
-def test_flatmap(wsgi_app_schema):
-    @wsgi_app_schema.hook
+def test_flatmap(ctx):
+    api = ctx.openapi.apps.custom_format()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
+
+    @schema.hook
     def filter_query(context, query):
         return query["id"].isdigit() and query["id"].isascii()
 
-    @wsgi_app_schema.hook
+    @schema.hook
     def flatmap_query(context, query):
         value = query["id"]
         return st.fixed_dictionaries({"id": st.just(value), "square": st.just(int(value) ** 2)})
 
-    strategy = wsgi_app_schema["/custom_format"]["GET"].as_strategy()
+    strategy = schema["/api/custom_format"]["GET"].as_strategy()
 
     @given(case=strategy)
     @settings(max_examples=3, suppress_health_check=list(HealthCheck), deadline=None)
@@ -373,23 +387,25 @@ def test_flatmap(wsgi_app_schema):
 
 
 @pytest.mark.hypothesis_nested
-@pytest.mark.operations("custom_format")
-def test_case_hooks(wsgi_app_schema):
-    @wsgi_app_schema.hook
+def test_case_hooks(ctx):
+    api = ctx.openapi.apps.custom_format()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
+
+    @schema.hook
     def filter_case(context, case):
         return case.query["id"].isdigit() and case.query["id"].isascii()
 
-    @wsgi_app_schema.hook
+    @schema.hook
     def map_case(context, case):
         case.query["id"] += "42"
         case.query["square"] = int(case.query["id"]) ** 2
         return case
 
-    @wsgi_app_schema.hook
+    @schema.hook
     def flatmap_case(context, case):
         return st.just(case)
 
-    strategy = wsgi_app_schema["/custom_format"]["GET"].as_strategy()
+    strategy = schema["/api/custom_format"]["GET"].as_strategy()
 
     @given(case=strategy)
     @settings(max_examples=3, suppress_health_check=list(HealthCheck), deadline=None)
@@ -402,14 +418,16 @@ def test_case_hooks(wsgi_app_schema):
 
 
 @pytest.mark.hypothesis_nested
-@pytest.mark.operations("custom_format")
-def test_before_process_path_hook(wsgi_app_schema):
-    @wsgi_app_schema.hook
+def test_before_process_path_hook(ctx):
+    api = ctx.openapi.apps.custom_format()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
+
+    @schema.hook
     def before_process_path(context, path, methods):
         methods["get"]["parameters"][0]["name"] = "foo"
-        methods["get"]["parameters"][0]["enum"] = ["bar"]
+        methods["get"]["parameters"][0]["schema"] = {"type": "string", "enum": ["bar"]}
 
-    strategy = wsgi_app_schema["/custom_format"]["GET"].as_strategy()
+    strategy = schema["/api/custom_format"]["GET"].as_strategy()
 
     @given(case=strategy)
     @settings(max_examples=3, suppress_health_check=list(HealthCheck), deadline=None)
@@ -419,14 +437,16 @@ def test_before_process_path_hook(wsgi_app_schema):
     test()
 
 
-def test_register_wrong_scope(wsgi_app_schema):
+def test_register_wrong_scope(ctx):
+    api = ctx.openapi.apps.success()
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
     with pytest.raises(
         ValueError,
         match=r"Cannot register hook 'before_load_schema' on SCHEMA scope dispatcher. "
         r"Use a dispatcher with GLOBAL scope\(s\) instead",
     ):
 
-        @wsgi_app_schema.hook
+        @schema.hook
         def before_load_schema(ctx, raw_schema):
             pass
 
@@ -513,9 +533,9 @@ def test_(case):
 
 
 @pytest.mark.hypothesis_nested
-@pytest.mark.operations("success", "failure")
-def test_after_validate_hook(openapi3_schema_url, ctx):
-    api_schema = schemathesis.openapi.from_url(openapi3_schema_url)
+def test_after_validate_hook(ctx):
+    api = ctx.openapi.apps.success_and_failure()
+    api_schema = schemathesis.openapi.from_url(api.schema_url)
     results = []
 
     with ctx.restore_hooks():
@@ -524,14 +544,14 @@ def test_after_validate_hook(openapi3_schema_url, ctx):
         def after_validate(context, case, response, check_results):
             results.extend(check_results)
 
-        @given(case=api_schema["/success"]["GET"].as_strategy())
+        @given(case=api_schema["/api/success"]["GET"].as_strategy())
         @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
         def test_success(case):
             case.call_and_validate(checks=[schemathesis.checks.not_a_server_error])
 
         test_success()
 
-        @given(case=api_schema["/failure"]["GET"].as_strategy())
+        @given(case=api_schema["/api/failure"]["GET"].as_strategy())
         @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
         def test_failure(case):
             with pytest.raises(FailureGroup):
@@ -545,8 +565,10 @@ def test_after_validate_hook(openapi3_schema_url, ctx):
     ]
 
 
-def test_graphql_body(graphql_schema):
-    @graphql_schema.hook
+def test_graphql_body(ctx):
+    schema = schemathesis.graphql.from_url(ctx.graphql.apps.books().schema_url)
+
+    @schema.hook
     def map_body(context, body):
         node = body.definitions[0].selection_set.selections[0]
         node.name.value = "addedViaHook"
@@ -554,7 +576,7 @@ def test_graphql_body(graphql_schema):
         node.selection_set = ()
         return body
 
-    strategy = graphql_schema["Mutation"]["addBook"].as_strategy()
+    strategy = schema["Mutation"]["addBook"].as_strategy()
 
     @given(case=strategy)
     @settings(max_examples=3, phases=[Phase.generate], suppress_health_check=list(HealthCheck), deadline=None)
@@ -565,37 +587,39 @@ def test_graphql_body(graphql_schema):
     test()
 
 
-def test_graphql_query(graphql_schema, graphql_server_host):
+def test_graphql_query(ctx):
+    api = ctx.graphql.apps.books()
+    schema = schemathesis.graphql.from_url(api.schema_url)
     query = {"q": 1}
     path_parameters = {"p": 2}
     headers = {"h": "3"}
     cookies = {"c": "4"}
 
-    @graphql_schema.hook
+    @schema.hook
     def map_query(_, __):
         nonlocal query
 
         return query
 
-    @graphql_schema.hook
+    @schema.hook
     def map_path_parameters(_, __):
         nonlocal path_parameters
 
         return path_parameters
 
-    @graphql_schema.hook
+    @schema.hook
     def map_headers(_, __):
         nonlocal headers
 
         return headers
 
-    @graphql_schema.hook
+    @schema.hook
     def map_cookies(_, __):
         nonlocal cookies
 
         return cookies
 
-    strategy = graphql_schema["Query"]["getBooks"].as_strategy()
+    strategy = schema["Query"]["getBooks"].as_strategy()
 
     @given(case=strategy)
     @settings(max_examples=3, phases=[Phase.generate], suppress_health_check=list(HealthCheck), deadline=None)
@@ -616,22 +640,22 @@ def test_graphql_query(graphql_schema, graphql_server_host):
             "json": {"query": ANY},
             "method": "POST",
             "params": {"q": 1},
-            "url": f"http://{graphql_server_host}/graphql",
+            "url": f"http://127.0.0.1:{api.port}/graphql",
         }
         assert_requests_call(case)
 
 
 @pytest.mark.hypothesis_nested
-@pytest.mark.operations("success")
-def test_after_call_fires_for_schema_level_hook(openapi3_schema_url):
-    api_schema = schemathesis.openapi.from_url(openapi3_schema_url)
+def test_after_call_fires_for_schema_level_hook(ctx):
+    api = ctx.openapi.apps.success()
+    api_schema = schemathesis.openapi.from_url(api.schema_url)
     calls = []
 
     @api_schema.hooks.hook
     def after_call(context, case, response):
         calls.append(case.id)
 
-    @given(case=api_schema["/success"]["GET"].as_strategy())
+    @given(case=api_schema["/api/success"]["GET"].as_strategy())
     @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
     def test(case):
         case.call()
@@ -642,23 +666,23 @@ def test_after_call_fires_for_schema_level_hook(openapi3_schema_url):
 
 
 @pytest.mark.hypothesis_nested
-@pytest.mark.operations("success", "failure")
-def test_after_validate_fires_for_schema_level_hook(openapi3_schema_url):
-    api_schema = schemathesis.openapi.from_url(openapi3_schema_url)
+def test_after_validate_fires_for_schema_level_hook(ctx):
+    api = ctx.openapi.apps.success_and_failure()
+    api_schema = schemathesis.openapi.from_url(api.schema_url)
     results = []
 
     @api_schema.hooks.hook
     def after_validate(context, case, response, check_results):
         results.extend(check_results)
 
-    @given(case=api_schema["/success"]["GET"].as_strategy())
+    @given(case=api_schema["/api/success"]["GET"].as_strategy())
     @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
     def test_success(case):
         case.call_and_validate(checks=[schemathesis.checks.not_a_server_error])
 
     test_success()
 
-    @given(case=api_schema["/failure"]["GET"].as_strategy())
+    @given(case=api_schema["/api/failure"]["GET"].as_strategy())
     @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
     def test_failure(case):
         with pytest.raises(FailureGroup):

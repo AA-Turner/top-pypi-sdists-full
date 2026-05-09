@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: braindecode
-Version: 1.4.0
+Version: 1.5.0
 Summary: Deep learning software to decode EEG, ECG or MEG signals
 Author-email: Robin Tibor Schirrmeister <robintibor@gmail.com>, Bruno Aristimunha Pinto <b.aristimunha@gmail.com>, Alexandre Gramfort <agramfort@meta.com>
 Maintainer-email: Alexandre Gramfort <agramfort@meta.com>, Bruno Aristimunha Pinto <b.aristimunha@gmail.com>, Robin Tibor Schirrmeister <robintibor@gmail.com>
@@ -43,6 +43,8 @@ Requires-Dist: eegprep[eeglabio]>=0.2.23; extra == "eegprep"
 Provides-Extra: hub
 Requires-Dist: huggingface_hub[torch]>=0.20.0; extra == "hub"
 Requires-Dist: zarr>=3.0; extra == "hub"
+Provides-Extra: viz
+Requires-Dist: captum>=0.7.0; extra == "viz"
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
@@ -61,6 +63,7 @@ Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
 Requires-Dist: sphinx-autobuild; extra == "docs"
 Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
 Requires-Dist: sphinx_sitemap; extra == "docs"
+Requires-Dist: sphinxext-opengraph; extra == "docs"
 Requires-Dist: pydata_sphinx_theme; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
 Requires-Dist: memory_profiler; extra == "docs"
@@ -70,7 +73,7 @@ Requires-Dist: sphinx_design; extra == "docs"
 Requires-Dist: lightning; extra == "docs"
 Requires-Dist: seaborn; extra == "docs"
 Requires-Dist: pre-commit; extra == "docs"
-Requires-Dist: openneuro-py; extra == "docs"
+Requires-Dist: openneuro-py>=2026.4.0; extra == "docs"
 Requires-Dist: plotly; extra == "docs"
 Requires-Dist: shap; extra == "docs"
 Requires-Dist: nbformat; extra == "docs"
@@ -82,6 +85,7 @@ Requires-Dist: braindecode[docs]; extra == "all"
 Requires-Dist: braindecode[hub]; extra == "all"
 Requires-Dist: braindecode[eegprep]; extra == "all"
 Requires-Dist: braindecode[typing]; extra == "all"
+Requires-Dist: braindecode[viz]; extra == "all"
 Dynamic: license-file
 
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.17699192.svg

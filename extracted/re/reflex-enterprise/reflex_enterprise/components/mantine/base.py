@@ -13,11 +13,7 @@ PACKAGE_VERSION = "8.3.9"
 MantineSize = Literal["xs", "sm", "md", "lg", "xl"]
 
 provider_path = asset(path="mantine_provider.js", shared=True)
-try:
-    public_provider_path = provider_path.importable_path
-except AttributeError:
-    # Fallback for < 0.9.0
-    public_provider_path = "$/public" + provider_path
+public_provider_path = provider_path.importable_path
 
 
 class MemoizedMantineProvider(Component):

@@ -85,8 +85,8 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
 
         self.server.shutdown()
 
-    def log_message(self, format, *args):
-        # Suppress log messages
+    def log_message(self, format, *args):  # noqa: ARG002
+        # Override BaseHTTPRequestHandler.log_message to silence default stderr logging.
         return
 
 
@@ -414,8 +414,6 @@ def check_current_folder_in_sessions(ctx: Context) -> None:
 
 class TrackFolderCancelled(Exception):
     """Exception raised when the user cancels the folder tracking"""
-
-    pass
 
 
 def check_and_warn_folder_change(cli_config: CLIConfig) -> None:

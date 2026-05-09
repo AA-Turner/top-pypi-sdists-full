@@ -2113,7 +2113,7 @@ class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityI
         ...
 
 
-class Symbol(System.Object, System.IEquatable[QuantConnect_Symbol], System.IComparable):
+class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.IComparable):
     """
     Represents a unique security identifier. This is made of two components,
     the unique SID and the Value. The value is the current ticker symbol while
@@ -6626,7 +6626,7 @@ class CashBookUpdateType(IntEnum):
     """An existing Cash.symbol was updated (2)"""
 
 
-class Exchange(System.Object):
+class Exchange(str, System.Object):
     """Lean exchange definition"""
 
     UNKNOWN: QuantConnect.Exchange
@@ -11405,12 +11405,6 @@ class Messages(System.Object):
         dictionary_remove_not_implemented: str = "Portfolio object is an adaptor for Security Manager and objects cannot be removed."
         """Returns a string message saying the Portfolio object is an adaptor for Security Manager and objects cannot be removed"""
 
-        cannot_change_account_currency_after_adding_security: str = "Cannot change AccountCurrency after adding a Security. Please move SetAccountCurrency() before AddSecurity()."
-        """
-        Returns a string message saying the AccountCurrency cannot be changed after adding a Security and that the method
-        SetAccountCurrency() should be moved before AddSecurity()
-        """
-
         @staticmethod
         def account_currency_already_set(cash_book: QuantConnect.Securities.CashBook, new_account_currency: str) -> str:
             """
@@ -11429,6 +11423,14 @@ class Messages(System.Object):
             """
             Returns a string message saying the AccountCurrency has been changed after setting cash, reporting the
             remaining amount held in the previous account currency
+            """
+            ...
+
+        @staticmethod
+        def cannot_change_account_currency_after_adding_security() -> str:
+            """
+            Returns a string message saying the AccountCurrency cannot be changed after adding a Security and that the method
+            SetAccountCurrency() should be moved before AddSecurity()
             """
             ...
 
@@ -11461,8 +11463,10 @@ class Messages(System.Object):
     class SecurityTransactionManager(System.Object):
         """Provides user-facing messages for the Securities.SecurityTransactionManager class and its consumers or related classes"""
 
-        cancel_open_orders_not_allowed_on_initialize_or_warm_up: str = "This operation is not allowed in Initialize or during warm up: CancelOpenOrders. Please move this code to the OnWarmupFinished() method."
-        """Returns a string message saying CancelOpenOrders operation is not allowed in Initialize or during warm up"""
+        @staticmethod
+        def cancel_open_orders_not_allowed_on_initialize_or_warm_up() -> str:
+            """Returns a string message saying CancelOpenOrders operation is not allowed in Initialize or during warm up"""
+            ...
 
         @staticmethod
         def order_canceled_by_cancel_open_orders(time: typing.Union[datetime.datetime, datetime.date]) -> str:
@@ -11482,14 +11486,20 @@ class Messages(System.Object):
     class SymbolProperties(System.Object):
         """Provides user-facing messages for the Securities.SymbolProperties class and its consumers or related classes"""
 
-        invalid_lot_size: str = "SymbolProperties LotSize can not be less than or equal to 0"
-        """String message saying the SymbolProperties LotSize can not be less than or equal to 0"""
+        @staticmethod
+        def invalid_lot_size() -> str:
+            """String message saying the SymbolProperties LotSize can not be less than or equal to 0"""
+            ...
 
-        invalid_price_magnifier: str = "SymbolProprties PriceMagnifier can not be less than or equal to 0"
-        """String message saying the SymbolProperties PriceMagnifier can not be less than or equal to 0"""
+        @staticmethod
+        def invalid_price_magnifier() -> str:
+            """String message saying the SymbolProperties PriceMagnifier can not be less than or equal to 0"""
+            ...
 
-        invalid_strike_multiplier: str = "SymbolProperties StrikeMultiplier can not be less than or equal to 0"
-        """String message saying the SymbolProperties StrikeMultiplier can not be less than or equal to 0"""
+        @staticmethod
+        def invalid_strike_multiplier() -> str:
+            """String message saying the SymbolProperties StrikeMultiplier can not be less than or equal to 0"""
+            ...
 
         @staticmethod
         def to_string(instance: QuantConnect.Securities.SymbolProperties) -> str:
@@ -11729,6 +11739,60 @@ class Messages(System.Object):
         def security_values_for_symbol_not_found(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
             """Returns a string message saying no SecurityValues were found for the given symbol"""
             ...
+
+    class QCAlgorithm(System.Object):
+        """Provides user-facing messages for the Algorithm.QCAlgorithm class and its consumers or related classes"""
+
+        @staticmethod
+        def set_account_currency_already_initialized() -> str:
+            """Returns a string message saying the account currency cannot be changed after the algorithm is initialized"""
+            ...
+
+        @staticmethod
+        def set_benchmark_already_initialized() -> str:
+            """Returns a string message saying the benchmark cannot be changed after the algorithm is initialized"""
+            ...
+
+        @staticmethod
+        def set_cash_already_initialized() -> str:
+            """Returns a string message saying the cash cannot be changed after the algorithm is initialized"""
+            ...
+
+        @staticmethod
+        def set_end_date_already_initialized() -> str:
+            """Returns a string message saying the end date cannot be changed after the algorithm is initialized"""
+            ...
+
+        @staticmethod
+        def set_start_date_already_initialized() -> str:
+            """Returns a string message saying the start date cannot be changed after the algorithm is initialized"""
+            ...
+
+        @staticmethod
+        def set_time_zone_already_running() -> str:
+            """Returns a string message saying the time zone cannot be changed after the algorithm is running"""
+            ...
+
+        @staticmethod
+        def set_warmup_already_initialized() -> str:
+            """Returns a string message saying SetWarmup cannot be used after the algorithm is initialized"""
+            ...
+
+    class AlgorithmPythonWrapper(System.Object):
+        """
+        Provides user-facing messages for the AlgorithmFactory.Python.Wrappers.AlgorithmPythonWrapper class
+        and its consumers or related classes
+        """
+
+        @staticmethod
+        def on_margin_call_must_return_non_empty_list() -> str:
+            """Returns a string message saying OnMarginCall must return a non-empty list of SubmitOrderRequest"""
+            ...
+
+    @staticmethod
+    def set_algorithm_language(language: QuantConnect.Language) -> None:
+        """Sets the algorithm language used to format code identifiers in error messages."""
+        ...
 
 
 class _EventContainer(typing.Generic[QuantConnect__EventContainer_Callable, QuantConnect__EventContainer_ReturnType]):

@@ -261,13 +261,13 @@ def GetArrayFilename(psArray):
     r"""GetArrayFilename(PyArrayObject * psArray) -> retStringAndCPLFree *"""
     return _gdal_array.GetArrayFilename(psArray)
 
-def BandRasterIONumPy(band, bWrite, xoff, yoff, xsize, ysize, psArray, buf_type, resample_alg, callback=0, callback_data=None):
-    r"""BandRasterIONumPy(Band band, int bWrite, double xoff, double yoff, double xsize, double ysize, PyArrayObject * psArray, GDALDataType buf_type, GDALRIOResampleAlg resample_alg, GDALProgressFunc callback=0, void * callback_data=None) -> CPLErr"""
-    return _gdal_array.BandRasterIONumPy(band, bWrite, xoff, yoff, xsize, ysize, psArray, buf_type, resample_alg, callback, callback_data)
+def BandRasterIONumPy(band, bWrite, xoff, yoff, xsize, ysize, psArray, buf_type, resample_alg, operate_in_buf_type, callback=0, callback_data=None):
+    r"""BandRasterIONumPy(Band band, int bWrite, double xoff, double yoff, double xsize, double ysize, PyArrayObject * psArray, GDALDataType buf_type, GDALRIOResampleAlg resample_alg, int operate_in_buf_type, GDALProgressFunc callback=0, void * callback_data=None) -> CPLErr"""
+    return _gdal_array.BandRasterIONumPy(band, bWrite, xoff, yoff, xsize, ysize, psArray, buf_type, resample_alg, operate_in_buf_type, callback, callback_data)
 
-def DatasetIONumPy(ds, bWrite, xoff, yoff, xsize, ysize, psArray, buf_type, resample_alg, callback=0, callback_data=None, binterleave=True, band_list=0):
-    r"""DatasetIONumPy(Dataset ds, int bWrite, double xoff, double yoff, double xsize, double ysize, PyArrayObject * psArray, GDALDataType buf_type, GDALRIOResampleAlg resample_alg, GDALProgressFunc callback=0, void * callback_data=None, bool binterleave=True, int band_list=0) -> CPLErr"""
-    return _gdal_array.DatasetIONumPy(ds, bWrite, xoff, yoff, xsize, ysize, psArray, buf_type, resample_alg, callback, callback_data, binterleave, band_list)
+def DatasetIONumPy(ds, bWrite, xoff, yoff, xsize, ysize, psArray, buf_type, resample_alg, operate_in_buf_type, callback=0, callback_data=None, binterleave=True, band_list=0):
+    r"""DatasetIONumPy(Dataset ds, int bWrite, double xoff, double yoff, double xsize, double ysize, PyArrayObject * psArray, GDALDataType buf_type, GDALRIOResampleAlg resample_alg, int operate_in_buf_type, GDALProgressFunc callback=0, void * callback_data=None, bool binterleave=True, int band_list=0) -> CPLErr"""
+    return _gdal_array.DatasetIONumPy(ds, bWrite, xoff, yoff, xsize, ysize, psArray, buf_type, resample_alg, operate_in_buf_type, callback, callback_data, binterleave, band_list)
 
 def MDArrayIONumPy(bWrite, mdarray, psArray, nDims1, nDims3, buffer_datatype):
     r"""MDArrayIONumPy(bool bWrite, GDALMDArrayHS * mdarray, PyArrayObject * psArray, int nDims1, int nDims3, GDALExtendedDataTypeHS * buffer_datatype) -> CPLErr"""
@@ -409,6 +409,7 @@ def _to_primitive_type(x):
 def DatasetReadAsArray(ds, xoff=0, yoff=0, win_xsize=None, win_ysize=None, buf_obj=None,
                        buf_xsize=None, buf_ysize=None, buf_type=None,
                        resample_alg=gdal.GRIORA_NearestNeighbour,
+                       operate_in_buf_type=True,
                        callback=None, callback_data=None, interleave='band',
                        band_list=None):
     """Pure python implementation of reading a chunk of a GDAL file
@@ -452,6 +453,7 @@ def DatasetReadAsArray(ds, xoff=0, yoff=0, win_xsize=None, win_ysize=None, buf_o
                                buf_xsize=buf_xsize, buf_ysize=buf_ysize, buf_type=buf_type,
                                buf_obj=buf_obj,
                                resample_alg=resample_alg,
+                               operate_in_buf_type=operate_in_buf_type,
                                callback=callback,
                                callback_data=callback_data)
 
@@ -504,7 +506,9 @@ def DatasetReadAsArray(ds, xoff=0, yoff=0, win_xsize=None, win_ysize=None, buf_o
         buf_type = datatype
 
     if DatasetIONumPy(ds, 0, xoff, yoff, win_xsize, win_ysize,
-                      buf_obj, buf_type, resample_alg, callback, callback_data,
+                      buf_obj, buf_type, resample_alg,
+                      operate_in_buf_type,
+                      callback, callback_data,
                       interleave, band_list) != 0:
         _RaiseException()
         return None
@@ -582,7 +586,8 @@ def DatasetWriteArray(ds, array, xoff=0, yoff=0,
         raise ValueError("array does not have corresponding GDAL data type")
 
     ret = DatasetIONumPy(ds, 1, xoff, yoff, xsize, ysize,
-                         array, datatype, resample_alg, callback, callback_data,
+                         array, datatype, resample_alg, True,
+                         callback, callback_data,
                          interleave, band_list)
     if ret != 0:
         _RaiseException()
@@ -592,6 +597,7 @@ def DatasetWriteArray(ds, array, xoff=0, yoff=0,
 def BandReadAsArray(band, xoff=0, yoff=0, win_xsize=None, win_ysize=None,
                     buf_xsize=None, buf_ysize=None, buf_type=None, buf_obj=None,
                     resample_alg=gdal.GRIORA_NearestNeighbour,
+                    operate_in_buf_type=True,
                     callback=None, callback_data=None):
     """Pure python implementation of reading a chunk of a GDAL file
     into a numpy array.  Used by the gdal.Band.ReadAsArray method."""
@@ -655,7 +661,8 @@ def BandReadAsArray(band, xoff=0, yoff=0, win_xsize=None, win_ysize=None,
         buf_type = datatype
 
     if BandRasterIONumPy(band, 0, xoff, yoff, win_xsize, win_ysize,
-                         buf_obj, buf_type, resample_alg, callback, callback_data) != 0:
+                         buf_obj, buf_type, resample_alg, operate_in_buf_type,
+                         callback, callback_data) != 0:
         _RaiseException()
         return None
 
@@ -697,7 +704,8 @@ def BandWriteArray(band, array, xoff=0, yoff=0,
         raise ValueError("array does not have corresponding GDAL data type")
 
     ret = BandRasterIONumPy(band, 1, xoff, yoff, xsize, ysize,
-                             array, datatype, resample_alg, callback, callback_data)
+                             array, datatype, resample_alg, True,
+                             callback, callback_data)
     if ret != 0:
         _RaiseException()
     return ret

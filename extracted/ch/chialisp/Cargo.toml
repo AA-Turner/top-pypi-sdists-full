@@ -1,6 +1,6 @@
 [package]
 name = "chialisp"
-version = "0.4.4"
+version = "0.4.5"
 edition = "2021"
 authors = ["Art Yerkes <art.yerkes@gmail.com>"]
 description = "tools for working with chialisp language; compiler, repl, python and wasm bindings"
@@ -34,9 +34,11 @@ regex = "1.12.3"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 sha2 = "0.10.9"
-tempfile = "3.26.0"
+# Downgraded to work with chia-gaming.
+tempfile = "3.25.0"
 unicode-segmentation = "1.13.2"
 yaml-rust2 = "0.11.0"
+subprocess = { version = "1.1.0", optional = true }
 
 [dependencies.pyo3]
 version = "0.25.1"
@@ -56,6 +58,7 @@ crate-type = ["cdylib", "rlib"]
 extension-module = ["dep:pyo3"]
 fuzz = ["dep:rand", "dep:rand_chacha", "dep:lfsr"]
 default = []
+preserved_043 = ["dep:subprocess"]
 
 [target.'cfg(target_family="wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }

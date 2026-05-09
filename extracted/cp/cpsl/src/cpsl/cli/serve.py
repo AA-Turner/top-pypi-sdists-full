@@ -10,6 +10,8 @@ import grpc
 
 from .. import terminal
 from ..channel import ServiceClient, pass_service_client
+from ..client import Client
+from ..config import get_config_context
 from ..typestubs import generate_type_stubs
 from ..clients.capsule import (
     ListAppsRequest,
@@ -70,9 +72,18 @@ def _handle_status(spinner, status: str, build_logs_seen: bool) -> bool:
 @click.option(
     "--force-channel", is_flag=True, help="Unbind channels from their current app before rebinding."
 )
+@click.option(
+    "--reset-onboarding",
+    is_flag=True,
+    help="Reset onboarding for the authenticated app user before opening this serve.",
+)
 @pass_service_client
 def serve(
-    client: ServiceClient, entry_point: str, channel_names: tuple[str, ...], force_channel: bool
+    client: ServiceClient,
+    entry_point: str,
+    channel_names: tuple[str, ...],
+    force_channel: bool,
+    reset_onboarding: bool,
 ):
     """Serve an app with hot-reload.
 
@@ -282,6 +293,14 @@ def serve(
 
     app_id = res.app_id
     instance_ref = res.instance_ref
+
+    if reset_onboarding:
+        try:
+            ctx = get_config_context()
+            Client(token=ctx.token if ctx else None).reset_onboarding(app_id)
+            terminal.detail("  onboarding: reset")
+        except Exception as err:
+            terminal.warn(f"Could not reset onboarding: {err}")
 
     terminal.success(f"Ready in {elapsed:.1f}s")
     terminal.header(f"Serving {config['app_name']}")

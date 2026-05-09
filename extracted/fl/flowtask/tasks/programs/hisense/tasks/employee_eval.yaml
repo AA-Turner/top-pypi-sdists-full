@@ -1,8 +1,0 @@
-name: Hisense Employee Evaluation
-description: Employee Evaluation based on Chats.
-steps:
-  - DataInput:
-      schema: hisense
-      tablename: msteams_chats
-      driver: mongo
-      dbtype: documentdb

@@ -18,10 +18,8 @@ from urllib.parse import parse_qsl, urlencode, urlparse
 
 import reflex as rx
 from joserfc.jwt import Token
-from packaging import version
 from reflex.event import EventSpec, EventType, IndividualEventType
 from reflex.state import Delta
-from reflex.utils import console
 from reflex.vars import BaseStateMeta
 
 from reflex_enterprise.app import AppEnterprise
@@ -1584,16 +1582,6 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         if not isinstance(app, AppEnterprise):
             raise TypeError("The app must be an instance of reflex_enterprise.App.")
         context = {"sitemap": None}
-        # Remove when reflex-enterprise drops support for < 0.8.25
-        sitemap_none_unsupported = version.parse(
-            rx.constants.Reflex.VERSION
-        ) < version.parse("0.8.25.dev0")
-        if sitemap_none_unsupported:
-            console.warn(
-                "Reflex version does not support sitemap=None in page context, OIDC routes will appear in /sitemap.xml. "
-                "Upgrade to Reflex 0.8.25 or later to silence this warning."
-            )
-            context = {}
         app.add_page(
             cls.get_authentication_loading_page(),
             route=cls._authorization_code_endpoint(),

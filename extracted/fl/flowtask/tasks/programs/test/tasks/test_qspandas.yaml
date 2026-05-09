@@ -1,5 +1,0 @@
-name: Sample Query
-description: Test
-steps:
-  - QueryToPandas:
-      file_sql: query.sql

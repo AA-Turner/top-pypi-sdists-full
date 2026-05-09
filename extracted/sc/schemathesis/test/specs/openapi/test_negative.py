@@ -13,6 +13,7 @@ from hypothesis_jsonschema._canonicalise import FALSEY, canonicalish
 
 import schemathesis
 from schemathesis.config import GenerationConfig
+from schemathesis.core.jsonschema import _is_valid_uuid
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.generation import GenerationMode
@@ -22,9 +23,8 @@ from schemathesis.specs.openapi.negative import GeneratedValue, mutated, negativ
 from schemathesis.specs.openapi.negative.mutations import (
     MutationContext,
     MutationResult,
-    change_items,
-    change_properties,
     change_type,
+    compute_mutation_targets,
     negate_constraints,
     prevent_unsatisfiable_schema,
     remove_required_property,
@@ -101,31 +101,6 @@ def test_top_level_strategy(data, location, schema):
         assert is_valid_header(instance)
 
 
-@given(data=st.data())
-@settings(deadline=None, suppress_health_check=SUPPRESSED_HEALTH_CHECKS, max_examples=100)
-def test_number_type_excludes_integer_from_type_mutations(data):
-    # See GH-3697
-    schema = {
-        "type": "object",
-        "properties": {
-            "score": {"type": "number"},
-            "label": {"type": "string"},
-        },
-        "required": ["score", "label"],
-    }
-
-    ctx = MutationContext(
-        keywords=schema,
-        non_keywords={},
-        location=ParameterLocation.BODY,
-        media_type="application/json",
-        allow_extra_parameters=False,
-    )
-    result, metadata = change_properties(ctx, data.draw, schema)
-    if result == MutationResult.SUCCESS and metadata is not None:
-        assert metadata.description != "Invalid type integer (expected number)"
-
-
 @pytest.mark.parametrize(
     ("mutation", "schema", "location", "validate"),
     [
@@ -144,19 +119,6 @@ def test_number_type_excludes_integer_from_type_mutations(data):
         (remove_required_property, {}, ParameterLocation.BODY, True),
         # Non-"object" type
         (remove_required_property, {"type": "array"}, ParameterLocation.BODY, True),
-        # No properties at all
-        (change_properties, {}, ParameterLocation.BODY, True),
-        # No properties that can be mutated
-        (change_properties, {"properties": {"foo": {}}}, ParameterLocation.BODY, True),
-        # No items
-        (change_items, {"type": "array"}, ParameterLocation.BODY, True),
-        # `items` accept everything
-        (change_items, {"type": "array", "items": {}}, ParameterLocation.BODY, True),
-        (change_items, {"type": "array", "items": True}, ParameterLocation.BODY, False),
-        # `items` is equivalent to accept-everything schema
-        (change_items, {"type": "array", "items": {"uniqueItems": False}}, ParameterLocation.BODY, True),
-        # The first element could be anything
-        (change_items, {"type": "array", "items": [{}]}, ParameterLocation.BODY, True),
         # Query and path parameters are always strings
         (change_type, {"type": "string"}, ParameterLocation.PATH, True),
         (change_type, {"type": "string"}, ParameterLocation.QUERY, True),
@@ -177,6 +139,7 @@ def test_failing_mutations(data, mutation, schema, location, validate):
             location=location,
             media_type="application/json",
             allow_extra_parameters=True,
+            target_descriptors=(),
         ),
         data.draw,
         schema,
@@ -199,6 +162,7 @@ def test_change_type_urlencoded(data):
         location=ParameterLocation.BODY,
         media_type="application/x-www-form-urlencoded",
         allow_extra_parameters=True,
+        target_descriptors=(),
     )
     # Then it should not be mutated
     result, metadata = change_type(context, data.draw, schema)
@@ -219,25 +183,6 @@ def test_change_type_urlencoded(data):
         (remove_required_property, {"properties": {"foo": {}}, "required": ["foo"]}),
         (remove_required_property, {"properties": {"foo": {}, "bar": {}}, "required": ["foo"]}),
         (remove_required_property, {"required": ["foo"]}),
-        (change_items, {"type": "array", "items": {"type": "string"}}),
-        (change_items, {"type": "array", "items": {"type": "string"}, "minItems": 1}),
-        (change_items, {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 1}),
-        (change_items, {"type": "array", "items": [{"type": "string"}]}),
-        (change_items, {"type": "array", "items": [{"type": "string"}], "minItems": 1}),
-        (change_items, {"type": "array", "items": [{"type": "string"}], "minItems": 1, "maxItems": 1}),
-        (change_properties, {"properties": {"foo": {"type": "integer"}}, "type": "object", "required": ["foo"]}),
-        (change_properties, {"properties": {"foo": {"type": "integer"}}, "type": ["object"]}),
-        (change_properties, {"properties": {"foo": {"type": "integer"}}, "type": "object"}),
-        (change_properties, {"properties": {"foo": {"type": "integer"}}}),
-        (
-            change_properties,
-            {
-                "properties": {"foo": {"type": "string", "minLength": 5}, "bar": {"type": "string", "minLength": 5}},
-                "type": "object",
-                "required": ["foo", "bar"],
-                "additionalProperties": False,
-            },
-        ),
     ],
 )
 @given(data=st.data())
@@ -255,6 +200,7 @@ def test_successful_mutations(data, mutation, schema):
             location=ParameterLocation.BODY,
             media_type="application/json",
             allow_extra_parameters=True,
+            target_descriptors=(),
         ),
         data.draw,
         schema,
@@ -306,6 +252,7 @@ def test_path_parameters_are_string(data, schema):
             location=ParameterLocation.PATH,
             media_type=None,
             allow_extra_parameters=True,
+            target_descriptors=compute_mutation_targets(new_schema),
         )
     )
     assert new_schema["type"] == "object"
@@ -338,6 +285,7 @@ def test_custom_fields_are_intact(data, key):
             location=ParameterLocation.BODY,
             media_type="application/json",
             allow_extra_parameters=True,
+            target_descriptors=compute_mutation_targets(schema),
         )
     )
     assert key in new_schema
@@ -385,6 +333,7 @@ def test_negate_constraints_keep_dependencies(data, schema, validator_cls):
             location=ParameterLocation.BODY,
             media_type="application/json",
             allow_extra_parameters=True,
+            target_descriptors=(),
         ),
         data.draw,
         schema,
@@ -406,13 +355,14 @@ def test_no_unsatisfiable_schemas(data):
             location=ParameterLocation.BODY,
             media_type="application/json",
             allow_extra_parameters=True,
+            target_descriptors=compute_mutation_targets(schema),
         )
     )
     assert canonicalish(mutated_schema) != FALSEY
 
 
 def test_openapi_31_legacy_exclusive_bounds_in_response_schema(ctx):
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "get": {
@@ -435,7 +385,6 @@ def test_openapi_31_legacy_exclusive_bounds_in_response_schema(ctx):
         },
         version="3.1.0",
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
     operation = schema["/data"]["GET"]
     response_def = operation.responses.get("200")
     assert response_def is not None
@@ -446,7 +395,7 @@ def test_openapi_31_legacy_exclusive_bounds_in_response_schema(ctx):
 
 
 def test_openapi_31_legacy_exclusive_bounds_in_negative_generation(ctx):
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
@@ -459,11 +408,9 @@ def test_openapi_31_legacy_exclusive_bounds_in_negative_generation(ctx):
                     "responses": {"200": {"description": "OK"}},
                 },
             },
-        }
+        },
+        version="3.1.0",
     )
-    schema_dict["openapi"] = "3.1.0"
-
-    schema = schemathesis.openapi.from_dict(schema_dict)
     operation = schema["/data"]["POST"]
 
     @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
@@ -477,7 +424,7 @@ def test_openapi_31_legacy_exclusive_bounds_in_negative_generation(ctx):
 def test_openapi_31_prefix_items_query_param_negative_generation(ctx):
     # Draft 2020-12 `prefixItems` must not crash the negative-path validator with
     # `items is not of types boolean, object` from meta-validation.
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/box": {
                 "parameters": [
@@ -504,7 +451,6 @@ def test_openapi_31_prefix_items_query_param_negative_generation(ctx):
         version="3.1.0",
     )
 
-    schema = schemathesis.openapi.from_dict(schema_dict)
     operation = schema["/box"]["GET"]
 
     @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
@@ -518,7 +464,7 @@ def test_openapi_31_prefix_items_query_param_negative_generation(ctx):
 @pytest.mark.hypothesis_nested
 def test_optional_query_param_negation(ctx):
     # When all query parameters are optional
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/bug": {
                 "get": {
@@ -530,8 +476,6 @@ def test_optional_query_param_negation(ctx):
             }
         }
     )
-
-    schema = schemathesis.openapi.from_dict(schema)
 
     @given(case=schema["/bug"]["get"].as_strategy(generation_mode=GenerationMode.NEGATIVE))
     @settings(deadline=None, max_examples=10, suppress_health_check=SUPPRESSED_HEALTH_CHECKS)
@@ -547,7 +491,7 @@ def test_optional_query_param_negation(ctx):
 @pytest.mark.hypothesis_nested
 def test_negating_multiple_query_params(ctx):
     # When all query parameters are optional
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/bug": {
                 "get": {
@@ -560,8 +504,6 @@ def test_negating_multiple_query_params(ctx):
             }
         }
     )
-
-    schema = schemathesis.openapi.from_dict(schema)
 
     @given(case=schema["/bug"]["get"].as_strategy(generation_mode=GenerationMode.NEGATIVE))
     @settings(deadline=None, suppress_health_check=SUPPRESSED_HEALTH_CHECKS)
@@ -642,7 +584,7 @@ DYNAMIC_OBJECT_PARAMETER = {"type": "object", "additionalProperties": {"type": "
 def test_non_default_styles(ctx, location, schema, style, explode):
     # See GH-1208
     # When the schema contains a parameter with a not-default "style"
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/bug": {
                 "get": {
@@ -662,8 +604,6 @@ def test_non_default_styles(ctx, location, schema, style, explode):
         }
     )
 
-    schema = schemathesis.openapi.from_dict(schema)
-
     @given(case=schema["/bug"]["get"].as_strategy(generation_mode=GenerationMode.NEGATIVE))
     @settings(deadline=None, max_examples=10, suppress_health_check=SUPPRESSED_HEALTH_CHECKS)
     def test(case):
@@ -673,7 +613,7 @@ def test_non_default_styles(ctx, location, schema, style, explode):
 
 
 @pytest.mark.snapshot
-def test_bundled_references(ctx, app_runner, cli, snapshot_cli):
+def test_bundled_references(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/api/groups/migrations": {
@@ -705,11 +645,9 @@ def test_bundled_references(ctx, app_runner, cli, snapshot_cli):
     def create_migration():
         return jsonify({"result": "error"}), 400
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=not_a_server_error",
             "--phases=fuzzing",
             "--mode=negative",
@@ -719,18 +657,10 @@ def test_bundled_references(ctx, app_runner, cli, snapshot_cli):
     )
 
 
-def is_valid_uuid(value: str) -> bool:
-    try:
-        uuid.UUID(value)
-        return True
-    except ValueError:
-        return False
-
-
 @pytest.mark.hypothesis_nested
 def test_negative_format_generates_invalid_values(ctx):
     # When a path parameter has `format: uuid`
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items/{id}": {
                 "get": {
@@ -742,7 +672,6 @@ def test_negative_format_generates_invalid_values(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(schema)
     invalid_uuid_found = False
 
     @given(case=schema["/items/{id}"]["GET"].as_strategy(generation_mode=GenerationMode.NEGATIVE))
@@ -751,7 +680,7 @@ def test_negative_format_generates_invalid_values(ctx):
         nonlocal invalid_uuid_found
         id_value = case.path_parameters["id"]
         # Negative mode should generate values that DON'T match UUID format
-        if not is_valid_uuid(id_value):
+        if not _is_valid_uuid(id_value):
             invalid_uuid_found = True
 
     test()
@@ -772,7 +701,7 @@ def test_negative_custom_format_generates_invalid_values(ctx):
     # When a user registers a custom format (uuid4)
     schemathesis.openapi.format("uuid4", st.uuids(version=4).map(str))
     # And a path parameter uses that custom format
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items/{id}": {
                 "get": {
@@ -784,7 +713,6 @@ def test_negative_custom_format_generates_invalid_values(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(schema)
     invalid_uuid4_found = False
 
     @given(case=schema["/items/{id}"]["GET"].as_strategy(generation_mode=GenerationMode.NEGATIVE))
@@ -803,10 +731,8 @@ def test_negative_custom_format_generates_invalid_values(ctx):
 
 @pytest.mark.hypothesis_nested
 def test_multiple_mutations_clear_description():
-    # GH-3367: When multiple mutations are applied to a schema, they can conflict
-    # (e.g., one mutation changes a property's type, another removes that property).
-    # In such cases, keeping the first mutation's description is misleading.
-    # This test verifies that when multiple mutations succeed, description is cleared.
+    # GH-3367: With multiple mutations, description must be cleared so the dispatcher
+    # doesn't emit misleading single-mutation metadata. ~50 examples to reliably trigger it.
     schema = {
         "type": "object",
         "properties": {
@@ -821,6 +747,7 @@ def test_multiple_mutations_clear_description():
         location=ParameterLocation.HEADER,
         media_type=None,
         allow_extra_parameters=False,
+        target_descriptors=compute_mutation_targets(schema),
     )
 
     @given(data=st.data())
@@ -828,8 +755,8 @@ def test_multiple_mutations_clear_description():
     def test(data):
         draw = data.draw
         _, metadata = ctx.mutate(draw)
-        if metadata is not None:
-            assert metadata.description != "Schema mutated"
+        if metadata is not None and len(metadata.mutations) > 1:
+            assert metadata.description is None
 
     test()
 
@@ -845,32 +772,28 @@ def test_multiple_mutations_clear_description():
     ids=["unicode_extended_range", "hex_escape", "negative_lookahead", "negative_lookbehind"],
 )
 @pytest.mark.hypothesis_nested
-def test_ecma_regex_patterns(pattern):
+def test_ecma_regex_patterns(ctx, pattern):
     # Large quantifiers can exceed jsonschema_rs's default compiled regex size limit
-    schema = schemathesis.openapi.from_dict(
+    schema = ctx.openapi.load_schema(
         {
-            "openapi": "3.0.2",
-            "info": {"title": "Test", "version": "1.0"},
-            "paths": {
-                "/test": {
-                    "post": {
-                        "requestBody": {
-                            "required": True,
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "type": "object",
-                                        "properties": {
-                                            "value": {"type": "string", "pattern": pattern},
-                                        },
-                                    }
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "value": {"type": "string", "pattern": pattern},
+                                    },
                                 }
-                            },
+                            }
                         },
-                        "responses": {"200": {"description": "OK"}},
-                    }
+                    },
+                    "responses": {"200": {"description": "OK"}},
                 }
-            },
+            }
         }
     )
     operation = schema["/test"]["POST"]
@@ -884,42 +807,39 @@ def test_ecma_regex_patterns(pattern):
 
 
 @pytest.mark.hypothesis_nested
-def test_path_parameters_never_contain_slash():
+def test_path_parameters_never_contain_slash(ctx):
     # When fuzzing path parameters, mutated values should never contain `/`
     # because this would change the URL structure and potentially route to different endpoints.
     # For example, `/api/groups/{id}` with id="foo/bar" becomes `/api/groups/foo/bar`
     # which could match `/api/groups/{id}/{user_id}` instead.
     #
     # This can happen when the generated value is a dict/object that gets stringified with `/` in keys
-    schema = schemathesis.openapi.from_dict(
+    schema = ctx.openapi.load_schema(
         {
-            "openapi": "3.0.0",
-            "info": {"title": "Test", "version": "0.1.0"},
-            "paths": {
-                "/api/groups/{id}": {
-                    "get": {
-                        "parameters": [
-                            {
-                                "name": "id",
-                                "in": "path",
-                                "required": True,
-                                "schema": {
-                                    "anyOf": [
-                                        {
-                                            "type": "string",
-                                            "examples": ["bqf7a2d9gbgud9a0jgfgt1ie"],
-                                            "pattern": "^[a-zA-Z0-9\\-]+$",
-                                        },
-                                        {"enum": ["valid-id-1", "valid-id-2"]},
-                                    ]
-                                },
-                            }
-                        ],
-                        "responses": {"200": {"description": "OK"}},
-                    }
-                },
+            "/api/groups/{id}": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "examples": ["bqf7a2d9gbgud9a0jgfgt1ie"],
+                                        "pattern": "^[a-zA-Z0-9\\-]+$",
+                                    },
+                                    {"enum": ["valid-id-1", "valid-id-2"]},
+                                ]
+                            },
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
             },
-        }
+        },
+        version="3.0.0",
     )
     operation = schema["/api/groups/{id}"]["GET"]
 
@@ -935,7 +855,7 @@ def test_path_parameters_never_contain_slash():
 @pytest.mark.hypothesis_nested
 def test_path_boolean_param_is_not_coerced_to_int_alongside_integer_param(ctx):
     # The integer positive-bias must not rewrite `False` into `1` for a sibling boolean param.
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items/{id}/{flag}": {
                 "get": {
@@ -948,7 +868,6 @@ def test_path_boolean_param_is_not_coerced_to_int_alongside_integer_param(ctx):
             },
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/items/{id}/{flag}"]["GET"]
 
     @given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
@@ -961,38 +880,35 @@ def test_path_boolean_param_is_not_coerced_to_int_alongside_integer_param(ctx):
 
 
 @pytest.mark.hypothesis_nested
-def test_negative_path_parameters_reject_encoded_slash_for_explicit_slash_examples():
-    schema = schemathesis.openapi.from_dict(
+def test_negative_path_parameters_reject_encoded_slash_for_explicit_slash_examples(ctx):
+    schema = ctx.openapi.load_schema(
         {
-            "openapi": "3.0.0",
-            "info": {"title": "Test", "version": "0.1.0"},
-            "paths": {
-                "/api/groups/{id}": {
-                    "get": {
-                        "parameters": [
-                            {
-                                "name": "id",
-                                "in": "path",
-                                "required": True,
-                                "schema": {
-                                    # Explicit slash intent for positive generation
-                                    "example": "foo/bar",
-                                    "anyOf": [
-                                        {
-                                            "type": "string",
-                                            "examples": ["bqf7a2d9gbgud9a0jgfgt1ie"],
-                                            "pattern": "^[a-zA-Z0-9\\-]+$",
-                                        },
-                                        {"enum": ["valid-id-1", "valid-id-2"]},
-                                    ],
-                                },
-                            }
-                        ],
-                        "responses": {"200": {"description": "OK"}},
-                    }
-                },
+            "/api/groups/{id}": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {
+                                # Explicit slash intent for positive generation
+                                "example": "foo/bar",
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "examples": ["bqf7a2d9gbgud9a0jgfgt1ie"],
+                                        "pattern": "^[a-zA-Z0-9\\-]+$",
+                                    },
+                                    {"enum": ["valid-id-1", "valid-id-2"]},
+                                ],
+                            },
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
             },
-        }
+        },
+        version="3.0.0",
     )
     operation = schema["/api/groups/{id}"]["GET"]
 
@@ -1007,7 +923,7 @@ def test_negative_path_parameters_reject_encoded_slash_for_explicit_slash_exampl
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_integer_path_parameter_no_false_positive(ctx, app_runner, cli, snapshot_cli):
+def test_integer_path_parameter_no_false_positive(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/device/audio/sources/{idx}": {
@@ -1044,11 +960,9 @@ def test_integer_path_parameter_no_false_positive(ctx, app_runner, cli, snapshot
             return jsonify({"error": "Source index is not valid"}), 400
         return jsonify({"status": "deleted"}), 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=negative_data_rejection",
             "--phases=coverage",
             "--max-examples=10",
@@ -1058,7 +972,7 @@ def test_integer_path_parameter_no_false_positive(ctx, app_runner, cli, snapshot
     )
 
 
-def test_negative_data_rejection_enum_path_params_no_false_positive(ctx, app_runner, cli):
+def test_negative_data_rejection_enum_path_params_no_false_positive(ctx, cli, app_runner):
     # Enum path parameters in fuzzing mode: a validating server must not produce
     # false positives for negative_data_rejection.
     app, raw_schema = ctx.openapi.make_flask_app(
@@ -1108,10 +1022,8 @@ def test_negative_data_rejection_enum_path_params_no_false_positive(ctx, app_run
             return jsonify({"error": "id must be >= 0"}), 400
         return jsonify({"ok": True}), 200
 
-    port = app_runner.run_flask_app(app)
-
     cli.run_and_assert(
-        f"http://127.0.0.1:{port}/openapi.json",
+        app_runner.openapi_url(app),
         "--checks=negative_data_rejection",
         "--mode=negative",
         "--phases=fuzzing",
@@ -1120,8 +1032,8 @@ def test_negative_data_rejection_enum_path_params_no_false_positive(ctx, app_run
     )
 
 
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_negative_data_rejection_enum_path_params_non_validating_server(ctx, app_runner, cli, snapshot_cli):
+@pytest.mark.snapshot(replace_reproduce_with=True, replace_invalid_component=True)
+def test_negative_data_rejection_enum_path_params_non_validating_server(ctx, cli, snapshot_cli):
     # A server that accepts everything. Mutations must fire and the check
     # must report failures for enum + integer path parameters in fuzzing mode.
     app, _ = ctx.openapi.make_flask_app(
@@ -1159,11 +1071,9 @@ def test_negative_data_rejection_enum_path_params_non_validating_server(ctx, app
         # Accepts everything — intentionally does not validate
         return jsonify({"ok": True}), 200
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--checks=negative_data_rejection",
             "--mode=negative",
             "--phases=fuzzing",
@@ -1174,7 +1084,7 @@ def test_negative_data_rejection_enum_path_params_non_validating_server(ctx, app
     )
 
 
-def test_query_param_invalid_ecma262_pattern_no_runtime_error(ctx, app_runner, cli):
+def test_query_param_invalid_ecma262_pattern_no_runtime_error(ctx, cli, app_runner):
     # `{,3}` is valid in Python, but jsonschema_rs rejects it as an incomplete quantifier when meta-validating the schema.
     # The `negative_data_rejection` check must not crash on such user-provided schemas.
     app, _ = ctx.openapi.make_flask_app(
@@ -1199,9 +1109,8 @@ def test_query_param_invalid_ecma262_pattern_no_runtime_error(ctx, app_runner, c
     def items():
         return jsonify({}), 200
 
-    port = app_runner.run_flask_app(app)
     cli.run_and_assert(
-        f"http://127.0.0.1:{port}/openapi.json",
+        app_runner.openapi_url(app),
         "--phases=coverage",
         "--mode=negative",
         "--checks=negative_data_rejection",

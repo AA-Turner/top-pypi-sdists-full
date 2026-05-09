@@ -53,74 +53,10 @@ impl PrimitiveCell {
             return Err(MoyoError::TooLargeToleranceError);
         }
 
-        // Try possible translations: overlap the `src`the site to the `dst`th site
-        let pkdtree = PeriodicKdTree::new(&reduced_cell, rough_symprec);
-        let pivot_site_indices = pivot_site_indices(&reduced_cell.numbers);
-        let mut permutations_translations_tmp = vec![];
-        let src = pivot_site_indices[0];
-        for dst in pivot_site_indices.iter() {
-            let translation = reduced_cell.positions[*dst] - reduced_cell.positions[src];
-            let new_positions: Vec<Position> = reduced_cell
-                .positions
-                .iter()
-                .map(|pos| pos + translation)
-                .collect();
+        let (translations, permutations) = search_pure_translations(&reduced_cell, symprec);
 
-            // Because the translation may not be optimal to minimize distance between input and acted positions,
-            // use a larger symprec (diameter of a Ball) for finding correspondence
-            if let Some(permutation) = solve_correspondence(&pkdtree, &reduced_cell, &new_positions)
-            {
-                permutations_translations_tmp.push((permutation, translation));
-            }
-        }
-
-        // Purify translations by permutations
-        let mut translations = vec![];
-        let mut permutations = vec![];
-        for (permutation, rough_translation) in permutations_translations_tmp.iter() {
-            let (translation, distance) = symmetrize_translation_from_permutation(
-                &reduced_cell,
-                permutation,
-                &Rotation::identity(),
-                rough_translation,
-            );
-            if distance < symprec {
-                translations.push(translation);
-                permutations.push(permutation.clone());
-            }
-        }
-
-        // Check number of translations
-        let size = translations.len() as i32;
-        if (size == 0) || (reduced_cell.num_atoms() % (size as usize) != 0) {
-            debug!(
-                "Failed to properly find translations: {} translations in {} atoms. Consider increasing symprec.",
-                size,
-                reduced_cell.num_atoms()
-            );
-            return Err(MoyoError::TooSmallToleranceError);
-        }
-        debug!("Found {} pure translations", size);
-
-        // Recover a transformation matrix from primitive to input cell
-        let trans_mat = if let Some(trans_mat) =
-            transformation_matrix_from_translations(&translations)
-        {
-            trans_mat
-        } else {
-            debug!(
-                "Failed to find a transformation matrix for a primitive cell. Consider increasing symprec."
-            );
-            return Err(MoyoError::TooSmallToleranceError);
-        };
-
-        // Primitive cell
-        let (primitive_cell, site_mapping, _) = primitive_cell_from_transformation(
-            &reduced_cell,
-            &trans_mat,
-            &translations,
-            &permutations,
-        );
+        let (primitive_cell, trans_mat, site_mapping) =
+            primitive_cell_from_pure_translations(&reduced_cell, &translations, &permutations)?;
         let (_, prim_trans_mat) = primitive_cell.lattice.minkowski_reduce()?;
         let reduced_prim_cell =
             UnimodularTransformation::from_linear(prim_trans_mat).transform_cell(&primitive_cell);
@@ -129,16 +65,13 @@ impl PrimitiveCell {
         //    -[reduced_trans_mat]-> (reduced cell)
         //    <-[trans_mat]- (primitive cell)
         //    -[prim_trans_mat]-> (reduced primitive cell)
-        let inv_prim_trans_mat = prim_trans_mat
-            .map(|e| e as f64)
-            .try_inverse()
-            .unwrap()
-            .map(|e| e.round() as i32);
-        let inv_reduced_trans_mat = reduced_trans_mat.map(|e| e as f64).try_inverse().unwrap();
         Ok(Self {
             cell: reduced_prim_cell,
-            linear: ((inv_prim_trans_mat * trans_mat).map(|e| e as f64) * inv_reduced_trans_mat)
-                .map(|e| e.round() as i32),
+            linear: compose_input_to_reduced_prim_linear(
+                reduced_trans_mat,
+                trans_mat,
+                prim_trans_mat,
+            ),
             site_mapping,
             translations: translations
                 .iter()
@@ -248,7 +181,112 @@ impl<M: MagneticMoment> PrimitiveMagneticCell<M> {
     }
 }
 
-fn transformation_matrix_from_translations(translations: &[Translation]) -> Option<Linear> {
+/// Find pure (identity-rotation) lattice translations that align atoms within
+/// `symprec`, returning the symmetrized translations and their induced
+/// permutations.
+///
+/// Precondition: `reduced_cell.lattice.basis` must be Minkowski reduced.
+/// `PeriodicKdTree::new` only enumerates periodic images for offsets in
+/// `[-1, 1]^3`, which is exact under that precondition but can miss the
+/// nearest image on a strongly skewed basis.
+pub(crate) fn search_pure_translations(
+    reduced_cell: &Cell,
+    symprec: f64,
+) -> (Vec<Translation>, Vec<Permutation>) {
+    let rough_symprec = 2.0 * symprec;
+    // Try possible translations: overlap the `src`-th site to the `dst`-th site
+    let pkdtree = PeriodicKdTree::new(reduced_cell, rough_symprec);
+    let pivot_site_indices = pivot_site_indices(&reduced_cell.numbers);
+    let mut permutations_translations_tmp = vec![];
+    let src = pivot_site_indices[0];
+    for dst in pivot_site_indices.iter() {
+        let translation = reduced_cell.positions[*dst] - reduced_cell.positions[src];
+        let new_positions: Vec<Position> = reduced_cell
+            .positions
+            .iter()
+            .map(|pos| pos + translation)
+            .collect();
+
+        // Because the translation may not be optimal to minimize distance between input and acted positions,
+        // use a larger symprec (diameter of a Ball) for finding correspondence
+        if let Some(permutation) = solve_correspondence(&pkdtree, reduced_cell, &new_positions) {
+            permutations_translations_tmp.push((permutation, translation));
+        }
+    }
+
+    // Purify translations by permutations
+    let mut translations = vec![];
+    let mut permutations = vec![];
+    for (permutation, rough_translation) in permutations_translations_tmp.iter() {
+        let (translation, distance) = symmetrize_translation_from_permutation(
+            reduced_cell,
+            permutation,
+            &Rotation::identity(),
+            rough_translation,
+        );
+        if distance < symprec {
+            translations.push(translation);
+            permutations.push(permutation.clone());
+        }
+    }
+    (translations, permutations)
+}
+
+/// Validate the pure-translation count and build the primitive sub-cell.
+/// Shared post-search core of `PrimitiveCell::new` and
+/// `LayerPrimitiveCell::new`. Callers pass already-filtered
+/// translations + permutations (the bulk caller filters not at all;
+/// the layer caller drops translations with non-zero `tz` first).
+pub(crate) fn primitive_cell_from_pure_translations(
+    reduced_cell: &Cell,
+    translations: &[Translation],
+    permutations: &[Permutation],
+) -> Result<(Cell, Linear, Vec<usize>), MoyoError> {
+    let size = translations.len() as i32;
+    if (size == 0) || (reduced_cell.num_atoms() % (size as usize) != 0) {
+        debug!(
+            "Failed to properly find translations: {} translations in {} atoms. Consider increasing symprec.",
+            size,
+            reduced_cell.num_atoms()
+        );
+        return Err(MoyoError::TooSmallToleranceError);
+    }
+    debug!("Found {} pure translations", size);
+
+    let trans_mat = transformation_matrix_from_translations(translations).ok_or_else(|| {
+        debug!(
+            "Failed to find a transformation matrix for a primitive cell. Consider increasing symprec."
+        );
+        MoyoError::TooSmallToleranceError
+    })?;
+    let (primitive_cell, site_mapping, _) =
+        primitive_cell_from_transformation(reduced_cell, &trans_mat, translations, permutations);
+    Ok((primitive_cell, trans_mat, site_mapping))
+}
+
+/// Compose `linear: reduced_prim_cell -> input_cell` from the chain
+/// (input -> reduced) -> (primitive <- reduced) -> (primitive -> reduced_prim).
+/// Shared between `PrimitiveCell::new` and `LayerPrimitiveCell::new` --
+/// the algebra is identical (only the reduction step differs between
+/// the two callers).
+pub(crate) fn compose_input_to_reduced_prim_linear(
+    reduced_trans_mat: Linear,
+    trans_mat: Linear,
+    prim_trans_mat: Linear,
+) -> Linear {
+    let inv_prim_trans_mat = prim_trans_mat
+        .map(|e| e as f64)
+        .try_inverse()
+        .unwrap()
+        .map(|e| e.round() as i32);
+    let inv_reduced_trans_mat = reduced_trans_mat.map(|e| e as f64).try_inverse().unwrap();
+    ((inv_prim_trans_mat * trans_mat).map(|e| e as f64) * inv_reduced_trans_mat)
+        .map(|e| e.round() as i32)
+}
+
+pub(crate) fn transformation_matrix_from_translations(
+    translations: &[Translation],
+) -> Option<Linear> {
     let size = translations.len() as i32;
     let mut columns: Vec<Vector3<i32>> = vec![
         Vector3::new(size, 0, 0),
@@ -279,7 +317,7 @@ fn transformation_matrix_from_translations(translations: &[Translation]) -> Opti
 }
 
 /// Transform `cell` to a primitive cell by inverse of `trans_mat`
-fn primitive_cell_from_transformation(
+pub(crate) fn primitive_cell_from_transformation(
     cell: &Cell,
     trans_mat: &Linear,
     translations: &[Translation],
@@ -339,7 +377,7 @@ fn primitive_magnetic_cell_from_transformation<M: MagneticMoment>(
     (primitive_magnetic_cell, site_mapping)
 }
 
-fn site_mapping_from_orbits(orbits: &[usize]) -> Vec<usize> {
+pub(crate) fn site_mapping_from_orbits(orbits: &[usize]) -> Vec<usize> {
     let mut mapping = BTreeMap::new();
     let mut count = 0;
     for ri in orbits.iter() {

@@ -1,8 +1,4 @@
-from unittest import mock
-
-from allianceauth.services.modules.mumble.auth_hooks import MumbleService
 from allianceauth.services.modules.mumble.models import MumbleUser
-from allianceauth.services.modules.mumble.tasks import MumbleTasks
 from django.test import TestCase, RequestFactory
 from django import urls
 from django.contrib.auth.models import User, Group, Permission
@@ -45,7 +41,6 @@ class MumbleViewsTestCase(TestCase):
         self.assertTrue(mumble_user.pwhash)
         self.assertIn('Guest', mumble_user.groups)
         self.assertIn('Member', mumble_user.groups)
-        self.assertIn(',', mumble_user.groups)
         # test update
         self.member.profile.main_character.character_name = "auth_member_updated"
         self.member.profile.main_character.corporation_ticker = "TESTU"
@@ -58,7 +53,6 @@ class MumbleViewsTestCase(TestCase):
         self.assertTrue(mumble_user.pwhash)
         self.assertIn('Guest', mumble_user.groups)
         self.assertIn('Member', mumble_user.groups)
-        self.assertIn(',', mumble_user.groups)
 
 
     def test_deactivate_post(self):

@@ -6,10 +6,8 @@ from tinybird.tb.modules.table import format_table
 
 
 def print_table_formatted(res: dict, name: str):
-    data = []
     limit = 20
-    for d in res["data"][:limit]:
-        data.append(d.values())
+    data = [d.values() for d in res["data"][:limit]]
     meta = res["meta"]
     stats = res.get("statistics", {})
     row_count = stats.get("rows_read", 0)

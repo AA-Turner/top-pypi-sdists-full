@@ -6,8 +6,9 @@ from collections.abc import Callable
 
 from schemathesis.config import ProjectConfig
 from schemathesis.core import Specification
+from schemathesis.core.statistic import ApiStatistic
 from schemathesis.engine import events
-from schemathesis.schemas import APIOperation, ApiStatistic
+from schemathesis.schemas import APIOperation
 
 
 class LoadingStarted(events.EngineEvent):

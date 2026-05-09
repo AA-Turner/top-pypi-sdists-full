@@ -1,15 +1,13 @@
 import pytest
 
-import schemathesis
-
 # See GH-999
 # Tests for behavior when the API schema contains operations that are valid but contains an unresolvable reference
 # Note that these errors can't be detected with meta-schema validation
 
 
 @pytest.fixture
-def schema(open_api_3_schema_with_recoverable_errors):
-    return schemathesis.openapi.from_dict(open_api_3_schema_with_recoverable_errors)
+def schema(ctx, open_api_3_schema_with_recoverable_errors):
+    return ctx.openapi.load_schema(open_api_3_schema_with_recoverable_errors["paths"])
 
 
 EXPECTED_OUTPUT_LINES = [
@@ -95,12 +93,19 @@ def test_(case):
 
 
 @pytest.mark.parametrize("workers", [1, 2])
-def test_in_cli(ctx, cli, open_api_3_schema_with_recoverable_errors, workers, openapi3_base_url, snapshot_cli):
+def test_in_cli(ctx, cli, app_runner, open_api_3_schema_with_recoverable_errors, workers, snapshot_cli):
+    app = ctx.openapi.make_permissive_flask_app(open_api_3_schema_with_recoverable_errors)
+    base_url = app_runner.openapi_url(app, path="")
     schema_path = ctx.makefile(open_api_3_schema_with_recoverable_errors)
     # Then valid operation should be tested
     # And errors on the single operation error should be displayed
     assert (
-        cli.run(str(schema_path), f"--workers={workers}", f"--url={openapi3_base_url}", "-c not_a_server_error")
+        cli.run(
+            str(schema_path),
+            f"--workers={workers}",
+            f"--url={base_url}/api",
+            "-c not_a_server_error",
+        )
         == snapshot_cli
     )
 

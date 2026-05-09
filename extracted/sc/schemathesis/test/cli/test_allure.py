@@ -1,14 +1,13 @@
 import json
 
-import pytest
 from _pytest.main import ExitCode
 
 
-@pytest.mark.operations("success", "failure")
-def test_allure_result_files_written(cli, schema_url, tmp_path):
+def test_allure_result_files_written(ctx, cli, tmp_path):
+    api = ctx.openapi.apps.success_and_failure()
     allure_dir = tmp_path / "allure-results"
     cli.run_and_assert(
-        schema_url,
+        api.schema_url,
         f"--report-allure-path={allure_dir}",
         "--checks=not_a_server_error",
         exit_code=ExitCode.TESTS_FAILED,
@@ -23,22 +22,22 @@ def test_allure_result_files_written(cli, schema_url, tmp_path):
         assert any(lbl["name"] == "framework" and lbl["value"] == "schemathesis" for lbl in data["labels"])
 
 
-@pytest.mark.operations("success", "failure")
-def test_allure_report_via_config(cli, schema_url, tmp_path):
+def test_allure_report_via_config(ctx, cli, tmp_path):
+    api = ctx.openapi.apps.success_and_failure()
     allure_dir = tmp_path / "allure-results"
     cli.run_and_assert(
-        schema_url,
+        api.schema_url,
         exit_code=ExitCode.TESTS_FAILED,
         config={"reports": {"allure": {"path": str(allure_dir)}}},
     )
     assert any(allure_dir.glob("*-result.json"))
 
 
-@pytest.mark.operations("failure")
-def test_allure_failure_has_reproduce_attachment(cli, schema_url, tmp_path):
+def test_allure_failure_has_reproduce_attachment(ctx, cli, tmp_path):
+    api = ctx.openapi.apps.failure()
     allure_dir = tmp_path / "allure-results"
     cli.run_and_assert(
-        schema_url,
+        api.schema_url,
         f"--report-allure-path={allure_dir}",
         "--checks=not_a_server_error",
         exit_code=ExitCode.TESTS_FAILED,
@@ -51,36 +50,35 @@ def test_allure_failure_has_reproduce_attachment(cli, schema_url, tmp_path):
     assert any("curl" in m.lower() for m in step_messages)
 
 
-@pytest.mark.operations("success")
-def test_allure_no_report_without_flag(cli, schema_url, tmp_path):
-    cli.run_and_assert(schema_url)
+def test_allure_no_report_without_flag(ctx, cli, tmp_path):
+    api = ctx.openapi.apps.success()
+    cli.run_and_assert(api.schema_url)
     assert not list(tmp_path.glob("**/*-result.json"))
 
 
-@pytest.mark.operations("invalid")
-def test_allure_broken_status_on_non_fatal_error(cli, schema_url, tmp_path):
+def test_allure_broken_status_on_non_fatal_error(ctx, cli, tmp_path):
+    api = ctx.openapi.apps.invalid()
     allure_dir = tmp_path / "allure-results"
-    cli.run_and_assert(schema_url, f"--report-allure-path={allure_dir}", exit_code=ExitCode.TESTS_FAILED)
+    cli.run_and_assert(api.schema_url, f"--report-allure-path={allure_dir}", exit_code=ExitCode.TESTS_FAILED)
     results = [json.loads(f.read_text()) for f in allure_dir.glob("*-result.json")]
     broken = [r for r in results if r["status"] == "broken"]
     assert broken
     assert broken[0]["statusDetails"]["message"]
 
 
-@pytest.mark.operations("success")
-def test_allure_results_in_timestamped_dir_when_no_explicit_path(cli, schema_url, tmp_path):
-    cli.run_and_assert(schema_url, "--report=allure", f"--report-dir={tmp_path}")
+def test_allure_results_in_timestamped_dir_when_no_explicit_path(ctx, cli, tmp_path):
+    api = ctx.openapi.apps.success()
+    cli.run_and_assert(api.schema_url, "--report=allure", f"--report-dir={tmp_path}")
     allure_dirs = [d for d in tmp_path.iterdir() if d.is_dir() and d.name.startswith("allure-")]
     assert len(allure_dirs) == 1
     assert list(allure_dirs[0].glob("*-result.json"))
 
 
-@pytest.mark.openapi_version("3.0")
-@pytest.mark.operations("create_user", "get_user", "update_user")
-def test_allure_stateful_phase_produces_result(cli, schema_url, tmp_path):
+def test_allure_stateful_phase_produces_result(ctx, cli, tmp_path):
+    api = ctx.openapi.apps.users_crud()
     allure_dir = tmp_path / "allure-results"
     cli.run_and_assert(
-        schema_url,
+        api.schema_url,
         f"--report-allure-path={allure_dir}",
         # This one won't fail
         "--checks=use_after_free",
@@ -93,10 +91,32 @@ def test_allure_stateful_phase_produces_result(cli, schema_url, tmp_path):
         assert not any(lbl["name"] == "feature" for lbl in data["labels"])
 
 
-@pytest.mark.operations("success")
-def test_allure_layer_label(cli, schema_url, tmp_path):
+def test_examples_phase_skip_cleared_when_coverage_runs(ctx, cli, tmp_path):
+    # When the Examples phase skips an operation (schema has no inline examples)
+    # but the Coverage phase subsequently runs and produces real results,
+    # the Allure report must NOT mark the result as skipped and must not
+    # populate statusDetails with the skip reason.
+    api = ctx.openapi.apps.success()
     allure_dir = tmp_path / "allure-results"
-    cli.run_and_assert(schema_url, f"--report-allure-path={allure_dir}")
+    cli.run_and_assert(
+        api.schema_url,
+        f"--report-allure-path={allure_dir}",
+        "--phases=examples,coverage",
+        "--checks=all",
+    )
+    result_files = list(allure_dir.glob("*-result.json"))
+    assert result_files
+    for data in (json.loads(f.read_text()) for f in result_files):
+        # Coverage ran real requests — status must not be skipped
+        assert data["status"] != "skipped"
+        # And the skip reason must not leak into statusDetails
+        assert data.get("statusDetails", {}).get("message") != "No examples in schema"
+
+
+def test_allure_layer_label(ctx, cli, tmp_path):
+    api = ctx.openapi.apps.success()
+    allure_dir = tmp_path / "allure-results"
+    cli.run_and_assert(api.schema_url, f"--report-allure-path={allure_dir}")
     result_files = list(allure_dir.glob("*-result.json"))
     assert result_files
     data = json.loads(result_files[0].read_text())

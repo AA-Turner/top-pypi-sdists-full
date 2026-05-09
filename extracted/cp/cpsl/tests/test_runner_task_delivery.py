@@ -74,7 +74,10 @@ class RunnerTaskDeliveryTests(unittest.IsolatedAsyncioTestCase):
             reply.write("hello")
         async with session.stream_reply() as reply:
             reply.write("world")
-        await asyncio.sleep(0)
+        for _ in range(20):
+            if len(calls) >= 2:
+                break
+            await asyncio.sleep(0.01)
 
         request_ids = [req.request_id for req in calls]
         self.assertNotEqual(request_ids[0], request_ids[1])

@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,17 +25,18 @@ class LazyImportsTest(testing.TestCase, parameterized.TestCase):
   # The following deps are not in the test list because the datasets that
   # require them need to have their tests run in isolation:
   # * crepe (NSynth)
+  # * gcld3 (c4)
+  # * langdetect (c4)
   # * librosa (NSynth)
+  # * nltk (c4)
+  # * tldextract (c4)
   @parameterized.parameters(
       "bs4",
       "cv2",
-      "gcld3",
       "gcsfs_store",
-      "langdetect",
       "lxml",
       "matplotlib",
       "mwparserfromhell",
-      "nltk",
       "os",
       "pandas",
       "pretty_midi",
@@ -44,7 +45,6 @@ class LazyImportsTest(testing.TestCase, parameterized.TestCase):
       "scipy",
       "skimage",
       "tifffile",
-      "tldextract",
       "zarr",
   )
   def test_import(self, module_name):

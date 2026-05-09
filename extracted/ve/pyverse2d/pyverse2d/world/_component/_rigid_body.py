@@ -27,6 +27,7 @@ class RigidBody(Component):
         linear_damping(Real, optional): résistance de l'air (0 = aucune)
     """
     __slots__ = ("_mass", "_friction", "_restitution", "_gravity", "_gravity_scale", "_linear_damping", "_velocity", "_acceleration", "_prev_x", "_prev_y", "_sleeping", "_sleep_timer")
+    
     requires = ("Transform",)
 
     def __init__(

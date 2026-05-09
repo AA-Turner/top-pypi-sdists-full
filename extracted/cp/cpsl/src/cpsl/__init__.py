@@ -8,7 +8,7 @@ from .db import CollectionManager, CollectionRef, DynamicCollection
 from .filesystem import FileSystem, file
 from .home import HomeContext, Suggestion
 from .client import Client
-from .decorators import boot, shutdown, enter, exit, message, task, schedule, endpoint, asgi
+from .decorators import action, boot, shutdown, enter, exit, message, task, schedule, endpoint, asgi
 from .image import Image
 from .integration import (
     AWS,
@@ -33,7 +33,7 @@ from .integration import (
     INTEGRATION_OUTLOOK,
     INTEGRATION_TAILSCALE,
 )
-from .msg import Attachment, Message
+from .msg import Attachment, Event, Message
 from .secret import Secret
 from .session import (
     Block,

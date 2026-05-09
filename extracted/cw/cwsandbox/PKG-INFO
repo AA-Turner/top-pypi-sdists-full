@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cwsandbox
-Version: 0.22.0
+Version: 0.23.0
 Summary: A Python client library for CoreWeave Sandbox
 Author: CoreWeave, Inc.
 License-Expression: Apache-2.0
@@ -19,7 +19,6 @@ Requires-Python: <4,>=3.11
 Requires-Dist: googleapis-common-protos>=1.63.0
 Requires-Dist: grpcio>=1.78.0
 Requires-Dist: protobuf<7,>=5
-Requires-Dist: pydantic>=2.0.0
 Provides-Extra: cli
 Requires-Dist: click>=8.2; extra == 'cli'
 Provides-Extra: dev

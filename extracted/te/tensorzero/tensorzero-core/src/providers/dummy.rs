@@ -36,19 +36,18 @@ use crate::inference::types::{
 };
 use crate::inference::types::{Text, TextChunk, Thought, ThoughtChunk};
 use crate::model::{CredentialLocation, CredentialLocationWithFallback};
-use crate::observability::overhead_timing::TENSORZERO_EXTERNAL_SPAN_ATTRIBUTE_NAME;
 use crate::providers::helpers::inject_extra_request_data;
 use crate::rate_limiting::{
     ActiveRateLimitKey, FailedRateLimit, RateLimitResource, RateLimitingScopeKey,
 };
 use crate::tool::{ToolCall, ToolCallChunk};
+use tensorzero_http::TENSORZERO_EXTERNAL_SPAN_ATTRIBUTE_NAME;
 
 const PROVIDER_NAME: &str = "Dummy";
 pub const PROVIDER_TYPE: &str = "dummy";
 
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Debug, Default, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[derive(ts_rs::TS, Debug, Default, Serialize)]
+#[ts(export)]
 pub struct DummyProvider {
     pub model_name: String,
     #[serde(skip)]
@@ -840,6 +839,7 @@ impl InferenceProvider for DummyProvider {
                 if fatal_stream_error && i == 2 {
                     yield Err(Error::new(ErrorDetails::FatalStreamError {
                         message: "Dummy fatal error".to_string(),
+                        status_code: None,
                         provider_type: PROVIDER_TYPE.to_string(),
                         api_type: ApiType::ChatCompletions,
                         raw_request: Some("raw request".to_string()),
@@ -862,6 +862,7 @@ impl InferenceProvider for DummyProvider {
                 if fatal_stream_error_with_raw && i == 2 {
                     yield Err(Error::new(ErrorDetails::FatalStreamError {
                         message: "Dummy fatal error with raw response".to_string(),
+                        status_code: None,
                         provider_type: PROVIDER_TYPE.to_string(),
                         api_type: ApiType::ChatCompletions,
                         raw_request: Some("raw request".to_string()),

@@ -6,7 +6,7 @@ from biolib.api.client import ApiClient, ApiClientInitDict
 from biolib.app import BioLibApp
 from biolib.biolib_errors import BioLibError
 from biolib.experiments.experiment import Experiment
-from biolib.jobs.job import Result
+from biolib._result.result import Result
 from biolib.typing_utils import Optional
 
 

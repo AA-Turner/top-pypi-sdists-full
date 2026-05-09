@@ -6634,7 +6634,7 @@ SWIGINTERN PyObject *GenericNetwork_swigregister(PyObject *SWIGUNUSEDPARM(self),
 static PyMethodDef SwigMethods[] = {
 	 { "GetUseExceptions", _wrap_GetUseExceptions, METH_NOARGS, "GetUseExceptions() -> int"},
 	 { "_GetExceptionsLocal", _wrap__GetExceptionsLocal, METH_NOARGS, "_GetExceptionsLocal() -> int"},
-	 { "_SetExceptionsLocal", _wrap__SetExceptionsLocal, METH_O, "_SetExceptionsLocal(int bVal)"},
+	 { "_SetExceptionsLocal", _wrap__SetExceptionsLocal, METH_O, "_SetExceptionsLocal(bVal)"},
 	 { "_UseExceptions", _wrap__UseExceptions, METH_NOARGS, "_UseExceptions()"},
 	 { "_DontUseExceptions", _wrap__DontUseExceptions, METH_NOARGS, "_DontUseExceptions()"},
 	 { "_UserHasSpecifiedIfUsingExceptions", _wrap__UserHasSpecifiedIfUsingExceptions, METH_NOARGS, "_UserHasSpecifiedIfUsingExceptions() -> int"},

@@ -166,7 +166,7 @@ def new_ds(
             existing = existing_ds.get("indexes", [])
             new.sort(key=lambda x: x["name"])
             existing.sort(key=lambda x: x["name"])
-            if len(existing) != len(new) or any([(d, d2) for d, d2 in zip(new, existing) if d != d2]):
+            if len(existing) != len(new) or any((d, d2) for d, d2 in zip(new, existing) if d != d2):
                 new_indices = ds.get("params", {}).get("indexes") or "0"
         if (
             new_description

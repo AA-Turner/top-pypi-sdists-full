@@ -453,7 +453,7 @@ class OpenAICompatProvider(ProviderBase):
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
         if self._spec.name == "openrouter":
-            headers["HTTP-Referer"] = "https://github.com/laynef/claude-ai-clone"
+            headers["HTTP-Referer"] = "https://sageworksai.com"
             headers["X-Title"] = "Sage AI CLI"
         return headers
 

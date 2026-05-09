@@ -18,11 +18,7 @@ PACKAGE_NAME = "react-leaflet"
 PACKAGE_VERSION = "5.0.0"
 
 path = rx.asset("MapLazyComponents.jsx", shared=True)
-try:
-    public_path = path.importable_path
-except AttributeError:
-    # Fallback for < 0.9.0
-    public_path = "$/public" + path
+public_path = path.importable_path
 
 refs_var_data = VarData(
     imports={f"$/{constants.Dirs.STATE_PATH}": [ImportVar(tag="refs")]}

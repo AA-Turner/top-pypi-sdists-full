@@ -86,12 +86,12 @@ def unique_test_cases(ctx, response, case):
         yield module
 
 
-def run(ctx, cli, unique_hook, schema, openapi3_base_url, hypothesis_max_examples, *args):
+def run(ctx, cli, unique_hook, schema, base_url, hypothesis_max_examples, *args):
     schema_file = ctx.makefile(schema)
     return cli.main(
         "run",
         str(schema_file),
-        f"--url={openapi3_base_url}",
+        f"--url={base_url}",
         "-cunique_test_cases",
         f"--max-examples={hypothesis_max_examples or 30}",
         "--generation-unique-inputs",
@@ -106,17 +106,18 @@ def run(ctx, cli, unique_hook, schema, openapi3_base_url, hypothesis_max_example
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Fails on Windows")
 @flaky(max_runs=3, min_passes=1)
-def test_cli(ctx, unique_hook, raw_schema, cli, openapi3_base_url, hypothesis_max_examples, snapshot_cli):
-    assert run(ctx, cli, unique_hook, raw_schema, openapi3_base_url, hypothesis_max_examples) == snapshot_cli
+def test_cli(ctx, unique_hook, raw_schema, cli, hypothesis_max_examples, snapshot_cli):
+    api = ctx.openapi.apps.success()
+    assert run(ctx, cli, unique_hook, raw_schema, f"{api.base_url}/api", hypothesis_max_examples) == snapshot_cli
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Fails on Windows")
-@pytest.mark.operations("failure")
-def test_cli_failure(unique_hook, cli, openapi3_schema_url, hypothesis_max_examples, snapshot_cli):
+def test_cli_failure(ctx, unique_hook, cli, hypothesis_max_examples, snapshot_cli):
+    api = ctx.openapi.apps.failure()
     assert (
         cli.main(
             "run",
-            openapi3_schema_url,
+            api.schema_url,
             "-cunique_test_cases",
             "-cnot_a_server_error",
             f"--max-examples={hypothesis_max_examples or 30}",
@@ -130,11 +131,12 @@ def test_cli_failure(unique_hook, cli, openapi3_schema_url, hypothesis_max_examp
     )
 
 
-def test_graphql_url(cli, unique_hook, graphql_url, snapshot_cli):
+def test_graphql_url(ctx, cli, unique_hook, snapshot_cli):
+    api = ctx.graphql.apps.books()
     assert (
         cli.main(
             "run",
-            graphql_url,
+            api.schema_url,
             "-cunique_test_cases",
             "--max-examples=5",
             "--generation-unique-inputs",
@@ -149,11 +151,11 @@ def test_explicit_headers(
     ctx,
     unique_hook,
     cli,
-    openapi3_base_url,
     hypothesis_max_examples,
     workers,
     snapshot_cli,
 ):
+    api = ctx.openapi.apps.success()
     header_name = "X-Session-ID"
     schema = ctx.openapi.build_schema(
         {
@@ -185,7 +187,7 @@ def test_explicit_headers(
             cli,
             unique_hook,
             schema,
-            openapi3_base_url,
+            f"{api.base_url}/api",
             hypothesis_max_examples,
             f"-H {header_name}: fixed",
             f"--workers={workers}",

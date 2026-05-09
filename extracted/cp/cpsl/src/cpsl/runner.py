@@ -32,6 +32,7 @@ from .session import SessionChannel
 from .clients.capsule import (
     ClaimTaskRequest,
     CompleteTaskRequest,
+    CompleteOnboardingRequest,
     DataServiceStub,
     GetCollectionSchemaRequest,
     GetSecretRequest,
@@ -95,11 +96,13 @@ from .decorators import (
     _MESSAGE_ATTR,
     _MESSAGE_LABEL_ATTR,
     _MESSAGE_NAME_ATTR,
+    _ACTION_ATTR,
+    _ACTION_NAME_ATTR,
     _SCHEDULE_ATTR,
     _ENDPOINT_ATTR,
     _ASGI_ATTR,
 )
-from .msg import Message
+from .msg import Event, Message
 from .home import HomeContext, serialize_suggestions
 from .session import ReplyStream, RequestContext, Session, UserInfo, _track_data_value
 from .task_types import TaskDescriptor, GlobalTaskQuery
@@ -256,6 +259,21 @@ _HOP_HEADERS = frozenset(
 )
 
 
+def _resolve_message_handler(
+    handlers: dict[str, Callable],
+    default_handler: Callable | None,
+    chat_name: str,
+) -> Callable | None:
+    if chat_name:
+        handler = handlers.get(chat_name)
+        if handler is None:
+            available = sorted(name for name in handlers if name)
+            suffix = f" Available named chats: {', '.join(available)}." if available else ""
+            raise RuntimeError(f"Unknown chat surface {chat_name!r}.{suffix}")
+        return handler
+    return default_handler
+
+
 def _log(msg: str) -> None:
     print(f"[cpsl] {msg}", flush=True)
 
@@ -342,6 +360,7 @@ class Runner:
         self._hooks: dict[str, Any] = {}
         self._message_handlers: dict[str, Callable] = {}
         self._message_handler_labels: dict[str, str] = {}
+        self._action_handlers: dict[str, Callable] = {}
         self._tasks: dict[str, TaskDescriptor] = {}
         self._schedules: dict[str, Any] = {}
         self._schedule_locks: dict[str, asyncio.Lock] = {}
@@ -440,17 +459,25 @@ class Runner:
 
         self._message_handlers = {}
         self._message_handler_labels = {}
-        for name in dir(self._instance):
-            fn = getattr(self._instance, name, None)
-            if not callable(fn) or not getattr(fn, _MESSAGE_ATTR, False):
-                continue
-            msg_name = getattr(fn, _MESSAGE_NAME_ATTR, "")
-            if msg_name in self._message_handlers:
-                label = "default" if msg_name == "" else msg_name
-                raise RuntimeError(f"Duplicate @cpsl.message handler for {label!r}")
-            self._message_handlers[msg_name] = fn
-            if msg_name:
-                self._message_handler_labels[msg_name] = getattr(fn, _MESSAGE_LABEL_ATTR, "") or msg_name
+        if self._app_obj is not None:
+            self._message_handlers = dict(self._app_obj._message_handlers)
+            self._message_handler_labels = dict(self._app_obj._message_handler_labels)
+            self._action_handlers = dict(self._app_obj._action_handlers)
+        else:
+            for name in dir(self._instance):
+                fn = getattr(self._instance, name, None)
+                if not callable(fn):
+                    continue
+                if getattr(fn, _MESSAGE_ATTR, False):
+                    msg_name = getattr(fn, _MESSAGE_NAME_ATTR, "")
+                    if msg_name in self._message_handlers:
+                        label = "default" if msg_name == "" else msg_name
+                        raise RuntimeError(f"Duplicate @cpsl.message handler for {label!r}")
+                    self._message_handlers[msg_name] = fn
+                    if msg_name:
+                        self._message_handler_labels[msg_name] = getattr(fn, _MESSAGE_LABEL_ATTR, "") or msg_name
+                if getattr(fn, _ACTION_ATTR, False):
+                    self._action_handlers[getattr(fn, _ACTION_NAME_ATTR, name)] = fn
         self._hooks[_MESSAGE_ATTR] = self._message_handlers.get("")
 
         for name in dir(self._instance):
@@ -937,15 +964,25 @@ class Runner:
 
             identity_token = self._set_session_on_refs(session)
             try:
-                wf_handled = await self._try_workflow_dispatch(session, item.text, _reply, _stream, _block, _stream_write, rid, sid)
-                if not wf_handled:
+                if item.action_name:
+                    handler = self._action_handlers.get(item.action_name)
+                    if handler is None:
+                        available = ", ".join(sorted(self._action_handlers))
+                        suffix = f" Available actions: {available}." if available else ""
+                        raise RuntimeError(f"Unknown action {item.action_name!r}.{suffix}")
+                    payload = {}
+                    if item.action_payload_json:
+                        parsed = json.loads(item.action_payload_json)
+                        if isinstance(parsed, dict):
+                            payload = parsed
+                    await _maybe_await(handler(session, Event(name=item.action_name, payload=payload)))
+                elif not await self._try_workflow_dispatch(session, item.text, _reply, _stream, _block, _stream_write, rid, sid):
                     chat_name = item.chat_name or session.data.get("__chat_name__", "")
-                    handler = self._message_handlers.get(chat_name)
-                    if handler is None and chat_name:
-                        _log(f"unknown chat handler {chat_name!r}; falling back to default")
-                        handler = self._hooks.get(_MESSAGE_ATTR)
-                    elif handler is None:
-                        handler = self._hooks.get(_MESSAGE_ATTR)
+                    handler = _resolve_message_handler(
+                        self._message_handlers,
+                        self._hooks.get(_MESSAGE_ATTR),
+                        chat_name,
+                    )
                     if handler:
                         await _maybe_await(handler(session, user_msg))
             finally:
@@ -1743,7 +1780,9 @@ class Runner:
         theme: dict | None = None
         home: dict | None = None
         chat: dict | None = None
+        onboarding: dict | None = None
         shell: dict | None = None
+        actions: list[str] = sorted(self._action_handlers.keys())
         has_message_handler = bool(self._hooks.get(_MESSAGE_ATTR))
         message_handlers = [
             {"name": name, "label": label}
@@ -1754,6 +1793,9 @@ class Runner:
             for mh in reg.get("message_handlers", []):
                 if mh not in message_handlers:
                     message_handlers.append(mh)
+            for action in reg.get("actions", []):
+                if action not in actions:
+                    actions.append(action)
             for ch in reg.get("channels", []):
                 channels.append(ch if isinstance(ch, dict) else {"type": str(ch)})
             for p in reg.get("pages", []):
@@ -1774,6 +1816,8 @@ class Runner:
                 home = dict(reg["home"])
             if reg.get("chat"):
                 chat = dict(reg["chat"])
+            if reg.get("onboarding"):
+                onboarding = dict(reg["onboarding"])
             if reg.get("shell"):
                 shell = dict(reg["shell"])
 
@@ -1842,6 +1886,8 @@ class Runner:
             home["widget_tree"] = _resolve_widget(home["widget_tree"])
         if chat and chat.get("widget_tree"):
             chat["widget_tree"] = _resolve_widget(chat["widget_tree"])
+        if onboarding and onboarding.get("widget_tree"):
+            onboarding["widget_tree"] = _resolve_widget(onboarding["widget_tree"])
 
         meta: dict = {
             "endpoints": endpoints,
@@ -1855,6 +1901,7 @@ class Runner:
             "settings": [s.to_dict() for s in settings.values()],
             "has_message_handler": has_message_handler,
             "message_handlers": message_handlers,
+            "actions": sorted(actions),
         }
         if theme:
             meta["theme"] = theme
@@ -1862,6 +1909,8 @@ class Runner:
             meta["home"] = home
         if chat:
             meta["chat"] = chat
+        if onboarding:
+            meta["onboarding"] = onboarding
         if shell:
             meta["shell"] = shell
         return meta
@@ -1900,6 +1949,13 @@ class Runner:
                     self._wrap_page_source(component),
                 )
                 _log(f"page source mounted: GET /pages/{pname}/source")
+        onboarding = meta.get("onboarding")
+        if onboarding and onboarding.get("type") == PAGE_TYPE_REACT and onboarding.get("component"):
+            app.router.add_get(
+                "/pages/__onboarding__/source",
+                self._wrap_page_source(onboarding["component"]),
+            )
+            _log("page source mounted: GET /pages/__onboarding__/source")
 
         from .app import _REGISTERED_CLASSES
 

@@ -576,6 +576,27 @@ class DataConnection(BaseDataConnection):
                 )
         return file_connections
 
+    def _get_all_connections(self, recursive: bool = False) -> list["DataConnection"]:
+        """Return all connections, expanding folders if this connection points to a folder.
+
+        For folder-supporting connection types (S3Location, ContainerLocation, NFSLocation,
+        RemoteFileStorageLocation), this method delegates to _get_connections_from_folder().
+        For non-folder connection types, it returns [self] (the connection itself wrapped in a list).
+
+        :param recursive: if `True` - connections for files from all subfolders are included, defaults to `False`
+        :type recursive: bool, optional
+
+        :return: list of connections
+        :rtype: list[DataConnection]
+        """
+        if isinstance(
+            self.location,
+            (S3Location, ContainerLocation, NFSLocation, RemoteFileStorageLocation),
+        ):
+            return self._get_connections_from_folder(recursive=recursive)
+        else:
+            return [self]
+
     def _subdivide_connection(self):
         if type(self.id) is str or not self.id:
             return [self]

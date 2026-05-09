@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -119,7 +119,7 @@ def even_splits(
       not evenly divisible by `n`. If `False`, examples are distributed evenly
       across subsplits, starting by the first. For example, if there is 11
       examples with `n=3`, splits will contain `[4, 4, 3]` examples
-      respectivelly.
+      respectively.
 
   Returns:
     The list of subsplits. Those splits can be combined together (with
@@ -169,7 +169,7 @@ def split_for_jax_process(
       not evenly divisible by `n`. If `False`, examples are distributed evenly
       across subsplits, starting by the first. For example, if there is 11
       examples with `n=3`, splits will contain `[4, 4, 3]` examples
-      respectivelly.
+      respectively.
 
   Returns:
     subsplit: The sub-split of the given `split` for the current

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: parsedmarc
-Version: 9.11.1
+Version: 9.11.2
 Summary: A Python package and CLI for parsing aggregate and forensic DMARC reports
 Project-URL: Homepage, https://domainaware.github.io/parsedmarc
 Author-email: Sean Whalen <whalenster@gmail.com>
@@ -35,6 +35,7 @@ Requires-Dist: tqdm>=4.31.1
 Requires-Dist: urllib3>=1.25.7
 Requires-Dist: xmltodict>=0.12.0
 Provides-Extra: build
+Requires-Dist: ddgs>=9.0.0; extra == 'build'
 Requires-Dist: hatch>=1.14.0; extra == 'build'
 Requires-Dist: myst-parser[linkify]; extra == 'build'
 Requires-Dist: nose; extra == 'build'

@@ -24,11 +24,11 @@ class CatalogIntegrationAwsGlueArgs:
                  enabled: pulumi.Input[_builtins.bool],
                  glue_aws_role_arn: pulumi.Input[_builtins.str],
                  glue_catalog_id: pulumi.Input[_builtins.str],
-                 catalog_namespace: Optional[pulumi.Input[_builtins.str]] = None,
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 glue_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_interval_seconds: Optional[pulumi.Input[_builtins.int]] = None):
+                 catalog_namespace: pulumi.Input[Optional[_builtins.str]] = None,
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 glue_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_interval_seconds: pulumi.Input[Optional[_builtins.int]] = None):
         """
         The set of arguments for constructing a CatalogIntegrationAwsGlue resource.
 
@@ -93,83 +93,85 @@ class CatalogIntegrationAwsGlueArgs:
 
     @_builtins.property
     @pulumi.getter(name="catalogNamespace")
-    def catalog_namespace(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def catalog_namespace(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the default AWS Glue Data Catalog namespace for all Iceberg tables that you associate with the catalog integration.
         """
         return pulumi.get(self, "catalog_namespace")
 
     @catalog_namespace.setter
-    def catalog_namespace(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def catalog_namespace(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "catalog_namespace", value)
 
     @_builtins.property
     @pulumi.getter
-    def comment(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def comment(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Default: ``) Specifies a comment for the catalog integration.
         """
         return pulumi.get(self, "comment")
 
     @comment.setter
-    def comment(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def comment(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "comment", value)
 
     @_builtins.property
     @pulumi.getter(name="glueRegion")
-    def glue_region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def glue_region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the AWS region of your AWS Glue Data Catalog. You must specify a value for this attribute if your Snowflake account is not hosted on AWS. Otherwise, the default region is the Snowflake deployment region for the account.
         """
         return pulumi.get(self, "glue_region")
 
     @glue_region.setter
-    def glue_region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def glue_region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "glue_region", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the identifier (i.e. name) of the catalog integration; must be unique in your account.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="refreshIntervalSeconds")
-    def refresh_interval_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def refresh_interval_seconds(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         Specifies the number of seconds to wait between attempts to poll the external Iceberg catalog for metadata updates for automated refresh. For Delta-based tables, specifies the number of seconds to wait between attempts to poll your external cloud storage for new metadata.
         """
         return pulumi.get(self, "refresh_interval_seconds")
 
     @refresh_interval_seconds.setter
-    def refresh_interval_seconds(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def refresh_interval_seconds(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "refresh_interval_seconds", value)
 
 
 @pulumi.input_type
 class _CatalogIntegrationAwsGlueState:
     def __init__(__self__, *,
-                 catalog_namespace: Optional[pulumi.Input[_builtins.str]] = None,
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 describe_outputs: Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationAwsGlueDescribeOutputArgs']]]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 fully_qualified_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 glue_aws_role_arn: Optional[pulumi.Input[_builtins.str]] = None,
-                 glue_catalog_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 glue_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_interval_seconds: Optional[pulumi.Input[_builtins.int]] = None,
-                 show_outputs: Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationAwsGlueShowOutputArgs']]]] = None):
+                 catalog_namespace: pulumi.Input[Optional[_builtins.str]] = None,
+                 catalog_source: pulumi.Input[Optional[_builtins.str]] = None,
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 describe_outputs: pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationAwsGlueDescribeOutputArgs']]]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 glue_aws_role_arn: pulumi.Input[Optional[_builtins.str]] = None,
+                 glue_catalog_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 glue_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_interval_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+                 show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationAwsGlueShowOutputArgs']]]] = None):
         """
         Input properties used for looking up and filtering CatalogIntegrationAwsGlue resources.
 
         :param pulumi.Input[_builtins.str] catalog_namespace: Specifies the default AWS Glue Data Catalog namespace for all Iceberg tables that you associate with the catalog integration.
+        :param pulumi.Input[_builtins.str] catalog_source: Specifies the type of catalog source. This field is used to detect when the catalog source was changed outside of Terraform and to recreate the resource when that happens.
         :param pulumi.Input[_builtins.str] comment: (Default: ``) Specifies a comment for the catalog integration.
         :param pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationAwsGlueDescribeOutputArgs']]] describe_outputs: Outputs the result of `DESCRIBE CATALOG INTEGRATION` for the given catalog integration.
         :param pulumi.Input[_builtins.bool] enabled: Specifies whether the catalog integration is available for use for Iceberg tables. `true` allows users to create new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration function normally. `false` prevents users from creating new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration cannot access the catalog in the table definition.
@@ -183,6 +185,8 @@ class _CatalogIntegrationAwsGlueState:
         """
         if catalog_namespace is not None:
             pulumi.set(__self__, "catalog_namespace", catalog_namespace)
+        if catalog_source is not None:
+            pulumi.set(__self__, "catalog_source", catalog_source)
         if comment is not None:
             pulumi.set(__self__, "comment", comment)
         if describe_outputs is not None:
@@ -206,134 +210,146 @@ class _CatalogIntegrationAwsGlueState:
 
     @_builtins.property
     @pulumi.getter(name="catalogNamespace")
-    def catalog_namespace(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def catalog_namespace(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the default AWS Glue Data Catalog namespace for all Iceberg tables that you associate with the catalog integration.
         """
         return pulumi.get(self, "catalog_namespace")
 
     @catalog_namespace.setter
-    def catalog_namespace(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def catalog_namespace(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "catalog_namespace", value)
 
     @_builtins.property
+    @pulumi.getter(name="catalogSource")
+    def catalog_source(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Specifies the type of catalog source. This field is used to detect when the catalog source was changed outside of Terraform and to recreate the resource when that happens.
+        """
+        return pulumi.get(self, "catalog_source")
+
+    @catalog_source.setter
+    def catalog_source(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "catalog_source", value)
+
+    @_builtins.property
     @pulumi.getter
-    def comment(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def comment(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         (Default: ``) Specifies a comment for the catalog integration.
         """
         return pulumi.get(self, "comment")
 
     @comment.setter
-    def comment(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def comment(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "comment", value)
 
     @_builtins.property
     @pulumi.getter(name="describeOutputs")
-    def describe_outputs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationAwsGlueDescribeOutputArgs']]]]:
+    def describe_outputs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationAwsGlueDescribeOutputArgs']]]]:
         """
         Outputs the result of `DESCRIBE CATALOG INTEGRATION` for the given catalog integration.
         """
         return pulumi.get(self, "describe_outputs")
 
     @describe_outputs.setter
-    def describe_outputs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationAwsGlueDescribeOutputArgs']]]]):
+    def describe_outputs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationAwsGlueDescribeOutputArgs']]]]):
         pulumi.set(self, "describe_outputs", value)
 
     @_builtins.property
     @pulumi.getter
-    def enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+    def enabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
         """
         Specifies whether the catalog integration is available for use for Iceberg tables. `true` allows users to create new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration function normally. `false` prevents users from creating new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration cannot access the catalog in the table definition.
         """
         return pulumi.get(self, "enabled")
 
     @enabled.setter
-    def enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+    def enabled(self, value: pulumi.Input[Optional[_builtins.bool]]):
         pulumi.set(self, "enabled", value)
 
     @_builtins.property
     @pulumi.getter(name="fullyQualifiedName")
-    def fully_qualified_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def fully_qualified_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Fully qualified name of the resource. For more information, see [object name resolution](https://docs.snowflake.com/en/sql-reference/name-resolution).
         """
         return pulumi.get(self, "fully_qualified_name")
 
     @fully_qualified_name.setter
-    def fully_qualified_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def fully_qualified_name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "fully_qualified_name", value)
 
     @_builtins.property
     @pulumi.getter(name="glueAwsRoleArn")
-    def glue_aws_role_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def glue_aws_role_arn(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) role to assume.
         """
         return pulumi.get(self, "glue_aws_role_arn")
 
     @glue_aws_role_arn.setter
-    def glue_aws_role_arn(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def glue_aws_role_arn(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "glue_aws_role_arn", value)
 
     @_builtins.property
     @pulumi.getter(name="glueCatalogId")
-    def glue_catalog_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def glue_catalog_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the ID of your AWS account.
         """
         return pulumi.get(self, "glue_catalog_id")
 
     @glue_catalog_id.setter
-    def glue_catalog_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def glue_catalog_id(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "glue_catalog_id", value)
 
     @_builtins.property
     @pulumi.getter(name="glueRegion")
-    def glue_region(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def glue_region(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the AWS region of your AWS Glue Data Catalog. You must specify a value for this attribute if your Snowflake account is not hosted on AWS. Otherwise, the default region is the Snowflake deployment region for the account.
         """
         return pulumi.get(self, "glue_region")
 
     @glue_region.setter
-    def glue_region(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def glue_region(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "glue_region", value)
 
     @_builtins.property
     @pulumi.getter
-    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Specifies the identifier (i.e. name) of the catalog integration; must be unique in your account.
         """
         return pulumi.get(self, "name")
 
     @name.setter
-    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "name", value)
 
     @_builtins.property
     @pulumi.getter(name="refreshIntervalSeconds")
-    def refresh_interval_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
+    def refresh_interval_seconds(self) -> pulumi.Input[Optional[_builtins.int]]:
         """
         Specifies the number of seconds to wait between attempts to poll the external Iceberg catalog for metadata updates for automated refresh. For Delta-based tables, specifies the number of seconds to wait between attempts to poll your external cloud storage for new metadata.
         """
         return pulumi.get(self, "refresh_interval_seconds")
 
     @refresh_interval_seconds.setter
-    def refresh_interval_seconds(self, value: Optional[pulumi.Input[_builtins.int]]):
+    def refresh_interval_seconds(self, value: pulumi.Input[Optional[_builtins.int]]):
         pulumi.set(self, "refresh_interval_seconds", value)
 
     @_builtins.property
     @pulumi.getter(name="showOutputs")
-    def show_outputs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationAwsGlueShowOutputArgs']]]]:
+    def show_outputs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationAwsGlueShowOutputArgs']]]]:
         """
         Outputs the result of `SHOW CATALOG INTEGRATIONS` for the given catalog integration.
         """
         return pulumi.get(self, "show_outputs")
 
     @show_outputs.setter
-    def show_outputs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['CatalogIntegrationAwsGlueShowOutputArgs']]]]):
+    def show_outputs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['CatalogIntegrationAwsGlueShowOutputArgs']]]]):
         pulumi.set(self, "show_outputs", value)
 
 
@@ -343,14 +359,14 @@ class CatalogIntegrationAwsGlue(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 catalog_namespace: Optional[pulumi.Input[_builtins.str]] = None,
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 glue_aws_role_arn: Optional[pulumi.Input[_builtins.str]] = None,
-                 glue_catalog_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 glue_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_interval_seconds: Optional[pulumi.Input[_builtins.int]] = None,
+                 catalog_namespace: pulumi.Input[Optional[_builtins.str]] = None,
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 glue_aws_role_arn: pulumi.Input[Optional[_builtins.str]] = None,
+                 glue_catalog_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 glue_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_interval_seconds: pulumi.Input[Optional[_builtins.int]] = None,
                  __props__=None):
         """
         !> **Caution: Preview Feature** This feature is considered a preview feature in the provider, regardless of the state of the resource in Snowflake. We do not guarantee its stability. It will be reworked and marked as a stable feature in future releases. Breaking changes are expected, even without bumping the major version. To use this feature, add the relevant feature name to `preview_features_enabled` field in the provider configuration. Please always refer to the Getting Help section in our Github repo to best determine how to get help for your questions.
@@ -466,14 +482,14 @@ class CatalogIntegrationAwsGlue(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 catalog_namespace: Optional[pulumi.Input[_builtins.str]] = None,
-                 comment: Optional[pulumi.Input[_builtins.str]] = None,
-                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 glue_aws_role_arn: Optional[pulumi.Input[_builtins.str]] = None,
-                 glue_catalog_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 glue_region: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None,
-                 refresh_interval_seconds: Optional[pulumi.Input[_builtins.int]] = None,
+                 catalog_namespace: pulumi.Input[Optional[_builtins.str]] = None,
+                 comment: pulumi.Input[Optional[_builtins.str]] = None,
+                 enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+                 glue_aws_role_arn: pulumi.Input[Optional[_builtins.str]] = None,
+                 glue_catalog_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 glue_region: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None,
+                 refresh_interval_seconds: pulumi.Input[Optional[_builtins.int]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -497,6 +513,7 @@ class CatalogIntegrationAwsGlue(pulumi.CustomResource):
             __props__.__dict__["glue_region"] = glue_region
             __props__.__dict__["name"] = name
             __props__.__dict__["refresh_interval_seconds"] = refresh_interval_seconds
+            __props__.__dict__["catalog_source"] = None
             __props__.__dict__["describe_outputs"] = None
             __props__.__dict__["fully_qualified_name"] = None
             __props__.__dict__["show_outputs"] = None
@@ -510,17 +527,18 @@ class CatalogIntegrationAwsGlue(pulumi.CustomResource):
     def get(resource_name: str,
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
-            catalog_namespace: Optional[pulumi.Input[_builtins.str]] = None,
-            comment: Optional[pulumi.Input[_builtins.str]] = None,
-            describe_outputs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CatalogIntegrationAwsGlueDescribeOutputArgs', 'CatalogIntegrationAwsGlueDescribeOutputArgsDict']]]]] = None,
-            enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-            fully_qualified_name: Optional[pulumi.Input[_builtins.str]] = None,
-            glue_aws_role_arn: Optional[pulumi.Input[_builtins.str]] = None,
-            glue_catalog_id: Optional[pulumi.Input[_builtins.str]] = None,
-            glue_region: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None,
-            refresh_interval_seconds: Optional[pulumi.Input[_builtins.int]] = None,
-            show_outputs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['CatalogIntegrationAwsGlueShowOutputArgs', 'CatalogIntegrationAwsGlueShowOutputArgsDict']]]]] = None) -> 'CatalogIntegrationAwsGlue':
+            catalog_namespace: pulumi.Input[Optional[_builtins.str]] = None,
+            catalog_source: pulumi.Input[Optional[_builtins.str]] = None,
+            comment: pulumi.Input[Optional[_builtins.str]] = None,
+            describe_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CatalogIntegrationAwsGlueDescribeOutputArgs', 'CatalogIntegrationAwsGlueDescribeOutputArgsDict']]]]] = None,
+            enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            fully_qualified_name: pulumi.Input[Optional[_builtins.str]] = None,
+            glue_aws_role_arn: pulumi.Input[Optional[_builtins.str]] = None,
+            glue_catalog_id: pulumi.Input[Optional[_builtins.str]] = None,
+            glue_region: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            refresh_interval_seconds: pulumi.Input[Optional[_builtins.int]] = None,
+            show_outputs: pulumi.Input[Optional[Sequence[pulumi.Input[Union['CatalogIntegrationAwsGlueShowOutputArgs', 'CatalogIntegrationAwsGlueShowOutputArgsDict']]]]] = None) -> 'CatalogIntegrationAwsGlue':
         """
         Get an existing CatalogIntegrationAwsGlue resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -529,6 +547,7 @@ class CatalogIntegrationAwsGlue(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] catalog_namespace: Specifies the default AWS Glue Data Catalog namespace for all Iceberg tables that you associate with the catalog integration.
+        :param pulumi.Input[_builtins.str] catalog_source: Specifies the type of catalog source. This field is used to detect when the catalog source was changed outside of Terraform and to recreate the resource when that happens.
         :param pulumi.Input[_builtins.str] comment: (Default: ``) Specifies a comment for the catalog integration.
         :param pulumi.Input[Sequence[pulumi.Input[Union['CatalogIntegrationAwsGlueDescribeOutputArgs', 'CatalogIntegrationAwsGlueDescribeOutputArgsDict']]]] describe_outputs: Outputs the result of `DESCRIBE CATALOG INTEGRATION` for the given catalog integration.
         :param pulumi.Input[_builtins.bool] enabled: Specifies whether the catalog integration is available for use for Iceberg tables. `true` allows users to create new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration function normally. `false` prevents users from creating new Iceberg tables that reference this integration. Existing Iceberg tables that reference this integration cannot access the catalog in the table definition.
@@ -545,6 +564,7 @@ class CatalogIntegrationAwsGlue(pulumi.CustomResource):
         __props__ = _CatalogIntegrationAwsGlueState.__new__(_CatalogIntegrationAwsGlueState)
 
         __props__.__dict__["catalog_namespace"] = catalog_namespace
+        __props__.__dict__["catalog_source"] = catalog_source
         __props__.__dict__["comment"] = comment
         __props__.__dict__["describe_outputs"] = describe_outputs
         __props__.__dict__["enabled"] = enabled
@@ -564,6 +584,14 @@ class CatalogIntegrationAwsGlue(pulumi.CustomResource):
         Specifies the default AWS Glue Data Catalog namespace for all Iceberg tables that you associate with the catalog integration.
         """
         return pulumi.get(self, "catalog_namespace")
+
+    @_builtins.property
+    @pulumi.getter(name="catalogSource")
+    def catalog_source(self) -> pulumi.Output[_builtins.str]:
+        """
+        Specifies the type of catalog source. This field is used to detect when the catalog source was changed outside of Terraform and to recreate the resource when that happens.
+        """
+        return pulumi.get(self, "catalog_source")
 
     @_builtins.property
     @pulumi.getter

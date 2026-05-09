@@ -9,7 +9,6 @@ from warnings import WarningMessage, catch_warnings
 
 import requests
 from hypothesis.errors import InvalidArgument
-from jsonschema.exceptions import SchemaError as JsonSchemaError
 from jsonschema_rs import ValidationError
 from requests.exceptions import ChunkedEncodingError
 from requests.structures import CaseInsensitiveDict
@@ -18,6 +17,7 @@ from schemathesis.checks import CheckContext
 from schemathesis.config._generation import GenerationConfig
 from schemathesis.core.compat import BaseExceptionGroup
 from schemathesis.core.control import SkipTest
+from schemathesis.core.error_feedback.collector import record_response
 from schemathesis.core.errors import (
     SERIALIZERS_SUGGESTION_MESSAGE,
     AuthenticationError,
@@ -46,6 +46,7 @@ from schemathesis.engine.errors import (
 )
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.engine.run import PhaseName
+from schemathesis.engine.supervisor import SchedulingDirective
 from schemathesis.generation import metrics, overrides
 from schemathesis.generation.case import Case
 from schemathesis.generation.hypothesis.builder import (
@@ -62,6 +63,7 @@ from schemathesis.generation.hypothesis.reporting import (
     build_unsatisfiable_error,
     ignore_hypothesis_output,
 )
+from schemathesis.specs.openapi.auth_inference import record_auth_inference
 
 if TYPE_CHECKING:
     from schemathesis.schemas import APIOperation
@@ -123,8 +125,11 @@ def run_test(
         recorder=recorder,
     )
 
+    if ctx.error_feedback is not None:
+        ctx.error_feedback.checkpoint()
+
     try:
-        setup_hypothesis_database_key(test_function, operation)
+        setup_hypothesis_database_key(test_function, operation, generation=generation)
         with catch_warnings(record=True) as warnings, ignore_hypothesis_output():
             test_function(
                 ctx=ctx,
@@ -247,9 +252,6 @@ def run_test(
     except hypothesis.errors.DeadlineExceeded as exc:
         status = Status.ERROR
         yield non_fatal_error(DeadlineExceeded.from_exc(exc))
-    except JsonSchemaError as exc:
-        status = Status.ERROR
-        yield non_fatal_error(InvalidRegexPattern.from_schema_error(exc, from_examples=False))
     except ValidationError as exc:
         status = Status.ERROR
         if is_regex_validation_error(exc):
@@ -301,10 +303,7 @@ def run_test(
     invalid_regex = InvalidRegexMark.get(test_function)
     if invalid_regex is not None and status != Status.ERROR:
         status = Status.ERROR
-        if isinstance(invalid_regex, ValidationError):
-            yield non_fatal_error(InvalidRegexPattern.from_jsonschema_rs_error(invalid_regex))
-        else:
-            yield non_fatal_error(InvalidRegexPattern.from_schema_error(invalid_regex, from_examples=True))
+        yield non_fatal_error(InvalidRegexPattern.from_jsonschema_rs_error(invalid_regex))
 
     invalid_headers = InvalidHeadersExampleMark.get(test_function)
     if invalid_headers:
@@ -337,8 +336,16 @@ def run_test(
     # Active when fuzzing requests it, or when examples/coverage can feed values forward.
     should_record = (
         (fuzzing_config.enabled and fuzzing_config.extra_data_sources.is_enabled)
-        or (phases_config.examples.enabled and ctx.extra_data_source is not None)
-        or (phases_config.coverage.enabled and ctx.extra_data_source is not None)
+        or (
+            phases_config.examples.enabled
+            and phases_config.examples.extra_data_sources.is_enabled
+            and ctx.extra_data_source is not None
+        )
+        or (
+            phases_config.coverage.enabled
+            and phases_config.coverage.extra_data_sources.is_enabled
+            and ctx.extra_data_source is not None
+        )
     )
     extra_data_source = ctx.extra_data_source if should_record else None
     if extra_data_source is not None:
@@ -351,23 +358,31 @@ def run_test(
             if extra_data_source.should_record(operation=operation.label):
                 extra_data_source.record_response(operation=operation, response=response, case=case)
             # Record request data so identifiers from path/body land in the same pool.
-            # Skip method-mutated cases (e.g. coverage's METHOD scenario) — their 2xx may come
-            # from a route registered for a different method and tells us nothing about whether
-            # the captured value is valid for the operation under test.
-            if (
-                extra_data_source.should_record_request(operation=operation.label)
-                and case.method.lower() == operation.method.lower()
-            ):
+            if extra_data_source.should_record_request(operation=operation.label) and _targets_declared_method(case):
                 extra_data_source.record_request(operation=operation, case=case, status_code=response.status_code)
+            response.clear_cache()
 
     yield scenario_finished(status)
 
 
-def setup_hypothesis_database_key(test: Callable, operation: APIOperation) -> None:
+def _targets_declared_method(case: Case) -> bool:
+    """True when `case` exercises the operation's declared HTTP method.
+
+    Method-mutated cases (e.g. coverage's `METHOD` scenario sending POST to a GET-only route)
+    yield 2xx/4xx that describe the mutated method's path, not the operation under test —
+    response-driven signal must be filtered through this check before being attributed to it.
+    """
+    return case.method.lower() == case.operation.method.lower()
+
+
+def setup_hypothesis_database_key(test: Callable, operation: APIOperation, generation: GenerationConfig) -> None:
     """Make Hypothesis use separate database entries for every API operation.
 
     It increases the effectiveness of the Hypothesis database in the CLI.
     """
+    if generation.database is not None and generation.database.lower() == "none":
+        test._hypothesis_internal_database_key = None  # type: ignore[attr-defined]
+        return
     test.hypothesis.inner_test._hypothesis_internal_add_digest = operation.label.encode("utf8")  # type: ignore[attr-defined]
 
 
@@ -395,6 +410,16 @@ def cached_test_func(f: Callable) -> Callable:
         try:
             if ctx.has_to_stop:
                 raise KeyboardInterrupt
+            # Short-circuit baked cases for operations the supervisor flagged
+            # mid-scenario. Examples + Coverage materialize their cases as
+            # `@example`-decorators before any response exists, so a verdict that
+            # flips during the scenario would otherwise still let every remaining
+            # baked case hit the server.
+            if (
+                _targets_declared_method(case)
+                and ctx.supervisor.verdict(case.operation.label).directive is SchedulingDirective.SKIP
+            ):
+                return None
             if generation.unique_inputs:
                 cached = ctx.get_cached_outcome(case)
                 if isinstance(cached, BaseException):
@@ -480,6 +505,28 @@ def test_func(
             recorder.record_request(case_id=case.id, request=error.request)
         raise
     recorder.record_response(case_id=case.id, response=response)
+    if ctx.error_feedback is not None:
+        record_response(
+            store=ctx.error_feedback,
+            operation=case.operation,
+            case=case,
+            response=response,
+        )
+        record_auth_inference(
+            store=ctx.error_feedback,
+            recorder=recorder,
+            operation=case.operation,
+            case=case,
+            response=response,
+            transport_kwargs=transport_kwargs,
+        )
+    if _targets_declared_method(case):
+        is_documented_status = case.operation.responses.find_by_status_code(response.status_code) is not None
+        ctx.supervisor.record_response(
+            operation_label=case.operation.label,
+            status_code=response.status_code,
+            is_documented_status=is_documented_status,
+        )
     # Record DELETE attempts immediately to influence subsequent strategy draws.
     # Include both successful (2xx) and 404 responses - each attempt increases decay
     # to avoid hammering the same resource repeatedly.
@@ -495,3 +542,4 @@ def test_func(
         continue_on_failure=continue_on_failure,
         recorder=recorder,
     )
+    response.clear_cache()

@@ -21,10 +21,7 @@ from reflex_enterprise.vars import JSAPIVar
 PACKAGE_NAME = "react-leaflet"
 PACKAGE_VERSION = "5.0.0"
 path = rx.asset("MapLazyComponents.jsx", shared=True)
-try:
-    public_path = path.importable_path
-except AttributeError:
-    public_path = "$/public" + path
+public_path = path.importable_path
 refs_var_data = VarData(
     imports={f"$/{constants.Dirs.STATE_PATH}": [ImportVar(tag="refs")]}
 )

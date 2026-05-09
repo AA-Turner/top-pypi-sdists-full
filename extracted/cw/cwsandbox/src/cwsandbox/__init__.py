@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.22.0"
+__version__ = "0.23.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
@@ -39,7 +39,6 @@ from cwsandbox._types import (
     ProcessResult,
     ResourceOptions,
     Secret,
-    Serialization,
     StreamReader,
     StreamWriter,
     TerminalResult,
@@ -51,7 +50,6 @@ from cwsandbox.exceptions import (
     CWSandboxError,
     DiscoveryError,
     FunctionError,
-    FunctionSerializationError,
     ProfileNotFoundError,
     RunnerNotFoundError,
     SandboxCommandTimeoutError,
@@ -268,7 +266,6 @@ __all__ = [
     "DiscoveryError",
     "EgressMode",
     "FunctionError",
-    "FunctionSerializationError",
     "ServiceExposureMode",
     "get_profile",
     "get_runner",
@@ -303,7 +300,6 @@ __all__ = [
     "SandboxTimeoutError",
     "SandboxUnavailableError",
     "Secret",
-    "Serialization",
     "Session",
     "StreamReader",
     "StreamWriter",

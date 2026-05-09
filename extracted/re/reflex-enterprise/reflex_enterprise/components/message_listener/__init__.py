@@ -31,11 +31,7 @@ class WindowMessage(TypedDict):
 
 
 path = rx.asset("messageListener.js", shared=True)
-try:
-    public_path = path.importable_path
-except AttributeError:
-    # Fallback for < 0.9.0
-    public_path = "$/public" + path
+public_path = path.importable_path
 
 
 class MessageListener(ComponentEnterprise):

@@ -94,8 +94,8 @@ type PreparedOpenAIToolsResult<'a> = (
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[derive(ts_rs::TS)]
+#[ts(export)]
 pub enum OpenAIAPIType {
     #[default]
     ChatCompletions,
@@ -117,19 +117,17 @@ impl From<OpenAIAPIType> for ApiType {
 /// and everything else → `file`. Some OpenAI-compatible providers (e.g. Vertex AI)
 /// don't support `file` blocks but accept PDFs as `image_url`. Use
 /// `content_type_overrides` on the provider config to override the default mapping.
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(ts_rs::TS, Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[ts(export)]
 pub enum ContentBlockType {
     ImageUrl,
     File,
     InputAudio,
 }
 
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[derive(ts_rs::TS, Debug, Serialize)]
+#[ts(export)]
 pub struct OpenAIProvider {
     model_name: String,
     api_base: Option<Url>,
@@ -1344,12 +1342,14 @@ pub(super) fn with_request_id(error: Error, request_id: Option<&str>) -> Error {
     match error.get_details() {
         ErrorDetails::FatalStreamError {
             message,
+            status_code,
             provider_type,
             api_type,
             raw_request,
             raw_response,
         } => Error::new(ErrorDetails::FatalStreamError {
             message: format!("{message} [request_id: {request_id}]"),
+            status_code: *status_code,
             provider_type: provider_type.clone(),
             api_type: *api_type,
             raw_request: raw_request.clone(),
@@ -5965,6 +5965,7 @@ mod tests {
         // Test with FatalStreamError
         let error = Error::new(ErrorDetails::FatalStreamError {
             message: "Stream error".to_string(),
+            status_code: None,
             provider_type: PROVIDER_TYPE.to_string(),
             api_type: ApiType::ChatCompletions,
             raw_request: Some("request".to_string()),

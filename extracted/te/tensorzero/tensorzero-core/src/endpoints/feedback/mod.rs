@@ -103,9 +103,8 @@ impl From<&MetricConfigType> for FeedbackType {
 }
 
 // TODO(shuyangli): rename this to CreateFeedbackResponse and export
-#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts-bindings", ts(export))]
+#[derive(ts_rs::TS, Debug, Serialize, Deserialize)]
+#[ts(export)]
 pub struct FeedbackResponse {
     pub feedback_id: Uuid,
 }
@@ -697,7 +696,8 @@ pub async fn validate_parse_demonstration(
                 .into_iter()
                 .map(DemonstrationContentBlock::try_into)
                 .collect::<Result<Vec<ContentBlockOutput>, Error>>()?;
-            let parsed_value = parse_chat_output(content_blocks, tool_call_config.as_ref(), None).await;
+            let parsed_value =
+                parse_chat_output(content_blocks, tool_call_config.as_ref(), None, None).await;
             for block in &parsed_value {
                 if let ContentBlockChatOutput::ToolCall(tool_call) = block {
                     if tool_call.name.is_none() {

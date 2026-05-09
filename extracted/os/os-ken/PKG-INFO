@@ -1,10 +1,12 @@
 Metadata-Version: 2.4
 Name: os-ken
-Version: 4.1.1
-Summary: A component-based software defined networking framework for OpenStack.
-Home-page: http://www.openstack.org/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Version: 4.2.0
+Summary: A component-based software defined networking framework for OpenStack
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License: Apache-2.0
+Project-URL: Bug Tracker, https://bugs.launchpad.net/neutron
+Project-URL: Documentation, https://docs.openstack.org/os-ken/latest/
+Project-URL: Source Code, https://opendev.org/openstack/os-ken
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
@@ -16,7 +18,10 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr>=2.0.0
 Requires-Dist: eventlet>=0.27.0
@@ -28,15 +33,8 @@ Requires-Dist: ovs>=2.8.0
 Requires-Dist: packaging>=20.4
 Requires-Dist: Routes>=2.3.1
 Requires-Dist: WebOb>=1.8.2
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
 Dynamic: license-file
 Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 ======
 os-ken
@@ -51,4 +49,3 @@ This is a fork of the Ryu library tailored for OpenStack Neutron.
 * Source: https://opendev.org/openstack/os-ken/
 * Bugs: https://storyboard.openstack.org/#!/project/openstack/os-ken
 * Release Notes: https://docs.openstack.org/releasenotes/os-ken
-

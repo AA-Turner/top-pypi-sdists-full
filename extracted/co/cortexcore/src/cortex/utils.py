@@ -22,9 +22,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
-_force_pytorch_env = os.getenv("CORTEX_FORCE_PYTORCH")
-_force_pytorch = str(_force_pytorch_env).lower() in {"1", "true", "yes"}
-_disable_triton_env = os.getenv("CORTEX_DISABLE_TRITON") or _force_pytorch_env
+_disable_triton_env = os.getenv("CORTEX_DISABLE_TRITON") or os.getenv("CORTEX_FORCE_PYTORCH")
 _disable_triton = str(_disable_triton_env).lower() in {"1", "true", "yes"}
 
 if _disable_triton:
@@ -36,51 +34,6 @@ else:
         TRITON_AVAILABLE = torch.cuda.is_available()
     except ImportError:
         TRITON_AVAILABLE = False
-
-
-def is_batchedtensor(tensor: torch.Tensor | None) -> bool:
-    return isinstance(tensor, torch.Tensor) and torch._C._functorch.is_batchedtensor(tensor)
-
-
-def unwrap_batchedtensor(tensor: torch.Tensor) -> tuple[torch.Tensor, int | None]:
-    if not is_batchedtensor(tensor):
-        return tensor, None
-    level = torch._C._functorch.current_level()
-    value, bdim = torch._C._functorch._unwrap_batched(tensor, level)
-    assert bdim is not None
-    return value.movedim(bdim, 0), level
-
-
-def wrap_batchedtensor(tensor: torch.Tensor, level: int | None) -> torch.Tensor:
-    if level is None:
-        return tensor
-    return torch._C._functorch._add_batch_dim(tensor, 0, level)
-
-
-def _flatten_tree(tree):
-    if isinstance(tree, tuple | list):
-        values = []
-        for value in tree:
-            values.extend(_flatten_tree(value))
-        return values
-    return [tree]
-
-
-def _none_tree(tree):
-    if isinstance(tree, tuple):
-        return tuple(_none_tree(value) for value in tree)
-    if isinstance(tree, list):
-        return [_none_tree(value) for value in tree]
-    return None
-
-
-def autograd_function_vmap_passthrough(op_name: str, forward_fn: Callable, in_dims, *args):
-    if any(dim is not None for dim in _flatten_tree(in_dims)):
-        raise RuntimeError(
-            f"{op_name} expects vmapped inputs to be folded into native kernel dimensions before launch."
-        )
-    outputs = forward_fn(*args)
-    return outputs, _none_tree(outputs)
 
 
 def _lazy_import(fn_or_path: Callable | str | None) -> Callable | None:
@@ -108,12 +61,11 @@ def select_backend(
     allow_cuda: bool = False,
 ) -> Callable:
     """Select CUDA, Triton, or PyTorch backend with lazy loading support."""
-    allow_cuda_backend = allow_cuda and not _force_pytorch
-    cuda_fn_resolved = _lazy_import(cuda_fn) if (cuda_fn and torch.cuda.is_available() and allow_cuda_backend) else None
+    cuda_fn_resolved = _lazy_import(cuda_fn) if (cuda_fn and torch.cuda.is_available()) else None
     triton_fn_resolved = _lazy_import(triton_fn) if (triton_fn and TRITON_AVAILABLE) else None
     pytorch_fn_resolved = _lazy_import(pytorch_fn)
 
-    if allow_cuda_backend and cuda_fn_resolved is not None and tensor.is_cuda:
+    if allow_cuda and cuda_fn_resolved is not None and tensor.is_cuda:
         logger.debug(
             "Using CUDA backend for %s (device=%s, dtype=%s)",
             getattr(cuda_fn_resolved, "__name__", "cuda_fn"),
@@ -137,8 +89,6 @@ def select_backend(
         reasons.append("Triton not allowed for this call")
     elif not tensor.is_cuda:
         reasons.append(f"tensor on {tensor.device}")
-    if _force_pytorch:
-        reasons.append("forced PyTorch backend")
 
     reason_str = ", ".join(reasons) if reasons else "unknown reason"
     if pytorch_fn_resolved is None:
@@ -147,11 +97,4 @@ def select_backend(
     return pytorch_fn_resolved
 
 
-__all__ = [
-    "TRITON_AVAILABLE",
-    "autograd_function_vmap_passthrough",
-    "is_batchedtensor",
-    "select_backend",
-    "unwrap_batchedtensor",
-    "wrap_batchedtensor",
-]
+__all__ = ["TRITON_AVAILABLE", "select_backend"]

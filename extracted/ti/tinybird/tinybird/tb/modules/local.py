@@ -154,19 +154,18 @@ def local_ls() -> None:
 
     columns = ["name", "id", "role", "plan", "current"]
     current_workspace_name = config.get("name")
-    table = []
     click.echo(FeedbackManager.info_workspaces())
 
-    for workspace in response.get("workspaces", []):
-        table.append(
-            [
-                workspace.get("name", ""),
-                workspace.get("id", ""),
-                workspace.get("role", ""),
-                _get_workspace_plan_name(workspace.get("plan")),
-                current_workspace_name == workspace.get("name"),
-            ]
-        )
+    table = [
+        [
+            workspace.get("name", ""),
+            workspace.get("id", ""),
+            workspace.get("role", ""),
+            _get_workspace_plan_name(workspace.get("plan")),
+            current_workspace_name == workspace.get("name"),
+        ]
+        for workspace in response.get("workspaces", [])
+    ]
 
     echo_safe_humanfriendly_tables_format_smart_table(table, column_names=columns)
 

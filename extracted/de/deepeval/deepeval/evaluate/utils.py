@@ -163,6 +163,34 @@ def create_api_trace(trace: Trace, golden: Golden) -> TraceApi:
     # problem. The truthiness check cleanly covers the "absent" cases
     # (`None`, `{}`, `""`) that would otherwise show as garbage in the
     # trace-level Metrics Summary and break `filter_duplicate_results`.
+    #
+    # Span lists start empty and are populated by the eval-iterator's
+    # DFS walker (``_a_execute_span_test_case`` / its sync twin), which
+    # categorizes each visited span by isinstance and appends to the
+    # matching ``trace_api.*_spans`` list. We DON'T pre-populate from
+    # ``trace.root_spans`` here because the walker is also responsible
+    # for attaching per-span metric data, error flags, and trace dicts —
+    # doing it twice (here + walker) would either double-emit or require
+    # the walker to dedupe.
+    #
+    # Trace-level fields (``name``, ``tags``, ``thread_id``, ``user_id``,
+    # ``metadata``, ``environment``) are forwarded from the trace so that
+    # OTel-based integrations whose users configured them via instrumentation
+    # settings or ``update_current_trace(...)`` see them on the dashboard.
+    # The non-eval REST path (``trace_manager.create_trace_api``) already
+    # forwards these; mirror its shape here so the eval-iterator path
+    # doesn't silently drop them.
+    #
+    # ``metadata`` sources from ``trace.metadata`` (user-configured
+    # at instrument time or via ``update_current_trace(...)``). It does
+    # NOT source from ``golden.additional_metadata`` here — that field
+    # already populates ``LLMTestCase.metadata`` at every callsite that
+    # builds a test case from a golden, which is the correct home for
+    # per-row evaluation context. Conflating the two layers (test-case
+    # metadata vs trace metadata) silently overwrote whatever the user
+    # configured on the trace, which is the opposite of what we want:
+    # the user owns trace metadata, the golden owns test-case metadata,
+    # both flow to their respective surfaces.
     return TraceApi(
         uuid=trace.uuid,
         baseSpans=[],
@@ -187,7 +215,12 @@ def create_api_trace(trace: Trace, golden: Golden) -> TraceApi:
         retrieval_context=trace.retrieval_context,
         tools_called=trace.tools_called,
         expected_tools=trace.expected_tools,
-        metadata=golden.additional_metadata,
+        metadata=trace.metadata,
+        name=trace.name,
+        tags=trace.tags,
+        threadId=trace.thread_id,
+        userId=trace.user_id,
+        environment=trace.environment,
         status=(
             TraceSpanApiStatus.SUCCESS
             if trace.status == TraceSpanStatus.SUCCESS

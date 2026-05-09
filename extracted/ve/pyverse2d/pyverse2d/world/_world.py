@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .._internal import expect
+from .._rendering import Pipeline
 from ..abc import Component, System
 
 from ._entity import Entity
@@ -173,14 +174,24 @@ class World:
         raise ValueError(f"World has no {system_type.__name__} system")
     
     # ======================================== LIFE CYCLE ========================================
-    def update(self, dt: float):
+    def update(self, dt: float) -> None:
         """Actualise le monde en respectant l'ordre des phases
 
         Args:
-            dt(float): delta time en secondes
+            dt: delta time en secondes
         """
         for system in self._all_systems:
             system.update(self, dt)
+
+    def draw(self, pipeline: Pipeline) -> None:
+        """Rendu du monde
+
+        Args:
+            pipeline: ``Pipeline`` de rendu courant
+        """
+        for system in self._all_systems:
+            if system.renderable:
+                system.draw(self, pipeline)
 
     # ======================================== INTERNALS ========================================
     def _make_remove_entity_func(self, entity: Entity) -> Callable[[], None]:

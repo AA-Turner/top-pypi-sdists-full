@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ from tensorflow_datasets.core.proto import feature_pb2
 from tensorflow_datasets.core.utils import dtype_utils
 from tensorflow_datasets.core.utils import np_utils
 from tensorflow_datasets.core.utils import py_utils
+from tensorflow_datasets.core.utils import retry
 from tensorflow_datasets.core.utils import tf_utils
 from tensorflow_datasets.core.utils import type_utils
 from tensorflow_datasets.core.utils.lazy_imports_utils import tensorflow as tf
@@ -658,7 +659,7 @@ class FeatureConnector(object, metaclass=abc.ABCMeta):
     Returns:
       The reconstructed feature instance.
     """
-    content = json.loads(make_config_path(root_dir).read_text())
+    content = json.loads(retry.retry(make_config_path(root_dir).read_text))
     feature = FeatureConnector.from_json(content)
     feature.load_metadata(root_dir, feature_name=None)
     return feature

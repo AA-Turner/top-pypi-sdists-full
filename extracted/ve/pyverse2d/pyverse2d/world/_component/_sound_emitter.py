@@ -19,6 +19,7 @@ class SoundEmitter(Component):
     Ce composant est manipulé par ``SoundSystem``.
 
     Args:
+        volume: volume de l'émetteur
         inner_radius: portée du son à plein volume
         outer_radius: portée absolue du son
         falloff: fonction d'atténuation du son

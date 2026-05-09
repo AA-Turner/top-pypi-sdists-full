@@ -26,6 +26,7 @@ class RenderSystem(System):
     
     order = 100
     exclusive = True
+    renderable = True
 
     def __init__(self):
         # Caches des renderers

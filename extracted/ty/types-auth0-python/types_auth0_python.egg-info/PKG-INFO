@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-auth0-python
-Version: 4.10.0.20260508
+Version: 4.10.0.20260509
 Summary: Typing stubs for auth0-python
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -25,6 +25,11 @@ to check code that uses `auth0-python`. This version of
 `types-auth0-python` aims to provide accurate annotations for
 `auth0-python==4.10.*`.
 
+*Note:* The `auth0-python` package includes type annotations or type stubs
+since version 5.4.0. Please uninstall the `types-auth0-python`
+package if you use this or a newer version.
+
+
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
 See [the README](https://github.com/python/typeshed/blob/main/README.md)
@@ -33,8 +38,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.20.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.408
+* [mypy](https://github.com/python/mypy/) 2.0.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.409
 
 It was generated from typeshed commit
-[`a7f0a8286aaf594602b81bef79c77175fcf9ceda`](https://github.com/python/typeshed/commit/a7f0a8286aaf594602b81bef79c77175fcf9ceda).
+[`6a4075c7bcf192227421bc13558c19bc9fd2342e`](https://github.com/python/typeshed/commit/6a4075c7bcf192227421bc13558c19bc9fd2342e).

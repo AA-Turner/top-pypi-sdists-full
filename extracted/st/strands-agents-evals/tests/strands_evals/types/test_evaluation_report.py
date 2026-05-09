@@ -251,6 +251,35 @@ class TestEvaluationReportFlatten:
         assert len(flattened.detailed_results) == 1
         assert flattened.detailed_results[0] == detailed
 
+    def test_flatten_preserves_diagnoses_and_recommendations(self):
+        """Test that flatten preserves diagnoses and recommendations."""
+        report1 = EvaluationReport(
+            evaluator_name="Eval1",
+            overall_score=0.0,
+            scores=[0.0],
+            cases=[{"name": "case-1"}],
+            test_passes=[False],
+            diagnoses=[{"session_id": "s1", "failures": [], "root_causes": []}],
+            recommendations=["Fix the prompt"],
+        )
+        report2 = EvaluationReport(
+            evaluator_name="Eval2",
+            overall_score=1.0,
+            scores=[1.0],
+            cases=[{"name": "case-2"}],
+            test_passes=[True],
+            diagnoses=[None],
+            recommendations=[None],
+        )
+
+        flattened = EvaluationReport.flatten([report1, report2])
+
+        assert len(flattened.diagnoses) == 2
+        assert flattened.diagnoses[0] == {"session_id": "s1", "failures": [], "root_causes": []}
+        assert flattened.diagnoses[1] is None
+        assert flattened.recommendations[0] == "Fix the prompt"
+        assert flattened.recommendations[1] is None
+
     def test_flatten_does_not_modify_original(self):
         """Test that flatten does not modify the original reports."""
         original_case = {"name": "case-1", "input": "test"}
@@ -268,6 +297,94 @@ class TestEvaluationReportFlatten:
         assert "evaluator" not in original_case
         # Flattened should have it
         assert "evaluator" in flattened.cases[0]
+
+
+class TestFormatInputForDisplay:
+    """Tests for _format_input_for_display static method."""
+
+    def test_non_multimodal_input_passthrough(self):
+        assert EvaluationReport._format_input_for_display("plain text") == "plain text"
+
+    def test_non_dict_input(self):
+        assert EvaluationReport._format_input_for_display(42) == "42"
+
+    def test_dict_without_media_key(self):
+        result = EvaluationReport._format_input_for_display({"instruction": "test"})
+        assert result == "{'instruction': 'test'}"
+
+    def test_multimodal_dict_with_list_media(self):
+        input_val = {
+            "media": [{"source": "a"}, {"source": "b"}],
+            "instruction": "Describe these images",
+        }
+        result = EvaluationReport._format_input_for_display(input_val)
+
+        assert "instruction: Describe these images" in result
+        assert "[2 media item(s)]" in result
+
+    def test_multimodal_dict_with_dict_media(self):
+        input_val = {
+            "media": {"source": "abc123", "format": "png"},
+            "instruction": "Describe this image",
+        }
+        result = EvaluationReport._format_input_for_display(input_val)
+
+        assert "instruction: Describe this image" in result
+        assert "[1 media item]" in result
+
+    def test_multimodal_dict_with_long_string_media(self):
+        long_base64 = "a" * 300
+        input_val = {
+            "media": long_base64,
+            "instruction": "Describe",
+        }
+        result = EvaluationReport._format_input_for_display(input_val)
+
+        assert "[media: " + "a" * 50 + "...]" in result
+
+    def test_multimodal_dict_with_short_string_media(self):
+        input_val = {
+            "media": "image.png",
+            "instruction": "Describe",
+        }
+        result = EvaluationReport._format_input_for_display(input_val)
+
+        assert "[media: image.png]" in result
+
+    def test_multimodal_dict_with_context(self):
+        input_val = {
+            "media": {"source": "abc"},
+            "instruction": "Analyze",
+            "context": "You are a botanist",
+        }
+        result = EvaluationReport._format_input_for_display(input_val)
+
+        assert "instruction: Analyze" in result
+        assert "context: You are a botanist" in result
+        assert "[1 media item]" in result
+
+    def test_multimodal_dict_without_context(self):
+        input_val = {
+            "media": {"source": "abc"},
+            "instruction": "Describe",
+        }
+        result = EvaluationReport._format_input_for_display(input_val)
+
+        assert "context" not in result
+
+    def test_multimodal_dict_parts_joined_with_pipe(self):
+        input_val = {
+            "media": {"source": "abc"},
+            "instruction": "Describe",
+            "context": "Context here",
+        }
+        result = EvaluationReport._format_input_for_display(input_val)
+
+        parts = result.split(" | ")
+        assert len(parts) == 3
+        assert parts[0] == "instruction: Describe"
+        assert parts[1] == "context: Context here"
+        assert parts[2] == "[1 media item]"
 
 
 class TestEvaluationReportFileOperations:

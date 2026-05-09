@@ -43,22 +43,26 @@ SSE_VALUE_ITEM_SCHEMA = {
 }
 
 
-def _sse_schema(item_schema, *, version="3.2.0"):
+def _sse_paths(item_schema, *, content_key="itemSchema"):
     return {
-        "openapi": version,
-        "info": {"title": "Test", "version": "1.0"},
-        "paths": {
-            "/sse": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "SSE stream",
-                            "content": {"text/event-stream": {"itemSchema": item_schema}},
-                        }
+        "/sse": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "SSE stream",
+                        "content": {"text/event-stream": {content_key: item_schema}},
                     }
                 }
             }
-        },
+        }
+    }
+
+
+def _sse_schema(item_schema, *, version="3.2.0", content_key="itemSchema"):
+    return {
+        "openapi": version,
+        "info": {"title": "Test", "version": "1.0"},
+        "paths": _sse_paths(item_schema, content_key=content_key),
     }
 
 
@@ -68,6 +72,19 @@ def _sse_app(app, body):
         return Response(body, mimetype="text/event-stream")
 
     return app
+
+
+def _make_sse_app(ctx, body, item_schema=SSE_ITEM_SCHEMA, *, content_key="itemSchema", version="3.0.2"):
+    app, _ = ctx.openapi.make_flask_app(_sse_paths(item_schema, content_key=content_key), version=version)
+    return _sse_app(app, body)
+
+
+def _run_sse_cli(ctx, cli, body, item_schema=SSE_ITEM_SCHEMA, *, content_key="itemSchema", version="3.0.2"):
+    return cli.run_openapi_app(
+        _make_sse_app(ctx, body, item_schema, content_key=content_key, version=version),
+        "-c response_schema_conformance",
+        "--max-examples=10",
+    )
 
 
 def _call_sse(raw_schema, body):
@@ -83,197 +100,58 @@ def _call_sse(raw_schema, body):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_sse_valid_events(ctx, app_runner, cli, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/sse": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "SSE stream",
-                            "content": {"text/event-stream": {"itemSchema": SSE_ITEM_SCHEMA}},
-                        }
-                    }
-                }
-            }
-        }
-    )
-
+def test_sse_valid_events(ctx, cli, snapshot_cli):
     body = 'event: update\ndata: {"value": 42}\n\nevent: update\ndata: {"value": 100}\n\n'
-    port = app_runner.run_flask_app(_sse_app(app, body))
-    assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
-            "-c response_schema_conformance",
-            "--max-examples=10",
-        )
-        == snapshot_cli
-    )
+    assert _run_sse_cli(ctx, cli, body) == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_sse_schema_violation(ctx, app_runner, cli, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/sse": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "SSE stream",
-                            "content": {"text/event-stream": {"itemSchema": SSE_VALUE_ITEM_SCHEMA}},
-                        }
-                    }
-                }
-            }
-        }
-    )
+def test_sse_schema_violation(ctx, cli, snapshot_cli):
     body = 'event: update\ndata: {"value": 42}\n\nevent: update\ndata: {"value": "not_an_integer"}\n\n'
-    port = app_runner.run_flask_app(_sse_app(app, body))
-    assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
-            "-c response_schema_conformance",
-            "--max-examples=10",
-        )
-        == snapshot_cli
-    )
+    assert _run_sse_cli(ctx, cli, body, SSE_VALUE_ITEM_SCHEMA) == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_sse_multiple_failing_events(ctx, app_runner, cli, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/sse": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "SSE stream",
-                            "content": {"text/event-stream": {"itemSchema": SSE_VALUE_ITEM_SCHEMA}},
-                        }
-                    }
-                }
-            }
-        }
-    )
+def test_sse_multiple_failing_events(ctx, cli, snapshot_cli):
     body = (
         'event: update\ndata: {"value": "bad"}\n\n'
         'event: update\ndata: {"value": "also_bad"}\n\n'
         'event: update\ndata: {"value": "still_bad"}\n\n'
     )
-    port = app_runner.run_flask_app(_sse_app(app, body))
-    assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
-            "-c response_schema_conformance",
-            "--max-examples=10",
-        )
-        == snapshot_cli
-    )
+    assert _run_sse_cli(ctx, cli, body, SSE_VALUE_ITEM_SCHEMA) == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_sse_multiline_data(ctx, app_runner, cli, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/sse": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "SSE stream",
-                            "content": {
-                                "text/event-stream": {
-                                    "itemSchema": {
-                                        "type": "object",
-                                        "properties": {
-                                            "data": {
-                                                "type": "string",
-                                                "contentMediaType": "application/json",
-                                                "contentSchema": {
-                                                    "type": "object",
-                                                    "properties": {"a": {"type": "integer"}},
-                                                },
-                                            },
-                                        },
-                                        "required": ["data"],
-                                    }
-                                }
-                            },
-                        }
-                    }
-                }
-            }
-        }
-    )
-
-    port = app_runner.run_flask_app(_sse_app(app, 'data: {"a":\ndata:  1}\n\n'))
-    assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
-            "-c response_schema_conformance",
-            "--max-examples=10",
-        )
-        == snapshot_cli
-    )
+def test_sse_multiline_data(ctx, cli, snapshot_cli):
+    item_schema = {
+        "type": "object",
+        "properties": {
+            "data": {
+                "type": "string",
+                "contentMediaType": "application/json",
+                "contentSchema": {
+                    "type": "object",
+                    "properties": {"a": {"type": "integer"}},
+                },
+            },
+        },
+        "required": ["data"],
+    }
+    assert _run_sse_cli(ctx, cli, 'data: {"a":\ndata:  1}\n\n', item_schema) == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_sse_fallback_to_schema_key(ctx, app_runner, cli, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/sse": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "SSE stream",
-                            "content": {"text/event-stream": {"schema": SSE_ITEM_SCHEMA}},
-                        }
-                    }
-                }
-            }
-        }
-    )
-
-    port = app_runner.run_flask_app(_sse_app(app, 'data: {"value": 42}\n\n'))
-    assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
-            "-c response_schema_conformance",
-            "--max-examples=10",
-        )
-        == snapshot_cli
-    )
+def test_sse_fallback_to_schema_key(ctx, cli, snapshot_cli):
+    assert _run_sse_cli(ctx, cli, 'data: {"value": 42}\n\n', content_key="schema") == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_sse_empty_stream(ctx, app_runner, cli, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/sse": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "SSE stream",
-                            "content": {"text/event-stream": {"itemSchema": SSE_ITEM_SCHEMA}},
-                        }
-                    }
-                }
-            }
-        }
-    )
-
-    port = app_runner.run_flask_app(_sse_app(app, ""))
-    assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
-            "-c response_schema_conformance",
-            "--max-examples=10",
-        )
-        == snapshot_cli
-    )
+def test_sse_empty_stream(ctx, cli, snapshot_cli):
+    assert _run_sse_cli(ctx, cli, "") == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_sse_itemschema_ignored_for_json(ctx, app_runner, cli, snapshot_cli):
+def test_sse_itemschema_ignored_for_json(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/json": {
@@ -298,10 +176,9 @@ def test_sse_itemschema_ignored_for_json(ctx, app_runner, cli, snapshot_cli):
     def json_endpoint():
         return jsonify({"v": 42})
 
-    port = app_runner.run_flask_app(app)
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "-c response_schema_conformance",
             "--max-examples=10",
         )
@@ -310,145 +187,69 @@ def test_sse_itemschema_ignored_for_json(ctx, app_runner, cli, snapshot_cli):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_sse_with_openapi_32(ctx, app_runner, cli, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/sse": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "SSE stream",
-                            "content": {"text/event-stream": {"itemSchema": SSE_ITEM_SCHEMA}},
-                        }
-                    }
-                }
-            }
+def test_sse_with_openapi_32(ctx, cli, snapshot_cli):
+    assert _run_sse_cli(ctx, cli, 'data: {"value": 42}\n\n', version="3.2.0") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_sse_oneof_polymorphic_events(ctx, cli, snapshot_cli):
+    item_schema = {
+        "type": "object",
+        "properties": {
+            "event": {"type": "string"},
+            "data": {"type": "string"},
         },
-        version="3.2.0",
-    )
-
-    port = app_runner.run_flask_app(_sse_app(app, 'data: {"value": 42}\n\n'))
-    assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
-            "-c response_schema_conformance",
-            "--max-examples=10",
-        )
-        == snapshot_cli
-    )
+        "required": ["event"],
+        "oneOf": [
+            {
+                "properties": {
+                    "event": {"enum": ["ping"]},
+                }
+            },
+            {
+                "properties": {
+                    "event": {"enum": ["update"]},
+                    "data": {
+                        "contentMediaType": "application/json",
+                        "contentSchema": {
+                            "type": "object",
+                            "properties": {"value": {"type": "integer"}},
+                            "required": ["value"],
+                        },
+                    },
+                }
+            },
+        ],
+    }
+    assert _run_sse_cli(ctx, cli, 'event: ping\n\nevent: update\ndata: {"value": 42}\n\n', item_schema) == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_sse_oneof_polymorphic_events(ctx, app_runner, cli, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/sse": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "SSE stream",
-                            "content": {
-                                "text/event-stream": {
-                                    "itemSchema": {
-                                        "type": "object",
-                                        "properties": {
-                                            "event": {"type": "string"},
-                                            "data": {"type": "string"},
-                                        },
-                                        "required": ["event"],
-                                        "oneOf": [
-                                            {
-                                                "properties": {
-                                                    "event": {"enum": ["ping"]},
-                                                }
-                                            },
-                                            {
-                                                "properties": {
-                                                    "event": {"enum": ["update"]},
-                                                    "data": {
-                                                        "contentMediaType": "application/json",
-                                                        "contentSchema": {
-                                                            "type": "object",
-                                                            "properties": {"value": {"type": "integer"}},
-                                                            "required": ["value"],
-                                                        },
-                                                    },
-                                                }
-                                            },
-                                        ],
-                                    }
-                                }
-                            },
-                        }
-                    }
+def test_sse_oneof_content_schema_violation(ctx, cli, snapshot_cli):
+    item_schema = {
+        "type": "object",
+        "properties": {
+            "event": {"type": "string"},
+            "data": {"type": "string"},
+        },
+        "required": ["event", "data"],
+        "oneOf": [
+            {
+                "properties": {
+                    "event": {"enum": ["update"]},
+                    "data": {
+                        "contentMediaType": "application/json",
+                        "contentSchema": {
+                            "type": "object",
+                            "properties": {"value": {"type": "integer"}},
+                            "required": ["value"],
+                        },
+                    },
                 }
-            }
-        }
-    )
-
-    port = app_runner.run_flask_app(_sse_app(app, 'event: ping\n\nevent: update\ndata: {"value": 42}\n\n'))
-    assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
-            "-c response_schema_conformance",
-            "--max-examples=10",
-        )
-        == snapshot_cli
-    )
-
-
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_sse_oneof_content_schema_violation(ctx, app_runner, cli, snapshot_cli):
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/sse": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "SSE stream",
-                            "content": {
-                                "text/event-stream": {
-                                    "itemSchema": {
-                                        "type": "object",
-                                        "properties": {
-                                            "event": {"type": "string"},
-                                            "data": {"type": "string"},
-                                        },
-                                        "required": ["event", "data"],
-                                        "oneOf": [
-                                            {
-                                                "properties": {
-                                                    "event": {"enum": ["update"]},
-                                                    "data": {
-                                                        "contentMediaType": "application/json",
-                                                        "contentSchema": {
-                                                            "type": "object",
-                                                            "properties": {"value": {"type": "integer"}},
-                                                            "required": ["value"],
-                                                        },
-                                                    },
-                                                }
-                                            },
-                                        ],
-                                    }
-                                }
-                            },
-                        }
-                    }
-                }
-            }
-        }
-    )
-
-    port = app_runner.run_flask_app(_sse_app(app, 'event: update\ndata: {"value": "wrong"}\n\n'))
-    assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
-            "-c response_schema_conformance",
-            "--max-examples=10",
-        )
-        == snapshot_cli
-    )
+            },
+        ],
+    }
+    assert _run_sse_cli(ctx, cli, 'event: update\ndata: {"value": "wrong"}\n\n', item_schema) == snapshot_cli
 
 
 def test_sse_rejects_non_json_payload_for_json_content_schema():
@@ -458,7 +259,7 @@ def test_sse_rejects_non_json_payload_for_json_content_schema():
         case.validate_response(response, checks=[response_schema_conformance])
 
 
-def test_sse_streaming_generator_response():
+def test_sse_streaming_generator_response(ctx):
     app = Flask("schemathesis_test")
 
     @app.route("/sse")
@@ -469,7 +270,7 @@ def test_sse_streaming_generator_response():
 
         return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
-    schema = schemathesis.openapi.from_dict(_sse_schema(SSE_ITEM_SCHEMA))
+    schema = ctx.openapi.load_schema(_sse_paths(SSE_ITEM_SCHEMA), version="3.2.0")
     case = schema["/sse"]["GET"].Case()
     response = case.call(app=app)
     case.validate_response(response, checks=[response_schema_conformance])
@@ -1203,7 +1004,7 @@ def test_sse_pytest_plugin(ctx):
     def sse_endpoint():
         return Response('data: {"value": 42}\n\n', mimetype="text/event-stream")
 
-    schema = schemathesis.openapi.from_dict(raw_schema)
+    schema = ctx.openapi.load_schema(raw_schema["paths"], version="3.2.0")
     strategy = schema["/sse"]["GET"].as_strategy()
 
     @given(case=strategy)

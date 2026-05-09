@@ -46,6 +46,7 @@ def _get_kwargs(
     success: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
+    excludes_entrypoint_override: Union[Unset, None, bool] = UNSET,
     broad_filter: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
@@ -147,6 +148,8 @@ def _get_kwargs(
 
     params["is_not_schedule"] = is_not_schedule
 
+    params["excludes_entrypoint_override"] = excludes_entrypoint_override
+
     params["broad_filter"] = broad_filter
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -243,6 +246,7 @@ def sync_detailed(
     success: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
+    excludes_entrypoint_override: Union[Unset, None, bool] = UNSET,
     broad_filter: Union[Unset, None, str] = UNSET,
 ) -> Response[List[Union["ListJobsResponse200ItemType0", "ListJobsResponse200ItemType1"]]]:
     """list all jobs
@@ -281,6 +285,7 @@ def sync_detailed(
         success (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
+        excludes_entrypoint_override (Union[Unset, None, bool]):
         broad_filter (Union[Unset, None, str]):
 
     Raises:
@@ -325,6 +330,7 @@ def sync_detailed(
         success=success,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
+        excludes_entrypoint_override=excludes_entrypoint_override,
         broad_filter=broad_filter,
     )
 
@@ -371,6 +377,7 @@ def sync(
     success: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
+    excludes_entrypoint_override: Union[Unset, None, bool] = UNSET,
     broad_filter: Union[Unset, None, str] = UNSET,
 ) -> Optional[List[Union["ListJobsResponse200ItemType0", "ListJobsResponse200ItemType1"]]]:
     """list all jobs
@@ -409,6 +416,7 @@ def sync(
         success (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
+        excludes_entrypoint_override (Union[Unset, None, bool]):
         broad_filter (Union[Unset, None, str]):
 
     Raises:
@@ -454,6 +462,7 @@ def sync(
         success=success,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
+        excludes_entrypoint_override=excludes_entrypoint_override,
         broad_filter=broad_filter,
     ).parsed
 
@@ -494,6 +503,7 @@ async def asyncio_detailed(
     success: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
+    excludes_entrypoint_override: Union[Unset, None, bool] = UNSET,
     broad_filter: Union[Unset, None, str] = UNSET,
 ) -> Response[List[Union["ListJobsResponse200ItemType0", "ListJobsResponse200ItemType1"]]]:
     """list all jobs
@@ -532,6 +542,7 @@ async def asyncio_detailed(
         success (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
+        excludes_entrypoint_override (Union[Unset, None, bool]):
         broad_filter (Union[Unset, None, str]):
 
     Raises:
@@ -576,6 +587,7 @@ async def asyncio_detailed(
         success=success,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
+        excludes_entrypoint_override=excludes_entrypoint_override,
         broad_filter=broad_filter,
     )
 
@@ -620,6 +632,7 @@ async def asyncio(
     success: Union[Unset, None, bool] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
+    excludes_entrypoint_override: Union[Unset, None, bool] = UNSET,
     broad_filter: Union[Unset, None, str] = UNSET,
 ) -> Optional[List[Union["ListJobsResponse200ItemType0", "ListJobsResponse200ItemType1"]]]:
     """list all jobs
@@ -658,6 +671,7 @@ async def asyncio(
         success (Union[Unset, None, bool]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
+        excludes_entrypoint_override (Union[Unset, None, bool]):
         broad_filter (Union[Unset, None, str]):
 
     Raises:
@@ -704,6 +718,7 @@ async def asyncio(
             success=success,
             all_workspaces=all_workspaces,
             is_not_schedule=is_not_schedule,
+            excludes_entrypoint_override=excludes_entrypoint_override,
             broad_filter=broad_filter,
         )
     ).parsed

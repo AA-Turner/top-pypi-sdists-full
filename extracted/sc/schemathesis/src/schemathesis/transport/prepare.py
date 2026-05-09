@@ -3,11 +3,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, cast
-from urllib.parse import quote, unquote, urlencode, urljoin, urlsplit, urlunsplit
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from schemathesis.config import SanitizationConfig
 from schemathesis.core import SCHEMATHESIS_TEST_CASE_HEADER, NotSet
 from schemathesis.core.errors import InvalidSchema
+from schemathesis.core.mutations import OperatorKind
 from schemathesis.core.output.sanitization import sanitize_url, sanitize_value
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import USER_AGENT
@@ -48,48 +49,52 @@ def get_exclude_headers(case: Case) -> list[str]:
     # Gate header exclusion on the current generation mode so that a `before_call`
     # hook restoring the header (which flips the mode to positive via revalidation)
     # stops the exclusion.
-    if (
-        not case.meta.generation.mode.is_negative
-        or phase_data.parameter_location != ParameterLocation.HEADER
-        or phase_data.parameter is None
-    ):
+    if not case.meta.generation.mode.is_negative or phase_data.parameter_location != ParameterLocation.HEADER:
         return []
 
     if isinstance(phase_data, CoveragePhaseData) and phase_data.scenario == CoverageScenario.MISSING_PARAMETER:
-        return [phase_data.parameter]
+        return [phase_data.parameter] if phase_data.parameter is not None else []
 
     if isinstance(phase_data, (FuzzingPhaseData, StatefulPhaseData)):
-        return [phase_data.parameter]
+        # Only exclude when the mutation actually removed the parameter (or its
+        # required-list entry). Constraint-negation mutations leave the parameter
+        # present with a constraint-violating value — that value MUST reach the
+        # server for the negative case to be meaningful.
+        case_headers: Mapping[str, Any] = case.headers or {}
+        excluded: list[str] = []
+        for mutation in phase_data.mutations:
+            # Only top-level mutations on the HEADER parameter object map 1:1 to
+            # HTTP header names. A nested mutation's `parameter` is an inner
+            # property and may collide with an unrelated real header (e.g. a
+            # nested `Authorization` field inside a content-schema header).
+            if mutation.path:
+                continue
+            if mutation.operator == OperatorKind.REMOVE_REQUIRED_PROPERTY:
+                if mutation.parameter is not None:
+                    excluded.append(mutation.parameter)
+            elif mutation.operator == OperatorKind.NEGATE_CONSTRAINTS and "required" in mutation.keywords:
+                if mutation.parameter is not None:
+                    excluded.append(mutation.parameter)
+                elif isinstance(mutation.original_value, list):
+                    # Multi-required: the case may have omitted any subset of the
+                    # original list; exclude exactly those names so default/session
+                    # auth doesn't get re-applied for them.
+                    excluded.extend(name for name in mutation.original_value if name not in case_headers)
+        return excluded
 
     return []
 
 
 def prepare_url(case: Case, base_url: str | None) -> str:
-    """Prepare URL based on case type."""
-    from schemathesis.specs.graphql.schemas import GraphQLSchema
-
+    """Prepare URL via the schema's spec-aware override."""
     base_url = base_url or case.operation.base_url
     assert base_url is not None
-    path = prepare_path(case.path, case.path_parameters)
-
-    if isinstance(case.operation.schema, GraphQLSchema):
-        parts = list(urlsplit(base_url))
-        parts[2] = path
-        return urlunsplit(parts)
-    else:
-        path = path.lstrip("/")
-        if not base_url.endswith("/"):
-            base_url += "/"
-        return unquote(urljoin(base_url, quote(path)))
+    return case.operation.schema.build_request_url(case, base_url)
 
 
 def prepare_body(case: Case) -> list | dict[str, Any] | str | int | float | bool | bytes | NotSet:
-    """Prepare body based on case type."""
-    from schemathesis.specs.graphql.schemas import GraphQLSchema
-
-    if isinstance(case.operation.schema, GraphQLSchema):
-        return case.body if isinstance(case.body, NotSet | bytes) else {"query": case.body}
-    return case.body
+    """Prepare body via the schema's spec-aware override."""
+    return case.operation.schema.prepare_request_body(case.body)
 
 
 def normalize_base_url(base_url: str | None) -> str | None:

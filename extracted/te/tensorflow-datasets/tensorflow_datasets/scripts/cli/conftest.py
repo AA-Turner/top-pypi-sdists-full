@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024 The TensorFlow Datasets Authors.
+# Copyright 2026 The TensorFlow Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
 
 """CLI Fixtures."""
 
-import argparse
 from unittest import mock
 
 import pytest
+import simple_parsing
+from tensorflow_datasets.scripts.cli import cli_utils
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -29,7 +30,7 @@ def _mock_argparse_flags():
   # another test):
   # `flags.DEFINE_string('data_dir')` with `parser.add_argument('--data_dir')`
   # We patch argparse_flags during test, so absl flags are ignored.
-  with mock.patch(
-      'absl.flags.argparse_flags.ArgumentParser', argparse.ArgumentParser
+  with mock.patch.object(
+      cli_utils, 'ArgumentParser', simple_parsing.ArgumentParser
   ):
     yield

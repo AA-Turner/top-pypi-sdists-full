@@ -1,27 +1,55 @@
 import platform
+from textwrap import indent
 
 import pytest
 
 
-@pytest.mark.parametrize("is_lazy", [False, True])
-def test_config_proxy_is_used(testdir, is_lazy, openapi3_base_url):
-    proxy_url = "http://127.0.0.1:8080"
+def _schema_setup_from_project_config(update, *, is_lazy):
+    config_setup = f"""
+config = SchemathesisConfig()
+config.projects.default.update({update})
+"""
     if is_lazy:
-        schema_setup = f"""
+        return f"""
 @pytest.fixture
 def api_schema():
-    config = SchemathesisConfig()
-    config.projects.default.update(proxy="{proxy_url}", base_url="{openapi3_base_url}")
+{indent(config_setup.strip(), "    ")}
     return schemathesis.openapi.from_dict(raw_schema, config=config)
 
 schema = schemathesis.pytest.from_fixture("api_schema")
 """
-    else:
-        schema_setup = f"""
-config = SchemathesisConfig()
-config.projects.default.update(proxy="{proxy_url}", base_url="{openapi3_base_url}")
+    return f"""
+{config_setup.strip()}
 schema = schemathesis.openapi.from_dict(raw_schema, config=config)
 """
+
+
+def _schema_setup_with_mutation(mutation, *, is_lazy):
+    if is_lazy:
+        return f"""
+@pytest.fixture
+def api_schema():
+    schema = schemathesis.openapi.from_dict(raw_schema)
+{indent(mutation.strip(), "    ")}
+    return schema
+
+schema = schemathesis.pytest.from_fixture("api_schema")
+"""
+    return f"""
+schema = schemathesis.openapi.from_dict(raw_schema)
+{mutation.strip()}
+"""
+
+
+@pytest.mark.parametrize("is_lazy", [False, True])
+def test_config_proxy_is_used(ctx, testdir, is_lazy):
+    api = ctx.openapi.apps.success()
+    base_url = f"{api.base_url}/api"
+    proxy_url = "http://127.0.0.1:8080"
+    schema_setup = _schema_setup_from_project_config(
+        f'proxy="{proxy_url}", base_url="{base_url}"',
+        is_lazy=is_lazy,
+    )
 
     testdir.make_test(
         f"""
@@ -39,24 +67,14 @@ def test_proxy(case):
 
 
 @pytest.mark.parametrize("is_lazy", [False, True])
-def test_config_request_timeout_is_used(testdir, is_lazy, openapi3_base_url):
+def test_config_request_timeout_is_used(ctx, testdir, is_lazy):
+    api = ctx.openapi.apps.slow()
+    base_url = f"{api.base_url}/api"
     timeout = 0.01
-    if is_lazy:
-        schema_setup = f"""
-@pytest.fixture
-def api_schema():
-    config = SchemathesisConfig()
-    config.projects.default.update(request_timeout={timeout}, base_url="{openapi3_base_url}")
-    return schemathesis.openapi.from_dict(raw_schema, config=config)
-
-schema = schemathesis.pytest.from_fixture("api_schema")
-"""
-    else:
-        schema_setup = f"""
-config = SchemathesisConfig()
-config.projects.default.update(request_timeout={timeout}, base_url="{openapi3_base_url}")
-schema = schemathesis.openapi.from_dict(raw_schema, config=config)
-"""
+    schema_setup = _schema_setup_from_project_config(
+        f'request_timeout={timeout}, base_url="{base_url}"',
+        is_lazy=is_lazy,
+    )
 
     testdir.make_test(
         f"""
@@ -99,27 +117,15 @@ def test_wait_for_schema_is_used(mocker):
 @pytest.mark.parametrize("is_lazy", [False, True])
 def test_fuzzing_phase_max_examples_is_used(testdir, is_lazy):
     max_examples = 3
-    if is_lazy:
-        schema_setup = f"""
-@pytest.fixture
-def api_schema():
-    schema = schemathesis.openapi.from_dict(raw_schema)
-    schema.config.phases.fuzzing.generation.update(max_examples={max_examples})
-    schema.config.phases.examples.enabled = False
-    schema.config.phases.coverage.enabled = False
-    schema.config.phases.stateful.enabled = False
-    return schema
-
-schema = schemathesis.pytest.from_fixture("api_schema")
-"""
-    else:
-        schema_setup = f"""
-schema = schemathesis.openapi.from_dict(raw_schema)
+    schema_setup = _schema_setup_with_mutation(
+        f"""
 schema.config.phases.fuzzing.generation.update(max_examples={max_examples})
 schema.config.phases.examples.enabled = False
 schema.config.phases.coverage.enabled = False
 schema.config.phases.stateful.enabled = False
-"""
+""",
+        is_lazy=is_lazy,
+    )
 
     testdir.make_test(
         f"""
@@ -158,22 +164,10 @@ def test_max_examples(request, case):
 def test_config_request_retries_is_used(testdir, is_lazy):
     # Server drops first 2 connections, succeeds on 3rd.
     # Without request_retries=2 the test would raise ConnectionError; with it, it passes.
-    if is_lazy:
-        schema_setup = """
-@pytest.fixture
-def api_schema():
-    config = SchemathesisConfig()
-    config.projects.default.update(request_retries=2, base_url=f"http://127.0.0.1:{port}")
-    return schemathesis.openapi.from_dict(raw_schema, config=config)
-
-schema = schemathesis.pytest.from_fixture("api_schema")
-"""
-    else:
-        schema_setup = """
-config = SchemathesisConfig()
-config.projects.default.update(request_retries=2, base_url=f"http://127.0.0.1:{port}")
-schema = schemathesis.openapi.from_dict(raw_schema, config=config)
-"""
+    schema_setup = _schema_setup_from_project_config(
+        'request_retries=2, base_url=f"http://127.0.0.1:{port}"',
+        is_lazy=is_lazy,
+    )
 
     testdir.make_test(
         f"""

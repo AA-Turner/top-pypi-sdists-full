@@ -209,6 +209,13 @@ def _(mo):
 
 
 @app.cell
+def _(mo):
+    api_key = mo.ui.text(kind="password", label="Paste your Tinker API key")
+    api_key  # noqa: B018
+    return (api_key,)
+
+
+@app.cell
 async def _(
     GROUP_SIZE,
     MODEL_NAME,
@@ -216,11 +223,23 @@ async def _(
     ProblemGroupBuilder,
     TinkerTokenCompleter,
     TrajectoryGroup,
+    api_key,
     do_group_rollout,
+    mo,
     partial,
     renderer,
     tinker,
 ):
+    import os
+
+    mo.stop(
+        "TINKER_API_KEY" not in os.environ and not api_key.value,
+        "Paste your API key above",
+    )
+
+    if api_key.value:
+        os.environ["TINKER_API_KEY"] = api_key.value
+
     LORA_RANK = 32
     MAX_TOKENS = 512
     service_client = tinker.ServiceClient()
@@ -482,7 +501,7 @@ def _(mo):
     - **Tutorial 06**: Build your own custom `Env` for a new task from scratch.
     - **Production recipes**: See `tinker_cookbook/recipes/math_rl/` and `tinker_cookbook/recipes/code_rl/` for full examples with logging, checkpointing, and evaluation.
     - **Standard training loop**: `tinker_cookbook/rl/train.py` is the production training loop that handles all of the above plus KL penalties, async training, and metric logging.
-    - **Docs**: See [RL Environments](https://tinker-docs.thinkingmachines.ai/rl/rl-envs) for the complete environment guide.
+    - **Docs**: See [RL Environments](https://tinker-docs.thinkingmachines.ai/cookbook/rl/) for the complete environment guide.
     """)
     return
 

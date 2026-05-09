@@ -177,6 +177,20 @@ def build_schema(ctx, parameters=None, request_body=None, responses=None, versio
     return ctx.openapi.build_schema(schema, version=version)
 
 
+def load_schema(ctx, parameters=None, request_body=None, responses=None, version="3.0.2", path="/foo", method="post"):
+    return schemathesis.openapi.from_dict(
+        build_schema(
+            ctx,
+            parameters=parameters,
+            request_body=request_body,
+            responses=responses,
+            version=version,
+            path=path,
+            method=method,
+        )
+    )
+
+
 def assert_positive_coverage(schema, expected, path=None):
     return assert_coverage(schema, [GenerationMode.POSITIVE], expected, path)
 
@@ -226,7 +240,7 @@ def collect_coverage_cases(ctx, body_schema, positive=False, version="3.0.2"):
     - Positive cases produce bodies that pass JSON schema validation
     - Negative cases produce bodies that fail JSON schema validation
     """
-    schema = build_schema(
+    loaded = load_schema(
         ctx,
         request_body={
             "required": True,
@@ -234,7 +248,6 @@ def collect_coverage_cases(ctx, body_schema, positive=False, version="3.0.2"):
         },
         version=version,
     )
-    loaded = schemathesis.openapi.from_dict(schema)
     operation = loaded["/foo"]["post"]
     validator_cls = operation.schema.adapter.jsonschema_validator_cls
     validator = validator_cls(body_schema, validate_formats=True)
@@ -269,6 +282,48 @@ def collect_coverage_cases(ctx, body_schema, positive=False, version="3.0.2"):
         run_negative_test(operation, collect)
 
     return cases
+
+
+def _iter_cases(operation, generation_mode, *, generation_config=None):
+    return list(
+        _iter_coverage_cases(
+            operation=operation,
+            generation_modes=[generation_mode],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=generation_config or operation.schema.config.generation,
+        )
+    )
+
+
+def _generate_cases(operation, generation_mode, *, project_config=None, generation_config=None):
+    if project_config is not None:
+        generate_duplicate_query_parameters = project_config.phases.coverage.generate_duplicate_query_parameters
+        unexpected_methods = project_config.phases.coverage.unexpected_methods
+        generation_config = generation_config or project_config.generation
+    else:
+        generate_duplicate_query_parameters = False
+        unexpected_methods = set()
+        generation_config = generation_config or operation.schema.config.generation
+    return list(
+        generate_coverage_cases(
+            operation=operation,
+            generation_modes=[generation_mode],
+            auth_storage=None,
+            as_strategy_kwargs={},
+            generate_duplicate_query_parameters=generate_duplicate_query_parameters,
+            unexpected_methods=unexpected_methods,
+            generation_config=generation_config,
+        )
+    )
+
+
+def _optimized_body_schema(operation, media_type="application/json"):
+    return next(alt.optimized_schema for alt in operation.body if alt.media_type == media_type)
+
+
+def _body_validator(operation, media_type="application/json", *, validate_formats=True):
+    return jsonschema_rs.validator_for(_optimized_body_schema(operation, media_type), validate_formats=validate_formats)
 
 
 @pytest.mark.parametrize(
@@ -1060,37 +1115,40 @@ def test_required_header_as_string(ctx):
         {"const": 42},
     ],
 )
-def test_underspecified_path_parameters(ctx, cli, snapshot_cli, openapi3_base_url, schema):
+def test_underspecified_path_parameters(ctx, cli, app_runner, snapshot_cli, schema):
     # There should be no "Path parameter 'organization_id' is not defined"
-    schema_path = ctx.openapi.write_schema(
-        {
-            "/organizations/{organization_id}/": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "organization_id",
-                            "in": "path",
-                            "required": True,
-                            "schema": schema,
-                        }
-                    ],
-                    "responses": {"200": {"description": "Successful Response"}},
-                }
+    paths = {
+        "/organizations/{organization_id}/": {
+            "get": {
+                "parameters": [
+                    {
+                        "name": "organization_id",
+                        "in": "path",
+                        "required": True,
+                        "schema": schema,
+                    }
+                ],
+                "responses": {"200": {"description": "Successful Response"}},
             }
         }
-    )
+    }
+    full_schema = ctx.openapi.build_schema(paths)
+    app = ctx.openapi.make_permissive_flask_app(full_schema)
+    base_url = app_runner.openapi_url(app, path="")
+    schema_path = ctx.openapi.write_schema(paths)
     assert (
         cli.run(
             str(schema_path),
-            f"--url={openapi3_base_url}",
+            f"--url={base_url}/api",
             "--phases=coverage",
         )
         == snapshot_cli
     )
 
 
-def test_path_parameters_arent_missing(ctx, cli, snapshot_cli, openapi3_base_url):
+def test_path_parameters_arent_missing(ctx, cli, snapshot_cli):
     # When `--mode=negative`, still generate path parameters if they can't be negated
+    api = ctx.openapi.apps.success()
     schema_path = ctx.openapi.write_schema(
         {
             "/organizations/{organization_id}/": {
@@ -1117,7 +1175,7 @@ def test_path_parameters_arent_missing(ctx, cli, snapshot_cli, openapi3_base_url
     assert (
         cli.run(
             str(schema_path),
-            f"--url={openapi3_base_url}",
+            f"--url={api.base_url}/api",
             "--checks=not_a_server_error",
             "--phases=coverage",
             "--mode=negative",
@@ -1127,7 +1185,8 @@ def test_path_parameters_arent_missing(ctx, cli, snapshot_cli, openapi3_base_url
 
 
 @pytest.mark.filterwarnings("error")
-def test_path_parameters_without_schema(ctx, cli, snapshot_cli, openapi2_base_url):
+def test_path_parameters_without_schema(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
     schema_path = ctx.openapi.write_schema(
         {
             "/{param}": {
@@ -1147,7 +1206,7 @@ def test_path_parameters_without_schema(ctx, cli, snapshot_cli, openapi2_base_ur
     assert (
         cli.run(
             str(schema_path),
-            f"--url={openapi2_base_url}",
+            f"--url={api.base_url}/api",
             "--checks=not_a_server_error",
             "--phases=coverage",
             "--mode=negative",
@@ -1701,7 +1760,7 @@ def test_array_constraints(ctx, schema, expected):
 
 
 def test_string_with_format(ctx):
-    schema = build_schema(
+    schema = load_schema(
         ctx,
         [
             {
@@ -1713,8 +1772,6 @@ def test_string_with_format(ctx):
         ],
         path="/foo/{foo_id}",
     )
-
-    schema = schemathesis.openapi.from_dict(schema)
 
     def test(case):
         uuid.UUID(case.path_parameters["foo_id"], version=4)
@@ -1821,21 +1878,9 @@ def test_query_parameters_dont_exceed_max_length(ctx):
     assert_positive_coverage(
         schema,
         [
-            {
-                "query": {
-                    "foo": "bar.spam.000000,bar.spam.0,bar.spam.0,bar.spam.0,bar.spam.0",
-                },
-            },
-            {
-                "query": {
-                    "foo": "bar.spam.0000000,bar.spam.0,bar.spam.0,bar.spam.0,bar.spam.0",
-                },
-            },
-            {
-                "query": {
-                    "foo": "bar.spam.0",
-                },
-            },
+            {"query": {"foo": "bar.spam.00000000000000000000000000000000000000000000000000"}},
+            {"query": {"foo": "bar.spam.000000000000000000000000000000000000000000000000000"}},
+            {"query": {"foo": "bar.spam.0"}},
         ],
     )
 
@@ -2020,7 +2065,7 @@ def test_query_without_constraints_negative(ctx):
     ],
 )
 def test_negative_query_parameter(ctx, schema, expected, required):
-    schema = build_schema(
+    schema = load_schema(
         ctx,
         [
             {
@@ -2031,8 +2076,6 @@ def test_negative_query_parameter(ctx, schema, expected, required):
             }
         ],
     )
-
-    schema = schemathesis.openapi.from_dict(schema)
 
     urls = []
     operation = schema["/foo"]["post"]
@@ -2055,7 +2098,8 @@ def test_negative_query_parameter(ctx, schema, expected, required):
     assert urls == expected
 
 
-def test_negative_data_rejection(ctx, cli, openapi3_base_url, snapshot_cli):
+def test_negative_data_rejection(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
     raw_schema = build_schema(
         ctx,
         [
@@ -2076,7 +2120,7 @@ def test_negative_data_rejection(ctx, cli, openapi3_base_url, snapshot_cli):
             str(schema_path),
             "-c",
             "negative_data_rejection",
-            f"--url={openapi3_base_url}",
+            f"--url={api.base_url}/api",
             "--mode=all",
             "--max-examples=10",
             "--phases=coverage",
@@ -2101,7 +2145,7 @@ def test_request_body_is_required(ctx, required, properties):
     }
     if properties is not None:
         inner["properties"] = properties
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -2123,7 +2167,6 @@ def test_request_body_is_required(ctx, required, properties):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
 
     operation = schema["/items"]["post"]
 
@@ -2136,7 +2179,7 @@ def test_request_body_is_required(ctx, required, properties):
 
 @pytest.mark.parametrize("required", [["name"], ["name", "description"]])
 def test_request_body_with_references(ctx, required):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -2167,7 +2210,6 @@ def test_request_body_with_references(ctx, required):
             }
         },
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
 
     operation = schema["/items"]["post"]
 
@@ -2179,7 +2221,7 @@ def test_request_body_with_references(ctx, required):
 
 
 def test_request_body_without_validation_keywords(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -2191,7 +2233,6 @@ def test_request_body_without_validation_keywords(ctx):
             }
         },
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
 
     operation = schema["/items"]["post"]
 
@@ -2201,8 +2242,8 @@ def test_request_body_without_validation_keywords(ctx):
     run_positive_test(operation, test)
 
 
-@pytest.mark.openapi_version("3.0")
-def test_unspecified_http_methods(ctx, cli, openapi3_base_url, snapshot_cli):
+def test_unspecified_http_methods(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
     raw_schema = {
         "/foo": {
             "post": {
@@ -2214,9 +2255,7 @@ def test_unspecified_http_methods(ctx, cli, openapi3_base_url, snapshot_cli):
             },
         }
     }
-    schema = ctx.openapi.build_schema(raw_schema)
-
-    schema = schemathesis.openapi.from_dict(schema)
+    schema = ctx.openapi.load_schema(raw_schema)
 
     methods = set()
     operation = schema["/foo"]["post"]
@@ -2257,7 +2296,7 @@ def failed(ctx, response, case):
                 "-c",
                 "failed,unsupported_method",
                 "--include-method=POST",
-                f"--url={openapi3_base_url}",
+                f"--url={api.base_url}/api",
                 "--mode=negative",
                 "--max-examples=10",
                 "--continue-on-failure",
@@ -2267,7 +2306,6 @@ def failed(ctx, response, case):
         )
 
 
-@pytest.mark.openapi_version("3.0")
 def test_avoid_testing_unexpected_methods(ctx):
     raw_schema = {
         "/foo": {
@@ -2280,9 +2318,7 @@ def test_avoid_testing_unexpected_methods(ctx):
             },
         }
     }
-    schema = ctx.openapi.build_schema(raw_schema)
-
-    schema = schemathesis.openapi.from_dict(schema)
+    schema = ctx.openapi.load_schema(raw_schema)
 
     methods = set()
     operation = schema["/foo"]["post"]
@@ -2300,8 +2336,8 @@ def test_avoid_testing_unexpected_methods(ctx):
     assert not methods
 
 
-@pytest.mark.openapi_version("3.0")
-def test_avoid_testing_unexpected_methods_in_cli(ctx, cli, snapshot_cli, openapi3_base_url):
+def test_avoid_testing_unexpected_methods_in_cli(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
     raw_schema = {
         "/foo": {
             "post": {
@@ -2320,7 +2356,7 @@ def test_avoid_testing_unexpected_methods_in_cli(ctx, cli, snapshot_cli, openapi
             "run",
             str(schema_path),
             "--checks=unsupported_method",
-            f"--url={openapi3_base_url}",
+            f"--url={api.base_url}/api",
             "--phases=coverage",
             "--mode=negative",
             config={
@@ -2335,8 +2371,8 @@ def test_avoid_testing_unexpected_methods_in_cli(ctx, cli, snapshot_cli, openapi
     )
 
 
-@pytest.mark.openapi_version("3.0")
-def test_coverage_failure_shows_actual_method_in_header(ctx, cli, snapshot_cli, openapi3_base_url):
+def test_coverage_failure_shows_actual_method_in_header(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
     # Regression test for GH-3322
     # When coverage phase tests unexpected HTTP methods (e.g., PATCH on a GET endpoint),
     # the failure header should show the actual tested method, not the original endpoint's method
@@ -2352,7 +2388,7 @@ def test_coverage_failure_shows_actual_method_in_header(ctx, cli, snapshot_cli, 
             "run",
             str(schema_path),
             "--checks=unsupported_method",
-            f"--url={openapi3_base_url}",
+            f"--url={api.base_url}/api",
             "--phases=coverage",
             "--mode=negative",
         )
@@ -2360,8 +2396,9 @@ def test_coverage_failure_shows_actual_method_in_header(ctx, cli, snapshot_cli, 
     )
 
 
-def test_missing_authorization(ctx, cli, snapshot_cli, openapi3_base_url):
+def test_missing_authorization(ctx, cli, snapshot_cli):
     # The reproduction code should not contain auth if it is explicitly specified
+    api = ctx.openapi.apps.failure()
     schema_path = ctx.openapi.write_schema(
         {"/failure": {"get": {"security": [{"ApiKeyAuth": None}]}}},
         version="2.0",
@@ -2373,7 +2410,7 @@ def test_missing_authorization(ctx, cli, snapshot_cli, openapi3_base_url):
             str(schema_path),
             "-c",
             "not_a_server_error",
-            f"--url={openapi3_base_url}",
+            f"--url={api.base_url}/api",
             "--header=Authorization: Bearer SECRET",
             "--phases=coverage",
             "--mode=negative",
@@ -2382,7 +2419,8 @@ def test_missing_authorization(ctx, cli, snapshot_cli, openapi3_base_url):
     )
 
 
-def test_unnecessary_auth_warning(ctx, cli, snapshot_cli, openapi3_base_url):
+def test_unnecessary_auth_warning(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.basic()
     # If a test for missing Authorization is the only thing that happen, there should be no warning for missing Authorization header
     schema_path = ctx.openapi.write_schema(
         {
@@ -2404,7 +2442,7 @@ def test_unnecessary_auth_warning(ctx, cli, snapshot_cli, openapi3_base_url):
         cli.main(
             "run",
             str(schema_path),
-            f"--url={openapi3_base_url}",
+            f"--url={api.base_url}/api",
             "--header=Authorization: Basic dGVzdDp0ZXN0",
             "--max-examples=5",
         )
@@ -2412,9 +2450,8 @@ def test_unnecessary_auth_warning(ctx, cli, snapshot_cli, openapi3_base_url):
     )
 
 
-@pytest.mark.openapi_version("3.0")
 def test_nested_parameters(ctx):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/test": {
                 "get": {
@@ -2433,8 +2470,6 @@ def test_nested_parameters(ctx):
             }
         }
     )
-
-    schema = schemathesis.openapi.from_dict(schema)
 
     ranges = set()
     operation = schema["/test"]["get"]
@@ -2517,8 +2552,7 @@ def _request_body(inner):
     ids=["body-combinator", "body-items", "parameter-unresolvable"],
 )
 def test_references(ctx, operation, components):
-    raw_schema = ctx.openapi.build_schema({"/test": {"post": operation}}, components=components)
-    schema = schemathesis.openapi.from_dict(raw_schema)
+    schema = ctx.openapi.load_schema({"/test": {"post": operation}}, components=components)
     for operation in schema.get_all_operations():
         if isinstance(operation, Ok):
             for _ in _iter_coverage_cases(
@@ -2534,7 +2568,7 @@ def test_references(ctx, operation, components):
 
 
 def test_urlencoded_payloads_are_valid(ctx):
-    schema = build_schema(
+    schema = load_schema(
         ctx,
         request_body={
             "required": True,
@@ -2552,7 +2586,6 @@ def test_urlencoded_payloads_are_valid(ctx):
             },
         },
     )
-    schema = schemathesis.openapi.from_dict(schema)
 
     operation = schema["/foo"]["post"]
 
@@ -2565,7 +2598,7 @@ def test_urlencoded_payloads_are_valid(ctx):
 
 
 def test_malformed_content_type(ctx):
-    schema = build_schema(
+    schema = load_schema(
         ctx,
         request_body={
             "required": True,
@@ -2576,7 +2609,6 @@ def test_malformed_content_type(ctx):
             },
         },
     )
-    schema = schemathesis.openapi.from_dict(schema)
 
     operation = schema["/foo"]["post"]
 
@@ -2590,7 +2622,7 @@ def test_malformed_content_type(ctx):
 
 
 def test_no_missing_header_duplication(ctx):
-    schema = build_schema(
+    schema = load_schema(
         ctx,
         [
             {"name": "X-Key-1", "in": "header", "required": False, "schema": {"type": "string"}},
@@ -2598,7 +2630,6 @@ def test_no_missing_header_duplication(ctx):
             {"name": "X-Key-3", "in": "header", "required": True, "schema": {"type": "string"}},
         ],
     )
-    schema = schemathesis.openapi.from_dict(schema)
 
     descriptions = []
     operation = schema["/foo"]["post"]
@@ -2767,7 +2798,7 @@ def _validate_serialized_items_are_negative(serialized_items, parameter, case):
             pass
 
 
-def test_binary_format_should_not_generate_empty_string_as_invalid(ctx, app_runner, cli, snapshot_cli):
+def test_binary_format_should_not_generate_empty_string_as_invalid(ctx, cli, snapshot_cli):
     raw_schema = ctx.openapi.build_schema(
         {
             "/files/{filename}": {
@@ -2800,11 +2831,9 @@ def test_binary_format_should_not_generate_empty_string_as_invalid(ctx, app_runn
         data = request.get_data()
         return jsonify({"message": "File added successfully", "size": len(data)}), 201
 
-    port = app_runner.run_flask_app(app)
-
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "-c",
             "negative_data_rejection",
             "--mode=negative",
@@ -2816,7 +2845,7 @@ def test_binary_format_should_not_generate_empty_string_as_invalid(ctx, app_runn
 
 
 def test_negative_type_violation_for_const_property(ctx):
-    schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/test": {
                 "post": {
@@ -2865,7 +2894,6 @@ def test_negative_type_violation_for_const_property(ctx):
             }
         },
     )
-    loaded = schemathesis.openapi.from_dict(schema)
     operation = loaded["/test"]["POST"]
 
     cases = []
@@ -2894,7 +2922,7 @@ def test_negative_type_violation_for_const_property(ctx):
 
 
 def test_additional_properties_with_schema_positive(ctx):
-    schema = build_schema(
+    loaded = load_schema(
         ctx,
         request_body={
             "required": True,
@@ -2908,7 +2936,6 @@ def test_additional_properties_with_schema_positive(ctx):
             },
         },
     )
-    loaded = schemathesis.openapi.from_dict(schema)
     operation = loaded["/foo"]["post"]
 
     cases = []
@@ -2929,7 +2956,7 @@ def test_additional_properties_with_schema_positive(ctx):
 
 
 def test_additional_properties_with_schema_negative(ctx):
-    schema = build_schema(
+    loaded = load_schema(
         ctx,
         request_body={
             "required": True,
@@ -2943,7 +2970,6 @@ def test_additional_properties_with_schema_negative(ctx):
             },
         },
     )
-    loaded = schemathesis.openapi.from_dict(schema)
     operation = loaded["/foo"]["post"]
 
     cases = []
@@ -2963,8 +2989,305 @@ def test_additional_properties_with_schema_negative(ctx):
     )
 
 
+def test_negative_type_drops_false_negatives_against_loose_ref_target(ctx):
+    # Property's schema is `$ref` + sibling `type: object`. Draft 4 ignores siblings of `$ref`,
+    # so the validator only enforces the bare ref target — which has no `type`. Type-mutations
+    # against the silenced sibling pass the target vacuously and must not be emitted.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "consumes": ["application/json"],
+                    "parameters": [
+                        {
+                            "in": "body",
+                            "name": "body",
+                            "required": True,
+                            "schema": {
+                                "type": "object",
+                                "required": ["thing"],
+                                "properties": {"thing": {"$ref": "#/definitions/Loose", "type": "object"}},
+                            },
+                        }
+                    ],
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+        definitions={"Loose": {"properties": {"x": {"type": "string"}}, "required": ["x"]}},
+    )
+    operation = schema["/foo"]["POST"]
+    validator = operation.schema.adapter.jsonschema_validator_cls(_optimized_body_schema(operation))
+
+    false_negatives = [
+        case.body
+        for case in _iter_cases(operation, GenerationMode.NEGATIVE)
+        if case.meta.phase.data.parameter_location == ParameterLocation.BODY and validator.is_valid(case.body)
+    ]
+    assert false_negatives == []
+
+
+def test_negative_required_drops_false_negatives_at_body_root_with_ref_sibling(ctx):
+    # Body root is `$ref` + sibling `required: [...]`. Draft 4 ignores siblings of `$ref`,
+    # so the validator only enforces the bare ref target — which has no matching `required`.
+    # Removing the listed required field passes the target vacuously and must not be emitted.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "consumes": ["application/json"],
+                    "parameters": [
+                        {
+                            "in": "body",
+                            "name": "body",
+                            "required": True,
+                            "schema": {"$ref": "#/definitions/Wrapper", "required": ["location"]},
+                        }
+                    ],
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+        # Second definition forces bundling — single-def schemas get inlined and lose
+        # the `$ref` + sibling shape that triggers the bug.
+        definitions={
+            "Wrapper": {
+                "type": "object",
+                "properties": {
+                    "location": {"type": "string"},
+                    "sku": {"$ref": "#/definitions/Sku"},
+                },
+            },
+            "Sku": {"type": "object", "properties": {"name": {"type": "string"}}},
+        },
+    )
+    operation = schema["/foo"]["POST"]
+    validator = operation.schema.adapter.jsonschema_validator_cls(_optimized_body_schema(operation))
+
+    false_negatives = [
+        case.body
+        for case in _iter_cases(operation, GenerationMode.NEGATIVE)
+        if case.meta.phase.data.parameter_location == ParameterLocation.BODY and validator.is_valid(case.body)
+    ]
+    assert false_negatives == []
+
+
+def test_negative_ref_sibling_with_binary_format_does_not_crash_validator(ctx):
+    # `$ref` + sibling triggers the unmerged-validator path; the merged target produces
+    # values containing Binary, which jsonschema_rs cannot validate and raises ValueError.
+    schema = ctx.openapi.load_schema(
+        {
+            "/upload": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Upload",
+                                    "required": ["file"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Upload": {
+                    "type": "object",
+                    "properties": {
+                        "file": {"type": "string", "format": "binary"},
+                        "sku": {"$ref": "#/components/schemas/Sku"},
+                    },
+                },
+                # Second component forces bundling so the `$ref` + sibling shape survives
+                # into `cover_schema_iter` instead of being inlined.
+                "Sku": {"type": "object", "properties": {"name": {"type": "string"}}},
+            }
+        },
+    )
+    operation = schema["/upload"]["POST"]
+
+    cases = _iter_cases(operation, GenerationMode.NEGATIVE)
+    assert len(cases) > 0
+
+
+def test_positive_body_generated_for_object_with_metadata_and_unsatisfiable_optionals(ctx):
+    # Object schema with metadata keyword (`title`) plus optional properties that are
+    # unsatisfiable (`{"not": {}}` from readOnly). Empty `{}` is a valid positive body;
+    # the generator must produce at least one rather than falling back on a negative body.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "consumes": ["application/json"],
+                    "parameters": [
+                        {
+                            "in": "body",
+                            "name": "body",
+                            "required": True,
+                            "schema": {
+                                "title": "Resource",
+                                "type": "object",
+                                "properties": {
+                                    "id": {"not": {}},
+                                    "created_at": {"not": {}},
+                                    "name": {"type": "string"},
+                                },
+                            },
+                        }
+                    ],
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+    )
+    operation = schema["/foo"]["POST"]
+
+    positive_bodies = [
+        case.body
+        for case in _iter_cases(operation, GenerationMode.POSITIVE)
+        if case.meta.phase.data.parameter_location == ParameterLocation.BODY
+    ]
+    assert positive_bodies, "Expected at least one positive body case"
+    assert all(isinstance(body, dict) for body in positive_bodies), (
+        f"Positive bodies must be objects per `type: object`; got: {positive_bodies}"
+    )
+
+
+def test_parameter_mutation_cases_do_not_inherit_negative_body(ctx):
+    # When positive body coverage yields nothing (the body schema combines `allOf` with
+    # readOnly properties, so template inflation requires fields rewritten to `{"not": {}}`),
+    # the engine previously fell back to a negative body as the template substrate.
+    # Subsequent parameter-mutation cases (missing required header etc.) inherited that
+    # negative body and emitted cases that mix two negatives. Verify no such case is emitted.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "consumes": ["application/json"],
+                    "parameters": [
+                        {"in": "header", "name": "X-Token", "required": True, "type": "string"},
+                        {
+                            "in": "body",
+                            "name": "body",
+                            "required": True,
+                            "schema": {
+                                "type": "object",
+                                "allOf": [{"type": "object"}],
+                                "properties": {"id": {"readOnly": True, "type": "string"}},
+                            },
+                        },
+                    ],
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+    )
+    operation = schema["/foo"]["POST"]
+
+    bad = []
+    for case in _iter_cases(operation, GenerationMode.NEGATIVE):
+        if case.meta.phase.data.parameter_location == ParameterLocation.BODY:
+            continue
+        body_component = case.meta.components.get(ParameterLocation.BODY)
+        if body_component is not None and body_component.mode == GenerationMode.NEGATIVE:
+            bad.append((case.meta.phase.data.description, case.body))
+    assert bad == []
+
+
+def test_positive_number_near_boundary_respects_multiple_of(ctx):
+    # IEEE-754 subtraction `maximum - multipleOf` drifts (e.g. `99999.99 - 0.01 = 99999.98000000001`).
+    # The validator rejects the drifted value as not a multiple. Decimal-based arithmetic stays exact.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "consumes": ["application/json"],
+                    "parameters": [
+                        {
+                            "in": "body",
+                            "name": "body",
+                            "required": True,
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "amount": {"type": "number", "minimum": 0, "maximum": 99999.99, "multipleOf": 0.01}
+                                },
+                            },
+                        }
+                    ],
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+    )
+    operation = schema["/foo"]["POST"]
+    validator = operation.schema.adapter.jsonschema_validator_cls(_optimized_body_schema(operation))
+
+    invalid = [
+        case.body
+        for case in _iter_cases(operation, GenerationMode.POSITIVE)
+        if case.meta.phase.data.parameter_location == ParameterLocation.BODY and not validator.is_valid(case.body)
+    ]
+    assert invalid == []
+
+
+def test_positive_number_boundary_respects_exclusive_bounds(ctx):
+    # Boolean `exclusiveMinimum: true` + `exclusiveMaximum: true` combined with `minimum: 0`
+    # / `maximum: 1` (legacy OpenAPI 3.0 form). The boundary generator's `+= 1` / `-= 1`
+    # adjustments overshoot the other exclusive boundary; emitted values must validate.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "consumes": ["application/json"],
+                    "parameters": [
+                        {
+                            "in": "body",
+                            "name": "body",
+                            "required": True,
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "decayFactor": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "exclusiveMinimum": True,
+                                        "exclusiveMaximum": True,
+                                    }
+                                },
+                            },
+                        }
+                    ],
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+    )
+    operation = schema["/foo"]["POST"]
+    validator = operation.schema.adapter.jsonschema_validator_cls(_optimized_body_schema(operation))
+
+    invalid = [
+        case.body
+        for case in _iter_cases(operation, GenerationMode.POSITIVE)
+        if case.meta.phase.data.parameter_location == ParameterLocation.BODY and not validator.is_valid(case.body)
+    ]
+    assert invalid == []
+
+
 def test_additional_properties_anyof_positive(ctx):
-    schema = build_schema(
+    loaded = load_schema(
         ctx,
         request_body={
             "required": True,
@@ -2983,7 +3306,6 @@ def test_additional_properties_anyof_positive(ctx):
             },
         },
     )
-    loaded = schemathesis.openapi.from_dict(schema)
     operation = loaded["/foo"]["post"]
 
     cases = []
@@ -3078,6 +3400,22 @@ def test_min_properties_one(ctx):
     )
 
 
+def test_min_properties_one_with_additional_properties(ctx):
+    cases = collect_coverage_cases(
+        ctx,
+        {
+            "type": "object",
+            "additionalProperties": {"type": "array", "items": {"type": "string"}},
+            "minProperties": 1,
+            "maxProperties": 2,
+        },
+    )
+    empty = [c for c in cases if c.meta.phase.data.scenario == CoverageScenario.OBJECT_BELOW_MIN_PROPERTIES]
+    assert any(c.body == {} for c in empty), (
+        f"Should generate empty object for minProperties: 1 alongside additionalProperties. Got: {[c.body for c in cases]}"
+    )
+
+
 def test_min_properties_fewer_than_required(ctx):
     cases = collect_coverage_cases(
         ctx,
@@ -3096,7 +3434,7 @@ def test_min_properties_fewer_than_required(ctx):
 
 def test_missing_content_type_header(ctx):
     # Regression: "missing Content-Type header" test case should not include Content-Type in request
-    schema = build_schema(
+    loaded = load_schema(
         ctx,
         parameters=[
             {"in": "header", "name": "Content-Type", "schema": {"type": "string"}, "required": True},
@@ -3106,7 +3444,6 @@ def test_missing_content_type_header(ctx):
             "content": {"application/json": {"schema": {"type": "object"}}},
         },
     )
-    loaded = schemathesis.openapi.from_dict(schema)
     operation = loaded["/foo"]["post"]
 
     missing_content_type_case = None
@@ -3133,7 +3470,7 @@ def test_missing_content_type_header(ctx):
 def test_path_parameter_with_slash_in_custom_format(ctx):
     # See GH-3527
     schemathesis.openapi.format("ipv4-network", st.sampled_from(["0.0.0.0/0"]))
-    schema = build_schema(
+    loaded = load_schema(
         ctx,
         path="/blocks/{block}",
         method="get",
@@ -3146,7 +3483,6 @@ def test_path_parameter_with_slash_in_custom_format(ctx):
             }
         ],
     )
-    loaded = schemathesis.openapi.from_dict(schema)
     operation = loaded["/blocks/{block}"]["get"]
 
     path_values = []
@@ -3163,14 +3499,13 @@ def test_path_parameter_with_slash_in_custom_format(ctx):
 
 def _collect_xml_coverage_cases(ctx, body_schema):
     """Build an XML-only schema, run in negative mode, and return coverage phase cases."""
-    schema = build_schema(
+    loaded = load_schema(
         ctx,
         request_body={
             "required": True,
             "content": {"application/xml": {"schema": body_schema}},
         },
     )
-    loaded = schemathesis.openapi.from_dict(schema)
     operation = loaded["/foo"]["post"]
 
     cases = []
@@ -3244,11 +3579,10 @@ def test_xml_none_property_mutation_filtered_when_schema_accepts_empty_string(ct
 
 
 def test_query_method_appears_in_unspecified_methods(ctx):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {"/search": {"post": {"responses": {"200": {"description": "OK"}}}}},
         version="3.2.0",
     )
-    schema = schemathesis.openapi.from_dict(schema)
     operation = schema["/search"]["post"]
 
     methods = set()
@@ -3266,7 +3600,7 @@ def test_query_method_appears_in_unspecified_methods(ctx):
 
 
 def test_query_method_excluded_from_unexpected_when_defined(ctx):
-    schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/search": {
                 "query": {"responses": {"200": {"description": "OK"}}},
@@ -3275,7 +3609,6 @@ def test_query_method_excluded_from_unexpected_when_defined(ctx):
         },
         version="3.2.0",
     )
-    schema = schemathesis.openapi.from_dict(schema)
     operation = schema["/search"]["post"]
 
     methods = set()
@@ -3310,7 +3643,7 @@ def test_duration_format_generates_required_body_positive_cases(ctx, version):
 @pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
 def test_duration_format_generates_required_query_positive_cases(ctx, version):
     # Required query parameters should not be omitted for duration format.
-    schema = build_schema(
+    loaded = load_schema(
         ctx,
         parameters=[
             {
@@ -3322,7 +3655,6 @@ def test_duration_format_generates_required_query_positive_cases(ctx, version):
         ],
         version=version,
     )
-    loaded = schemathesis.openapi.from_dict(schema)
     operation = loaded["/foo"]["post"]
     validator_cls = operation.schema.adapter.jsonschema_validator_cls
     validator = validator_cls({"type": "string", "format": "duration"}, validate_formats=True)
@@ -3386,7 +3718,7 @@ def test_missing_required_header_case_uses_invalid_template_body(ctx):
             },
         ]
     }
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/test": {
                 "post": {
@@ -3407,19 +3739,12 @@ def test_missing_required_header_case_uses_invalid_template_body(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/test"]["post"]
     validator = operation.schema.adapter.jsonschema_validator_cls(body_schema, validate_formats=False)
 
     missing_header_cases = [
         case
-        for case in _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
+        for case in _iter_cases(operation, GenerationMode.NEGATIVE)
         if case.meta.phase.data.scenario == CoverageScenario.MISSING_PARAMETER
         and case.meta.phase.data.parameter == "X-Required-Header"
     ]
@@ -3432,7 +3757,7 @@ def test_missing_required_header_case_uses_invalid_template_body(ctx):
 
 
 def test_missing_required_header_case_respects_before_call_hook_restoring_header(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "put": {
@@ -3449,18 +3774,11 @@ def test_missing_required_header_case_respects_before_call_hook_restoring_header
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/items"]["put"]
 
     missing_header_case = next(
         case
-        for case in _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
+        for case in _iter_cases(operation, GenerationMode.NEGATIVE)
         if case.meta.phase.data.scenario == CoverageScenario.MISSING_PARAMETER
         and case.meta.phase.data.parameter == "X-Required-Header"
     )
@@ -3476,54 +3794,32 @@ def test_missing_required_header_case_respects_before_call_hook_restoring_header
 
 
 def test_filter_case_hook_applied_in_coverage_phase(ctx):
-    raw_schema = build_schema(
+    loaded = load_schema(
         ctx,
         parameters=[{"name": "key", "in": "query", "schema": {"type": "integer"}}],
         method="get",
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/foo"]["get"]
 
     # Verify some cases are produced without hook
     config = ProjectConfig()
-    base_cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=config.phases.coverage.generate_duplicate_query_parameters,
-            unexpected_methods=config.phases.coverage.unexpected_methods,
-            generation_config=config.generation,
-        )
-    )
+    base_cases = _generate_cases(operation, GenerationMode.POSITIVE, project_config=config)
     assert base_cases, "Expected coverage cases before filtering"
 
     @loaded.hook
     def filter_case(context, case):
         return False  # reject everything
 
-    filtered_cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=config.phases.coverage.generate_duplicate_query_parameters,
-            unexpected_methods=config.phases.coverage.unexpected_methods,
-            generation_config=config.generation,
-        )
-    )
+    filtered_cases = _generate_cases(operation, GenerationMode.POSITIVE, project_config=config)
     assert filtered_cases == [], "filter_case hook should suppress all coverage cases"
 
 
 def test_map_case_hook_applied_in_coverage_phase(ctx):
-    raw_schema = build_schema(
+    loaded = load_schema(
         ctx,
         parameters=[{"name": "key", "in": "query", "schema": {"type": "integer"}}],
         method="get",
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
 
     @loaded.hook
     def map_case(context, case):
@@ -3533,17 +3829,7 @@ def test_map_case_hook_applied_in_coverage_phase(ctx):
 
     config = ProjectConfig()
     operation = loaded["/foo"]["get"]
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=config.phases.coverage.generate_duplicate_query_parameters,
-            unexpected_methods=config.phases.coverage.unexpected_methods,
-            generation_config=config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.POSITIVE, project_config=config)
 
     assert cases, "Expected at least one coverage case"
     assert all(c.query is None or c.query.get("injected") == "yes" for c in cases), (
@@ -3553,7 +3839,7 @@ def test_map_case_hook_applied_in_coverage_phase(ctx):
 
 def test_content_json_query_params_single_encoding_in_coverage(ctx):
     # See GH-3701
-    schema = build_schema(
+    loaded = load_schema(
         ctx,
         parameters=[
             {
@@ -3568,21 +3854,10 @@ def test_content_json_query_params_single_encoding_in_coverage(ctx):
             "content": {"application/json": {"schema": {"type": "array", "items": {"type": "string"}}}},
         },
     )
-    loaded = schemathesis.openapi.from_dict(schema)
     config = ProjectConfig()
     operation = loaded["/foo"]["post"]
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=config.phases.coverage.generate_duplicate_query_parameters,
-            unexpected_methods=config.phases.coverage.unexpected_methods,
-            generation_config=config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.POSITIVE, project_config=config)
 
     assert len(cases) >= 2
     for case in cases:
@@ -3598,7 +3873,7 @@ def test_content_json_query_params_single_encoding_in_coverage(ctx):
 
 def test_coverage_body_with_boolean_property_key(ctx):
     # YAML parses bare `on:` as boolean True, so schemas loaded from YAML can have bool keys in `properties`.
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/hooks": {
                 "post": {
@@ -3622,18 +3897,9 @@ def test_coverage_body_with_boolean_property_key(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/hooks"]["POST"]
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.POSITIVE)
     assert len(cases) > 0
 
 
@@ -3647,7 +3913,7 @@ def test_coverage_negative_max_length_preserved_in_optimized_schema(ctx):
         "minLength": 0,
         "pattern": r"^(?:[A-Z0-9](?:[A-Z0-9][- ]?)*[A-Z0-9])?$",
     }
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/zipcode": {
                 "post": {
@@ -3660,22 +3926,15 @@ def test_coverage_negative_max_length_preserved_in_optimized_schema(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/zipcode"]["post"]
 
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
+    optimized_schema = _optimized_body_schema(operation)
     assert "maxLength" in optimized_schema, f"maxLength must be preserved in optimized_schema; got: {optimized_schema}"
 
     validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
     max_length_cases = [
         case
-        for case in _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
+        for case in _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
         if isinstance(case.body, str) and len(case.body) > 10
     ]
     assert max_length_cases, "Expected at least one NEGATIVE case with a body string longer than maxLength=10"
@@ -3690,7 +3949,7 @@ def test_coverage_positive_pattern_skipped_for_non_string_type(ctx):
     # phase must not generate string values as POSITIVE cases — they violate 'type'
     # and are schema-invalid, causing false positive_data_acceptance failures.
     body_schema = {"type": "number", "pattern": "[0-9]{4}"}
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/pin": {
                 "post": {
@@ -3703,21 +3962,11 @@ def test_coverage_positive_pattern_skipped_for_non_string_type(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/pin"]["post"]
 
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    positive_cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    positive_cases = _iter_cases(operation, GenerationMode.POSITIVE, generation_config=loaded.config.generation)
     for case in positive_cases:
         assert validator.is_valid(case.body), f"POSITIVE body is schema-invalid per optimized_schema: {case.body!r}"
 
@@ -3726,7 +3975,7 @@ def test_coverage_positive_allof_ref_property_merge(ctx):
     # Multi-level allOf chain (Child -> Intermediate -> Base) where Base defines 'location'.
     # canonicalish leaves an unresolved $ref inside the merged schema; cover_schema_iter must
     # deep-merge 'properties' from the resolved ref, not overwrite, so 'location' stays present.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/resources/{name}": {
                 "put": {
@@ -3757,28 +4006,18 @@ def test_coverage_positive_allof_ref_property_merge(ctx):
             },
         },
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/resources/{name}"]["put"]
 
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    positive_cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    positive_cases = _iter_cases(operation, GenerationMode.POSITIVE, generation_config=loaded.config.generation)
     for case in positive_cases:
         assert validator.is_valid(case.body), f"POSITIVE body is schema-invalid: {case.body!r}"
 
 
 def test_coverage_body_with_boolean_property_key_negative(ctx):
     # YAML parses bare `on:` as boolean True, so schemas loaded from YAML can have bool keys in `properties`.
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/hooks": {
                 "post": {
@@ -3810,23 +4049,14 @@ def test_coverage_body_with_boolean_property_key_negative(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/hooks"]["POST"]
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.NEGATIVE)
     assert len(cases) > 0
 
 
 def test_coverage_form_urlencoded_binary_format_negative(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/upload": {
                 "post": {
@@ -3850,20 +4080,9 @@ def test_coverage_form_urlencoded_binary_format_negative(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/upload"]["POST"]
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
     assert len(cases) > 0
     for case in cases:
         assert case.meta.phase.name == TestPhase.COVERAGE
@@ -3871,7 +4090,7 @@ def test_coverage_form_urlencoded_binary_format_negative(ctx):
 
 def test_coverage_negative_empty_dict_additional_properties_not_treated_as_false(ctx):
     # `additionalProperties: {}` is equivalent to `true` — any extra property is valid.
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/search": {
                 "post": {
@@ -3898,22 +4117,10 @@ def test_coverage_negative_empty_dict_additional_properties_not_treated_as_false
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/search"]["POST"]
-    body_schema = operation.body[0].optimized_schema
-    validator = jsonschema_rs.validator_for(body_schema)
+    validator = _body_validator(operation, validate_formats=False)
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
     assert len(cases) > 0
     for case in cases:
         assert not validator.is_valid(case.body), (
@@ -3922,7 +4129,7 @@ def test_coverage_negative_empty_dict_additional_properties_not_treated_as_false
 
 
 def test_coverage_negative_pattern_with_control_chars_uses_schema_validator(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -3950,22 +4157,10 @@ def test_coverage_negative_pattern_with_control_chars_uses_schema_validator(ctx)
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/items"]["POST"]
-    body_schema = operation.body[0].optimized_schema
-    validator = jsonschema_rs.validator_for(body_schema)
+    validator = _body_validator(operation, validate_formats=False)
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
     assert len(cases) > 0
     for case in cases:
         info = case.meta.components.get(ParameterLocation.BODY)
@@ -3979,7 +4174,7 @@ def test_coverage_positive_body_uuid_format_with_uppercase_pattern(ctx):
     # A property schema with format:uuid AND a pattern that restricts to uppercase hex
     # must generate a POSITIVE value that is valid for BOTH constraints - i.e. an
     # uppercase UUID with hyphens.
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/docs": {
                 "post": {
@@ -4005,22 +4200,10 @@ def test_coverage_positive_body_uuid_format_with_uppercase_pattern(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/docs"]["post"]
-    body_schema = operation.body[0].optimized_schema
-    validator = jsonschema_rs.validator_for(body_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.POSITIVE)
     assert len(cases) > 0
     for case in cases:
         if case.body is not None:
@@ -4033,7 +4216,7 @@ def test_coverage_positive_body_skips_properties_with_no_valid_enum_values(ctx):
     # A property schema like {enum: ["MALE", "FEMALE"], maxLength: 1} has contradictory
     # constraints — all enum values violate maxLength. The coverage phase must not pick
     # an invalid enum value as the positive body template, causing POSITIVE body failures.
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/users": {
                 "post": {
@@ -4061,22 +4244,10 @@ def test_coverage_positive_body_skips_properties_with_no_valid_enum_values(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/users"]["POST"]
-    body_schema = operation.body[0].optimized_schema
-    validator = jsonschema_rs.validator_for(body_schema)
+    validator = _body_validator(operation, validate_formats=False)
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.POSITIVE)
     assert len(cases) > 0
     for case in cases:
         if case.body is not None:
@@ -4089,7 +4260,7 @@ def test_coverage_positive_object_type_with_items(ctx):
     # Schema property with type:"object" and "items" (a schema inconsistency) must not
     # cause generate_from_schema to produce a list — the items/type fast path must only
     # trigger for type:"array", not type:"object".
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/register": {
                 "post": {
@@ -4116,27 +4287,17 @@ def test_coverage_positive_object_type_with_items(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/register"]["post"]
 
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    positive_cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    positive_cases = _iter_cases(operation, GenerationMode.POSITIVE, generation_config=loaded.config.generation)
     for case in positive_cases:
         assert validator.is_valid(case.body), f"POSITIVE body is schema-invalid per optimized_schema: {case.body!r}"
 
 
 def test_coverage_negative_string_length_with_enum(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/submit": {
                 "post": {
@@ -4164,21 +4325,11 @@ def test_coverage_negative_string_length_with_enum(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/submit"]["post"]
 
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    negative_cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    negative_cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
     for case in negative_cases:
         if case.body is None or case.meta is None:
             continue
@@ -4191,7 +4342,7 @@ def test_coverage_negative_string_length_with_enum(ctx):
 def test_coverage_positive_template_with_enum_and_type_mismatch(ctx):
     # YAML parsing artifacts (e.g. bare `true`/`false`) in an enum with type:"string" must not
     # produce a schema-invalid template body.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items/{id}": {
                 "put": {
@@ -4225,21 +4376,11 @@ def test_coverage_positive_template_with_enum_and_type_mismatch(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items/{id}"]["put"]
 
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    negative_cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    negative_cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
     for case in negative_cases:
         if case.body is None or case.meta is None:
             continue
@@ -4252,7 +4393,7 @@ def test_coverage_positive_template_with_enum_and_type_mismatch(ctx):
 def test_coverage_positive_template_required_property_absent_from_properties(ctx):
     # A required property not listed in `properties` must still appear in the template
     # body so the positive template is schema-valid when the negation is elsewhere.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items/{id}": {
                 "put": {
@@ -4288,21 +4429,11 @@ def test_coverage_positive_template_required_property_absent_from_properties(ctx
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items/{id}"]["put"]
 
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    negative_cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    negative_cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
     for case in negative_cases:
         if case.body is None or case.meta is None:
             continue
@@ -4315,7 +4446,7 @@ def test_coverage_positive_template_required_property_absent_from_properties(ctx
 def test_coverage_positive_template_skips_false_schema_property(ctx):
     # A property with boolean `false` schema means no value is valid — skip it rather than
     # assigning `0`, which would make the POSITIVE body schema-invalid.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items/{id}": {
                 "patch": {
@@ -4339,21 +4470,11 @@ def test_coverage_positive_template_skips_false_schema_property(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items/{id}"]["patch"]
 
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    negative_cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    negative_cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
     for case in negative_cases:
         if case.body is None or case.meta is None:
             continue
@@ -4366,7 +4487,7 @@ def test_coverage_positive_template_skips_false_schema_property(ctx):
 def test_coverage_negative_string_length_nullable(ctx):
     # STRING_ABOVE_MAX_LENGTH / STRING_BELOW_MIN_LENGTH must produce a string, not `None`,
     # when the schema has `type: ["string", "null"]`.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -4386,21 +4507,11 @@ def test_coverage_negative_string_length_nullable(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items"]["post"]
 
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    negative_cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    negative_cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
     for case in negative_cases:
         if case.body is None or case.meta is None:
             continue
@@ -4411,7 +4522,7 @@ def test_coverage_negative_string_length_nullable(ctx):
 
 
 def test_coverage_negative_string_property_form_urlencoded_not_wire_identical(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -4431,23 +4542,11 @@ def test_coverage_negative_string_property_form_urlencoded_not_wire_identical(ct
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items"]["post"]
 
-    form_schema = next(
-        alt.optimized_schema for alt in operation.body if alt.media_type == "application/x-www-form-urlencoded"
-    )
-    validator = jsonschema_rs.validator_for(form_schema, validate_formats=True)
+    validator = _body_validator(operation, "application/x-www-form-urlencoded")
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
     for case in cases:
         if case.media_type != "application/x-www-form-urlencoded":
             continue
@@ -4466,7 +4565,7 @@ def test_coverage_negative_string_property_form_urlencoded_not_wire_identical(ct
 
 
 def test_coverage_negative_string_property_xml_not_wire_identical(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -4486,21 +4585,11 @@ def test_coverage_negative_string_property_xml_not_wire_identical(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items"]["post"]
 
-    xml_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/xml")
-    validator = jsonschema_rs.validator_for(xml_schema, validate_formats=True)
+    validator = _body_validator(operation, "application/xml")
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
     for case in cases:
         if case.media_type != "application/xml":
             continue
@@ -4529,7 +4618,7 @@ def test_coverage_positive_oneof_body_valid_for_whole_schema(ctx):
     # oneOf where both branches allow the same set of values (no additionalProperties: false).
     # POSITIVE coverage must not yield bodies that are invalid for the whole oneOf (i.e. valid
     # for multiple branches simultaneously).
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/modify": {
                 "patch": {
@@ -4560,20 +4649,10 @@ def test_coverage_positive_oneof_body_valid_for_whole_schema(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
     operation = schema["/modify"]["PATCH"]
-    body_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(body_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.POSITIVE)
     for case in cases:
         if case.media_type != "application/json" or not case.meta:
             continue
@@ -4585,7 +4664,7 @@ def test_coverage_positive_oneof_body_valid_for_whole_schema(ctx):
 def test_coverage_positive_body_ref_with_pattern_and_length_constraints(ctx):
     # POSITIVE bodies must satisfy the anchored pattern even when the object body uses
     # `additionalProperties: false` alongside `$ref` properties with pattern/length constraints.
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/tasks": {
                 "post": {
@@ -4614,20 +4693,10 @@ def test_coverage_positive_body_ref_with_pattern_and_length_constraints(ctx):
             }
         },
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
     operation = schema["/tasks"]["POST"]
-    body_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(body_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.POSITIVE)
     for case in cases:
         if case.media_type != "application/json" or not case.meta:
             continue
@@ -4639,7 +4708,7 @@ def test_coverage_positive_body_ref_with_pattern_and_length_constraints(ctx):
 def test_coverage_positive_body_oneof_branch_required_field_missing_from_branch_properties(ctx):
     # POSITIVE bodies must satisfy the full schema when a oneOf branch requires a field
     # that is defined only in the parent schema's properties, not in the branch's own properties.
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/runs": {
                 "post": {
@@ -4679,20 +4748,10 @@ def test_coverage_positive_body_oneof_branch_required_field_missing_from_branch_
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
     operation = schema["/runs"]["POST"]
-    body_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(body_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.POSITIVE)
     for case in cases:
         if case.media_type != "application/json" or not case.meta:
             continue
@@ -4703,7 +4762,7 @@ def test_coverage_positive_body_oneof_branch_required_field_missing_from_branch_
 
 def test_coverage_negative_format_nullable(ctx):
     # INVALID_FORMAT must produce a non-null string when the schema has `type: ["string", "null"]`.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -4723,21 +4782,11 @@ def test_coverage_negative_format_nullable(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items"]["post"]
 
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    negative_cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    negative_cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
     for case in negative_cases:
         if case.body is None or case.meta is None:
             continue
@@ -4748,7 +4797,7 @@ def test_coverage_negative_format_nullable(ctx):
 
 
 def test_coverage_form_urlencoded_primitive_body_negative_no_crash(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/convert": {
                 "post": {
@@ -4763,20 +4812,9 @@ def test_coverage_form_urlencoded_primitive_body_negative_no_crash(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/convert"]["POST"]
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
     assert len(cases) > 0
     for case in cases:
         case.as_curl_command()
@@ -4785,7 +4823,7 @@ def test_coverage_form_urlencoded_primitive_body_negative_no_crash(ctx):
 def test_coverage_negative_string_above_max_length_invalid_when_pattern_quantifier_merged(ctx):
     # An unanchored quantifier like `{1,50}` doesn't prevent a 51-char string from passing
     # JSON Schema validation (partial match). The optimizer must anchor the pattern.
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -4813,22 +4851,10 @@ def test_coverage_negative_string_above_max_length_invalid_when_pattern_quantifi
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
     operation = schema["/items"]["POST"]
-    body_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(body_schema)
+    validator = _body_validator(operation, validate_formats=False)
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
     above_max_cases = [
         case
         for case in cases
@@ -4843,7 +4869,7 @@ def test_coverage_negative_string_above_max_length_invalid_when_pattern_quantifi
 
 
 def test_coverage_negative_max_length_preserved_when_pattern_has_inner_quantifier(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -4871,22 +4897,10 @@ def test_coverage_negative_max_length_preserved_when_pattern_has_inner_quantifie
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/items"]["POST"]
-    body_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(body_schema)
+    validator = _body_validator(operation, validate_formats=False)
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
     assert len(cases) > 0
     for case in cases:
         assert not validator.is_valid(case.body), f"NEGATIVE body must be schema-invalid: {case.body!r}"
@@ -4894,7 +4908,7 @@ def test_coverage_negative_max_length_preserved_when_pattern_has_inner_quantifie
 
 def test_coverage_negative_max_length_preserved_when_outer_optional_group_has_variable_inner(ctx):
     # Optional group with variable inner: minLength absorbed (? to {1}) but maxLength unrepresentable.
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -4922,29 +4936,17 @@ def test_coverage_negative_max_length_preserved_when_outer_optional_group_has_va
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/items"]["POST"]
-    body_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(body_schema)
+    validator = _body_validator(operation, validate_formats=False)
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
     assert len(cases) > 0
     for case in cases:
         assert not validator.is_valid(case.body), f"NEGATIVE body must be schema-invalid: {case.body!r}"
 
 
 def test_coverage_negative_missing_required_with_additional_properties_schema(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -4969,22 +4971,10 @@ def test_coverage_negative_missing_required_with_additional_properties_schema(ct
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/items"]["POST"]
-    body_schema = operation.body[0].optimized_schema
-    validator = jsonschema_rs.validator_for(body_schema)
+    validator = _body_validator(operation, validate_formats=False)
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
     assert len(cases) > 0
     for case in cases:
         assert not validator.is_valid(case.body), f"NEGATIVE body must be schema-invalid: {case.body!r}"
@@ -5009,7 +4999,7 @@ def test_positive_object_example_with_invalid_format_not_yielded(ctx):
 def test_coverage_positive_pattern_with_branch_group_not_corrupted(ctx):
     # A pattern like `([a-z0-9]|-[a-z0-9])*` contains alternation inside a quantified group.
     # POSITIVE values such as "a-project-name" must pass optimized_schema validation.
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 "get": {
@@ -5031,23 +5021,12 @@ def test_coverage_positive_pattern_with_branch_group_not_corrupted(ctx):
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
     operation = schema["/items"]["GET"]
     query_param = next(p for p in operation.query if p.name == "name")
     optimized = query_param.optimized_schema
     validator = jsonschema_rs.validator_for(optimized)
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.POSITIVE)
     positive_cases = [c for c in cases if c.query and "name" in c.query]
     assert len(positive_cases) > 0
     for case in positive_cases:
@@ -5055,6 +5034,46 @@ def test_coverage_positive_pattern_with_branch_group_not_corrupted(ctx):
             f"POSITIVE value {case.query['name']!r} failed optimized_schema validation — "
             f"pattern was likely corrupted by update_quantifier"
         )
+
+
+def test_coverage_positive_pattern_with_variable_suffix_not_overconstrained(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/owners": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["lastName"],
+                                    "properties": {
+                                        "lastName": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 30,
+                                            "pattern": r"^[a-zA-Z]+([ '-][a-zA-Z]+){0,2}\.?$",
+                                            "example": "Franklin",
+                                        }
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = schema["/owners"]["POST"]
+    validator = _body_validator(operation, validate_formats=False)
+
+    cases = _generate_cases(operation, GenerationMode.POSITIVE)
+    assert len(cases) > 0
+    for case in cases:
+        if case.media_type == "application/json" and case.body is not None:
+            assert validator.is_valid(case.body), f"POSITIVE body is schema-invalid: {case.body!r}"
 
 
 def test_coverage_positive_property_names_enum_respected(ctx):
@@ -5078,7 +5097,7 @@ def test_coverage_positive_property_names_enum_respected(ctx):
 def test_negative_data_rejection_no_crash_with_large_dfa_pattern(ctx, response_factory):
     # \S{1,8192} exceeds jsonschema_rs's default DFA size limit; FANCY_REGEX_OPTIONS must be
     # passed when building the multi-element-array validator inside the check.
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/configuration": {
                 "get": {
@@ -5095,20 +5114,9 @@ def test_negative_data_rejection_no_crash_with_large_dfa_pattern(ctx, response_f
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/configuration"]["GET"]
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
 
     response = response_factory.requests(status_code=200)
     ctx_check = CheckContext(override=None, auth=None, headers=None, config=ChecksConfig(), transport_kwargs=None)
@@ -5125,7 +5133,7 @@ def test_negative_data_rejection_no_false_positive_for_nullable_binary_multipart
     # Negating the null branch generates type mutations (dict, int, bool, etc.) that get
     # serialized to strings in multipart (str({}) -> "{}"), making them valid for the binary
     # field. is_valid_for_others must account for wire serialization so these aren't yielded.
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/upload": {
                 "post": {
@@ -5155,20 +5163,9 @@ def test_negative_data_rejection_no_false_positive_for_nullable_binary_multipart
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/upload"]["POST"]
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
 
     response = response_factory.requests(status_code=200)
     ctx_check = CheckContext(override=None, auth=None, headers=None, config=ChecksConfig(), transport_kwargs=None)
@@ -5190,7 +5187,7 @@ def test_negative_data_rejection_no_false_positive_for_nullable_binary_multipart
 
 def test_negative_data_rejection_no_false_positive_for_multipart_body_type_mutations(ctx, response_factory):
     # Non-dict body values render as malformed multipart that lenient servers accept.
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/upload": {
                 "post": {
@@ -5220,20 +5217,9 @@ def test_negative_data_rejection_no_false_positive_for_multipart_body_type_mutat
             }
         }
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/upload"]["POST"]
 
-    cases = list(
-        generate_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            auth_storage=None,
-            as_strategy_kwargs={},
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _generate_cases(operation, GenerationMode.NEGATIVE)
 
     response = response_factory.requests(status_code=200)
     ctx_check = CheckContext(override=None, auth=None, headers=None, config=ChecksConfig(), transport_kwargs=None)
@@ -5249,7 +5235,7 @@ def test_negative_data_rejection_no_false_positive_for_multipart_body_type_mutat
 def test_coverage_positive_body_nested_allof_inner_required_preserved(ctx):
     # Required fields from the second inner $ref (e.g. 'direction') must appear in POSITIVE bodies
     # when a oneOf branch resolves to allOf[{$ref: base}, {$ref: extension}].
-    raw_schema = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/reports": {
                 "post": {
@@ -5296,20 +5282,10 @@ def test_coverage_positive_body_nested_allof_inner_required_preserved(ctx):
             }
         },
     )
-    schema = schemathesis.openapi.from_dict(raw_schema)
     operation = schema["/reports"]["POST"]
-    body_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(body_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=schema.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.POSITIVE)
     for case in cases:
         if case.media_type != "application/json" or not case.meta:
             continue
@@ -5321,7 +5297,7 @@ def test_coverage_positive_body_nested_allof_inner_required_preserved(ctx):
 def test_coverage_positive_body_string_type_with_empty_properties(ctx):
     # A property with type:string and properties:{} must generate a string value, not {}.
     # The properties keyword is irrelevant when type is not object.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items/{id}": {
                 "put": {
@@ -5345,20 +5321,10 @@ def test_coverage_positive_body_string_type_with_empty_properties(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items/{id}"]["put"]
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
     for case in cases:
         if case.body is None or not case.meta:
             continue
@@ -5370,7 +5336,7 @@ def test_coverage_positive_body_string_type_with_empty_properties(ctx):
 def test_coverage_positive_body_required_unsatisfiable_array_enum(ctx):
     # POSITIVE bodies must satisfy `required` even when a property's schema is unsatisfiable.
     # The query parameter gives the coverage phase something else to negate.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/clients": {
                 "post": {
@@ -5399,20 +5365,10 @@ def test_coverage_positive_body_required_unsatisfiable_array_enum(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/clients"]["post"]
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    negative_cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    negative_cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
     for case in negative_cases:
         if case.body is None or case.meta is None:
             continue
@@ -5425,7 +5381,7 @@ def test_coverage_positive_body_required_unsatisfiable_array_enum(ctx):
 def test_coverage_no_recursion_for_allof_with_unmergeable_anyof_property(ctx):
     # Coverage must not recurse infinitely when canonicalish cannot merge allOf entries
     # (e.g. two object schemas with overlapping anyOf properties) and returns allOf with no type.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -5468,24 +5424,49 @@ def test_coverage_no_recursion_for_allof_with_unmergeable_anyof_property(ctx):
         },
         version="3.1.0",
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items"]["post"]
     # Must complete without RecursionError
-    list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    _iter_cases(operation, GenerationMode.POSITIVE, generation_config=loaded.config.generation)
+
+
+def test_coverage_positive_object_with_min_properties_no_required(ctx):
+    # Object with minProperties:1 but no required fields must never yield {} as a positive body.
+    body_schema = {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+            "accountId": {"type": "string"},
+            "domain": {"type": "string"},
+        },
+    }
+    collect_coverage_cases(ctx, body_schema, positive=True)
+
+
+def test_coverage_positive_oneof_branch_with_conflicting_root_type(ctx):
+    # The root schema declares type:array but oneOf[0] declares type:object.
+    # Positive coverage must never yield an object body — it can't satisfy both constraints.
+    body_schema = {
+        "type": "array",
+        "items": {"type": "string"},
+        "oneOf": [
+            {
+                "type": "object",
+                "properties": {"items": {"type": "array", "items": {"type": "string"}}},
+                "required": ["items"],
+            },
+            {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+        ],
+    }
+    collect_coverage_cases(ctx, body_schema, positive=True)
 
 
 def test_coverage_positive_body_anyof_const_null_excluded_by_sibling_type(ctx):
     # When anyOf has a {const: null} branch but the sibling `type` constraint forbids null,
     # POSITIVE coverage must not yield null as a valid value for that property.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -5513,20 +5494,10 @@ def test_coverage_positive_body_anyof_const_null_excluded_by_sibling_type(ctx):
         },
         version="3.1.0",
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items"]["post"]
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.POSITIVE, generation_config=loaded.config.generation)
     for case in cases:
         if case.body is None or case.meta is None:
             continue
@@ -5538,7 +5509,7 @@ def test_coverage_positive_body_anyof_const_null_excluded_by_sibling_type(ctx):
 def test_coverage_positive_body_nested_required_unsatisfiable_field(ctx):
     # When a nested required field has an unsatisfiable schema (e.g. pattern+format contradiction),
     # the parent template must not include the incomplete sub-object as a POSITIVE value.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -5572,20 +5543,10 @@ def test_coverage_positive_body_nested_required_unsatisfiable_field(ctx):
             }
         },
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items"]["post"]
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.POSITIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.POSITIVE, generation_config=loaded.config.generation)
     for case in cases:
         if case.body is None or case.meta is None:
             continue
@@ -5597,7 +5558,7 @@ def test_coverage_positive_body_nested_required_unsatisfiable_field(ctx):
 def test_revalidation_preserves_negative_mode_for_format_violating_body(ctx):
     # A NEGATIVE body with a format-violating value ('' for a uuid field) must stay
     # NEGATIVE after body reassignment triggers _revalidate_metadata.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -5623,18 +5584,9 @@ def test_revalidation_preserves_negative_mode_for_format_violating_body(ctx):
             }
         }
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items"]["post"]
 
-    cases = list(
-        _iter_coverage_cases(
-            operation=operation,
-            generation_modes=[GenerationMode.NEGATIVE],
-            generate_duplicate_query_parameters=False,
-            unexpected_methods=set(),
-            generation_config=loaded.config.generation,
-        )
-    )
+    cases = _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation)
 
     target = next(
         (
@@ -5657,9 +5609,47 @@ def test_revalidation_preserves_negative_mode_for_format_violating_body(ctx):
     assert target.meta.components[ParameterLocation.BODY].mode == GenerationMode.NEGATIVE
 
 
+def test_negative_coverage_emits_invalid_format_for_uuid_body_property(ctx):
+    loaded = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["orderId"],
+                                    "properties": {"orderId": {"type": "string", "format": "uuid"}},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = loaded["/items"]["post"]
+    cases = _iter_cases(operation, GenerationMode.NEGATIVE)
+    format_violators = [
+        case
+        for case in cases
+        if case.meta is not None
+        and case.meta.phase.data.scenario == CoverageScenario.INVALID_FORMAT
+        and isinstance(case.body, dict)
+        and "orderId" in case.body
+    ]
+    assert format_violators, "no INVALID_FORMAT case emitted for body property with format: uuid"
+    value = format_violators[0].body["orderId"]
+    with pytest.raises(ValueError):
+        uuid.UUID(value)
+
+
 def test_coverage_form_urlencoded_filters_primitives_with_bundled_ref(ctx):
     # Every NEGATIVE form-urlencoded body must remain schema-invalid after string coercion.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/t": {
                 "post": {
@@ -5702,20 +5692,10 @@ def test_coverage_form_urlencoded_filters_primitives_with_bundled_ref(ctx):
             }
         },
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/t"]["post"]
-    optimized_schema = next(
-        alt.optimized_schema for alt in operation.body if alt.media_type == "application/x-www-form-urlencoded"
-    )
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation, "application/x-www-form-urlencoded")
 
-    for case in _iter_coverage_cases(
-        operation=operation,
-        generation_modes=[GenerationMode.NEGATIVE],
-        generate_duplicate_query_parameters=False,
-        unexpected_methods=set(),
-        generation_config=loaded.config.generation,
-    ):
+    for case in _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation):
         if case.media_type != "application/x-www-form-urlencoded" or not isinstance(case.body, dict):
             continue
         bi = case.meta.components.get(ParameterLocation.BODY) if case.meta else None
@@ -5729,7 +5709,7 @@ def test_coverage_form_urlencoded_filters_primitives_with_bundled_ref(ctx):
 
 def test_coverage_form_urlencoded_filters_nested_wire_identical_mutations(ctx):
     # Every NEGATIVE form-urlencoded body must remain schema-invalid after string coercion.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/t": {
                 "post": {
@@ -5773,20 +5753,10 @@ def test_coverage_form_urlencoded_filters_nested_wire_identical_mutations(ctx):
             }
         },
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/t"]["post"]
-    optimized_schema = next(
-        alt.optimized_schema for alt in operation.body if alt.media_type == "application/x-www-form-urlencoded"
-    )
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation, "application/x-www-form-urlencoded")
 
-    for case in _iter_coverage_cases(
-        operation=operation,
-        generation_modes=[GenerationMode.NEGATIVE],
-        generate_duplicate_query_parameters=False,
-        unexpected_methods=set(),
-        generation_config=loaded.config.generation,
-    ):
+    for case in _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation):
         if case.media_type != "application/x-www-form-urlencoded" or not isinstance(case.body, dict):
             continue
         bi = case.meta.components.get(ParameterLocation.BODY) if case.meta else None
@@ -5800,7 +5770,7 @@ def test_coverage_form_urlencoded_filters_nested_wire_identical_mutations(ctx):
 
 def test_coverage_array_above_max_items_with_complex_items_schema(ctx):
     # Every NEGATIVE body must fail schema validation.
-    raw_schema = ctx.openapi.build_schema(
+    loaded = ctx.openapi.load_schema(
         {
             "/items": {
                 "post": {
@@ -5855,18 +5825,10 @@ def test_coverage_array_above_max_items_with_complex_items_schema(ctx):
             }
         },
     )
-    loaded = schemathesis.openapi.from_dict(raw_schema)
     operation = loaded["/items"]["post"]
-    optimized_schema = next(alt.optimized_schema for alt in operation.body if alt.media_type == "application/json")
-    validator = jsonschema_rs.validator_for(optimized_schema, validate_formats=True)
+    validator = _body_validator(operation)
 
-    for case in _iter_coverage_cases(
-        operation=operation,
-        generation_modes=[GenerationMode.NEGATIVE],
-        generate_duplicate_query_parameters=False,
-        unexpected_methods=set(),
-        generation_config=loaded.config.generation,
-    ):
+    for case in _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation):
         if case.body is None or case.meta is None:
             continue
         bi = case.meta.components.get(ParameterLocation.BODY)
@@ -5877,7 +5839,7 @@ def test_coverage_array_above_max_items_with_complex_items_schema(ctx):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_coverage_consumes_path_keyed_pool(cli, app_runner, snapshot_cli, ctx):
+def test_coverage_consumes_path_keyed_pool(cli, snapshot_cli, ctx):
     paths = {
         "/widgets/{widgetId}": {
             "post": {
@@ -5936,10 +5898,9 @@ def test_coverage_consumes_path_keyed_pool(cli, app_runner, snapshot_cli, ctx):
         # Planted bug: required `name` is null for widgets that exist
         return jsonify({"name": None}), 200
 
-    port = app_runner.run_flask_app(app)
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--phases=coverage",
             "-c response_schema_conformance",
         )
@@ -5948,7 +5909,82 @@ def test_coverage_consumes_path_keyed_pool(cli, app_runner, snapshot_cli, ctx):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_coverage_consumes_body_field_keyed_pool(cli, app_runner, snapshot_cli, ctx):
+def test_coverage_param_mutation_preserves_nested_overlay_siblings(cli, ctx, snapshot_cli):
+    # Nested overlay must keep generator-produced siblings (`note`) when the pool seeds a foreign-key leaf (`location_id`).
+    paths = {
+        "/locations": {
+            "post": {
+                "operationId": "createLocation",
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["id"],
+                                    "properties": {"id": {"type": "integer"}},
+                                }
+                            }
+                        }
+                    }
+                },
+            }
+        },
+        "/departments": {
+            "post": {
+                "operationId": "createDepartment",
+                "parameters": [
+                    {
+                        "name": "X-Required-Header",
+                        "in": "header",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    }
+                ],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["shipping"],
+                                "properties": {
+                                    "shipping": {
+                                        "type": "object",
+                                        "required": ["note"],
+                                        "properties": {
+                                            "location_id": {"type": "integer"},
+                                            "note": {"type": "string"},
+                                        },
+                                    }
+                                },
+                            }
+                        }
+                    },
+                },
+                "responses": {"201": {"description": "OK"}},
+            }
+        },
+    }
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    @app.route("/locations", methods=["POST"])
+    def locations():
+        return jsonify({"id": 42}), 201
+
+    @app.route("/departments", methods=["POST"])
+    def departments():
+        body = request.get_json(silent=True)
+        shipping = body.get("shipping") if isinstance(body, dict) else None
+        if not isinstance(shipping, dict) or not isinstance(shipping.get("note"), str):
+            return ("", 422)
+        return ("", 201)
+
+    assert cli.run_openapi_app(app, "--phases=coverage", "--continue-on-failure") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_coverage_consumes_body_field_keyed_pool(cli, snapshot_cli, ctx):
     paths = {
         "/sessions": {
             "post": {
@@ -6034,10 +6070,9 @@ def test_coverage_consumes_body_field_keyed_pool(cli, app_runner, snapshot_cli, 
         # Planted bug: required `name` is null when sessionId exists
         return jsonify({"name": None}), 200
 
-    port = app_runner.run_flask_app(app)
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--phases=coverage",
             "-c response_schema_conformance",
         )
@@ -6046,7 +6081,7 @@ def test_coverage_consumes_body_field_keyed_pool(cli, app_runner, snapshot_cli, 
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_coverage_correlates_nested_resource_pool_picks(cli, app_runner, snapshot_cli, ctx):
+def test_coverage_correlates_nested_resource_pool_picks(cli, snapshot_cli, ctx):
     # Independent picks return (U2, R1) but R1's parent is U1; only correlation matches the planted pair.
     paths = {
         "/products": {
@@ -6177,10 +6212,9 @@ def test_coverage_correlates_nested_resource_pool_picks(cli, app_runner, snapsho
         # Planted bug: required `name` is null for matched parent-child pairs.
         return jsonify({"name": None}), 200
 
-    port = app_runner.run_flask_app(app)
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--phases=coverage",
             "-c response_schema_conformance",
         )
@@ -6189,7 +6223,7 @@ def test_coverage_correlates_nested_resource_pool_picks(cli, app_runner, snapsho
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_coverage_negative_does_not_pollute_pool_with_invalid_values(cli, app_runner, snapshot_cli, ctx):
+def test_coverage_negative_does_not_pollute_pool_with_invalid_values(cli, snapshot_cli, ctx):
     # A permissive endpoint's negative mutations must not seed the pool with values a strict endpoint would later reject.
     paths = {
         "/payments": {
@@ -6253,10 +6287,9 @@ def test_coverage_negative_does_not_pollute_pool_with_invalid_values(cli, app_ru
     def get_customer(customer_id):
         return "", 200
 
-    port = app_runner.run_flask_app(app)
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--phases=coverage",
             "-c positive_data_acceptance",
         )
@@ -6265,7 +6298,7 @@ def test_coverage_negative_does_not_pollute_pool_with_invalid_values(cli, app_ru
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_coverage_pool_overlay_respects_stricter_destination_constraints(cli, app_runner, snapshot_cli, ctx):
+def test_coverage_pool_overlay_respects_stricter_destination_constraints(cli, snapshot_cli, ctx):
     # A loose endpoint contributes a value valid only for itself; a stricter consumer must not adopt it.
     paths = {
         "/clients": {
@@ -6329,10 +6362,9 @@ def test_coverage_pool_overlay_respects_stricter_destination_constraints(cli, ap
     def get_client(client_id):
         return "", 200
 
-    port = app_runner.run_flask_app(app)
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--phases=coverage",
             "-c positive_data_acceptance",
         )
@@ -6341,7 +6373,7 @@ def test_coverage_pool_overlay_respects_stricter_destination_constraints(cli, ap
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_coverage_pool_overlay_respects_destination_format(cli, app_runner, snapshot_cli, ctx):
+def test_coverage_pool_overlay_respects_destination_format(cli, snapshot_cli, ctx):
     # A producer with no `format` constraint must not contribute values that violate a consumer's `format: uuid`.
     # The producer caps `txnId` length at 5 — no value can satisfy uuid (36 chars), so any pool injection fails.
     paths = {
@@ -6411,10 +6443,9 @@ def test_coverage_pool_overlay_respects_destination_format(cli, app_runner, snap
     def get_session(txn_id):
         return "", 200
 
-    port = app_runner.run_flask_app(app)
     assert (
-        cli.run(
-            f"http://127.0.0.1:{port}/openapi.json",
+        cli.run_openapi_app(
+            app,
             "--phases=coverage",
             "-c positive_data_acceptance",
         )
@@ -6422,16 +6453,57 @@ def test_coverage_pool_overlay_respects_destination_format(cli, app_runner, snap
     )
 
 
+def test_coverage_pool_overlay_dict_value_with_undeclared_keys(ctx):
+    # Pool object value for "address" contains "country", absent from the property schema.
+    loaded = load_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "address": {
+                                "type": "object",
+                                "properties": {"city": {"type": "string"}},
+                            }
+                        },
+                    }
+                }
+            },
+        },
+    )
+    operation = loaded["/foo"]["post"]
+
+    class _FakeDataSource:
+        def pick_correlated_values(self, *, operation):
+            return {(ParameterLocation.BODY, "address"): {"city": "London", "country": "UK"}}
+
+        def pick_captured_value(self, *, operation, location, name, context_constraints):
+            return None
+
+    list(
+        _iter_coverage_cases(
+            operation=operation,
+            generation_modes=[GenerationMode.POSITIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=operation.schema.config.generation,
+            extra_data_source=_FakeDataSource(),
+        )
+    )
+
+
 def test_undeclared_method_probes_dedup_across_operations(ctx):
     # Each (path, unexpected_method) pair is emitted once across all declared operations on the path.
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/items": {
                 method: {"responses": {"200": {"description": "OK"}}} for method in ("get", "post", "put", "delete")
             },
         },
     )
-    schema = schemathesis.openapi.from_dict(schema_dict)
     unexpected_methods = {"options", "patch", "trace", "query"}
 
     seen: list[tuple[str, str]] = []

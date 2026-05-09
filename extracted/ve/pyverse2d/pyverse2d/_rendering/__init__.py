@@ -15,6 +15,7 @@ from ._pyglet_renderers import (
     PygletShapeRenderer,
     PygletSpriteRenderer,
     PygletLabelRenderer,
+    PygletTextureRenderer,
 )
 
 # ======================================== EXPORTS ========================================
@@ -32,4 +33,5 @@ __all__ = [
     "PygletShapeRenderer",
     "PygletSpriteRenderer",
     "PygletLabelRenderer",
+    "PygletTextureRenderer",
 ]

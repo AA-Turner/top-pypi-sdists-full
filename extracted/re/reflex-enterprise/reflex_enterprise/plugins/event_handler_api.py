@@ -1,43 +1,20 @@
 """Plugin to expose event handlers as HTTP API endpoints.
 
 Adapted from reflex-dev/reflex branch masenf/http-endpoint-demo.
-Requires reflex >= 0.9.0 for the underlying plugin APIs.
 """
 
 from __future__ import annotations
 
 import contextlib
-import importlib.util
 import inspect
 import json
 from functools import partial
 from typing import TYPE_CHECKING, Any, get_args, get_origin
 
 from reflex.plugins.base import Plugin as PluginBase
-from reflex.utils import console
 
 if TYPE_CHECKING:
     from reflex.app import App
-
-
-try:
-    _HAS_REGISTRY = importlib.util.find_spec("reflex_base.registry") is not None
-except (ModuleNotFoundError, ValueError):
-    _HAS_REGISTRY = False
-
-try:
-    from reflex.event import Event as _Event
-
-    _HAS_EVENT_FROM_EVENT_TYPE = hasattr(_Event, "from_event_type")
-    del _Event
-except ImportError:
-    _HAS_EVENT_FROM_EVENT_TYPE = False
-
-
-_MISSING_REFLEX_09_MSG = (
-    "EventHandlerAPIPlugin requires reflex >= 0.9.0. "
-    "Please upgrade: uv add reflex>=0.9.0"
-)
 
 
 # Mapping from Python types to OpenAPI (JSON Schema) types.
@@ -524,14 +501,6 @@ class EventHandlerAPIPlugin(PluginBase):
                 "  app = rxe.App()\n"
             )
 
-        if not _HAS_REGISTRY:
-            console.error(_MISSING_REFLEX_09_MSG)
-            return False
-
-        if not _HAS_EVENT_FROM_EVENT_TYPE:
-            console.error(_MISSING_REFLEX_09_MSG)
-            return False
-
         return True
 
     def post_compile(self, **context) -> None:
@@ -570,14 +539,10 @@ class EventHandlerAPIPlugin(PluginBase):
         # Collect dynamic route args from all registered pages.
         all_dynamic_args: dict[str, str] = {}
 
-        try:
-            from reflex.route import get_route_args
-        except ImportError:
-            get_route_args = None
+        from reflex.route import get_route_args
 
-        if get_route_args is not None:
-            for route in app._unevaluated_pages:
-                all_dynamic_args.update(get_route_args(route))
+        for route in app._unevaluated_pages:
+            all_dynamic_args.update(get_route_args(route))
 
         # Build page route documentation with on_load references.
         base_url = (config.deploy_url or "").rstrip("/")

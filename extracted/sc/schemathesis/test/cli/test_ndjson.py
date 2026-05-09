@@ -1,5 +1,7 @@
 import json
 import platform
+import sys
+from pathlib import Path
 
 import pytest
 from _pytest.main import ExitCode
@@ -29,7 +31,7 @@ def get_event_data(event):
     return next(iter(event.values()))
 
 
-def test_ndjson_includes_case_meta(cli, ctx, app_runner, ndjson_path):
+def test_ndjson_includes_case_meta(cli, ctx, ndjson_path):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/items/{itemId}": {
@@ -47,10 +49,8 @@ def test_ndjson_includes_case_meta(cli, ctx, app_runner, ndjson_path):
     def get_item(item_id):
         return jsonify({"id": item_id})
 
-    port = app_runner.run_flask_app(app)
-
-    cli.run(
-        f"http://127.0.0.1:{port}/openapi.json",
+    cli.run_openapi_app(
+        app,
         f"--report-ndjson-path={ndjson_path}",
         "--max-examples=2",
         "--seed=1",
@@ -79,11 +79,11 @@ def test_ndjson_includes_case_meta(cli, ctx, app_runner, ndjson_path):
         assert component["mode"]
 
 
-@pytest.mark.operations("success")
-def test_store_ndjson(cli, schema_url, ndjson_path, hypothesis_max_examples):
+def test_store_ndjson(ctx, cli, ndjson_path, hypothesis_max_examples):
+    api = ctx.openapi.apps.success()
     hypothesis_max_examples = hypothesis_max_examples or 2
     cli.run_and_assert(
-        schema_url,
+        api.schema_url,
         f"--report-ndjson-path={ndjson_path}",
         f"--max-examples={hypothesis_max_examples}",
         "--seed=1",
@@ -124,11 +124,10 @@ def test_store_ndjson(cli, schema_url, ndjson_path, hypothesis_max_examples):
     assert "running_time" in get_event_data(events[-1])
 
 
-@pytest.mark.operations("slow")
-@pytest.mark.openapi_version("3.0")
-def test_store_timeout(cli, schema_url, ndjson_path):
+def test_store_timeout(ctx, cli, ndjson_path):
+    api = ctx.openapi.apps.slow()
     cli.run_and_assert(
-        schema_url,
+        api.schema_url,
         f"--report-ndjson-path={ndjson_path}",
         "--max-examples=1",
         "--request-timeout=0.001",
@@ -141,10 +140,10 @@ def test_store_timeout(cli, schema_url, ndjson_path):
     assert get_event_data(events[0])["seed"] == 1
 
 
-@pytest.mark.operations("flaky")
-def test_interaction_with_failure(cli, openapi3_schema_url, hypothesis_max_examples, ndjson_path):
+def test_interaction_with_failure(ctx, cli, hypothesis_max_examples, ndjson_path):
+    api = ctx.openapi.apps.flaky()
     cli.run_and_assert(
-        openapi3_schema_url,
+        api.schema_url,
         f"--report-ndjson-path={ndjson_path}",
         f"--max-examples={hypothesis_max_examples or 5}",
         "--seed=1",
@@ -156,14 +155,14 @@ def test_interaction_with_failure(cli, openapi3_schema_url, hypothesis_max_examp
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Simpler to setup on Linux")
-@pytest.mark.operations("success")
-def test_run_subprocess(testdir, ndjson_path, hypothesis_max_examples, schema_url):
+def test_run_subprocess(ctx, testdir, ndjson_path, hypothesis_max_examples):
+    api = ctx.openapi.apps.success()
     testdir.run(
-        "schemathesis",
+        str(Path(sys.executable).with_name("schemathesis")),
         "run",
         f"--report-ndjson-path={ndjson_path}",
         f"--max-examples={hypothesis_max_examples or 2}",
-        schema_url,
+        api.schema_url,
     )
     events = load_ndjson(ndjson_path)
     assert get_event_type(events[0]) == "Initialize"
@@ -175,8 +174,8 @@ def test_run_subprocess(testdir, ndjson_path, hypothesis_max_examples, schema_ur
 
 
 @pytest.mark.parametrize("in_config", [True, False])
-@pytest.mark.openapi_version("3.0")
-def test_report_dir(cli, schema_url, tmp_path, in_config):
+def test_report_dir(ctx, cli, tmp_path, in_config):
+    api = ctx.openapi.apps.success()
     report_dir = tmp_path / "reports"
     args = ["--max-examples=1"]
     kwargs = {}
@@ -184,15 +183,15 @@ def test_report_dir(cli, schema_url, tmp_path, in_config):
         kwargs["config"] = {"reports": {"ndjson": {"enabled": True}, "directory": str(report_dir)}}
     else:
         args = ["--report=ndjson", f"--report-dir={report_dir}", *args]
-    cli.run(schema_url, *args, **kwargs)
+    cli.run(api.schema_url, *args, **kwargs)
     assert report_dir.exists()
     assert list(report_dir.glob("*.ndjson"))
 
 
-@pytest.mark.openapi_version("3.0")
-def test_all_event_types(cli, schema_url, ndjson_path):
+def test_all_event_types(ctx, cli, ndjson_path):
+    api = ctx.openapi.apps.success()
     cli.run(
-        schema_url,
+        api.schema_url,
         f"--report-ndjson-path={ndjson_path}",
         "--max-examples=1",
         "--seed=1",
@@ -208,10 +207,10 @@ def test_all_event_types(cli, schema_url, ndjson_path):
     assert "EngineFinished" in event_types
 
 
-@pytest.mark.openapi_version("3.0")
-def test_phase_data_in_events(cli, schema_url, ndjson_path):
+def test_phase_data_in_events(ctx, cli, ndjson_path):
+    api = ctx.openapi.apps.success()
     cli.run(
-        schema_url,
+        api.schema_url,
         f"--report-ndjson-path={ndjson_path}",
         "--max-examples=1",
         "--seed=1",
@@ -224,10 +223,10 @@ def test_phase_data_in_events(cli, schema_url, ndjson_path):
         assert "phase" in get_event_data(event)
 
 
-@pytest.mark.operations("success")
-def test_binary_body_base64(cli, schema_url, ndjson_path):
+def test_binary_body_base64(ctx, cli, ndjson_path):
+    api = ctx.openapi.apps.success()
     cli.run_and_assert(
-        schema_url,
+        api.schema_url,
         f"--report-ndjson-path={ndjson_path}",
         "--max-examples=1",
         "--seed=1",
@@ -248,17 +247,15 @@ def test_binary_body_base64(cli, schema_url, ndjson_path):
                     assert "$base64" in body
 
 
-def test_enum_serialization(cli, ctx, app_runner, ndjson_path):
+def test_enum_serialization(cli, ctx, ndjson_path):
     app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
 
     @app.route("/users")
     def users():
         return jsonify([])
 
-    port = app_runner.run_flask_app(app)
-
-    cli.run(
-        f"http://127.0.0.1:{port}/openapi.json",
+    cli.run_openapi_app(
+        app,
         f"--report-ndjson-path={ndjson_path}",
         "--max-examples=10",
         "--seed=1",
@@ -284,7 +281,7 @@ def test_enum_serialization(cli, ctx, app_runner, ndjson_path):
         assert data["status"] in ("success", "failure", "error", "interrupted", "skip")
 
 
-def test_form_data_string_body(cli, ctx, app_runner, ndjson_path):
+def test_form_data_string_body(cli, ctx, ndjson_path):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/submit": {
@@ -311,10 +308,8 @@ def test_form_data_string_body(cli, ctx, app_runner, ndjson_path):
     def submit():
         return jsonify({"received": request.form.get("name")})
 
-    port = app_runner.run_flask_app(app)
-
-    cli.run(
-        f"http://127.0.0.1:{port}/openapi.json",
+    cli.run_openapi_app(
+        app,
         f"--report-ndjson-path={ndjson_path}",
         "--max-examples=10",
         "--seed=1",
@@ -338,17 +333,15 @@ def test_form_data_string_body(cli, ctx, app_runner, ndjson_path):
     assert found_form_request
 
 
-def test_sanitization_disabled(cli, ctx, app_runner, ndjson_path):
+def test_sanitization_disabled(cli, ctx, ndjson_path):
     app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
 
     @app.route("/users")
     def users():
         return jsonify([])
 
-    port = app_runner.run_flask_app(app)
-
-    cli.run(
-        f"http://127.0.0.1:{port}/openapi.json",
+    cli.run_openapi_app(
+        app,
         f"--report-ndjson-path={ndjson_path}",
         "--max-examples=10",
         "--seed=1",
@@ -363,7 +356,7 @@ def test_sanitization_disabled(cli, ctx, app_runner, ndjson_path):
     assert len(phase_started) >= 1
 
 
-def test_stateful_with_extraction_failure(cli, ctx, app_runner, ndjson_path):
+def test_stateful_with_extraction_failure(cli, ctx, ndjson_path):
     # Link expression references non-existent field to trigger Err serialization
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -413,10 +406,8 @@ def test_stateful_with_extraction_failure(cli, ctx, app_runner, ndjson_path):
     def get_user(user_id):
         return jsonify({"id": user_id, "name": "Test"})
 
-    port = app_runner.run_flask_app(app)
-
-    cli.run(
-        f"http://127.0.0.1:{port}/openapi.json",
+    cli.run_openapi_app(
+        app,
         f"--report-ndjson-path={ndjson_path}",
         "--max-examples=10",
         "--seed=1",
@@ -432,7 +423,7 @@ def test_stateful_with_extraction_failure(cli, ctx, app_runner, ndjson_path):
     assert any(get_event_data(e)["phase"]["name"] == "Stateful" for e in phase_started)
 
 
-def test_unresolvable_extraction_serialized(cli, ctx, app_runner, ndjson_path):
+def test_unresolvable_extraction_serialized(cli, ctx, ndjson_path):
     # Link references an array index that will be empty, triggering $unresolvable
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -479,10 +470,8 @@ def test_unresolvable_extraction_serialized(cli, ctx, app_runner, ndjson_path):
     def get_tag(tag_id):
         return jsonify({"id": tag_id, "name": "Test"})
 
-    port = app_runner.run_flask_app(app)
-
-    cli.run(
-        f"http://127.0.0.1:{port}/openapi.json",
+    cli.run_openapi_app(
+        app,
         f"--report-ndjson-path={ndjson_path}",
         "--max-examples=10",
         "--seed=1",

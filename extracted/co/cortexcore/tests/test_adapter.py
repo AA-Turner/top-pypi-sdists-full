@@ -1,13 +1,13 @@
-"""Tests for the AdapterScaffold wrapper."""
+"""Tests for the AdapterBlock wrapper."""
 
 import torch
 from cortex import (
-    AdapterScaffoldConfig,
+    AdapterBlockConfig,
     CortexStack,
     CortexStackConfig,
-    LSTMCoreConfig,
-    PassThroughScaffoldConfig,
-    PreUpScaffoldConfig,
+    LSTMCellConfig,
+    PassThroughBlockConfig,
+    PreUpBlockConfig,
 )
 
 
@@ -22,9 +22,9 @@ def test_adapter_identity_at_init():
     # Create a stack with an adapter wrapping a PassThrough block
     config = CortexStackConfig(
         d_hidden=d_hidden,
-        scaffolds=[
-            AdapterScaffoldConfig(
-                base_scaffold=PassThroughScaffoldConfig(core=LSTMCoreConfig(hidden_size=64, num_layers=1)),
+        blocks=[
+            AdapterBlockConfig(
+                base_block=PassThroughBlockConfig(cell=LSTMCellConfig(hidden_size=64, num_layers=1)),
                 bottleneck=16,
                 per_channel_gate=False,
             )
@@ -41,8 +41,8 @@ def test_adapter_identity_at_init():
     state = stack.init_state(batch=batch_size, device=device, dtype=dtype)
 
     # Run the wrapped block directly (without adapter)
-    base_block = stack.scaffolds[0].wrapped_scaffold
-    base_state = state["AdapterScaffold_0"]["wrapped"]
+    base_block = stack.blocks[0].wrapped_block
+    base_state = state["AdapterBlock_0"]["wrapped"]
     y_base, _ = base_block(x, base_state)
 
     # Run through adapter
@@ -64,10 +64,10 @@ def test_adapter_wraps_preup():
 
     config = CortexStackConfig(
         d_hidden=d_hidden,
-        scaffolds=[
-            AdapterScaffoldConfig(
-                base_scaffold=PreUpScaffoldConfig(
-                    core=LSTMCoreConfig(hidden_size=None, num_layers=1),
+        blocks=[
+            AdapterBlockConfig(
+                base_block=PreUpBlockConfig(
+                    cell=LSTMCellConfig(hidden_size=None, num_layers=1),
                     proj_factor=2.0,
                 ),
                 bottleneck=16,
@@ -87,8 +87,8 @@ def test_adapter_wraps_preup():
 
     # Check shapes
     assert y.shape == x.shape, f"Expected {x.shape}, got {y.shape}"
-    assert "AdapterScaffold_0" in new_state
-    assert "wrapped" in new_state["AdapterScaffold_0"]
+    assert "AdapterBlock_0" in new_state
+    assert "wrapped" in new_state["AdapterBlock_0"]
 
 
 def test_adapter_state_management():
@@ -100,9 +100,9 @@ def test_adapter_state_management():
 
     config = CortexStackConfig(
         d_hidden=d_hidden,
-        scaffolds=[
-            AdapterScaffoldConfig(
-                base_scaffold=PassThroughScaffoldConfig(core=LSTMCoreConfig(hidden_size=64, num_layers=1)),
+        blocks=[
+            AdapterBlockConfig(
+                base_block=PassThroughBlockConfig(cell=LSTMCellConfig(hidden_size=64, num_layers=1)),
                 bottleneck=16,
             )
         ],
@@ -125,10 +125,10 @@ def test_adapter_state_management():
     assert y2.shape == (batch_size, d_hidden)
 
     # Check state structure
-    assert "AdapterScaffold_0" in state
-    assert "wrapped" in state["AdapterScaffold_0"]
-    assert "LSTMCore" in state["AdapterScaffold_0"]["wrapped"]
-    assert "h" in state["AdapterScaffold_0"]["wrapped"]["LSTMCore"]
+    assert "AdapterBlock_0" in state
+    assert "wrapped" in state["AdapterBlock_0"]
+    assert "LSTMCell" in state["AdapterBlock_0"]["wrapped"]
+    assert "h" in state["AdapterBlock_0"]["wrapped"]["LSTMCell"]
 
 
 def test_adapter_reset_handling():
@@ -141,9 +141,9 @@ def test_adapter_reset_handling():
 
     config = CortexStackConfig(
         d_hidden=d_hidden,
-        scaffolds=[
-            AdapterScaffoldConfig(
-                base_scaffold=PassThroughScaffoldConfig(core=LSTMCoreConfig(hidden_size=64, num_layers=1)),
+        blocks=[
+            AdapterBlockConfig(
+                base_block=PassThroughBlockConfig(cell=LSTMCellConfig(hidden_size=64, num_layers=1)),
                 bottleneck=16,
             )
         ],
@@ -176,9 +176,9 @@ def test_adapter_gradient_flow():
 
     config = CortexStackConfig(
         d_hidden=d_hidden,
-        scaffolds=[
-            AdapterScaffoldConfig(
-                base_scaffold=PassThroughScaffoldConfig(core=LSTMCoreConfig(hidden_size=64, num_layers=1)),
+        blocks=[
+            AdapterBlockConfig(
+                base_block=PassThroughBlockConfig(cell=LSTMCellConfig(hidden_size=64, num_layers=1)),
                 bottleneck=16,
             )
         ],
@@ -190,7 +190,7 @@ def test_adapter_gradient_flow():
     stack.train()
 
     # Freeze wrapped block
-    for param in stack.scaffolds[0].wrapped_scaffold.parameters():
+    for param in stack.blocks[0].wrapped_block.parameters():
         param.requires_grad = False
 
     x = torch.randn(batch_size, seq_len, d_hidden, device=device, dtype=dtype)
@@ -201,11 +201,11 @@ def test_adapter_gradient_flow():
     loss.backward()
 
     # Check that adapter params have gradients
-    assert stack.scaffolds[0].gate.grad is not None, "Adapter gate should have gradients"
-    assert stack.scaffolds[0].down.weight.grad is not None, "Adapter down proj should have gradients"
+    assert stack.blocks[0].gate.grad is not None, "Adapter gate should have gradients"
+    assert stack.blocks[0].down.weight.grad is not None, "Adapter down proj should have gradients"
 
     # Check that wrapped block params do NOT have gradients
-    for name, param in stack.scaffolds[0].wrapped_scaffold.named_parameters():
+    for name, param in stack.blocks[0].wrapped_block.named_parameters():
         assert param.grad is None, f"Wrapped block param {name} should not have gradients"
 
 
@@ -219,16 +219,16 @@ def test_adapter_multiple_in_stack():
 
     config = CortexStackConfig(
         d_hidden=d_hidden,
-        scaffolds=[
-            PassThroughScaffoldConfig(core=LSTMCoreConfig(hidden_size=64, num_layers=1)),
-            AdapterScaffoldConfig(
-                base_scaffold=PassThroughScaffoldConfig(core=LSTMCoreConfig(hidden_size=64, num_layers=1)),
+        blocks=[
+            PassThroughBlockConfig(cell=LSTMCellConfig(hidden_size=64, num_layers=1)),
+            AdapterBlockConfig(
+                base_block=PassThroughBlockConfig(cell=LSTMCellConfig(hidden_size=64, num_layers=1)),
                 bottleneck=16,
             ),
-            PassThroughScaffoldConfig(core=LSTMCoreConfig(hidden_size=64, num_layers=1)),
-            AdapterScaffoldConfig(
-                base_scaffold=PreUpScaffoldConfig(
-                    core=LSTMCoreConfig(hidden_size=None, num_layers=1),
+            PassThroughBlockConfig(cell=LSTMCellConfig(hidden_size=64, num_layers=1)),
+            AdapterBlockConfig(
+                base_block=PreUpBlockConfig(
+                    cell=LSTMCellConfig(hidden_size=None, num_layers=1),
                     proj_factor=2.0,
                 ),
                 bottleneck=32,
@@ -247,4 +247,4 @@ def test_adapter_multiple_in_stack():
     y, new_state = stack(x, state)
 
     assert y.shape == x.shape
-    assert len(new_state.keys()) == 4  # 4 scaffolds
+    assert len(new_state.keys()) == 4  # 4 blocks

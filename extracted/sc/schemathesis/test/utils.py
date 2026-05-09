@@ -22,6 +22,7 @@ from schemathesis.engine.events import EngineEvent, EngineFinished, NonFatalErro
 from schemathesis.engine.recorder import Interaction
 from schemathesis.engine.run import PhaseName
 from schemathesis.schemas import BaseSchema
+from test.apps import builders
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -36,6 +37,12 @@ SIMPLE_PATH = get_schema_path("simple_swagger.yaml")
 def get_schema(schema_name: str = "simple_swagger.yaml", **kwargs: Any) -> BaseSchema:
     schema = make_schema(schema_name, **kwargs)
     return schemathesis.openapi.from_dict(schema)
+
+
+def make_openapi_schema(
+    paths: dict[str, Any] | None = None, *, version: str = "3.0.2", **kwargs: Any
+) -> dict[str, Any]:
+    return builders.build_schema(paths, version=version, **kwargs)
 
 
 def merge_recursively(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
@@ -197,11 +204,15 @@ class EventStream:
         )
         phases = phases or [PhaseName.EXAMPLES, PhaseName.FUZZING, PhaseName.STATEFUL_TESTING]
         schema.config.phases.update(phases=[phase.value.lower() for phase in phases])
+        database = schema.config.generation.database
+        if database is None and not deterministic:
+            database = "none"
         schema.config.generation.update(
             max_examples=max_examples,
             deterministic=deterministic,
             with_security_parameters=with_security_parameters,
             modes=modes,
+            database=database,
         )
         schema.config.update(headers=headers, workers=workers, request_timeout=request_timeout, tls_verify=tls_verify)
         if auth is not None:

@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+async-trait.workspace = true
 aws-smithy-types = { version = "1.4.7", features = ["byte-stream-poll-next"] }
 chrono.workspace = true
 durable.workspace = true
@@ -22,11 +23,12 @@ serde.workspace = true
 serde_json.workspace = true
 serde_path_to_error.workspace = true
 tensorzero-derive = { path = "../tensorzero-derive" }
+tensorzero-http = { path = "../tensorzero-http" }
 thiserror.workspace = true
 tracing.workspace = true
 sqlx.workspace = true
 uuid.workspace = true
-ts-rs = { workspace = true, optional = true }
+ts-rs.workspace = true
 url = { workspace = true, features = ["serde"] }
 blake3 = { workspace = true, optional = true }
 
@@ -34,7 +36,6 @@ blake3 = { workspace = true, optional = true }
 default = []
 pyo3 = ["dep:pyo3"]
 e2e_tests = ["dep:blake3"]
-ts-bindings = ["dep:ts-rs"]
 
 [dependencies.pyo3]
 workspace = true

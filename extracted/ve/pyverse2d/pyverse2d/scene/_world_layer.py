@@ -52,5 +52,5 @@ class WorldLayer(Layer):
     @profile_section("scene.world_layer.draw")
     def _draw(self, pipeline: Pipeline):
         """Affichage du layer"""
-        if self._world is not None and self._world.has_system(RenderSystem):
-            self._world.get_system(RenderSystem).draw(self._world, pipeline)
+        if self._world is not None:
+            self._world.draw(pipeline)

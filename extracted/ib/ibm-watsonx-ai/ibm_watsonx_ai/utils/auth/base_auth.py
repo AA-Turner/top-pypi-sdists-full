@@ -367,7 +367,6 @@ def get_auth_method(
 
         return TrustedProfileAuth(
             api_client,
-            token=creds.token,
             on_token_creation=on_token_creation,
             on_token_refresh=on_token_refresh,
             on_token_set=on_token_set,

@@ -41,6 +41,11 @@ class LLMClient:
         self.brain_url = brain_url.rstrip("/") if brain_url else ""
         self.brain_key = brain_key
         self.direct_mode = bool(brain_url)
+        # When True, _realign_model leaves self.model alone. Set by pw_agent
+        # when the user passes --model X — they explicitly chose a model and
+        # don't want auto-realign overriding it (e.g. with the dashboard's
+        # last_known_chat_model). Ollama auto-loads X on the next /api/chat.
+        self.model_locked = False
 
         self.session = requests.Session()
         self.session.headers["Content-Type"] = "application/json"
@@ -115,6 +120,8 @@ class LLMClient:
         doesn't hammer the brain.
         """
         if not self.direct_mode:
+            return self.model
+        if self.model_locked:
             return self.model
         now = time.time()
         if now - self._last_realign_ts < _REALIGN_TTL_SECONDS:
@@ -720,7 +727,34 @@ class LLMClient:
     def list_devices(self) -> list:
         """List online GPU devices with running LLM."""
         if self.direct_mode:
-            return [{"slot": 0, "device_id": "local", "device_name": "local", "gpu": "direct", "llm_model": self.model}]
+            # Enrich the stub with real brain /status data when reachable so
+            # /models can show GPU name + VRAM. Falls back to placeholders if
+            # the brain is offline or auth fails.
+            device_name = "local"
+            gpu_name = "direct"
+            vram_gb = 0.0
+            try:
+                ctrl_headers = {}
+                if self.token:
+                    ctrl_headers["Authorization"] = f"Bearer {self.token}"
+                    ctrl_headers["X-Controller-API-Key"] = self.token
+                sr = self.session.get(f"{self.brain_url}/status", headers=ctrl_headers, timeout=3)
+                if sr.status_code == 200:
+                    sd = sr.json()
+                    device_name = sd.get("device_name") or device_name
+                    gi = sd.get("gpu_info") or {}
+                    gpu_name = gi.get("name") or gpu_name
+                    vram_gb = round((gi.get("memory_total_mb") or 0) / 1024, 1)
+            except Exception:
+                pass
+            return [{
+                "slot": 0,
+                "device_id": "local",
+                "device_name": device_name,
+                "gpu": gpu_name,
+                "vram_gb": vram_gb,
+                "llm_model": self.model,
+            }]
 
         try:
             resp = self.session.get(f"{self.api_url}/api/user/byog/slots", timeout=15)

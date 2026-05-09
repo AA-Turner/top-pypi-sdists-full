@@ -41,31 +41,29 @@ def test_api(case):
 
 
 @pytest.mark.hypothesis_nested
-def test_cookies(fastapi_app):
-    @fastapi_app.get("/cookies")
+def test_cookies(ctx):
+    app = FastAPI()
+
+    @app.get("/cookies")
     def cookies(token: str = Cookie(None)):
         return {"token": token}
 
-    schema = schemathesis.openapi.from_dict(
+    schema = ctx.openapi.load_schema(
         {
-            "openapi": "3.0.2",
-            "info": {"title": "Test", "description": "Test", "version": "0.1.0"},
-            "paths": {
-                "/cookies": {
-                    "get": {
-                        "parameters": [
-                            {
-                                "name": "token",
-                                "in": "cookie",
-                                "required": True,
-                                "schema": {"type": "string", "enum": ["test"]},
-                            }
-                        ],
-                        "responses": {"200": {"description": "OK"}},
-                    }
+            "/cookies": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "token",
+                            "in": "cookie",
+                            "required": True,
+                            "schema": {"type": "string", "enum": ["test"]},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
                 }
-            },
-        },
+            }
+        }
     )
 
     strategy = schema["/cookies"]["GET"].as_strategy()
@@ -73,7 +71,7 @@ def test_cookies(fastapi_app):
     @given(case=strategy)
     @settings(max_examples=3, suppress_health_check=[HealthCheck.filter_too_much], deadline=None)
     def test(case):
-        response = case.call(app=fastapi_app)
+        response = case.call(app=app)
         assert response.status_code == 200
         assert response.json() == {"token": "test"}
 
@@ -81,17 +79,19 @@ def test_cookies(fastapi_app):
 
 
 @pytest.mark.hypothesis_nested
-def test_null_byte(fastapi_app):
+def test_null_byte():
+    app = FastAPI()
+
     class Payload(BaseModel):
         name: str
 
-    @fastapi_app.post("/data")
+    @app.post("/data")
     def post_create(payload: Payload):
         payload = payload.model_dump()
         assert "\x00" not in payload["name"]
         return {"success": True}
 
-    schema = schemathesis.openapi.from_asgi("/openapi.json", app=fastapi_app)
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app=app)
     schema.config.generation.update(allow_x00=False)
 
     strategy = schema["/data"]["POST"].as_strategy()
@@ -109,14 +109,16 @@ def test_null_byte(fastapi_app):
 
 
 @pytest.mark.hypothesis_nested
-def test_null_byte_in_headers(fastapi_app):
-    @fastapi_app.post("/data")
+def test_null_byte_in_headers():
+    app = FastAPI()
+
+    @app.post("/data")
     def operation(x_header: Annotated[str, Header()], x_cookie: Annotated[str, Cookie()]):
         assert "\x00" not in x_header
         assert "\x00" not in x_cookie
         return {"success": True}
 
-    schema = schemathesis.openapi.from_asgi("/openapi.json", app=fastapi_app)
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app=app)
     schema.config.generation.update(allow_x00=False)
 
     strategy = schema["/data"]["POST"].as_strategy()
@@ -133,15 +135,14 @@ def test_null_byte_in_headers(fastapi_app):
     test()
 
 
-def test_base_url():
+def test_base_url(ctx):
     # See GH-1366
     # When base URL has non-empty base path
-    raw_schema = {
-        "openapi": "3.0.3",
-        "info": {"version": "0.0.1", "title": "foo"},
-        "servers": [{"url": "https://example.org/v1"}],
-        "paths": {"/foo": {"get": {"responses": {"200": {"description": "OK"}}}}},
-    }
+    schema = ctx.openapi.load_schema(
+        {"/foo": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        version="3.0.3",
+        servers=[{"url": "https://example.org/v1"}],
+    )
 
     # And is used for an ASGI app
     app = FastAPI()
@@ -150,7 +151,6 @@ def test_base_url():
     def read_root():
         return {"Hello": "World"}
 
-    schema = schemathesis.openapi.from_dict(raw_schema)
     strategy = schema["/foo"]["GET"].as_strategy()
 
     @given(case=strategy)
