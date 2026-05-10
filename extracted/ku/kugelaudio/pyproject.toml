@@ -1,6 +1,6 @@
 [project]
 name = "kugelaudio"
-version = "1.2.0"
+version = "1.2.2"
 description = "Official Python SDK for KugelAudio TTS API"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -50,7 +50,7 @@ tools = [
 [project.urls]
 Homepage = "https://kugelaudio.com"
 Documentation = "https://docs.kugelaudio.com"
-Repository = "https://github.com/kugelaudio/kugelaudio-python"
+Repository = "https://github.com/Kugelaudio/KugelAudio"
 
 [build-system]
 requires = ["hatchling"]

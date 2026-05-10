@@ -21,7 +21,9 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(data["mode"], "oauth")
         self.assertEqual(data["client_id_secret"], "client-id")
         self.assertEqual(data["client_secret_secret"], "client-secret")
-        self.assertEqual(data["scopes"], ["https://graph.microsoft.com/Mail.Read", "offline_access"])
+        self.assertEqual(
+            data["scopes"], ["https://graph.microsoft.com/Mail.Read", "offline_access"]
+        )
 
     def test_outlook_helper_does_not_duplicate_offline_access(self):
         config = cpsl.Outlook(

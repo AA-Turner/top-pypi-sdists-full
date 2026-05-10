@@ -36,6 +36,24 @@ extra_credential_names = []
 extra_sensitive_file_keywords = []
 extra_network_timeout_calls = []
 
+[tool.skylos.architecture]
+strict = false
+# Q802/Q803 are file-level I/A/D architecture signals by default. Set this to
+# true only if those signals should block strict gates in this project.
+enforce_iad = false
+
+# [[tool.skylos.architecture.layers]]
+# name = "api"
+# patterns = ["app.api", "app.routes"]
+#
+# [[tool.skylos.architecture.layers]]
+# name = "domain"
+# patterns = ["app.domain", "app.models"]
+#
+# [[tool.skylos.architecture.rules]]
+# from = "domain"
+# deny = ["api"]
+
 [tool.skylos.whitelist]
 names = []
 

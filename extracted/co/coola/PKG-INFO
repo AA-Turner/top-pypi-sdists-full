@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coola
-Version: 1.1.4
+Version: 1.1.5
 Dynamic: Maintainer
 Dynamic: Maintainer-email
 Summary: Library to check equality between two complex/nested objects

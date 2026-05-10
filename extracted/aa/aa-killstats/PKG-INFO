@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aa-killstats
-Version: 2.0.5
+Version: 3.0.0
 Summary: Killboard Stats shows Hall of Shame/Fame, Kills, Top Kills,Loss,etc.
 Project-URL: Changelog, https://github.com/Geuthur/aa-killstats/blob/master/CHANGELOG.md
 Project-URL: Documentation, https://github.com/Geuthur/aa-killstats/blob/master/README.md
@@ -695,18 +695,15 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Requires-Python: <3.13,>=3.10
-Requires-Dist: allianceauth<=5,>=4.12
+Requires-Python: <3.14,>=3.10
+Requires-Dist: allianceauth>=5
 Requires-Dist: dacite
-Requires-Dist: django-esi<=9,>=8
+Requires-Dist: django-esi>=9
 Requires-Dist: django-eveonline-sde
-Requires-Dist: django-ninja
-Provides-Extra: tests-allianceauth-development
-Requires-Dist: allianceauth==5.0.0b2; extra == 'tests-allianceauth-development'
-Requires-Dist: coverage; extra == 'tests-allianceauth-development'
-Requires-Dist: factory-boy; extra == 'tests-allianceauth-development'
+Requires-Dist: django-ninja<2,>=1.5
 Provides-Extra: tests-allianceauth-latest
 Requires-Dist: coverage; extra == 'tests-allianceauth-latest'
 Requires-Dist: factory-boy; extra == 'tests-allianceauth-latest'
@@ -734,8 +731,8 @@ Killstats for Corporations & Alliances, Hall of Fame, Hall of Shame, etc.
     - [Step 1 - Install the Package](#step1)
     - [Step 2 - Configure Alliance Auth](#step2)
     - [Step 3 - Add the Scheduled Tasks and Settings](#step3)
-    - [Step 4 - Migration to AA](#step4)
-      - [Step 4.1 - Preload EVE SDE Data](#step41)
+    - [Step 4 - Migrate & Preload EVE SDE Data](#step4)
+      - [Step 4.1 - Migrate App and collect static](#step41)
     - [Step 5 - Setting up Permissions](#step5)
     - [Step 6 - (Optional) Setting up Compatibilies](#step6)
   - [Highlights](#highlights)
@@ -760,7 +757,7 @@ Killstats for Corporations & Alliances, Hall of Fame, Hall of Shame, etc.
 ## Installation<a name="installation"></a>
 
 > [!NOTE]
-> AA Killstats needs at least Alliance Auth v4.12.0
+> AA Killstats needs at least Alliance Auth v5
 > Please make sure to update your Alliance Auth before you install this APP
 
 ### Step 1 - Install the Package<a name="step1"></a>
@@ -819,19 +816,23 @@ LOGGING["loggers"]["extensions.killstats"] = {
 }
 ```
 
-### Step 4 - Migration to AA<a name="step4"></a>
-
-```shell
-python manage.py collectstatic
-python manage.py migrate
-```
-
-### Step 4.1 - Preload EVE SDE Data<a name="step41">
+### Step 4 - Migrate & Preload EVE SDE Data<a name="step4"></a>
 
 AA Killstats uses EVE SDE data to map IDs to names for EveTypes. You will need to preload some data from SDE once.
 
 ```shell
+python manage.py migrate eve_sde
 python manage.py esde_load_sde
+```
+
+### Step 4.1 - Migrate App and collect static<a name="step41">
+
+Migrate the app and collect static.
+
+```shell
+python manage.py migrate skillfarm
+python manage.py skillfarm_load_prices
+python manage.py collectstatic --noinput
 ```
 
 ### Step 5 - Setting up Permissions<a name="step5"></a>

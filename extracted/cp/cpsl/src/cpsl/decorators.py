@@ -1,14 +1,14 @@
 """Lifecycle and handler decorators for Capsule apps.
 
-    @cpsl.boot()       — runs once when the runtime starts
-    @cpsl.shutdown()    — runs on SIGTERM before going cold
-    @cpsl.enter()       — runs when a new session is created
-    @cpsl.exit()        — runs when a session is closed
-    @cpsl.message()     — handles every inbound message
-    @cpsl.task()        — background work unit with submit/schedule
-    @cpsl.schedule()    — periodic execution on cron
-    @cpsl.endpoint()    — simple HTTP endpoint
-    @cpsl.asgi()        — mount a full ASGI app (FastAPI etc.)
+@cpsl.boot()       — runs once when the runtime starts
+@cpsl.shutdown()    — runs on SIGTERM before going cold
+@cpsl.enter()       — runs when a new session is created
+@cpsl.exit()        — runs when a session is closed
+@cpsl.message()     — handles every inbound message
+@cpsl.task()        — background work unit with submit/schedule
+@cpsl.schedule()    — periodic execution on cron
+@cpsl.endpoint()    — simple HTTP endpoint
+@cpsl.asgi()        — mount a full ASGI app (FastAPI etc.)
 """
 
 from __future__ import annotations
@@ -38,6 +38,7 @@ def _hook(attr: str, doc: str) -> Callable[[F], F]:
     def decorator(fn: F) -> F:
         setattr(fn, attr, True)
         return fn
+
     decorator.__doc__ = doc
     return decorator
 
@@ -64,20 +65,24 @@ def message(name: str | None = None, *, label: str | None = None) -> Callable[[F
     ``@cpsl.message()`` handles the default chat. ``@cpsl.message("name")``
     handles a named chat selected by custom React pages via ``useChat("name")``.
     """
+
     def decorator(fn: F) -> F:
         setattr(fn, _MESSAGE_ATTR, True)
         setattr(fn, _MESSAGE_NAME_ATTR, name or "")
         setattr(fn, _MESSAGE_LABEL_ATTR, label or name or "")
         return fn
+
     return decorator
 
 
 def action(name: str | None = None) -> Callable[[F], F]:
     """Handle a structured UI component event."""
+
     def decorator(fn: F) -> F:
         setattr(fn, _ACTION_ATTR, True)
         setattr(fn, _ACTION_NAME_ATTR, name or fn.__name__)
         return fn
+
     return decorator
 
 
@@ -104,34 +109,45 @@ def task(
 
     def decorator(fn: Callable) -> TaskDescriptor:
         desc = _TD(
-            fn, retries=retries, timeout=timeout, lock=lock,
-            retry_for=retry_for, callback_url=callback_url,
+            fn,
+            retries=retries,
+            timeout=timeout,
+            lock=lock,
+            retry_for=retry_for,
+            callback_url=callback_url,
             process=process,
         )
         setattr(desc, _TASK_ATTR, True)
         return desc
+
     return decorator
 
 
 def schedule(cron: str) -> Callable[[F], F]:
     """Periodic execution on cron schedule."""
+
     def decorator(fn: F) -> F:
         setattr(fn, _SCHEDULE_ATTR, cron)
         return fn
+
     return decorator
 
 
 def endpoint(method: str = "GET", path: str = "/", authorized: bool = True) -> Callable[[F], F]:
     """Simple HTTP endpoint handler."""
+
     def decorator(fn: F) -> F:
         setattr(fn, _ENDPOINT_ATTR, {"method": method, "path": path, "authorized": authorized})
         return fn
+
     return decorator
 
 
 def asgi(path: str = "/app") -> Callable[[F], F]:
     """Mount a full ASGI application (FastAPI, Starlette, etc.)."""
+
     def decorator(fn: F) -> F:
         setattr(fn, _ASGI_ATTR, {"path": path})
         return fn
+
     return decorator

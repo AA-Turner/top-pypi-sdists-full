@@ -1,19 +1,25 @@
 """Tests for authentication module."""
 
 import json
+import os
 from pathlib import Path
 
+import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
 from notebooklm.auth import (
     AuthTokens,
+    convert_rookiepy_cookies_to_storage_state,
     extract_cookies_from_storage,
+    extract_cookies_with_domains,
     extract_csrf_from_html,
     extract_session_id_from_html,
     fetch_tokens,
+    fetch_tokens_with_domains,
     load_auth_from_storage,
     load_httpx_cookies,
+    save_cookies_to_storage,
 )
 
 
@@ -25,7 +31,11 @@ class TestAuthTokens:
             csrf_token="csrf123",
             session_id="sess456",
         )
-        assert tokens.cookies == {"SID": "abc", "HSID": "def"}
+        assert tokens.cookies == {
+            ("SID", ".google.com"): "abc",
+            ("HSID", ".google.com"): "def",
+        }
+        assert tokens.flat_cookies == {"SID": "abc", "HSID": "def"}
         assert tokens.csrf_token == "csrf123"
         assert tokens.session_id == "sess456"
 
@@ -78,6 +88,120 @@ class TestExtractCookies:
         assert cookies["__Secure-1PSID"] == "secure_value"
         assert cookies["OSID"] == "osid_value"
         assert "OTHER" not in cookies
+
+    def test_extracts_osid_from_notebooklm_subdomain(self):
+        """Test OSID extraction from .notebooklm.google.com (Issue #329)."""
+        storage_state = {
+            "cookies": [
+                {"name": "SID", "value": "sid_value", "domain": ".google.com"},
+                {
+                    "name": "OSID",
+                    "value": "osid_subdomain",
+                    "domain": ".notebooklm.google.com",
+                },
+                {
+                    "name": "__Secure-OSID",
+                    "value": "secure_osid_subdomain",
+                    "domain": ".notebooklm.google.com",
+                },
+            ]
+        }
+
+        cookies = extract_cookies_from_storage(storage_state)
+
+        assert cookies["SID"] == "sid_value"
+        assert cookies["OSID"] == "osid_subdomain"
+        assert cookies["__Secure-OSID"] == "secure_osid_subdomain"
+
+    def test_prefers_base_domain_cookie_over_notebooklm_subdomain(self):
+        """Test .google.com still wins duplicate names from NotebookLM subdomain."""
+        storage_state = {
+            "cookies": [
+                {
+                    "name": "OSID",
+                    "value": "osid_subdomain",
+                    "domain": ".notebooklm.google.com",
+                },
+                {"name": "SID", "value": "sid_value", "domain": ".google.com"},
+                {"name": "OSID", "value": "osid_base", "domain": ".google.com"},
+            ]
+        }
+
+        cookies = extract_cookies_from_storage(storage_state)
+
+        assert cookies["SID"] == "sid_value"
+        assert cookies["OSID"] == "osid_base"
+
+    @pytest.mark.parametrize(
+        "notebooklm_domain", [".notebooklm.google.com", "notebooklm.google.com"]
+    )
+    def test_prefers_notebooklm_subdomain_cookie_over_regional(self, notebooklm_domain):
+        """Both NotebookLM subdomain forms win duplicate names from regional domains."""
+        storage_state = {
+            "cookies": [
+                {"name": "SID", "value": "sid_value", "domain": ".google.com"},
+                {"name": "OSID", "value": "osid_regional", "domain": ".google.de"},
+                {"name": "OSID", "value": "osid_subdomain", "domain": notebooklm_domain},
+            ]
+        }
+
+        cookies = extract_cookies_from_storage(storage_state)
+
+        assert cookies["SID"] == "sid_value"
+        assert cookies["OSID"] == "osid_subdomain"
+
+    def test_prefers_dotted_notebooklm_over_no_dot_variant(self):
+        """Playwright canonical (.notebooklm.google.com) wins over the no-dot form."""
+        storage_state = {
+            "cookies": [
+                {"name": "SID", "value": "sid_value", "domain": ".google.com"},
+                {"name": "OSID", "value": "osid_no_dot", "domain": "notebooklm.google.com"},
+                {"name": "OSID", "value": "osid_dotted", "domain": ".notebooklm.google.com"},
+            ]
+        }
+
+        cookies = extract_cookies_from_storage(storage_state)
+
+        assert cookies["OSID"] == "osid_dotted"
+
+        # Reverse list order — dotted variant should still win deterministically.
+        storage_state["cookies"][1], storage_state["cookies"][2] = (
+            storage_state["cookies"][2],
+            storage_state["cookies"][1],
+        )
+        cookies = extract_cookies_from_storage(storage_state)
+        assert cookies["OSID"] == "osid_dotted"
+
+    def test_prefers_regional_over_googleusercontent(self):
+        """Regional Google cookies win over .googleusercontent.com (priority 0)."""
+        storage_state = {
+            "cookies": [
+                {"name": "SID", "value": "sid_value", "domain": ".google.com"},
+                {"name": "X", "value": "x_uc", "domain": ".googleusercontent.com"},
+                {"name": "X", "value": "x_regional", "domain": ".google.de"},
+            ]
+        }
+        cookies = extract_cookies_from_storage(storage_state)
+        assert cookies["X"] == "x_regional"
+
+        # Reverse order — regional should still win.
+        storage_state["cookies"][1], storage_state["cookies"][2] = (
+            storage_state["cookies"][2],
+            storage_state["cookies"][1],
+        )
+        cookies = extract_cookies_from_storage(storage_state)
+        assert cookies["X"] == "x_regional"
+
+    def test_first_google_com_duplicate_wins(self):
+        """Within the .google.com tier, the first occurrence wins; later duplicates are ignored."""
+        storage_state = {
+            "cookies": [
+                {"name": "SID", "value": "first", "domain": ".google.com"},
+                {"name": "SID", "value": "second", "domain": ".google.com"},
+            ]
+        }
+        cookies = extract_cookies_from_storage(storage_state)
+        assert cookies["SID"] == "first"
 
     def test_raises_if_missing_sid(self):
         storage_state = {
@@ -540,18 +664,139 @@ class TestFetchTokens:
             await fetch_tokens(cookies)
 
     @pytest.mark.asyncio
-    async def test_fetch_tokens_includes_cookie_header(self, httpx_mock: HTTPXMock):
-        """Test that fetch_tokens includes cookie header."""
+    async def test_fetch_tokens_sends_cookies_on_account_redirect(self, httpx_mock: HTTPXMock):
+        """Redirected accounts.google.com requests receive matching domain cookies."""
         html = '"SNlM0e":"csrf" "FdrFJe":"sess"'
-        httpx_mock.add_response(content=html.encode())
+        httpx_mock.add_response(
+            url="https://notebooklm.google.com/",
+            status_code=302,
+            headers={"Location": "https://accounts.google.com/start"},
+        )
+        httpx_mock.add_response(
+            url="https://accounts.google.com/start",
+            status_code=302,
+            headers={
+                "Location": "https://accounts.google.com/continue",
+                "Set-Cookie": "ACCOUNT_REFRESH=fresh; Domain=accounts.google.com; Path=/",
+            },
+        )
+        httpx_mock.add_response(
+            url="https://accounts.google.com/continue",
+            status_code=302,
+            headers={"Location": "https://notebooklm.google.com/"},
+        )
+        httpx_mock.add_response(url="https://notebooklm.google.com/", content=html.encode())
 
-        cookies = {"SID": "sid_value", "HSID": "hsid_value"}
+        cookies = {
+            ("SID", ".google.com"): "sid_value",
+            ("ACCOUNT_CHOOSER", "accounts.google.com"): "chooser_value",
+        }
         await fetch_tokens(cookies)
 
-        request = httpx_mock.get_request()
-        cookie_header = request.headers.get("cookie", "")
-        assert "SID=sid_value" in cookie_header
-        assert "HSID=hsid_value" in cookie_header
+        account_requests = [
+            request
+            for request in httpx_mock.get_requests()
+            if request.url.host == "accounts.google.com"
+        ]
+        assert len(account_requests) == 2
+
+        first_cookie_header = account_requests[0].headers.get("cookie", "")
+        assert "SID=sid_value" in first_cookie_header
+        assert "ACCOUNT_CHOOSER=chooser_value" in first_cookie_header
+
+        second_cookie_header = account_requests[1].headers.get("cookie", "")
+        assert "ACCOUNT_REFRESH=fresh" in second_cookie_header
+
+    @pytest.mark.asyncio
+    async def test_fetch_tokens_with_domains_persists_refreshed_accounts_cookie(
+        self, tmp_path, httpx_mock: HTTPXMock
+    ):
+        """Refreshed accounts.google.com cookies are written back to storage."""
+        storage_file = tmp_path / "storage_state.json"
+        storage_file.write_text(
+            json.dumps(
+                {
+                    "cookies": [
+                        {"name": "SID", "value": "sid_value", "domain": ".google.com"},
+                        {
+                            "name": "ACCOUNT_REFRESH",
+                            "value": "stale",
+                            "domain": "accounts.google.com",
+                            "path": "/",
+                            "expires": -1,
+                            "httpOnly": True,
+                            "secure": True,
+                            "sameSite": "None",
+                        },
+                    ]
+                }
+            )
+        )
+
+        html = '"SNlM0e":"csrf" "FdrFJe":"sess"'
+        httpx_mock.add_response(
+            url="https://notebooklm.google.com/",
+            status_code=302,
+            headers={"Location": "https://accounts.google.com/start"},
+        )
+        httpx_mock.add_response(
+            url="https://accounts.google.com/start",
+            status_code=302,
+            headers={
+                "Location": "https://notebooklm.google.com/",
+                "Set-Cookie": "ACCOUNT_REFRESH=fresh; Domain=accounts.google.com; Path=/",
+            },
+        )
+        httpx_mock.add_response(url="https://notebooklm.google.com/", content=html.encode())
+
+        await fetch_tokens_with_domains(storage_file)
+
+        storage_state = json.loads(storage_file.read_text())
+        account_cookie = next(
+            cookie
+            for cookie in storage_state["cookies"]
+            if cookie["name"] == "ACCOUNT_REFRESH" and cookie["domain"] == "accounts.google.com"
+        )
+        assert account_cookie["value"] == "fresh"
+
+    def test_appended_dot_accounts_cookie_round_trips(self, tmp_path):
+        """New accounts.google.com cookies keep their normalized cookiejar domain."""
+        storage_file = tmp_path / "storage_state.json"
+        storage_file.write_text(
+            json.dumps({"cookies": [{"name": "SID", "value": "sid", "domain": ".google.com"}]})
+        )
+
+        jar = httpx.Cookies()
+        jar.set("SID", "sid", domain=".google.com")
+        jar.set("ACCOUNT_REFRESH", "fresh", domain=".accounts.google.com")
+
+        save_cookies_to_storage(jar, storage_file)
+
+        storage_state = json.loads(storage_file.read_text())
+        assert (
+            "ACCOUNT_REFRESH",
+            ".accounts.google.com",
+        ) in extract_cookies_with_domains(storage_state)
+
+    def test_save_cookies_to_storage_preserves_secure_permissions(self, tmp_path):
+        """Cookie sync keeps storage_state.json at 0o600 on POSIX."""
+        if os.name == "nt":
+            pytest.skip("POSIX permission bits are not meaningful on Windows")
+
+        storage_file = tmp_path / "storage_state.json"
+        storage_file.write_text(
+            json.dumps({"cookies": [{"name": "SID", "value": "old", "domain": ".google.com"}]})
+        )
+        storage_file.chmod(0o600)
+
+        jar = httpx.Cookies()
+        jar.set("SID", "new", domain=".google.com")
+
+        save_cookies_to_storage(jar, storage_file)
+
+        assert storage_file.stat().st_mode & 0o777 == 0o600
+        storage_state = json.loads(storage_file.read_text())
+        assert storage_state["cookies"][0]["value"] == "new"
 
 
 class TestAuthTokensFromStorage:
@@ -575,7 +820,8 @@ class TestAuthTokensFromStorage:
 
         tokens = await AuthTokens.from_storage(storage_file)
 
-        assert tokens.cookies["SID"] == "sid"
+        assert tokens.cookies[("SID", ".google.com")] == "sid"
+        assert tokens.flat_cookies["SID"] == "sid"
         assert tokens.csrf_token == "csrf_token"
         assert tokens.session_id == "session_id"
 
@@ -601,6 +847,7 @@ class TestIsAllowedCookieDomain:
         assert _is_allowed_cookie_domain(".google.com") is True
         assert _is_allowed_cookie_domain("notebooklm.google.com") is True
         assert _is_allowed_cookie_domain(".googleusercontent.com") is True
+        assert _is_allowed_cookie_domain(".accounts.google.com") is True
 
     def test_accepts_valid_google_subdomains(self):
         """Test accepts legitimate Google subdomains."""
@@ -648,17 +895,23 @@ class TestIsAllowedCookieDomain:
 
 
 class TestDefaultStoragePath:
-    """Test default storage path constant."""
+    """Test default storage path constant (deprecated, now via __getattr__)."""
 
-    def test_default_storage_path_is_correct(self):
-        """Test DEFAULT_STORAGE_PATH constant is defined correctly."""
-        from notebooklm.auth import DEFAULT_STORAGE_PATH
+    def test_default_storage_path_via_package(self):
+        """Test DEFAULT_STORAGE_PATH is available via notebooklm package with deprecation warning."""
+        import warnings
 
-        assert DEFAULT_STORAGE_PATH is not None
-        assert isinstance(DEFAULT_STORAGE_PATH, Path)
-        # Note: Don't check for ".notebooklm" since NOTEBOOKLM_HOME may be set
-        # Just verify it ends with the expected filename
-        assert DEFAULT_STORAGE_PATH.name == "storage_state.json"
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            from notebooklm import DEFAULT_STORAGE_PATH
+
+            assert DEFAULT_STORAGE_PATH is not None
+            assert isinstance(DEFAULT_STORAGE_PATH, Path)
+            assert DEFAULT_STORAGE_PATH.name == "storage_state.json"
+            # Should have emitted a deprecation warning
+            deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+            assert len(deprecation_warnings) >= 1
+            assert "deprecated" in str(deprecation_warnings[0].message).lower()
 
 
 class TestMinimumRequiredCookies:
@@ -679,6 +932,7 @@ class TestAllowedCookieDomains:
         from notebooklm.auth import ALLOWED_COOKIE_DOMAINS
 
         assert ".google.com" in ALLOWED_COOKIE_DOMAINS
+        assert any(domain == ".notebooklm.google.com" for domain in ALLOWED_COOKIE_DOMAINS)
         assert "notebooklm.google.com" in ALLOWED_COOKIE_DOMAINS
 
 
@@ -729,6 +983,11 @@ class TestIsGoogleDomain:
             (".google.zz", False),  # Invalid ccTLD
             (".google.xyz", False),  # Not in whitelist
             (".google.com.fake", False),  # Not in whitelist
+            (".notebooklm.google.com", False),  # Accepted by auth allowlist, not here
+            (".mail.google.com", False),
+            (".drive.google.com", False),
+            (".evilnotebooklm.google.com", False),
+            (".notebooklm.google.com.evil", False),
             (".notgoogle.com", False),
             (".evil-google.com", False),
             ("google.com", False),  # Missing leading dot
@@ -797,19 +1056,21 @@ class TestIsGoogleDomain:
     @pytest.mark.parametrize(
         "domain",
         [
-            # Subdomains are not matched by _is_google_domain
+            # Subdomains without leading dot are still rejected
             "accounts.google.com",
             "lh3.google.com",
-            "accounts.google.de",  # Subdomain of regional
-            "lh3.google.co.uk",  # Subdomain of regional
-            ".accounts.google.de",  # With leading dot
+            # Subdomains of regional domains are still rejected (not whitelisted)
+            "accounts.google.de",
+            "lh3.google.co.uk",
+            ".accounts.google.de",  # Leading dot but regional subdomain
         ],
     )
     def test_rejects_subdomains(self, domain):
-        """Test that subdomains are rejected by _is_google_domain.
+        """Test that non-canonical subdomains are rejected by _is_google_domain.
 
-        _is_google_domain only matches domain-level cookies (with leading dot).
-        Subdomain matching is handled by _is_allowed_cookie_domain's suffix matching.
+        _is_google_domain only accepts .google.com and regional root domains
+        (.google.com.sg, etc). Auth extraction uses ALLOWED_COOKIE_DOMAINS for
+        auth-specific subdomains.
         """
         from notebooklm.auth import _is_google_domain
 
@@ -841,6 +1102,7 @@ class TestIsAllowedAuthDomain:
 
         assert _is_allowed_auth_domain(".google.com") is True
         assert _is_allowed_auth_domain("notebooklm.google.com") is True
+        assert _is_allowed_auth_domain(".notebooklm.google.com") is True  # Issue #329
         assert _is_allowed_auth_domain(".googleusercontent.com") is True
 
     def test_accepts_all_regional_patterns(self):
@@ -872,6 +1134,10 @@ class TestIsAllowedAuthDomain:
         from notebooklm.auth import _is_allowed_auth_domain
 
         assert _is_allowed_auth_domain("google.com.evil.sg") is False
+        assert _is_allowed_auth_domain(".mail.google.com") is False
+        assert _is_allowed_auth_domain(".evilnotebooklm.google.com") is False
+        assert _is_allowed_auth_domain(".google.com.evil") is False
+        assert _is_allowed_auth_domain(".evilnotebooklm.google.com.evil") is False
         assert _is_allowed_auth_domain(".not-google.com.sg") is False
         assert _is_allowed_auth_domain(".google.zz") is False  # Invalid ccTLD
 
@@ -882,6 +1148,43 @@ class TestIsAllowedAuthDomain:
         assert _is_allowed_auth_domain("google.com.sg") is False
         assert _is_allowed_auth_domain("google.co.uk") is False
         assert _is_allowed_auth_domain("google.de") is False
+
+
+class TestAuthDomainPriority:
+    """Test `_auth_domain_priority` tier mapping for duplicate-cookie resolution."""
+
+    @pytest.mark.parametrize(
+        "domain,expected",
+        [
+            (".google.com", 4),
+            (".notebooklm.google.com", 3),
+            ("notebooklm.google.com", 2),
+            (".google.de", 1),
+            (".google.com.sg", 1),
+            (".google.co.uk", 1),
+            (".googleusercontent.com", 0),
+            ("evil.com", 0),
+            ("", 0),
+        ],
+    )
+    def test_priority_tiers(self, domain, expected):
+        from notebooklm.auth import _auth_domain_priority
+
+        assert _auth_domain_priority(domain) == expected
+
+    def test_priority_strict_ordering(self):
+        """Higher tiers strictly outrank lower tiers — no ties between named tiers."""
+        from notebooklm.auth import _auth_domain_priority
+
+        priorities = [
+            _auth_domain_priority(".google.com"),
+            _auth_domain_priority(".notebooklm.google.com"),
+            _auth_domain_priority("notebooklm.google.com"),
+            _auth_domain_priority(".google.de"),
+            _auth_domain_priority(".googleusercontent.com"),
+        ]
+        assert priorities == sorted(priorities, reverse=True)
+        assert len(set(priorities)) == len(priorities)
 
 
 class TestIsAllowedCookieDomainRegional:
@@ -1116,3 +1419,149 @@ class TestLoadHttpxCookiesRegional:
 
         cookies = load_httpx_cookies(path=storage_file)
         assert cookies.get("SID", domain=".google.de") == "sid_de"
+
+
+class TestConvertRookiepyCookies:
+    """Test conversion from rookiepy cookie dicts to storage_state.json format."""
+
+    def test_converts_basic_cookie(self):
+        """Single cookie is converted to storage_state format."""
+        raw = [
+            {
+                "domain": ".google.com",
+                "name": "SID",
+                "value": "abc",
+                "path": "/",
+                "secure": True,
+                "expires": 1234567890,
+                "http_only": False,
+            }
+        ]
+        result = convert_rookiepy_cookies_to_storage_state(raw)
+        assert result["cookies"][0] == {
+            "name": "SID",
+            "value": "abc",
+            "domain": ".google.com",
+            "path": "/",
+            "expires": 1234567890,
+            "httpOnly": False,
+            "secure": True,
+            "sameSite": "None",
+        }
+        assert result["origins"] == []
+
+    def test_none_expires_becomes_minus_one(self):
+        """rookiepy uses None for session cookies; storage_state uses -1."""
+        raw = [
+            {
+                "domain": ".google.com",
+                "name": "SID",
+                "value": "x",
+                "path": "/",
+                "secure": True,
+                "expires": None,
+                "http_only": False,
+            }
+        ]
+        result = convert_rookiepy_cookies_to_storage_state(raw)
+        assert result["cookies"][0]["expires"] == -1
+
+    def test_filters_non_google_domains(self):
+        """Non-Google domains are dropped."""
+        raw = [
+            {
+                "domain": ".google.com",
+                "name": "SID",
+                "value": "x",
+                "path": "/",
+                "secure": True,
+                "expires": None,
+                "http_only": False,
+            },
+            {
+                "domain": "evil.com",
+                "name": "TRACK",
+                "value": "y",
+                "path": "/",
+                "secure": False,
+                "expires": None,
+                "http_only": False,
+            },
+        ]
+        result = convert_rookiepy_cookies_to_storage_state(raw)
+        assert len(result["cookies"]) == 1
+        assert result["cookies"][0]["name"] == "SID"
+
+    def test_snake_to_camel_case(self):
+        """http_only (rookiepy) → httpOnly (storage_state)."""
+        raw = [
+            {
+                "domain": ".google.com",
+                "name": "X",
+                "value": "y",
+                "path": "/",
+                "secure": False,
+                "expires": None,
+                "http_only": True,
+            }
+        ]
+        result = convert_rookiepy_cookies_to_storage_state(raw)
+        assert "http_only" not in result["cookies"][0]
+        assert result["cookies"][0]["httpOnly"] is True
+
+    def test_empty_list(self):
+        """Empty cookie list returns empty structure."""
+        assert convert_rookiepy_cookies_to_storage_state([]) == {
+            "cookies": [],
+            "origins": [],
+        }
+
+    def test_regional_google_domain_included(self):
+        """Regional domains like .google.co.uk are kept."""
+        raw = [
+            {
+                "domain": ".google.co.uk",
+                "name": "SID",
+                "value": "x",
+                "path": "/",
+                "secure": True,
+                "expires": None,
+                "http_only": False,
+            }
+        ]
+        result = convert_rookiepy_cookies_to_storage_state(raw)
+        assert len(result["cookies"]) == 1
+
+    def test_notebooklm_subdomain_included(self):
+        """Playwright-style NotebookLM subdomain cookies are kept."""
+        raw = [
+            {
+                "domain": ".notebooklm.google.com",
+                "name": "OSID",
+                "value": "x",
+                "path": "/",
+                "secure": True,
+                "expires": None,
+                "http_only": False,
+            }
+        ]
+        result = convert_rookiepy_cookies_to_storage_state(raw)
+        assert len(result["cookies"]) == 1
+        assert result["cookies"][0]["domain"] == ".notebooklm.google.com"
+        assert result["cookies"][0]["name"] == "OSID"
+
+    def test_other_google_subdomains_filtered(self):
+        """Auth conversion only keeps explicitly allowed Google subdomains."""
+        raw = [
+            {
+                "domain": ".mail.google.com",
+                "name": "OSID",
+                "value": "x",
+                "path": "/",
+                "secure": True,
+                "expires": None,
+                "http_only": False,
+            }
+        ]
+        result = convert_rookiepy_cookies_to_storage_state(raw)
+        assert result == {"cookies": [], "origins": []}

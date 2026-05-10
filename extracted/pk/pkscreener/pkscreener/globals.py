@@ -1567,18 +1567,19 @@ def main(userArgs=None, optionalFinalOutcome_df=None):
                     progressbar()
         OutputControls().moveCursorUpLines(1 if userPassedArgs.monitor else 2)    #sys.stdout.write(f"\x1b[1A") # Replace the download progress bar and start writing on the same line
         if not keyboardInterruptEventFired:
-            global tasks_queue, results_queue, consumers, logging_queue
-            screenResults, saveResults, backtest_df, tasks_queue, results_queue, consumers,logging_queue = PKScanRunner.runScanWithParams(userPassedArgs,keyboardInterruptEvent,screenCounter,screenResultsCounter,stockDictPrimary,stockDictSecondary,testing, backtestPeriod, menuOption,executeOption, samplingDuration, items,screenResults, saveResults, backtest_df,scanningCb=runScanners,tasks_queue=tasks_queue, results_queue=results_queue, consumers=consumers,logging_queue=logging_queue)
-            if userPassedArgs is not None and not userPassedArgs.testalloptions and (userPassedArgs.monitor is None and "|" not in userPassedArgs.options and not str(userPassedArgs.options).upper().startswith("C")):
-                tasks_queue = None
-                results_queue = None
-                consumers = None
-            if menuOption in ["C"]:
-                runOptionName = PKScanRunner.getFormattedChoices(userPassedArgs,selectedChoice)
-                if ((":0:" in runOptionName or "_0_" in runOptionName) and userPassedArgs.progressstatus is not None) or userPassedArgs.progressstatus is not None:
-                    runOptionName = userPassedArgs.progressstatus.split("=>")[0].split("  [+] ")[1].strip()
-                if saveResults is not None and not saveResults.empty:
-                    saveResults, screenResults = PKMarketOpenCloseAnalyser.runOpenCloseAnalysis(stockDictPrimary,endOfdayCandles,screenResults, saveResults,runOptionName=runOptionName,filteredListOfStocks=listStockCodes)
+            if not downloadOnly:
+                global tasks_queue, results_queue, consumers, logging_queue
+                screenResults, saveResults, backtest_df, tasks_queue, results_queue, consumers,logging_queue = PKScanRunner.runScanWithParams(userPassedArgs,keyboardInterruptEvent,screenCounter,screenResultsCounter,stockDictPrimary,stockDictSecondary,testing, backtestPeriod, menuOption,executeOption, samplingDuration, items,screenResults, saveResults, backtest_df,scanningCb=runScanners,tasks_queue=tasks_queue, results_queue=results_queue, consumers=consumers,logging_queue=logging_queue)
+                if userPassedArgs is not None and not userPassedArgs.testalloptions and (userPassedArgs.monitor is None and "|" not in userPassedArgs.options and not str(userPassedArgs.options).upper().startswith("C")):
+                    tasks_queue = None
+                    results_queue = None
+                    consumers = None
+                if menuOption in ["C"]:
+                    runOptionName = PKScanRunner.getFormattedChoices(userPassedArgs,selectedChoice)
+                    if ((":0:" in runOptionName or "_0_" in runOptionName) and userPassedArgs.progressstatus is not None) or userPassedArgs.progressstatus is not None:
+                        runOptionName = userPassedArgs.progressstatus.split("=>")[0].split("  [+] ")[1].strip()
+                    if saveResults is not None and not saveResults.empty:
+                        saveResults, screenResults = PKMarketOpenCloseAnalyser.runOpenCloseAnalysis(stockDictPrimary,endOfdayCandles,screenResults, saveResults,runOptionName=runOptionName,filteredListOfStocks=listStockCodes)
             if downloadOnly and menuOption in ["X"]:
                 screener.getFreshMFIStatus(stock="LatestCheckedOnDate")
                 screener.getFairValue(stock="LatestCheckedOnDate", force=True)
@@ -2307,6 +2308,10 @@ def prepareStocksForScreening(testing, downloadOnly, listStockCodes, indexOption
     """
     if not downloadOnly:
         updateMenuChoiceHierarchy()
+        ConsoleUtility.PKConsoleTools.clearScreen(forceTop=True)
+        OutputControls().printOutput(colorText.FAIL
+                + "  [+] You chose: " + colorText.END + colorText.GREEN + f"{menuChoiceHierarchy}" + colorText.END
+            )
     indexOption = int(indexOption)
     if listStockCodes is None or len(listStockCodes) == 0:
         if indexOption >= 0 and indexOption <= 14:
@@ -2652,6 +2657,12 @@ def updateMenuChoiceHierarchy():
                     from pkscreener.classes.MenuOptions import level4_X_ChartPattern_MASignalMenuDict
                     if level4_key in level4_X_ChartPattern_MASignalMenuDict:
                         level4_text = level4_X_ChartPattern_MASignalMenuDict[level4_key]
+            elif level2_key == "7" and level3_key == "7":  # Chart Patterns
+                if hasattr(sys.modules[__name__], 'CANDLESTICK_DICT'):
+                    from pkscreener.classes.MenuOptions import CANDLESTICK_DICT
+                    if level4_key in CANDLESTICK_DICT:
+                        level4_text = CANDLESTICK_DICT[level4_key]
+                        selectedChoice["4"] = level4_key  # Update the selected choice to the actual pattern name for consistency in hierarchy
             elif level2_key == "6" and level3_key in ["7", "10"]:  # Lorenzian under Reversal
                 if hasattr(sys.modules[__name__], 'level4_X_Lorenzian_MenuDict'):
                     from pkscreener.classes.MenuOptions import level4_X_Lorenzian_MenuDict
@@ -2661,7 +2672,8 @@ def updateMenuChoiceHierarchy():
             if level4_text:
                 level4_text = level4_text.strip() #.split('(')[0].strip()
                 hierarchy_parts.append(level4_text)
-        
+            
+            level5_text = None
         # Join with " > " separator
         menuChoiceHierarchy = " > ".join(hierarchy_parts)
         
@@ -2966,6 +2978,7 @@ def printNotifySaveScreenedResults(screenResults, saveResults, selectedChoice, m
     result_count = len(screenResults) if screenResults is not None else 0
     final_count = result_count
     # BUILD THE REPORT TITLE WITH COUNTS
+    updateMenuChoiceHierarchy()
     if userPassedArgs and userPassedArgs.options and "|" in userPassedArgs.options:
         # For piped scans, use the menuChoiceHierarchy which already has counts
         reportTitle = menuChoiceHierarchy.strip()
@@ -2980,7 +2993,7 @@ def printNotifySaveScreenedResults(screenResults, saveResults, selectedChoice, m
             else:
                 userPassedArgs.piped_results_counts.append(final_count)
             # Update the hierarchy to show the final count
-            updateMenuChoiceHierarchy()
+            # updateMenuChoiceHierarchy()
             reportTitle = menuChoiceHierarchy.strip()
     else:
         # For single scans, add count to the title

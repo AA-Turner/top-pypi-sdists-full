@@ -22,6 +22,7 @@ from skylos.constants import AUTO_CALLED, MARKREFS_TICK_DEFAULT
 from skylos.visitors.framework_aware import FrameworkAwareVisitor
 from skylos.visitors.test_aware import TestAwareVisitor
 from skylos.visitors.languages.php import scan_php_file
+from skylos.visitors.languages.dart import scan_dart_file
 from skylos.visitors.languages.typescript import scan_typescript_file
 from skylos.visitors.languages.typescript.analysis import (
     build_ts_import_graph,
@@ -66,6 +67,7 @@ from skylos.rules.quality.logic import (
     PhantomCallRule,
     InsecureRandomRule,
     HardcodedCredentialRule,
+    MockPlaceholderDataRule,
     ErrorDisclosureRule,
     BroadFilePermissionsRule,
     PhantomDecoratorRule,
@@ -132,6 +134,7 @@ _TS_JS_SOURCE_EXTS = (
 )
 _PHP_SOURCE_EXTS = (".php",)
 _RUST_SOURCE_EXTS = (".rs",)
+_DART_SOURCE_EXTS = (".dart",)
 
 _TRY_NODE_TYPES = (ast.Try, getattr(ast, "TryStar", ast.Try))
 
@@ -141,6 +144,15 @@ def _entrypoint_module_name(qname: str) -> str | None:
         return None
     module_name, _symbol = qname.rsplit(".", 1)
     return module_name or None
+
+
+def _architecture_iad_strict(architecture_cfg) -> bool:
+    if not isinstance(architecture_cfg, dict):
+        return False
+    for key in ("enforce_iad", "strict_iad"):
+        if key in architecture_cfg:
+            return bool(architecture_cfg.get(key))
+    return False
 
 
 def _expand_reexported_entrypoint_modules(
@@ -402,6 +414,7 @@ class Skylos:
         ".java": "Java",
         ".php": "PHP",
         ".rs": "Rust",
+        ".dart": "Dart",
     }
 
     def _count_languages(self, files) -> dict[str, int]:
@@ -429,6 +442,7 @@ class Skylos:
             ".java",
             *(_PHP_SOURCE_EXTS),
             *(_RUST_SOURCE_EXTS),
+            *(_DART_SOURCE_EXTS),
         }
         ext_list = [
             "py",
@@ -444,6 +458,7 @@ class Skylos:
             "java",
             "php",
             "rs",
+            "dart",
         ]
 
         # use rust file discovery when avail
@@ -1681,6 +1696,10 @@ class Skylos:
                             module_loc=architecture_loc,
                             entrypoint_modules=entrypoint_modules,
                             package_boundary_modules=package_boundary_modules,
+                            layer_policy=project_cfg.get("architecture"),
+                            iad_findings_advisory=not _architecture_iad_strict(
+                                project_cfg.get("architecture")
+                            ),
                         )
                         ignored_rules = set(project_cfg.get("ignore", []))
                         if arch_findings:
@@ -2247,10 +2266,6 @@ class Skylos:
 
         self.pattern_trackers = pattern_trackers
 
-        for tracker in pattern_trackers.values():
-            if hasattr(tracker, "known_qualified_refs"):
-                tracker.known_qualified_refs.clear()
-
         self._global_abc_classes = set()
         self._global_protocol_classes = set()
         self._global_abstract_methods = {}
@@ -2348,13 +2363,8 @@ class Skylos:
                     f for f in files if str(f).endswith((".py", ".pyi", ".pyw"))
                 ]
                 if py_files:
-                    dep_root = Path(
-                        os.path.commonpath([str(p.resolve()) for p in py_files])
-                    )
-                    if dep_root.is_file():
-                        dep_root = dep_root.parent
                     dep_findings = scan_python_dependency_hallucinations(
-                        dep_root, py_files
+                        project_root, py_files
                     )
                     if dep_findings:
                         dep_findings = [
@@ -2511,13 +2521,7 @@ class Skylos:
             try:
                 from skylos.rules.sca.vulnerability_scanner import scan_dependencies
 
-                scan_root = (
-                    Path(os.path.commonpath([str(p.resolve()) for p in files]))
-                    if files
-                    else Path(path[0] if isinstance(path, (list, tuple)) else path)
-                )
-                if scan_root.is_file():
-                    scan_root = scan_root.parent
+                scan_root = project_root
                 sca_findings = scan_dependencies(scan_root)
                 if sca_findings:
                     all_sca.extend(sca_findings)
@@ -2708,6 +2712,16 @@ def proc_file(
             return (*out, *([None] * (13 - len(out))))
         return out[:13]
 
+    if str(file).endswith(".dart"):
+        out = scan_dart_file(
+            file,
+            cfg,
+            enable_danger_rules=enable_danger_rules,
+        )
+        if isinstance(out, tuple) and len(out) < 13:
+            return (*out, *([None] * (13 - len(out))))
+        return out[:13]
+
     try:
         source = Path(file).read_text(encoding="utf-8")
         ignore_lines = get_all_ignore_lines(source)
@@ -2836,6 +2850,10 @@ def proc_file(
                 q_rules.append(InsecureRandomRule(vibe_dictionary=vibe_dictionary))
             if "SKY-L014" not in cfg["ignore"]:
                 q_rules.append(HardcodedCredentialRule(vibe_dictionary=vibe_dictionary))
+            if "SKY-L032" not in cfg["ignore"]:
+                q_rules.append(
+                    MockPlaceholderDataRule(vibe_dictionary=vibe_dictionary)
+                )
             if "SKY-L017" not in cfg["ignore"]:
                 q_rules.append(ErrorDisclosureRule())
             if "SKY-L020" not in cfg["ignore"]:

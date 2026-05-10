@@ -75,7 +75,7 @@ class _DeprecatedChannel:
     def to_dict(self) -> dict:
         warnings.warn(
             f"Inline {self.__class__.__name__}(...) is deprecated. "
-            f"Use cpsl.Channel(\"<name>\") with a channel resource created via "
+            f'Use cpsl.Channel("<name>") with a channel resource created via '
             f"'capsule channel create'. See docs for migration.",
             DeprecationWarning,
             stacklevel=3,

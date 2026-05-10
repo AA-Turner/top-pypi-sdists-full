@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastprogress
-Version: 1.1.5
+Version: 1.1.6
 Summary: A nested progress with plotting options for fastai
 Author-email: Sylvain Gugger and Jeremy Howard <info@fast.ai>
 License: Apache-2.0

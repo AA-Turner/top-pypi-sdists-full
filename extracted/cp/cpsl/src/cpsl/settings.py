@@ -35,9 +35,7 @@ class SettingsAccessor:
 
     def _require_collection(self) -> Collection:
         if self._collection is None:
-            raise RuntimeError(
-                "Settings are not available yet — the app has not booted."
-            )
+            raise RuntimeError("Settings are not available yet — the app has not booted.")
         return self._collection
 
     def _scope_filter(self, key: str) -> dict[str, str]:

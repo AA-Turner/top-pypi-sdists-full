@@ -1,12 +1,11 @@
 """Build a project with cmeel in a container."""
 
+import argparse
 import logging
 import os
 import pathlib
 from subprocess import check_call
 from typing import Optional
-
-from .backports import BooleanOptionalAction
 
 LOG = logging.getLogger("cmeel.docker")
 
@@ -58,14 +57,14 @@ def add_docker_arguments(subparsers):
     )
     sub.add_argument(
         "--cmeel-env",
-        action=BooleanOptionalAction,
+        action=argparse.BooleanOptionalAction,
         default=True,
         help="forward 'CMEEL_*' environment variables to docker run",
     )
     sub.set_defaults(cmd="docker")
 
 
-def docker_build(
+def docker_cmd(
     image: str,
     python: str,
     update: bool,

@@ -172,6 +172,26 @@
         <source>Click opposite corner to segment object</source>
         <translation>روی گوشه مقابل برای قطعه‌بندی شیء کلیک کنید</translation>
     </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click first corner for oriented rectangle</source>
+        <translation>کلیک روی گوشه اول مستطیل جهت‌دار</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click second corner to set orientation</source>
+        <translation>کلیک روی گوشه دوم برای تنظیم جهت</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click third corner to close oriented rectangle</source>
+        <translation>کلیک روی گوشه سوم برای بستن مستطیل جهت‌دار</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click &amp; drag to rotate the shape</source>
+        <translation>کلیک و کشیدن برای چرخاندن شکل</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -488,11 +508,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Zoom in or out of the image. Also accessible with {} and {} from the canvas.</source>
-        <translation>زوم کردن تصویر. همچنین از طریق {} و {} در بوم قابل دسترسی است.</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Ctrl+Wheel</source>
         <translation>Ctrl+چرخ</translation>
     </message>
@@ -525,16 +540,6 @@ Shapes</source>
         <location filename="../app.py" line="0"/>
         <source>Zoom to original size</source>
         <translation>زوم به اندازه اصلی</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&amp;Keep Previous Scale</source>
-        <translation>نگه داشتن مقیاس قبلی(&amp;K)</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Keep previous zoom scale</source>
-        <translation>نگه داشتن مقیاس زوم قبلی</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -648,16 +653,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Error reading %s</source>
-        <translation>خطا در خواندن %s</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;Make sure &lt;i&gt;{0}&lt;/i&gt; is a valid image file.&lt;br/&gt;Supported image formats: {1}&lt;/p&gt;</source>
-        <translation>&lt;p&gt;مطمئن شوید &lt;i&gt;{0}&lt;/i&gt; یک فایل تصویر معتبر است.&lt;br/&gt;فرمت‌های تصویر پشتیبانی شده: {1}&lt;/p&gt;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Loaded %s</source>
         <translation>بارگذاری شد %s</translation>
     </message>
@@ -698,11 +693,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>You are about to permanently delete this label file, proceed anyway?</source>
-        <translation>شما در حال حذف دائمی این فایل برچسب هستید، ادامه دهید؟</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Attention</source>
         <translation>توجه</translation>
     </message>
@@ -715,11 +705,6 @@ Shapes</source>
         <location filename="../app.py" line="0"/>
         <source>Save annotations?</source>
         <translation>ذخیره حاشیه‌نویسی‌ها؟</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>You are about to permanently delete {} shapes, proceed anyway?</source>
-        <translation>شما در حال حذف دائمی {} شکل هستید، ادامه دهید؟</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -771,16 +756,6 @@ To use the preferences editor, start Labelme with a config file:
         <location filename="../app.py" line="0"/>
         <source>Errors were found while loading the configuration. Please review the errors below and reload your configuration or ignore the erroneous lines.</source>
         <translation>هنگام بارگیری پیکربندی خطاهایی یافت شد. لطفاً خطاهای زیر را بررسی کنید و پیکربندی خود را مجدداً بارگیری کنید یا خطوط نادرست را نادیده بگیرید.</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid label file.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;مطمئن شوید &lt;i&gt;%s&lt;/i&gt; یک فایل برچسب معتبر است.&lt;/p&gt;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid image file.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;مطمئن شوید &lt;i&gt;%s&lt;/i&gt; یک فایل تصویر معتبر است.&lt;/p&gt;</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -853,6 +828,66 @@ Please select a different model or use AI-Box mode.</source>
         <location filename="../app.py" line="0"/>
         <source>File list is disabled when a label file is opened</source>
         <translation>فهرست فایل‌ها هنگام باز بودن یک فایل برچسب غیرفعال است</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Add Point to Edge</source>
+        <translation>افزودن نقطه به لبه</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Insert a new point at the hovered polygon edge</source>
+        <translation>درج یک نقطه جدید در لبه پلیگانی که اشاره‌گر روی آن است</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>&amp;Keep Previous Zoom</source>
+        <translation>نگه داشتن بزرگ‌نمایی قبلی(&amp;K)</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Permanently delete this label file? This action cannot be undone.</source>
+        <translation>حذف دائمی این فایل برچسب؟ این عمل قابل بازگشت نیست.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Permanently delete {} shapes? This action cannot be undone.</source>
+        <translation>حذف دائمی {} شکل؟ این عمل قابل بازگشت نیست.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Zoom the image in or out. The shortcuts {} and {} also work on the canvas.</source>
+        <translation>بزرگ‌نمایی یا کوچک‌نمایی تصویر. میانبرهای {} و {} نیز روی بوم کار می‌کنند.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Allowed formats: {formats}</source>
+        <translation>قالب‌های مجاز: {formats}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>The selected label file could not be opened: {path}</source>
+        <translation>پرونده برچسب انتخاب‌شده باز نشد: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>The selected image file could not be opened: {path}</source>
+        <translation>پرونده تصویر انتخاب‌شده باز نشد: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Failed to load: {path}</source>
+        <translation>بارگذاری ناموفق بود: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Oriented Rectangle</source>
+        <translation>مستطیل جهت‌دار</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Start drawing oriented rectangles</source>
+        <translation>شروع رسم مستطیل جهت‌دار</translation>
     </message>
 </context>
 </TS>

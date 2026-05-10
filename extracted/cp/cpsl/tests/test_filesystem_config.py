@@ -48,11 +48,14 @@ class FileSystemConfigTests(unittest.TestCase):
     def test_file_helper_returns_json_safe_reference(self):
         ref = cpsl.file("/reports/q1.pdf", label="PDF Report")
 
-        self.assertEqual(ref, {
-            "_type": "file",
-            "path": "/reports/q1.pdf",
-            "label": "PDF Report",
-        })
+        self.assertEqual(
+            ref,
+            {
+                "_type": "file",
+                "path": "/reports/q1.pdf",
+                "label": "PDF Report",
+            },
+        )
         self.assertEqual(json.loads(json.dumps(ref))["path"], "/reports/q1.pdf")
 
     def test_filesystem_link_uses_bound_mount_path(self):
@@ -80,14 +83,16 @@ class FileSystemConfigTests(unittest.TestCase):
             cwd = os.getcwd()
             try:
                 os.chdir(tmp)
-                generate_type_stubs([{"type": "react", "packages": []}])
+                generate_type_stubs([{"type": "react", "packages": []}], ["lucide-react"])
                 dts = Path(".capsule/types/capsule-page.d.ts").read_text()
+                packages = Path(".capsule/types/packages.d.ts").read_text()
             finally:
                 os.chdir(cwd)
 
         self.assertIn("export function fileUrl(path: string): string;", dts)
         self.assertIn("export function useFileUrl(path: string): string;", dts)
         self.assertIn("export const FileLink: FC<FileLinkProps>;", dts)
+        self.assertIn('declare module "lucide-react";', packages)
 
 
 if __name__ == "__main__":

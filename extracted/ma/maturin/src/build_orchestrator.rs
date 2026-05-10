@@ -3,6 +3,7 @@ use crate::binding_generator::{
     BinBindingGenerator, BindingGenerator, CffiBindingGenerator, Pyo3BindingGenerator,
     UniFfiBindingGenerator, generate_binding,
 };
+use crate::build_context::finalize_staged_artifacts;
 use crate::compile::warn_missing_py_init;
 use crate::module_writer::{ModuleWriter, WheelWriter, add_data, write_pth};
 use crate::pgo::{PgoContext, PgoPhase};
@@ -403,7 +404,12 @@ impl<'a> BuildOrchestrator<'a> {
             .python
             .interpreter
             .iter()
-            .filter(|interp| !interp.has_stable_api())
+            .filter(|interp| {
+                !interp.has_stable_api()
+                    || min_version.is_some_and(|(major, minor)| {
+                        (interp.major as u8, interp.minor as u8) < (major, minor)
+                    })
+            })
             .collect();
 
         if stable_abi_interps.is_empty() && version_specific_abi_interps.is_empty() {
@@ -468,7 +474,7 @@ impl<'a> BuildOrchestrator<'a> {
     fn write_wheel<'b, F>(
         &'b self,
         tag: &str,
-        audited: &[AuditedArtifact],
+        audited: &mut [AuditedArtifact],
         make_generator: F,
         sbom_data: &Option<SbomData>,
         out_dirs: &HashMap<String, PathBuf>,
@@ -489,7 +495,8 @@ impl<'a> BuildOrchestrator<'a> {
             file_options,
         )?;
         let mut writer = VirtualWriter::new(writer, self.excludes(Format::Wheel)?);
-        self.context.add_external_libs(&mut writer, audited)?;
+        self.context
+            .add_external_libs(&mut writer, audited, false)?;
 
         let temp_dir = writer.temp_dir()?;
         let mut generator = make_generator(temp_dir)?;
@@ -521,6 +528,7 @@ impl<'a> BuildOrchestrator<'a> {
             &self.context.project.project_layout.project_root,
             &tags,
         )?;
+        finalize_staged_artifacts(audited);
         Ok(wheel_path)
     }
 
@@ -552,14 +560,14 @@ impl<'a> BuildOrchestrator<'a> {
         let abi_tag = stable_abi_kind.wheel_tag();
         let tag = format!("cp{major}{min_minor}-{abi_tag}-{platform}");
 
-        let audited = [AuditedArtifact {
+        let mut audited = [AuditedArtifact {
             artifact,
             external_libs: audit_result.external_libs,
             arch_requirements: audit_result.arch_requirements,
         }];
         let wheel_path = self.write_wheel(
             &tag,
-            &audited,
+            &mut audited,
             |temp_dir| {
                 Ok(Box::new(
                     Pyo3BindingGenerator::new(Some(stable_abi_kind), python_interpreter, temp_dir)
@@ -585,7 +593,7 @@ impl<'a> BuildOrchestrator<'a> {
     fn write_pyo3_wheel(
         &self,
         python_interpreter: &PythonInterpreter,
-        audited: &[AuditedArtifact],
+        audited: &mut [AuditedArtifact],
         platform_tags: &[PlatformTag],
         sbom_data: &Option<SbomData>,
         out_dirs: &HashMap<String, PathBuf>,
@@ -623,14 +631,14 @@ impl<'a> BuildOrchestrator<'a> {
             Some(python_interpreter),
         )?;
         let platform_tags = self.resolve_platform_tags(&audit_result.policy);
-        let audited = [AuditedArtifact {
+        let mut audited = [AuditedArtifact {
             artifact,
             external_libs: audit_result.external_libs,
             arch_requirements: audit_result.arch_requirements,
         }];
         let wheel_path = self.write_pyo3_wheel(
             python_interpreter,
-            &audited,
+            &mut audited,
             &platform_tags,
             sbom_data,
             &out_dirs,
@@ -709,12 +717,13 @@ impl<'a> BuildOrchestrator<'a> {
                 .auditwheel(&artifact, &self.context.python.platform_tag, None)?;
         let platform_tags = self.resolve_platform_tags(&audit_result.policy);
         let tag = self.get_universal_tag(&platform_tags)?;
-        let audited = [AuditedArtifact {
+        let mut audited = [AuditedArtifact {
             artifact,
             external_libs: audit_result.external_libs,
             arch_requirements: audit_result.arch_requirements,
         }];
-        let wheel_path = self.write_wheel(&tag, &audited, make_generator, sbom_data, &out_dirs)?;
+        let wheel_path =
+            self.write_wheel(&tag, &mut audited, make_generator, sbom_data, &out_dirs)?;
         Ok((wheel_path, out_dirs))
     }
 
@@ -768,7 +777,7 @@ impl<'a> BuildOrchestrator<'a> {
     fn write_bin_wheel(
         &self,
         python_interpreter: Option<&PythonInterpreter>,
-        audited: &[AuditedArtifact],
+        audited: &mut [AuditedArtifact],
         platform_tags: &[PlatformTag],
         sbom_data: &Option<SbomData>,
         out_dirs: &HashMap<String, PathBuf>,
@@ -806,9 +815,18 @@ impl<'a> BuildOrchestrator<'a> {
         let writer = WheelWriter::new(&tag, &self.context.artifact.out, &metadata24, file_options)?;
         let mut writer = VirtualWriter::new(writer, self.excludes(Format::Wheel)?);
 
-        self.context.add_external_libs(&mut writer, audited)?;
+        // If any artifact has external shared library dependencies, use the
+        // shim approach: move the real binary to {dist}.scripts/ in platlib
+        // (where it has a predictable relative path to the bundled libs
+        // directory) and place a Python shim in .data/scripts/ that execs
+        // the real binary.
+        // WASI targets use their own launcher mechanism and cannot be shimmed.
+        let use_shim = !self.context.project.target.is_wasi()
+            && audited.iter().any(|a| !a.external_libs.is_empty());
+        self.context
+            .add_external_libs(&mut writer, audited, use_shim)?;
 
-        let mut generator = BinBindingGenerator::new(&mut metadata24);
+        let mut generator = BinBindingGenerator::new(&mut metadata24, use_shim);
         generate_binding(&mut writer, &mut generator, self.context, audited, out_dirs)
             .context("Failed to add the files to the wheel")?;
 
@@ -831,6 +849,7 @@ impl<'a> BuildOrchestrator<'a> {
             &self.context.project.project_layout.project_root,
             &tags,
         )?;
+        finalize_staged_artifacts(audited);
         Ok(wheel_path)
     }
 
@@ -877,7 +896,7 @@ impl<'a> BuildOrchestrator<'a> {
 
         let wheel_path = self.write_bin_wheel(
             python_interpreter,
-            &audited_artifacts,
+            &mut audited_artifacts,
             &platform_tags,
             sbom_data,
             &result.out_dirs,

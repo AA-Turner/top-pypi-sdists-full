@@ -5972,10 +5972,6 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
-    ANTHROPIC_INFERENCE_ACCESS = "ANTHROPIC_INFERENCE_ACCESS"
-    '''
-    :stability: experimental
-    '''
     ANTHROPIC_LIMITED_ACCESS = "ANTHROPIC_LIMITED_ACCESS"
     '''
     :stability: experimental
@@ -6037,6 +6033,14 @@ class AWSManagedPolicies(enum.Enum):
     :stability: experimental
     '''
     AWSMARKETPLACE_DISCOVERY_FULL_ACCESS = "AWSMARKETPLACE_DISCOVERY_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    CLOUD_WATCH_API_KEY_ACCESS = "CLOUD_WATCH_API_KEY_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSAPP_CONFIG_SERVICE_ROLE_POLICY = "AWSAPP_CONFIG_SERVICE_ROLE_POLICY"
     '''
     :stability: experimental
     '''

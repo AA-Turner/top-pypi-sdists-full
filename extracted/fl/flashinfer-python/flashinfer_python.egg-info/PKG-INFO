@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flashinfer-python
-Version: 0.6.10.post1
+Version: 0.6.11
 Summary: FlashInfer: Kernel Library for LLM Serving
 Author: FlashInfer team
 License-Expression: Apache-2.0
@@ -15,7 +15,7 @@ Requires-Dist: einops
 Requires-Dist: ninja
 Requires-Dist: numpy
 Requires-Dist: nvidia-cudnn-frontend>=1.13.0
-Requires-Dist: nvidia-cutlass-dsl>=4.4.2
+Requires-Dist: nvidia-cutlass-dsl>=4.5.0
 Requires-Dist: nvidia-ml-py
 Requires-Dist: packaging>=24.2
 Requires-Dist: requests
@@ -23,9 +23,9 @@ Requires-Dist: tabulate
 Requires-Dist: torch
 Requires-Dist: tqdm
 Provides-Extra: cu12
-Requires-Dist: nvidia-cutlass-dsl>=4.4.2; extra == "cu12"
+Requires-Dist: nvidia-cutlass-dsl>=4.5.0; extra == "cu12"
 Provides-Extra: cu13
-Requires-Dist: nvidia-cutlass-dsl[cu13]>=4.4.2; extra == "cu13"
+Requires-Dist: nvidia-cutlass-dsl[cu13]>=4.5.0; extra == "cu13"
 Dynamic: license-file
 
 <p align="center">

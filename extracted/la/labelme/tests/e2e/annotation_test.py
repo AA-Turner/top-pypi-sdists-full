@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from typing import Literal
 
 import osam.types._blob
 import pytest
@@ -10,6 +8,8 @@ from PyQt5.QtCore import QPoint
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QTimer
 from pytestqt.qtbot import QtBot
+
+from labelme._automation._types import AiOutputFormat
 
 from ..conftest import assert_labelfile_sanity
 from ..conftest import close_or_pause
@@ -48,6 +48,15 @@ _AI_MODEL = "efficientsam:10m"
             2,
             None,
             id="rectangle",
+        ),
+        pytest.param(
+            "oriented_rectangle",
+            [(0.25, 0.5), (0.5, 0.5)],
+            (0.5, 0.75),
+            Qt.NoModifier,
+            4,
+            None,
+            id="oriented_rectangle",
         ),
         pytest.param(
             "circle",
@@ -96,6 +105,33 @@ _AI_MODEL = "efficientsam:10m"
             id="ai_points-mask",
         ),
         pytest.param(
+            "ai_points_to_shape",
+            [],
+            (0.5, 0.5),
+            Qt.ControlModifier,
+            2,
+            "rectangle",
+            id="ai_points-rectangle",
+        ),
+        pytest.param(
+            "ai_points_to_shape",
+            [],
+            (0.5, 0.5),
+            Qt.ControlModifier,
+            2,
+            "circle",
+            id="ai_points-circle",
+        ),
+        pytest.param(
+            "ai_points_to_shape",
+            [],
+            (0.5, 0.5),
+            Qt.ControlModifier,
+            4,
+            "oriented_rectangle",
+            id="ai_points-oriented_rectangle",
+        ),
+        pytest.param(
             "ai_box_to_shape",
             [(0.3, 0.3)],
             (0.7, 0.7),
@@ -113,6 +149,33 @@ _AI_MODEL = "efficientsam:10m"
             "mask",
             id="ai_box-mask",
         ),
+        pytest.param(
+            "ai_box_to_shape",
+            [(0.3, 0.3)],
+            (0.7, 0.7),
+            Qt.NoModifier,
+            2,
+            "rectangle",
+            id="ai_box-rectangle",
+        ),
+        pytest.param(
+            "ai_box_to_shape",
+            [(0.3, 0.3)],
+            (0.7, 0.7),
+            Qt.NoModifier,
+            2,
+            "circle",
+            id="ai_box-circle",
+        ),
+        pytest.param(
+            "ai_box_to_shape",
+            [(0.3, 0.3)],
+            (0.7, 0.7),
+            Qt.NoModifier,
+            4,
+            "oriented_rectangle",
+            id="ai_box-oriented_rectangle",
+        ),
     ],
 )
 def test_annotate_shape_types(
@@ -126,7 +189,7 @@ def test_annotate_shape_types(
     finalize_click: tuple[float, float],
     finalize_modifier: Qt.KeyboardModifier,
     expected_num_points: int | None,
-    ai_output_format: Literal["polygon", "mask"] | None,
+    ai_output_format: AiOutputFormat | None,
 ) -> None:
     expected_shape_type = ai_output_format if ai_output_format else create_mode
 
@@ -154,7 +217,7 @@ def test_annotate_shape_types(
             int(canvas_size.height() * xy[1]),
         )
 
-    win._switch_canvas_mode(edit=False, createMode=create_mode)
+    win._switch_canvas_mode(edit=False, create_mode=create_mode)
     qtbot.wait(50)
 
     def click(
@@ -215,7 +278,7 @@ def test_ai_model_download(
     canvas.set_ai_model_name(_AI_MODEL)
     canvas.set_ai_output_format("polygon")
 
-    win._switch_canvas_mode(edit=False, createMode="ai_box_to_shape")
+    win._switch_canvas_mode(edit=False, create_mode="ai_box_to_shape")
     qtbot.wait(50)
 
     # Redirect osam blob storage to a temp directory so it thinks the model is not
@@ -226,8 +289,8 @@ def test_ai_model_download(
     def patched_path(self: osam.types._blob.Blob) -> str:
         if self.attachments:
             safe_hash = self.hash.replace("sha256:", "sha256-")
-            return os.path.join(blob_base, safe_hash, self.filename)
-        return os.path.join(blob_base, self.hash)
+            return str(Path(blob_base) / safe_hash / self.filename)
+        return str(Path(blob_base) / self.hash)
 
     monkeypatch.setattr(osam.types._blob.Blob, "path", property(patched_path))
 

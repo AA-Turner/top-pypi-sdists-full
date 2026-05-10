@@ -284,6 +284,18 @@ fn emit_emscripten_setup(y: &mut Yaml) {
         .indent();
     y.line("echo EMSCRIPTEN_VERSION=$(pyodide config get emscripten_version) >> $GITHUB_ENV");
     y.line("echo PYTHON_VERSION=$(pyodide config get python_version | cut -d '.' -f 1-2) >> $GITHUB_ENV");
+    // Pre-PEP 783 ABI / PEP 783 platform-tag input. Pyodide >= 0.28 exposes
+    // `pyodide_abi_version` (e.g. `2025_0` for 0.28/0.29 on Python 3.13,
+    // `2026_0` for 0.30 / 314.0.0a1 on Python 3.14). `pyodide config get`
+    // exits 1 and prints an error to stdout for unknown keys, so we use an
+    // `if` to only export `PYODIDE_ABI_VERSION` when the key is recognised.
+    // Older Pyodide releases simply leave it unset and maturin falls back to
+    // the legacy `emscripten_*` tag. PEP 783 (pyemscripten_*) is then
+    // selected by the cascade in `src/target/platform_tag.rs` based on
+    // `PYTHON_VERSION` (>= 3.14).
+    y.line(
+        "if v=$(pyodide config get pyodide_abi_version 2>/dev/null); then echo PYODIDE_ABI_VERSION=$v >> $GITHUB_ENV; fi",
+    );
     y.line("pip uninstall -y pyodide-build");
     y.dedent_by(2)
         .line("- uses: mymindstorm/setup-emsdk@v14")
@@ -317,7 +329,7 @@ fn emit_python_setup(y: &mut Yaml, platform: Platform, min_python_minor: Option<
         .indent()
         .line("with:")
         .indent()
-        .line(format!("python-version: {python_version}"));
+        .line(format!("python-version: \"{python_version}\""));
     if matches!(platform, Platform::Windows) {
         y.line(format!(
             "architecture: {}",
@@ -342,7 +354,7 @@ fn emit_free_threaded_setup(y: &mut Yaml, platform: Platform, min_python_minor: 
         .indent()
         .line("with:")
         .indent()
-        .line(format!("python-version: {python_version}"));
+        .line(format!("python-version: \"{python_version}\""));
     if matches!(platform, Platform::Windows) {
         y.line(format!(
             "architecture: {}",
@@ -471,6 +483,10 @@ fn emit_release_job(conf: &mut String, resolved: &ResolvedCIConfig, needs: &[Str
     ));
     y.line(format!("needs: [{}]", needs.join(", ")));
 
+    if let Some(environment) = &resolved.publishing_environment {
+        y.line(format!("environment: {environment}"));
+    }
+
     emit_release_permissions(&mut y, resolved);
     emit_release_steps(&mut y, resolved);
 }
@@ -497,7 +513,7 @@ fn emit_release_steps(y: &mut Yaml, resolved: &ResolvedCIConfig) {
     if !resolved.skip_attestation {
         emit_release_attestation_step(y);
     }
-    emit_release_publish_steps(y);
+    emit_release_publish_steps(y, resolved);
     if resolved
         .platform_targets
         .contains_key(&Platform::Emscripten)
@@ -509,14 +525,14 @@ fn emit_release_steps(y: &mut Yaml, resolved: &ResolvedCIConfig) {
 fn emit_release_attestation_step(y: &mut Yaml) {
     y.line("- name: Generate artifact attestation");
     y.indent();
-    y.line("uses: actions/attest-build-provenance@v3");
+    y.line("uses: actions/attest@v4");
     y.line("with:");
     y.indent();
     y.line("subject-path: 'wheels-*/*'");
     y.dedent_by(2);
 }
 
-fn emit_release_publish_steps(y: &mut Yaml) {
+fn emit_release_publish_steps(y: &mut Yaml, resolved: &ResolvedCIConfig) {
     y.line("- name: Install uv");
     y.indent();
     y.line(format!(
@@ -532,14 +548,19 @@ fn emit_release_publish_steps(y: &mut Yaml) {
         "if: {}",
         gha_expr("startsWith(github.ref, 'refs/tags/')")
     ));
-    y.line("run: uv publish 'wheels-*/*'");
-    y.line("env:");
-    y.indent();
-    y.line(format!(
-        "UV_PUBLISH_TOKEN: {}",
-        gha_expr("secrets.PYPI_API_TOKEN")
-    ));
-    y.dedent_by(2);
+    if resolved.trusted_publishing {
+        y.line("run: uv publish --trusted-publishing always 'wheels-*/*'");
+        y.dedent();
+    } else {
+        y.line("run: uv publish 'wheels-*/*'");
+        y.line("env:");
+        y.indent();
+        y.line(format!(
+            "UV_PUBLISH_TOKEN: {}",
+            gha_expr("secrets.PYPI_API_TOKEN")
+        ));
+        y.dedent_by(2);
+    }
 }
 
 fn emit_release_github_upload_step(y: &mut Yaml) {

@@ -1,6 +1,6 @@
 [project]
 name = "cpsl"
-version = "0.3.119"
+version = "0.3.126"
 description = "Capsule SDK and CLI"
 requires-python = ">=3.10"
 dependencies = [
@@ -21,6 +21,11 @@ capsule = "cpsl.cli.main:start"
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -10600,7 +10600,7 @@ Py_LOCAL_INLINE(int) next_fuzzy_match_string_fld(RE_State* state, RE_FuzzyData*
 
         if (0 <= new_pos && new_pos <= data->folded_len) {
             if (!fuzzy_ext_match(state, state->fuzzy_node,
-              data->new_string_pos))
+              data->new_text_pos))
                 return RE_ERROR_FAILURE;
 
             data->new_folded_pos = new_pos;
@@ -10615,7 +10615,7 @@ Py_LOCAL_INLINE(int) next_fuzzy_match_string_fld(RE_State* state, RE_FuzzyData*
 
         if (0 <= new_pos && new_pos <= data->folded_len) {
             if (!fuzzy_ext_match(state, state->fuzzy_node,
-              data->new_string_pos))
+              data->new_text_pos))
                 return RE_ERROR_FAILURE;
 
             data->new_folded_pos = new_pos;

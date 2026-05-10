@@ -1,3 +1,4 @@
+# PYTHON_ARGCOMPLETE_OK
 """Run cmeel as a python module."""
 
 import argparse
@@ -7,9 +8,10 @@ import pathlib
 import sys
 
 from . import __version__
-from .docker import add_docker_arguments, docker_build
-from .env import add_paths_arguments, get_paths
-from .release import add_release_arguments, release
+from .docker import add_docker_arguments, docker_cmd
+from .env import add_paths_arguments, paths_cmd
+from .metadata import add_metadata_arguments, metadata_cmd
+from .release import add_release_arguments, release_cmd
 
 LOG = logging.getLogger("cmeel")
 
@@ -42,9 +44,17 @@ def parse_args() -> argparse.Namespace:
     add_paths_arguments(subparsers)
     add_docker_arguments(subparsers)
     add_release_arguments(subparsers)
+    add_metadata_arguments(subparsers)
 
     ver = subparsers.add_parser("version", help="print current cmeel version.")
     ver.set_defaults(cmd="version")
+
+    try:
+        import argcomplete
+
+        argcomplete.autocomplete(parser)
+    except ImportError:
+        LOG.warning("argcomplete is not available")
 
     args = parser.parse_args()
 
@@ -68,13 +78,15 @@ def main():
     """Run helpers."""
     args = parse_args()
     if args.cmd == "docker":
-        docker_build(**vars(args))
+        docker_cmd(**vars(args))
     elif args.cmd == "release":
-        release(**vars(args))
+        release_cmd(**vars(args))
+    elif args.cmd == "metadata":
+        print(metadata_cmd(**vars(args)))
     elif args.cmd == "version":
         print(f"This is cmeel version {__version__}")
     else:
-        print(get_paths(**vars(args)))
+        print(paths_cmd(**vars(args)))
 
 
 if __name__ == "__main__":

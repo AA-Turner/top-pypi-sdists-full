@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.5.13
+Version: 2.5.15
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -23,7 +23,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests==2.33.1
 Requires-Dist: PySocks==1.7.1
-Requires-Dist: pydantic==2.13.3
+Requires-Dist: pydantic==2.13.4
 Requires-Dist: moviepy==1.0.3
 Requires-Dist: pycryptodomex==3.23.0
 Provides-Extra: test
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 # instagrapi
 
-> ⚠️ **Telegram support group moved to https://t.me/aiograpi_support** — the previous `@instagrapi` group has been restricted by Meta and is no longer maintained.
+> ⚠️ **Telegram support group moved to [aiograpi_support](https://t.me/aiograpi_support)** — the previous `@instagrapi` group has been restricted by Meta and is no longer maintained.
 
 [![PyPI](https://img.shields.io/pypi/v/instagrapi)](https://pypi.org/project/instagrapi/)
 [![Python](https://img.shields.io/pypi/pyversions/instagrapi)](https://pypi.org/project/instagrapi/)
@@ -197,7 +197,7 @@ API reference and full usage guide live at [subzeroid.github.io/instagrapi](http
 * [Best Practices](https://subzeroid.github.io/instagrapi/usage-guide/best-practices.html) for sessions, proxies, and anti-abuse handling
 * [Handle Exceptions](https://subzeroid.github.io/instagrapi/usage-guide/handle_exception.html) for centralizing `429`, challenge, and relogin logic
 * [GitHub Discussions](https://github.com/subzeroid/instagrapi/discussions)
-* Support chat in Telegram: https://t.me/aiograpi_support — the previous `@instagrapi` group was restricted by Meta and is no longer maintained
+* Support chat in Telegram: [aiograpi_support](https://t.me/aiograpi_support) — the previous `@instagrapi` group was restricted by Meta and is no longer maintained
 
 For other languages, consider [instagrapi-rest](https://github.com/subzeroid/instagrapi-rest). For async Python, see [aiograpi](https://github.com/subzeroid/aiograpi).
 
@@ -212,7 +212,8 @@ Hands-on guides for real instagrapi work — login flows, sessions, proxies, scr
 * [Instagram scraper in Python: a working setup](https://instagrapi.com/guides/instagram-scraper-python/)
 * [Upload a photo from Python](https://instagrapi.com/guides/instagrapi-upload-photo-python/)
 * [Download Instagram stories](https://instagrapi.com/guides/instagrapi-download-stories-python/)
-* [Common errors reference](https://instagrapi.com/guides/errors/) — `challenge_required`, `login_required`, `please_wait_a_few_minutes`, `feedback_required`, `proxy_address_is_blocked`
+* [Common errors reference](https://instagrapi.com/guides/errors/) — `bad_password`, `challenge_required`, `login_required`, `please_wait_a_few_minutes`, `feedback_required`, `proxy_address_is_blocked`
+* [`BadPassword`: correct password rejected by Instagram](https://instagrapi.com/guides/errors/bad-password/) — proxy/IP/device/session trust troubleshooting
 * [Framework integrations](https://instagrapi.com/guides/integrations/) — Django, FastAPI, Celery, Docker, AWS Lambda
 
 Comparing instagrapi to other tools:

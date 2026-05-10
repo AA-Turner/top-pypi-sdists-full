@@ -172,6 +172,26 @@
         <source>Click opposite corner to segment object</source>
         <translation>Kliknij przeciwległy róg, aby segmentować obiekt</translation>
     </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click first corner for oriented rectangle</source>
+        <translation>Kliknij pierwszy róg prostokąta zorientowanego</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click second corner to set orientation</source>
+        <translation>Kliknij drugi róg, aby ustawić orientację</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click third corner to close oriented rectangle</source>
+        <translation>Kliknij trzeci róg, aby zamknąć prostokąt zorientowany</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click &amp; drag to rotate the shape</source>
+        <translation>Kliknij i przeciągnij — obróć kształt</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -488,11 +508,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Zoom in or out of the image. Also accessible with {} and {} from the canvas.</source>
-        <translation>Powiększ lub pomniejsz obraz. Dostępne także przez {} i {} na płótnie.</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Ctrl+Wheel</source>
         <translation>Ctrl+kółko</translation>
     </message>
@@ -525,16 +540,6 @@ Shapes</source>
         <location filename="../app.py" line="0"/>
         <source>Zoom to original size</source>
         <translation>Powiększ do oryginalnego rozmiaru</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&amp;Keep Previous Scale</source>
-        <translation>Zachowaj poprzednią skalę (&amp;K)</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Keep previous zoom scale</source>
-        <translation>Zachowaj poprzednią skalę powiększenia</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -648,21 +653,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid label file.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Upewnij się, że &lt;i&gt;%s&lt;/i&gt; jest prawidłowym plikiem etykiet.&lt;/p&gt;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Error reading %s</source>
-        <translation>Błąd odczytu %s</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;Make sure &lt;i&gt;{0}&lt;/i&gt; is a valid image file.&lt;br/&gt;Supported image formats: {1}&lt;/p&gt;</source>
-        <translation>&lt;p&gt;Upewnij się, że &lt;i&gt;{0}&lt;/i&gt; jest prawidłowym plikiem obrazu.&lt;br/&gt;Obsługiwane formaty: {1}&lt;/p&gt;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Loaded %s</source>
         <translation>Wczytano %s</translation>
     </message>
@@ -703,11 +693,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>You are about to permanently delete this label file, proceed anyway?</source>
-        <translation>Czy na pewno trwale usunąć ten plik etykiet?</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Attention</source>
         <translation>Uwaga</translation>
     </message>
@@ -720,11 +705,6 @@ Shapes</source>
         <location filename="../app.py" line="0"/>
         <source>Save annotations?</source>
         <translation>Zapisać adnotacje?</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>You are about to permanently delete {} shapes, proceed anyway?</source>
-        <translation>Czy na pewno trwale usunąć {} kształtów?</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -776,11 +756,6 @@ Aby użyć edytora preferencji, uruchom Labelme z plikiem konfiguracji:
         <location filename="../app.py" line="0"/>
         <source>Errors were found while loading the configuration. Please review the errors below and reload your configuration or ignore the erroneous lines.</source>
         <translation>Wystąpiły błędy podczas wczytywania konfiguracji. Sprawdź listę poniżej i przeładuj konfigurację lub zignoruj błędne wiersze.</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid image file.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Upewnij się, że &lt;i&gt;%s&lt;/i&gt; jest prawidłowym plikiem obrazu.&lt;/p&gt;</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -853,6 +828,66 @@ Wybierz inny model lub użyj trybu AI-Box.</translation>
         <location filename="../app.py" line="0"/>
         <source>File list is disabled when a label file is opened</source>
         <translation>Lista plików jest wyłączona, gdy otwarty jest plik etykiet</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Add Point to Edge</source>
+        <translation>Dodaj punkt do krawędzi</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Insert a new point at the hovered polygon edge</source>
+        <translation>Wstaw nowy punkt na wskazywanej krawędzi wielokąta</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>&amp;Keep Previous Zoom</source>
+        <translation>Zachowaj poprzedni zoom (&amp;K)</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Permanently delete this label file? This action cannot be undone.</source>
+        <translation>Trwale usunąć ten plik etykiet? Tej operacji nie można cofnąć.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Permanently delete {} shapes? This action cannot be undone.</source>
+        <translation>Trwale usunąć {} kształtów? Tej operacji nie można cofnąć.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Zoom the image in or out. The shortcuts {} and {} also work on the canvas.</source>
+        <translation>Powiększ lub pomniejsz obraz. Skróty {} i {} działają także na płótnie.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Allowed formats: {formats}</source>
+        <translation>Dozwolone formaty: {formats}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>The selected label file could not be opened: {path}</source>
+        <translation>Nie można otworzyć wybranego pliku etykiet: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>The selected image file could not be opened: {path}</source>
+        <translation>Nie można otworzyć wybranego pliku obrazu: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Failed to load: {path}</source>
+        <translation>Nie udało się wczytać: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Oriented Rectangle</source>
+        <translation>Prostokąt Zorientowany</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Start drawing oriented rectangles</source>
+        <translation>Rozpocznij rysowanie prostokątów zorientowanych</translation>
     </message>
 </context>
 </TS>

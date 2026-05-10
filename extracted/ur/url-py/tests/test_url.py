@@ -2,6 +2,8 @@
 Many of the tests follows the examples from the crate README and docs.
 """
 
+from pathlib import Path
+
 import pytest
 
 from url import URL
@@ -21,7 +23,7 @@ def test_https_url():
 
     assert issue_url.port is None
     assert issue_url.path == "/rust-lang/rust/issues"
-    assert list(issue_url.path_segments) == ["rust-lang", "rust", "issues"]
+    assert issue_url.path_segments == ["rust-lang", "rust", "issues"]
     assert issue_url.query == "labels=E-easy&state=open"
 
     # TODO: Decide what API makes sense here in Python --
@@ -56,6 +58,33 @@ def test_invalid_ipv6_address():
 def test_invalid_relative_url_without_base():
     with pytest.raises(url.RelativeURLWithoutBase):
         URL.parse("../main.css")
+
+
+def test_parse_with_base():
+    base = URL.parse("file:///vault/folder/")
+    u = URL.parse("note.md", base=base)
+    assert str(u) == "file:///vault/folder/note.md"
+
+
+def test_parse_with_base_matches_join():
+    base = URL.parse("https://example.com/a/")
+    assert URL.parse("b", base=base) == base.join("b")
+
+
+def test_parse_absolute_input_ignores_base():
+    base = URL.parse("https://example.com/")
+    u = URL.parse("https://other.com/x", base=base)
+    assert str(u) == "https://other.com/x"
+
+
+def test_parse_relative_with_none_base_raises():
+    with pytest.raises(url.RelativeURLWithoutBase):
+        URL.parse("note.md", base=None)
+
+
+def test_parse_with_invalid_base_type():
+    with pytest.raises(TypeError):
+        URL.parse("note.md", base="file:///x/")  # type: ignore[arg-type]
 
 
 def test_invalid_junk():
@@ -224,6 +253,117 @@ def test_without_query():
     assert str(still_clear) == "https://example.com/path?"
 
 
+def test_path_decoded():
+    u = URL.parse("file:///my%20note.md")
+    assert u.path == "/my%20note.md"
+    assert u.path_decoded == "/my note.md"
+
+
+def test_path_decoded_unicode():
+    u = URL.parse("https://example.com/%E2%98%83/snowman")
+    assert u.path_decoded == "/☃/snowman"
+
+
+def test_path_decoded_no_escapes():
+    u = URL.parse("https://example.com/plain/path")
+    assert u.path_decoded == "/plain/path"
+
+
+def test_path_decoded_invalid_utf8_is_lossy():
+    u = URL.parse("file:///%FF%FE.md")
+    assert "�" in u.path_decoded
+
+
+def test_path_segments_decoded():
+    u = URL.parse("file:///my%20note.md")
+    assert u.path_segments == ["my%20note.md"]
+    assert u.path_segments_decoded == ["my note.md"]
+
+
+def test_path_segments_decoded_multiple():
+    u = URL.parse("https://example.com/a%20b/c%2Fd")
+    assert u.path_segments_decoded == ["a b", "c/d"]
+
+
+def test_path_segments_decoded_none_for_cannot_be_a_base():
+    u = URL.parse("data:text/plain,hi")
+    assert u.path_segments is None
+    assert u.path_segments_decoded is None
+
+
+def test_with_scheme():
+    u = URL.parse("https://example.com/path")
+    assert str(u.with_scheme("http")) == "http://example.com/path"
+    assert u.scheme == "https"
+
+
+def test_with_scheme_invalid():
+    u = URL.parse("https://example.com/")
+    with pytest.raises(url.URLError):
+        u.with_scheme("not a scheme")
+
+
+def test_with_host():
+    u = URL.parse("https://example.com/path")
+    assert u.with_host("other.com").host_str == "other.com"
+    assert u.host_str == "example.com"
+
+
+def test_with_host_clear():
+    u = URL.parse("file://localhost/path")
+    cleared = u.with_host(None)
+    assert cleared.host_str is None or cleared.host_str == ""
+
+
+def test_with_host_invalid():
+    u = URL.parse("https://example.com/")
+    with pytest.raises(url.URLError):
+        u.with_host("not a host")
+
+
+def test_with_path():
+    u = URL.parse("https://example.com/old?q=1")
+    assert u.with_path("/new").path == "/new"
+    assert str(u.with_path("/new")) == "https://example.com/new?q=1"
+    assert u.path == "/old"
+
+
+def test_with_port():
+    u = URL.parse("https://example.com:8080/")
+    assert u.with_port(9000).port == 9000
+    assert u.with_port(None).port is None
+    assert u.port == 8080
+
+
+def test_with_port_on_cannot_be_a_base():
+    u = URL.parse("data:text/plain,hi")
+    with pytest.raises(url.URLError):
+        u.with_port(80)
+
+
+def test_with_username():
+    u = URL.parse("https://alice@example.com/")
+    assert u.with_username("bob").username == "bob"
+    assert u.username == "alice"
+
+
+def test_with_username_on_cannot_be_a_base():
+    u = URL.parse("data:text/plain,hi")
+    with pytest.raises(url.URLError):
+        u.with_username("alice")
+
+
+def test_with_password():
+    u = URL.parse("https://alice:secret@example.com/")
+    assert u.with_password("hunter2").password == "hunter2"
+    assert u.password == "secret"
+
+
+def test_with_password_clear():
+    u = URL.parse("https://alice:secret@example.com/")
+    assert u.with_password(None).password is None
+
+
 def test_with_pair():
     url = URL.parse("https://example.com/path")
 
@@ -301,6 +441,60 @@ def test_with_keys_only():
     empty = url.with_keys_only([])
     assert empty.query == ""
     assert empty.query_pairs == []
+
+
+def test_from_file_path_str():
+    u = URL.from_file_path("/etc/hosts")
+    assert u.scheme == "file"
+    assert u.path == "/etc/hosts"
+    assert str(u) == "file:///etc/hosts"
+
+
+def test_from_file_path_pathlib():
+    u = URL.from_file_path(Path("/etc/hosts"))
+    assert u == URL.from_file_path("/etc/hosts")
+
+
+def test_from_file_path_encodes_specials():
+    u = URL.from_file_path("/tmp/my note.md")
+    assert u.path == "/tmp/my%20note.md"
+
+
+def test_from_file_path_relative_raises():
+    with pytest.raises(url.URLError):
+        URL.from_file_path("etc/hosts")
+
+
+def test_from_directory_path_adds_trailing_slash():
+    d = URL.from_directory_path("/tmp/foo")
+    assert d.path == "/tmp/foo/"
+    assert str(d).endswith("/")
+
+
+def test_from_directory_path_join_works_as_base():
+    d = URL.from_directory_path("/vault/folder")
+    joined = d.join("note.md")
+    assert joined.path == "/vault/folder/note.md"
+
+
+def test_from_directory_path_relative_raises():
+    with pytest.raises(url.URLError):
+        URL.from_directory_path("vault/folder")
+
+
+def test_to_file_path_roundtrip():
+    original = Path("/etc/hosts")
+    assert URL.from_file_path(original).to_file_path() == original
+
+
+def test_to_file_path_decodes_percent_escapes():
+    u = URL.from_file_path("/tmp/my note.md")
+    assert u.to_file_path() == Path("/tmp/my note.md")
+
+
+def test_to_file_path_non_file_url_raises():
+    with pytest.raises(url.URLError):
+        URL.parse("https://example.com/").to_file_path()
 
 
 def test_without_pair():

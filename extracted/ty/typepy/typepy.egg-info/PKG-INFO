@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typepy
-Version: 1.3.5
+Version: 2.0.0
 Summary: typepy is a Python library for variable type checker/validator/converter at a run time.
 Home-page: https://github.com/thombashi/typepy
 Author: Tsuyoshi Hombashi
@@ -34,14 +34,14 @@ License-File: LICENSE
 Requires-Dist: mbstrdecoder<2,>=1.0.0
 Provides-Extra: datetime
 Requires-Dist: python-dateutil<3.0.0,>=2.8.0; extra == "datetime"
-Requires-Dist: pytz>=2018.9; extra == "datetime"
 Requires-Dist: packaging; extra == "datetime"
+Requires-Dist: tzdata; sys_platform == "win32" and extra == "datetime"
 Provides-Extra: test
 Requires-Dist: pytest>=6.0.1; extra == "test"
 Requires-Dist: tcolorpy; extra == "test"
 Requires-Dist: python-dateutil<3.0.0,>=2.8.0; extra == "test"
-Requires-Dist: pytz>=2018.9; extra == "test"
 Requires-Dist: packaging; extra == "test"
+Requires-Dist: tzdata; sys_platform == "win32" and extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -160,7 +160,6 @@ Optional dependencies
 These packages can be installed via ``pip install typepy[datetime]``:
 
 - `python-dateutil <https://dateutil.readthedocs.io/en/stable/>`__
-- `pytz <https://pypi.org/project/pytz/>`__
 
 Usage
 =======

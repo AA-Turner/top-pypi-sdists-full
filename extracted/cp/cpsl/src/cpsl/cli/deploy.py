@@ -26,7 +26,7 @@ def _handle_status(spinner, status: str, build_logs_seen: bool) -> bool:
         if not build_logs_seen:
             terminal.header("Build logs")
             build_logs_seen = True
-        terminal.detail(f"  │ {status[len(BUILD_LOG_PREFIX):]}", dim=True)
+        terminal.detail(f"  │ {status[len(BUILD_LOG_PREFIX) :]}", dim=True)
         spinner.update("Building image...")
         return build_logs_seen
 
@@ -56,15 +56,21 @@ def deploy(client: ServiceClient, entry_point: str):
     gpu = config.get("gpu")
 
     pages = config.get("pages", [])
+    type_stub_pages = list(pages)
+    onboarding = config.get("onboarding")
+    if onboarding and onboarding.get("type") == "react":
+        type_stub_pages.append(onboarding)
     data_sources = config.get("data_sources", [])
 
-    generate_type_stubs(pages)
+    generate_type_stubs(type_stub_pages, config.get("npm_packages", []))
 
     terminal.header("Deploying", f"[bold]{config['app_name']}[/bold]")
-    entry_label = config['class_name'] or config['app_name']
+    entry_label = config["class_name"] or config["app_name"]
     terminal.detail(f"  entry:    {config['module']}:{entry_label}")
     pricing = config.get("pricing_type", "one_time")
-    price_display = f"${config['price'] / 100:.2f}" if config['price'] >= 100 else f"{config['price']}¢"
+    price_display = (
+        f"${config['price'] / 100:.2f}" if config["price"] >= 100 else f"{config['price']}¢"
+    )
     terminal.detail(f"  price:    {price_display}/{pricing.replace('_', ' ')}")
     terminal.detail(f"  channels: {len(channels)}")
 
@@ -139,8 +145,7 @@ def deploy(client: ServiceClient, entry_point: str):
         except grpc.RpcError as err:
             if err.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
                 terminal.error(
-                    "Timed out waiting for Deploy. "
-                    "If you're using local dev, restart `make start`."
+                    "Timed out waiting for Deploy. If you're using local dev, restart `make start`."
                 )
                 raise SystemExit(1)
             raise

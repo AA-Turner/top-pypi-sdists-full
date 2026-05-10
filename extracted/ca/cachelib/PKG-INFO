@@ -1,64 +1,45 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cachelib
-Version: 0.13.0
+Version: 0.14.0
 Summary: A collection of cache libraries in the same API interface.
-Home-page: https://github.com/pallets-eco/cachelib/
-Maintainer: Pallets
-Maintainer-email: contact@palletsprojects.com
-License: BSD-3-Clause
-Project-URL: Donate, https://palletsprojects.com/donate
-Project-URL: Documentation, https://cachelib.readthedocs.io/
-Project-URL: Changes, https://cachelib.readthedocs.io/changes/
-Project-URL: Source Code, https://github.com/pallets-eco/cachelib/
-Project-URL: Issue Tracker, https://github.com/pallets-eco/cachelib/issues/
-Project-URL: Twitter, https://twitter.com/PalletsTeam
-Project-URL: Chat, https://discord.gg/pallets
+Maintainer-email: Pallets Ecosystem <contact@palletsprojects.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-Expression: BSD-3-Clause
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Requires-Python: >=3.8
-Description-Content-Type: text/x-rst
-License-File: LICENSE.rst
+Classifier: Typing :: Typed
+License-File: LICENSE.txt
+Project-URL: Changes, https://cachelib.readthedocs.io/page/changes/
+Project-URL: Chat, https://discord.gg/pallets
+Project-URL: Documentation, https://cachelib.readthedocs.io
+Project-URL: Donate, https://palletsprojects.com/donate
+Project-URL: Source, https://github.com/pallets-eco/cachelib/
 
-CacheLib
-========
+# CacheLib
 
-A collection of cache libraries in the same API interface. Extracted
-from Werkzeug.
+A collection of cache libraries in the same API interface. Extracted from
+Werkzeug.
 
+## Pallets Ecosystem
 
-Installing
-----------
+> [!IMPORTANT]\
+> This project is part of the Pallets Ecosystem. Pallets is the open source
+> organization that maintains Flask; Pallets-Eco enables community maintenance
+> of related projects. If you are interested in helping maintain this project,
+> please reach out on [the Pallets Discord server][discord].
 
-Install and update using `pip`_:
+[discord]: https://discord.gg/pallets
 
-.. code-block:: text
+## Installation
 
-    $ pip install -U cachelib
+Install from [PyPI]:
 
-.. _pip: https://pip.pypa.io/en/stable/getting-started/
+```
+$ pip install cachelib
+```
 
+[PyPI]: https://pypi.org/project/cachelib/
 
-Donate
-------
-
-The Pallets organization develops and supports Flask and the libraries
-it uses. In order to grow the community of contributors and users, and
-allow the maintainers to devote more time to the projects, `please
-donate today`_.
-
-.. _please donate today: https://palletsprojects.com/donate
-
-
-Links
------
-
--   Documentation: https://cachelib.readthedocs.io/
--   Changes: https://cachelib.readthedocs.io/changes/
--   PyPI Releases: https://pypi.org/project/cachelib/
--   Source Code: https://github.com/pallets/cachelib/
--   Issue Tracker: https://github.com/pallets/cachelib/issues/
--   Twitter: https://twitter.com/PalletsTeam
--   Chat: https://discord.gg/pallets

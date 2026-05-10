@@ -21,7 +21,13 @@ from .sqlite_store import SQLiteIndexStore, _VERIFIED_PATHS
 logger = logging.getLogger(__name__)
 
 # Bump this when the index schema changes in an incompatible way.
-INDEX_VERSION = 9
+# v11 (1.94.0): re-export edges now carry `re_export_kind` ("wildcard" |
+# "selective") and selective edges include `re_export_origins` mapping
+# exposed names to their underlying name in the leaf file. Old v10 indexes
+# lack the kind field and degrade to wildcard semantics — correct for
+# `export *` but over-credits on `export { X } from`. A fresh re-extract
+# is required for symbol-aware Ca attribution.
+INDEX_VERSION = 11
 
 
 @functools.lru_cache(maxsize=16)

@@ -42,8 +42,8 @@ with open(os.path.join(REQUIREMENT_DIR, "test_requirements.txt")) as f:
 
 DATETIME_REQUIRES = [
     "python-dateutil>=2.8.0,<3.0.0",
-    "pytz>=2018.9",
     "packaging",
+    'tzdata; sys_platform == "win32"',
 ]
 
 setuptools.setup(

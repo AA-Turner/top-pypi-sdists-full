@@ -162,6 +162,8 @@ pub(crate) struct ResolvedCIConfig {
     pub pytest: bool,
     pub zig: bool,
     pub skip_attestation: bool,
+    pub trusted_publishing: bool,
+    pub publishing_environment: Option<String>,
     pub platform_targets: BTreeMap<Platform, Vec<ResolvedTarget>>,
 }
 
@@ -260,11 +262,7 @@ impl GenerateCI {
             ..
         } = ProjectResolver::resolve(self.manifest_path.clone(), cargo_options, false, None)?;
         let pyproject = pyproject_toml.as_ref();
-        let bridge = find_bridge(
-            &cargo_metadata,
-            pyproject.and_then(|x| x.bindings()),
-            pyproject,
-        )?;
+        let bridge = find_bridge(&cargo_metadata, pyproject.and_then(|x| x.bindings()))?;
         let project_name = pyproject
             .and_then(|project| project.project_name())
             .unwrap_or(&project_layout.extension_name);

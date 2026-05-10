@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 
 
-def generate_type_stubs(pages: list[dict]) -> None:
+def generate_type_stubs(pages: list[dict], npm_packages: list[str] | None = None) -> None:
     has_react = any(p.get("type") == "react" for p in pages)
     if not has_react:
         return
@@ -30,7 +30,7 @@ def generate_type_stubs(pages: list[dict]) -> None:
     _write(os.path.join(types_dir, "capsule-page.d.ts"), _DTS_CAPSULE_PAGE)
     _write(os.path.join(types_dir, "react.d.ts"), _DTS_REACT)
 
-    all_packages: set[str] = set()
+    all_packages: set[str] = set(npm_packages or [])
     for p in pages:
         for pkg in p.get("packages", []):
             at_idx = pkg.rfind("@") if pkg.count("@") > 1 or not pkg.startswith("@") else -1
@@ -149,6 +149,36 @@ declare module "@capsule/page" {
       enabled?: boolean;
     },
   ): ChatState;
+
+  interface SessionDataResult<T = unknown> {
+    [key: string]: T;
+  }
+
+  interface SessionHandle {
+    id: string;
+    sessionId: string;
+    ready: boolean;
+    status: "loading" | "ready" | "error";
+    error: string | null;
+    data<T = unknown>(name: string, initial?: T): T;
+    allData<T = Record<string, unknown>>(): T;
+    action(name: string): ActionState;
+    chat(): ChatState;
+    integrations(): {
+      connect(type: string): Promise<unknown>;
+      status(type?: string): Promise<unknown>;
+    };
+  }
+
+  export function useSession(
+    name: string,
+    opts?: {
+      threadKey?: string;
+      initialData?: Record<string, unknown>;
+      visibility?: "hidden" | "listed";
+      enabled?: boolean;
+    },
+  ): SessionHandle;
 
   interface ActionState {
     loading: boolean;
@@ -436,6 +466,43 @@ declare module "@capsule/page" {
     style?: CSSProperties;
   }
   export const FileLink: FC<FileLinkProps>;
+
+  // -----------------------------------------------------------------------
+  // styled-components
+  // -----------------------------------------------------------------------
+
+  type StyledTag = {
+    <P extends object = {}>(
+      strings: TemplateStringsArray,
+      ...exprs: Array<string | number | ((p: P & { theme: Theme }) => string | number | undefined)>
+    ): FC<P & Record<string, any>>;
+  };
+
+  interface StyledInterface {
+    (tag: string): StyledTag;
+    div: StyledTag;
+    span: StyledTag;
+    button: StyledTag;
+    a: StyledTag;
+    p: StyledTag;
+    h1: StyledTag;
+    h2: StyledTag;
+    h3: StyledTag;
+    section: StyledTag;
+    article: StyledTag;
+    nav: StyledTag;
+    header: StyledTag;
+    footer: StyledTag;
+    main: StyledTag;
+    input: StyledTag;
+    textarea: StyledTag;
+    label: StyledTag;
+    img: StyledTag;
+    ul: StyledTag;
+    li: StyledTag;
+  }
+
+  export const styled: StyledInterface;
 }
 """
 

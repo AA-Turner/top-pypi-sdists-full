@@ -43,15 +43,11 @@ def resolve_entry_point(entry_point: str) -> dict:
     from .app import App
 
     if ":" not in entry_point:
-        terminal.error(
-            "Invalid entry point. Expected format: capsule <command> <file.py>:<name>"
-        )
+        terminal.error("Invalid entry point. Expected format: capsule <command> <file.py>:<name>")
 
     module_path, target_name = entry_point.rsplit(":", 1)
     if not target_name:
-        terminal.error(
-            "Invalid entry point. Expected format: capsule <command> <file.py>:<name>"
-        )
+        terminal.error("Invalid entry point. Expected format: capsule <command> <file.py>:<name>")
 
     file_path = Path(module_path)
     if file_path.parent != Path("."):
@@ -223,10 +219,7 @@ def build_schedule_specs(schedules: list[dict]):
     """Build a list of gRPC ``ScheduleSpec`` from schedule config dicts."""
     from .clients.capsule import ScheduleSpec
 
-    return [
-        ScheduleSpec(name=s["name"], cron=s["cron"])
-        for s in schedules
-    ]
+    return [ScheduleSpec(name=s["name"], cron=s["cron"]) for s in schedules]
 
 
 def build_filesystem_mount_specs(filesystems: dict[str, dict]):

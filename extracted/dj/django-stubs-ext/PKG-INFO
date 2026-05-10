@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-stubs-ext
-Version: 6.0.3
+Version: 6.0.4
 Summary: Monkey-patching and extensions for django-stubs
 Author: Simula Proxy
 License-Expression: MIT

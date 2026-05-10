@@ -8,7 +8,6 @@ env:
   IS_GH_ACTION: "1"
   CLIENT_ID: ${{ secrets.APP_ID }}
   TENANT_ID: ${{ secrets.TENANT_ID }}
-  FABRIC_WORKSPACE_ID: ${{ secrets.WORKSPACE_ID }}
   FABRIC_API: "https://msitapi.fabric.microsoft.com/v1"
 
 permissions:
@@ -33,7 +32,7 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           fetch-depth: 0
 
@@ -42,7 +41,7 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: "🔒 Auth: Azure login with OIDC"
-        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
+        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43  # v3.0.0
         with:
           client-id: ${{ secrets.APP_ID }}
           tenant-id: ${{ secrets.TENANT_ID }}
@@ -50,8 +49,13 @@ jobs:
 
       - name: "📝 Write test.env"
         run: |
-          echo "WORKSPACE_ID=${{ secrets.WORKSPACE_ID }}" > "$GITHUB_WORKSPACE/test.env"
-          echo "LIVY_ENDPOINT=${FABRIC_API}" >> "$GITHUB_WORKSPACE/test.env"
+          {
+            echo "WORKSPACE_ID_1=${{ secrets.WORKSPACE_ID_1 }}"
+            echo "WORKSPACE_NAME_1=${{ secrets.WORKSPACE_NAME_1 }}"
+            echo "WORKSPACE_ID_2=${{ secrets.WORKSPACE_ID_2 }}"
+            echo "WORKSPACE_NAME_2=${{ secrets.WORKSPACE_NAME_2 }}"
+            echo "LIVY_ENDPOINT=${FABRIC_API}"
+          } > "$GITHUB_WORKSPACE/test.env"
 
       - name: "⚙️ Post create commands"
         run: /tmp/overlay/post-create-commands.sh

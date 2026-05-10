@@ -1,6 +1,6 @@
 [project]
 name = "xmod"
-version = "1.9.0"
+version = "1.10.0"
 description = "🌱 Turn any object into a module 🌱"
 authors = [{ name = "Tom Ritchford", email = "tom@swirly.com" }]
 requires-python = ">=3.10"
@@ -25,15 +25,17 @@ dev = [
     "ty>=0.0.14",
 ]
 
-[tool.uv]
+[tool.poetry]
+name = "xmod"
+version = "1.10.0"
 
-[tool.uv.build-backend]
-module-root = ""
-source-include = ["xmod.pyi/**"]
+description = "🌱 Turn any object into a module 🌱"
+authors = ["Tom Ritchford <tom@swirly.com>"]
+readme = "README.md"
 
 [build-system]
-requires = ["uv_build>=0.9.0,<0.10.0"]
-build-backend = "uv_build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.coverage.run]
 branch = true
@@ -49,4 +51,3 @@ line-length = 88
 
 [tool.ruff.format]
 quote-style = "single"
-

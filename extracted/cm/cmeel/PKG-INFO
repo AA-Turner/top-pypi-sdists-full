@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cmeel
-Version: 0.59.0
+Version: 0.60.0
 Summary: Create Wheel from CMake projects
 Project-URL: Changelog, https://github.com/cmake-wheel/cmeel/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://cmeel.readthedocs.io/
@@ -22,6 +22,8 @@ Requires-Dist: cmake>=3.31.2; extra == 'build'
 Requires-Dist: git-archive-all; extra == 'build'
 Requires-Dist: packaging>=24.2; extra == 'build'
 Requires-Dist: wheel>=0.45.1; extra == 'build'
+Provides-Extra: cli
+Requires-Dist: argcomplete>=3.6.3; extra == 'cli'
 Description-Content-Type: text/markdown
 
 # CMake Wheel: cmeel

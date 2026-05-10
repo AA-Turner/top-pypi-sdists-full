@@ -154,5 +154,7 @@ def serialize_suggestions(value: Any) -> list[dict[str, Any]]:
         elif isinstance(item, dict):
             out.append(dict(item))
         else:
-            raise TypeError(f"home suggestion must be Suggestion or dict, got {type(item).__name__}")
+            raise TypeError(
+                f"home suggestion must be Suggestion or dict, got {type(item).__name__}"
+            )
     return out

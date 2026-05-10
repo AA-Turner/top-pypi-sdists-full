@@ -15,24 +15,30 @@ class HomeConfigTests(unittest.TestCase):
             subtitle="Run the next best action.",
             suggestions=[
                 cpsl.Suggestion("Research Beam", prompt="Research Beam Cloud", icon="search"),
-                cpsl.Suggestion("Open Results", page="Results", description="Review recent outputs"),
+                cpsl.Suggestion(
+                    "Open Results", page="Results", description="Review recent outputs"
+                ),
             ],
         )
 
         @app.home_body()
         def home_body():
-            return cpsl.ui.Page([
-                cpsl.ui.ImageGallery([
-                    {"src": "https://example.com/a.png", "alt": "Example A"},
-                    "https://example.com/b.png",
-                ]),
-                cpsl.ui.ActionCard(
-                    "Run scan",
-                    workflow="Weekly Scan",
-                    image="https://example.com/scan.png",
-                    primary=True,
-                ),
-            ])
+            return cpsl.ui.Page(
+                [
+                    cpsl.ui.ImageGallery(
+                        [
+                            {"src": "https://example.com/a.png", "alt": "Example A"},
+                            "https://example.com/b.png",
+                        ]
+                    ),
+                    cpsl.ui.ActionCard(
+                        "Run scan",
+                        workflow="Weekly Scan",
+                        image="https://example.com/scan.png",
+                        primary=True,
+                    ),
+                ]
+            )
 
         @app.home_suggestions(ttl=300)
         async def suggestions(ctx: cpsl.HomeContext):

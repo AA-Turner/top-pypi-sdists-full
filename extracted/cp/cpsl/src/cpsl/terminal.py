@@ -107,7 +107,9 @@ def progress(task_name: str) -> Generator[SpinnerHandle, None, None]:
 
     with _status_lock:
         if _current_status is None:
-            _current_status = _console.status(Text(task_name), spinner="dots", spinner_style="white")
+            _current_status = _console.status(
+                Text(task_name), spinner="dots", spinner_style="white"
+            )
             _current_status.start()
         _status_count += 1
 
@@ -136,11 +138,7 @@ def progress_open(file: Union[str, PathLike, bytes], mode: str, **kwargs: Any) -
 
 def humanize_memory(m: float, base: Literal[2, 10] = 2) -> str:
     factor = 1024 if base == 2 else 1000
-    units = (
-        ["B", "KiB", "MiB", "GiB", "TiB"]
-        if base == 2
-        else ["B", "KB", "MB", "GB", "TB"]
-    )
+    units = ["B", "KiB", "MiB", "GiB", "TiB"] if base == 2 else ["B", "KB", "MB", "GB", "TB"]
     index = 0
     while m >= factor and index < len(units) - 1:
         m /= factor

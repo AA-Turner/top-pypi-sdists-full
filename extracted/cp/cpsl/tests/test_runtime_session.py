@@ -133,9 +133,7 @@ class SessionPromptTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(latest["payload"]["runs"][0]["mode"], "shell")
         self.assertEqual(latest["payload"]["runs"][1]["mode"], "exec")
         output = "".join(
-            chunk["text"]
-            for run in latest["payload"]["runs"]
-            for chunk in run["chunks"]
+            chunk["text"] for run in latest["payload"]["runs"] for chunk in run["chunks"]
         )
         self.assertIn("hello", output)
         self.assertIn("ok", output)
@@ -233,27 +231,31 @@ class SessionPromptTests(unittest.IsolatedAsyncioTestCase):
     async def test_terminal_handle_reopens_from_history(self):
         session = self.new_session()
         block_id = "term_" + __import__("hashlib").sha1(b"sess-1:checks").hexdigest()[:16]
-        session.history.append(Message(
-            text=json.dumps({
-                "id": block_id,
-                "type": "terminal",
-                "payload": {
-                    "title": "Checks",
-                    "revision": 12,
-                    "runs": [
-                        {
-                            "id": "run_existing",
-                            "mode": "shell",
-                            "command": "echo old",
-                            "status": "completed",
-                            "chunks": [{"stream": "stdout", "text": "old\n", "seq": 0}],
-                        }
-                    ],
-                },
-            }),
-            sender="block",
-            channel_type="chat",
-        ))
+        session.history.append(
+            Message(
+                text=json.dumps(
+                    {
+                        "id": block_id,
+                        "type": "terminal",
+                        "payload": {
+                            "title": "Checks",
+                            "revision": 12,
+                            "runs": [
+                                {
+                                    "id": "run_existing",
+                                    "mode": "shell",
+                                    "command": "echo old",
+                                    "status": "completed",
+                                    "chunks": [{"stream": "stdout", "text": "old\n", "seq": 0}],
+                                }
+                            ],
+                        },
+                    }
+                ),
+                sender="block",
+                channel_type="chat",
+            )
+        )
         blocks: list[str] = []
 
         async def block_cb(block_json: str):
@@ -421,7 +423,11 @@ class SessionPromptTests(unittest.IsolatedAsyncioTestCase):
         await session.show(
             Block(
                 type="integration_prompt",
-                payload={"type": "gmail", "reason": "Connect Gmail to draft replies.", "blocking": True},
+                payload={
+                    "type": "gmail",
+                    "reason": "Connect Gmail to draft replies.",
+                    "blocking": True,
+                },
             )
         )
 

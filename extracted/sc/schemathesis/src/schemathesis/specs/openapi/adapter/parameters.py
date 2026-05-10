@@ -367,7 +367,9 @@ class OpenApiComponent(ABC):
                     self.adapter.jsonschema_validator_cls is jsonschema_rs.Draft202012Validator
                 ),
                 convert_prefix_items=False,
+                convert_if_then_else=False,
                 name_to_uri=self.name_to_uri,
+                merge_ref_siblings=self.adapter.ref_siblings,
             )
         assert not isinstance(self._validation_schema, NotSet)
         return self._validation_schema
@@ -392,6 +394,7 @@ class OpenApiComponent(ABC):
                 self.adapter.jsonschema_validator_cls is jsonschema_rs.Draft202012Validator
             ),
             name_to_uri=self.name_to_uri,
+            merge_ref_siblings=self.adapter.ref_siblings,
         )
 
         # Missing the `type` keyword may significantly slowdown data generation, ensure it is set

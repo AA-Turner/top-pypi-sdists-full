@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.83.2
+Version: 1.94.0
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -68,31 +68,26 @@ Provides-Extra: zhipu
 Requires-Dist: openai>=1.0.0; extra == 'zhipu'
 Description-Content-Type: text/markdown
 
+#### One-click installs:
+
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_jCodeMunch-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)](vscode:mcp/install?%7B%22name%22%3A%20%22jcodemunch%22%2C%20%22command%22%3A%20%22uvx%22%2C%20%22args%22%3A%20%5B%22jcodemunch-mcp%22%5D%7D)
+[![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install-24bfa5?style=for-the-badge&logo=visualstudiocode&logoColor=white)](vscode-insiders:mcp/install?%7B%22name%22%3A%20%22jcodemunch%22%2C%20%22command%22%3A%20%22uvx%22%2C%20%22args%22%3A%20%5B%22jcodemunch-mcp%22%5D%7D)
+[![Install in Cursor](https://img.shields.io/badge/Cursor-Install_jCodeMunch-000000?style=for-the-badge&logo=cursor&logoColor=white)](cursor://anysphere.cursor-deeplink/mcp/install?name=jcodemunch&config=eyJjb21tYW5kIjogInV2eCIsICJhcmdzIjogWyJqY29kZW11bmNoLW1jcCJdfQ==)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-CLI_install-D97757?style=for-the-badge&logo=anthropic&logoColor=white)](#works-with)
+[![Codex CLI](https://img.shields.io/badge/Codex_CLI-Config_install-10a37f?style=for-the-badge&logo=openai&logoColor=white)](#works-with)
+
 Quickstart - https://github.com/jgravelle/jcodemunch-mcp/blob/main/QUICKSTART.md
 
 A crapload of detailed info: http://jcodemunch.com/
+
+**Live OSS code-health observatory** — weekly six-axis health snapshots
+of Express, FastAPI, Gin, Pydantic, Django, Flask, NestJS, Cobra, and
+this very repo: https://jgravelle.github.io/jcodemunch-observatory/
 
 <!-- mcp-name: io.github.jgravelle/jcodemunch-mcp -->
 
 ## FREE FOR PERSONAL USE
 **Use it to make money, and Uncle J. gets a taste. Fair enough?** [details](#commercial-licenses)
-
----
-
-## Documentation
-
-| Doc | What it covers |
-|-----|----------------|
-| [QUICKSTART.md](QUICKSTART.md) | Zero-to-indexed in three steps |
-| [USER_GUIDE.md](USER_GUIDE.md) | Full tool reference, workflows, and best practices |
-| [AGENT_HOOKS.md](AGENT_HOOKS.md) | Agent hooks and prompt policies |
-| [CONFIGURATION.md](CONFIGURATION.md) | JSONC config file reference, migration from env vars |
-| [GROQ.md](GROQ.md) | Groq Remote MCP integration, deployment, gcm CLI |
-| [HEADLESS.md](HEADLESS.md) | Using jCodeMunch with `claude -p` (and the jragmunch CLI) |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Internal design, storage model, and extension points |
-| [LANGUAGE_SUPPORT.md](LANGUAGE_SUPPORT.md) | Supported languages and parsing details |
-| [CONTEXT_PROVIDERS.md](CONTEXT_PROVIDERS.md) | dbt, Git, and custom context provider docs |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and fixes |
 
 ---
 
@@ -120,6 +115,22 @@ Index once. Query cheaply. Keep moving.
 
 ---
 
+## Documentation
+
+| Doc | What it covers |
+|-----|----------------|
+| [QUICKSTART.md](QUICKSTART.md) | Zero-to-indexed in three steps |
+| [USER_GUIDE.md](USER_GUIDE.md) | Full tool reference, workflows, and best practices |
+| [AGENT_HOOKS.md](AGENT_HOOKS.md) | Agent hooks and prompt policies |
+| [CONFIGURATION.md](CONFIGURATION.md) | JSONC config file reference, migration from env vars |
+| [GROQ.md](GROQ.md) | Groq Remote MCP integration, deployment, gcm CLI |
+| [HEADLESS.md](HEADLESS.md) | Using jCodeMunch with `claude -p` (and the jragmunch CLI) |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Internal design, storage model, and extension points |
+| [LANGUAGE_SUPPORT.md](LANGUAGE_SUPPORT.md) | Supported languages and parsing details |
+| [CONTEXT_PROVIDERS.md](CONTEXT_PROVIDERS.md) | dbt, Git, and custom context provider docs |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and fixes |
+
+---
 ## Compact output — the second token axis (MUNCH)
 
 Retrieval decides **what** to send. MUNCH decides **how to pack it**.
@@ -151,11 +162,20 @@ is a byte the agent doesn't pay to read.
 
 ### Structured code retrieval for serious AI agents
 
+<!-- WHATSNEW:START -->
+#### What's new
+
+- **[v1.93.0](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.93.0)** (2026-05-09) — TypeScript barrel-aware import graph + dotted-name resolver fix
+- **[v1.92.0](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.92.0)** (2026-05-09) — coupling axis: filename-pattern filter for inline test conventions
+- **[v1.91.0](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.91.0)** (2026-05-09) — coupling axis: exclude tests/benchmarks/scripts from the metric
+<!-- WHATSNEW:END -->
+
 ![License](https://img.shields.io/badge/license-dual--use-blue)
 ![MCP](https://img.shields.io/badge/MCP-compatible-purple)
 ![Local-first](https://img.shields.io/badge/local--first-yes-brightgreen)
 ![Polyglot](https://img.shields.io/badge/parsing-tree--sitter-9cf)
 ![jMRI](https://img.shields.io/badge/jMRI-Full-blueviolet)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20102349.svg)](https://doi.org/10.5281/zenodo.20102349)
 [![PyPI version](https://img.shields.io/pypi/v/jcodemunch-mcp)](https://pypi.org/project/jcodemunch-mcp/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/jcodemunch-mcp)](https://pypi.org/project/jcodemunch-mcp/)
 

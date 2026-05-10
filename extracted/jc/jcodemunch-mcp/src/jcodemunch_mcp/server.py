@@ -74,6 +74,12 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     # Utilities
     "get_session_stats", "get_session_context", "get_session_snapshot", "plan_turn", "register_edit", "invalidate_cache", "test_summarizer",
     "audit_agent_config", "get_watch_status", "analyze_perf", "tune_weights", "check_embedding_drift",
+    # Agent stand-up briefing
+    "digest",
+    # Health-radar diff (PR-time diff-grade reports)
+    "diff_health_radar",
+    # Per-file risk (powers VS Code gutter)
+    "get_file_risk",
     # Runtime tier switching
     "set_tool_tier", "announce_model",
     # Composite retrieval
@@ -121,6 +127,12 @@ _TOOL_TIER_STANDARD: frozenset[str] = _TOOL_TIER_CORE | frozenset({
     "render_diagram", "get_project_intel",
     # Utilities
     "invalidate_cache", "get_watch_status", "analyze_perf", "tune_weights", "check_embedding_drift",
+    # Agent stand-up briefing
+    "digest",
+    # Health-radar diff
+    "diff_health_radar",
+    # Per-file risk (powers VS Code gutter)
+    "get_file_risk",
 })
 
 # full = everything (no filter applied)
@@ -1389,6 +1401,102 @@ def _build_tools_list() -> list[Tool]:
                         "description": "Include dead-end searches (negative evidence) in snapshot.",
                     },
                 },
+            },
+        ),
+        Tool(
+            name="get_file_risk",
+            description=(
+                "Per-symbol composite risk for one file. For each function or "
+                "method, returns a 0-100 composite score (higher = healthier; "
+                "lower = riskier) plus per-axis sub-scores (complexity, exposure, "
+                "churn, test_gap). Powers the VS Code risk-density gutter. "
+                "complexity is per-symbol (cyclomatic from the index); the other "
+                "three axes are file-level (shared across all symbols in the file) "
+                "because per-symbol caller-count needs find_references per symbol "
+                "and would be too slow for save-time refresh."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repo identifier (owner/name, full id, or bare display name).",
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the file within the indexed repo.",
+                    },
+                },
+                "required": ["repo", "file_path"],
+            },
+        ),
+        Tool(
+            name="diff_health_radar",
+            description=(
+                "Compare two health-radar payloads (from get_repo_health.radar) "
+                "and return axis-by-axis deltas, composite delta, grade movement, "
+                "and a one-line verdict. Pure data transform — no index access, "
+                "no I/O. Designed for PR-time diff-grade reports: run "
+                "get_repo_health on the base branch, run it on the PR branch, "
+                "pass both radar payloads here. Returns regressions/improvements "
+                "lists for axes that moved more than 3 points."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "baseline": {
+                        "type": "object",
+                        "description": "Radar payload from baseline (e.g. base branch). The `radar` field of a get_repo_health response.",
+                    },
+                    "current": {
+                        "type": "object",
+                        "description": "Radar payload from current (e.g. PR branch). The `radar` field of a get_repo_health response.",
+                    },
+                },
+                "required": ["baseline", "current"],
+            },
+        ),
+        Tool(
+            name="digest",
+            description=(
+                "Agent stand-up briefing for a repo. Returns a tight (~200 token) "
+                "markdown digest of (a) what changed since the agent's last session "
+                "(by tracking git HEAD between calls), (b) the current risk surface "
+                "(top hotspots by complexity × churn), and (c) dead-code candidates. "
+                "Each item references symbol_ids the agent can immediately query "
+                "with get_symbol_source / get_call_hierarchy / check_references. "
+                "Designed for session-start context injection: call once when you "
+                "open a repo, get oriented to the load-bearing changes without cold "
+                "exploration."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repo identifier (owner/name, full id, or bare display name).",
+                    },
+                    "since_sha": {
+                        "type": "string",
+                        "description": "Override the last-seen SHA (for re-running a delta).",
+                    },
+                    "max_changed_files": {
+                        "type": "integer",
+                        "default": 5,
+                        "description": "Cap on changed-files list (default 5).",
+                    },
+                    "max_hotspots": {
+                        "type": "integer",
+                        "default": 3,
+                        "description": "Cap on hotspot list (default 3).",
+                    },
+                    "max_dead_code": {
+                        "type": "integer",
+                        "default": 3,
+                        "description": "Cap on dead-code candidates (default 3).",
+                    },
+                },
+                "required": ["repo"],
             },
         ),
         Tool(
@@ -3368,6 +3476,38 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     storage_path=storage_path,
                 )
             )
+        elif name == "get_file_risk":
+            from .tools.get_file_risk import get_file_risk
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_file_risk,
+                    repo=arguments["repo"],
+                    file_path=arguments["file_path"],
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "diff_health_radar":
+            from .tools.health_radar import diff_health_radar
+            result = await asyncio.to_thread(
+                functools.partial(
+                    diff_health_radar,
+                    baseline=arguments["baseline"],
+                    current=arguments["current"],
+                )
+            )
+        elif name == "digest":
+            from .tools.digest import compose_digest
+            result = await asyncio.to_thread(
+                functools.partial(
+                    compose_digest,
+                    repo=arguments["repo"],
+                    since_sha=arguments.get("since_sha"),
+                    max_changed_files=arguments.get("max_changed_files", 5),
+                    max_hotspots=arguments.get("max_hotspots", 3),
+                    max_dead_code=arguments.get("max_dead_code", 3),
+                    storage_path=storage_path,
+                )
+            )
         elif name == "plan_turn":
             from .tools.plan_turn import plan_turn
             # Extract model for tier-switch piggyback before passing to plan_turn
@@ -4165,6 +4305,14 @@ async def run_stdio_server():
         os.path.expanduser(os.environ.get("CODE_INDEX_PATH", "~/.code-index/")),
         _default_use_ai_summaries(),
     )
+    # Version-drift probe: on first launch after upgrade, emit a one-line
+    # hint pointing at the release notes. Silent on first-ever launch and
+    # on any OS-level failure.
+    try:
+        from .version_check import check_and_announce
+        check_and_announce()
+    except Exception:
+        logger.debug("version_check probe failed", exc_info=True)
     # Feature 10: Restore session state on startup
     _restore_session_state()
     # Log tier bundle / disabled_tools overlap warnings
@@ -4632,12 +4780,13 @@ def _generate_claude_md_snippet(missing_only: bool = False) -> str:
                           "get_signal_chains", "render_diagram",
                           "get_project_intel"]),
         ("Quality & Metrics", ["get_symbol_complexity", "get_churn_rate", "get_hotspots",
-                                "get_repo_health", "get_symbol_importance",
+                                "get_repo_health", "diff_health_radar",
+                                "get_file_risk", "get_symbol_importance",
                                 "find_dead_code", "get_dead_code_v2",
                                 "get_untested_symbols", "search_ast",
                                 "winnow_symbols"]),
         ("Diffs & Embeddings", ["get_symbol_diff", "embed_repo"]),
-        ("Session-Aware Routing", ["plan_turn", "get_session_context", "get_session_snapshot", "register_edit"]),
+        ("Session-Aware Routing", ["plan_turn", "get_session_context", "get_session_snapshot", "register_edit", "digest"]),
         ("Utilities", ["get_session_stats", "analyze_perf", "tune_weights", "check_embedding_drift",
                         "invalidate_cache", "test_summarizer",
                         "audit_agent_config", "get_watch_status"]),
@@ -5504,6 +5653,99 @@ def main(argv: Optional[list[str]] = None):
         help="Run init refresh non-interactively",
     )
 
+    # --- observatory ---
+    obs_parser = subparsers.add_parser(
+        "observatory",
+        help="Run the public OSS code-health observatory pipeline (static-site output).",
+    )
+    obs_sub = obs_parser.add_subparsers(dest="obs_action")
+    obs_build = obs_sub.add_parser("build", help="Run the full pipeline against a config file.")
+    obs_build.add_argument("--config", required=True, help="Path to the observatory config JSON.")
+    obs_build.add_argument("--output-dir", default=None, help="Override config's output_dir.")
+    obs_build.add_argument("--workdir", default=None, help="Override config's workdir.")
+    obs_init = obs_sub.add_parser("init", help="Write a starter config file.")
+    obs_init.add_argument("--out", default="observatory.config.json",
+        help="Where to write the starter config.")
+
+    # --- file-risk ---
+    file_risk_parser = subparsers.add_parser(
+        "file-risk",
+        help="Print per-symbol risk JSON for a file (used by VS Code risk-density gutter)",
+    )
+    file_risk_parser.add_argument("file",
+        help="Path to the file within an indexed repo.")
+    file_risk_parser.add_argument("--repo", default=None,
+        help="Repo identifier (auto-detected from file path if omitted).")
+    file_risk_parser.add_argument("--storage-path", default=None,
+        help="Override index storage location.")
+
+    # --- health ---
+    health_parser = subparsers.add_parser(
+        "health",
+        help="Print get_repo_health JSON to stdout (includes six-axis radar). For CI / scripting.",
+    )
+    health_parser.add_argument("repo", nargs="?", default=".",
+        help="Repo identifier (path, owner/name, or bare display name). Defaults to '.' (cwd).")
+    health_parser.add_argument("--days", type=int, default=90,
+        help="Churn look-back window in days (default 90).")
+    health_parser.add_argument("--radar-only", action="store_true",
+        help="Emit only the `radar` sub-field instead of the full health response.")
+    health_parser.add_argument("--storage-path", default=None,
+        help="Override index storage location.")
+
+    # --- digest ---
+    digest_parser = subparsers.add_parser(
+        "digest",
+        help="Agent stand-up briefing — since-last-session delta + risk surface + dead-code candidates",
+    )
+    digest_parser.add_argument("repo", nargs="?", default=".",
+        help="Repo identifier (path, owner/name, or bare display name). Defaults to '.' (cwd).")
+    digest_parser.add_argument("--since-sha", default=None,
+        help="Override the last-seen SHA (for re-running a delta).")
+    digest_parser.add_argument("--max-changed-files", type=int, default=5,
+        help="Cap on changed-files list (default 5).")
+    digest_parser.add_argument("--max-hotspots", type=int, default=3,
+        help="Cap on hotspot list (default 3).")
+    digest_parser.add_argument("--max-dead-code", type=int, default=3,
+        help="Cap on dead-code candidates (default 3).")
+    digest_parser.add_argument("--json", action="store_true",
+        help="Emit the structured payload as JSON instead of markdown.")
+    digest_parser.add_argument("--storage-path", default=None,
+        help="Override index storage location.")
+
+    # --- receipt ---
+    receipt_parser = subparsers.add_parser(
+        "receipt",
+        help="Token-economy ledger: parse Claude transcripts, show modeled tokens-saved + dollar value",
+    )
+    receipt_parser.add_argument("--days", type=int, default=30,
+        help="Window size in days (default 30; use 0 for all-time).")
+    receipt_parser.add_argument("--model", choices=["sonnet", "opus", "haiku"], default="opus",
+        help="Model rate to apply for the dollar conversion (default opus).")
+    receipt_parser.add_argument("--export", metavar="FILE.csv|FILE.json", default=None,
+        help="Write raw per-tool data to a file instead of the human report.")
+    receipt_parser.add_argument("--explain", action="store_true",
+        help="Print the per-tool savings multiplier table + methodology, then exit.")
+    receipt_parser.add_argument("--projects-root", default=None,
+        help="Override Claude Code projects directory (default ~/.claude/projects).")
+
+    # --- whatsnew ---
+    whatsnew_parser = subparsers.add_parser(
+        "whatsnew",
+        help="Refresh README recency block + write whatsnew.json from CHANGELOG.md (release flow)",
+    )
+    whatsnew_parser.add_argument(
+        "--repo-root",
+        default=".",
+        help="Repository root (default: cwd)",
+    )
+    whatsnew_parser.add_argument(
+        "--max-entries",
+        type=int,
+        default=3,
+        help="Number of recent releases to include (default 3)",
+    )
+
     # --- hook-precompact ---
     subparsers.add_parser(
         "hook-precompact",
@@ -5648,7 +5890,7 @@ def main(argv: Optional[list[str]] = None):
     if any(arg in top_level_flags for arg in raw_argv):
         args = parser.parse_args(raw_argv)
     else:
-        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-copilot-posttooluse", "hook-precompact", "hook-taskcomplete", "hook-subagent-start", "watch-claude", "watch-all", "watch-install", "watch-uninstall", "watch-status", "config", "index", "index-file", "claude-md", "init", "install-pack", "download-model", "upgrade"}
+        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-copilot-posttooluse", "hook-precompact", "hook-taskcomplete", "hook-subagent-start", "watch-claude", "watch-all", "watch-install", "watch-uninstall", "watch-status", "config", "index", "index-file", "claude-md", "init", "install-pack", "download-model", "upgrade", "whatsnew", "receipt", "digest", "health", "file-risk", "observatory"}
         has_subcommand = any(arg in known_commands for arg in raw_argv if not arg.startswith("-"))
         if not has_subcommand:
             raw_argv = ["serve"] + list(raw_argv)
@@ -5719,6 +5961,71 @@ def main(argv: Optional[list[str]] = None):
     if args.command == "upgrade":
         from .cli.upgrade import run_upgrade
         sys.exit(run_upgrade(no_pip=args.no_pip, yes=args.yes))
+
+    if args.command == "whatsnew":
+        from .cli.whatsnew import main as whatsnew_main
+        sys.exit(whatsnew_main([
+            "--repo-root", args.repo_root,
+            "--max-entries", str(args.max_entries),
+        ]))
+
+    if args.command == "observatory":
+        from .cli.observatory import main as observatory_main
+        argv = []
+        if args.obs_action == "build":
+            argv = ["build", "--config", args.config]
+            if args.output_dir:
+                argv += ["--output-dir", args.output_dir]
+            if args.workdir:
+                argv += ["--workdir", args.workdir]
+        elif args.obs_action == "init":
+            argv = ["init", "--out", args.out]
+        else:
+            argv = []
+        sys.exit(observatory_main(argv))
+
+    if args.command == "file-risk":
+        from .cli.file_risk import main as file_risk_main
+        argv = [args.file]
+        if args.repo:
+            argv += ["--repo", args.repo]
+        if args.storage_path:
+            argv += ["--storage-path", args.storage_path]
+        sys.exit(file_risk_main(argv))
+
+    if args.command == "health":
+        from .cli.health import main as health_main
+        argv = [args.repo, "--days", str(args.days)]
+        if args.radar_only:
+            argv += ["--radar-only"]
+        if args.storage_path:
+            argv += ["--storage-path", args.storage_path]
+        sys.exit(health_main(argv))
+
+    if args.command == "digest":
+        from .cli.digest import main as digest_main
+        argv = [args.repo]
+        if args.since_sha:
+            argv += ["--since-sha", args.since_sha]
+        argv += ["--max-changed-files", str(args.max_changed_files)]
+        argv += ["--max-hotspots", str(args.max_hotspots)]
+        argv += ["--max-dead-code", str(args.max_dead_code)]
+        if args.json:
+            argv += ["--json"]
+        if args.storage_path:
+            argv += ["--storage-path", args.storage_path]
+        sys.exit(digest_main(argv))
+
+    if args.command == "receipt":
+        from .cli.receipt import main as receipt_main
+        argv = ["--days", str(args.days), "--model", args.model]
+        if args.export:
+            argv += ["--export", args.export]
+        if args.explain:
+            argv += ["--explain"]
+        if args.projects_root:
+            argv += ["--projects-root", args.projects_root]
+        sys.exit(receipt_main(argv))
 
     if args.command == "hook-precompact":
         from .cli.hooks import run_precompact
@@ -5915,18 +6222,28 @@ def main(argv: Optional[list[str]] = None):
             args.freshness_mode = config_module.get("freshness_mode", "relaxed")
         set_freshness_mode(args.freshness_mode)
         watcher_enabled = _get_watcher_enabled(args)
+        watcher_from_cli = getattr(args, "watcher", None) is not None
 
         if watcher_enabled:
             try:
                 import watchfiles  # noqa: F401
             except ImportError:
-                print(
-                    "ERROR: --watcher requires watchfiles. "
-                    "Install with: pip install 'jcodemunch-mcp[watch]'",
-                    file=sys.stderr,
+                if watcher_from_cli:
+                    print(
+                        "ERROR: --watcher requires watchfiles. "
+                        "Install with: pip install 'jcodemunch-mcp[watch]'",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                logger.warning(
+                    "watch is enabled in config but the 'watchfiles' "
+                    "package is not installed; continuing without the "
+                    "file watcher. Install with: pip install "
+                    "'jcodemunch-mcp[watch]'"
                 )
-                sys.exit(1)
+                watcher_enabled = False
 
+        if watcher_enabled:
             # Watcher params: CLI flag > config > default
             cfg_paths = config_module.get("watch_paths", [])
             if args.watcher_path is not None:

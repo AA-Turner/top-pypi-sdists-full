@@ -167,12 +167,13 @@ class benedict(KeyattrDict[_K, _V], KeypathDict[_V], IODict[_K, _V], ParseDict[_
         """
         return _dump(data or self)
 
-    def filter(self, predicate: Callable[[_KPT, _V], bool]) -> Self:
+    def filter(self, predicate: Callable[[_KPT, _V], bool], deep: bool = False) -> Self:
         """
         Return a new filtered dict using the given predicate function.
         Predicate function receives key, value arguments and should return a bool value.
+        If deep is True, the predicate is applied recursively to nested dicts.
         """
-        return cast("Self", _filter(self, predicate))
+        return cast("Self", _filter(self, predicate, deep=deep))
 
     def find(self, keys: Iterable[str], default: _V | None = None) -> _V | None:
         """
@@ -181,17 +182,18 @@ class benedict(KeyattrDict[_K, _V], KeypathDict[_V], IODict[_K, _V], ParseDict[_
         """
         return _find(self, keys, default)  # type: ignore[misc]
 
-    def flatten(self, separator: str = "_") -> Self:
+    def flatten(self, separator: str = "_", indexes: bool = False) -> Self:
         """
         Return a new flattened dict using the given separator
         to join nested dict keys to flatten keypaths.
+        If indexes is True, list/tuple values are also flattened using [i] notation.
         """
         if separator == self._keypath_separator:
             raise ValueError(
                 f"Invalid flatten separator: {separator!r}, "
                 "flatten separator must be different from keypath separator."
             )
-        return cast("Self", _flatten(self, separator))
+        return cast("Self", _flatten(self, separator, indexes))
 
     def get(self, key: _KPT, default: _V | None = None) -> Any:  # type: ignore[override]
         return self._cast(super().get(key, default))
@@ -292,22 +294,24 @@ class benedict(KeyattrDict[_K, _V], KeypathDict[_V], IODict[_K, _V], ParseDict[_
     def pop(self, key: _KPT, *args: Any) -> _V:  # type: ignore[override]
         return cast("_V", self._cast(super().pop(key, *args)))
 
-    def remove(self, keys: Iterable[_KPT], *args: Any) -> None:
+    def remove(self, keys: Iterable[_KPT], *args: Any, deep: bool = False) -> None:
         """
         Remove multiple keys from the current dict instance.
         It is possible to pass a single key or more keys (as list or *args).
+        If deep is True, the keys are removed at every nesting level.
         """
-        _remove(self, keys, *args)
+        _remove(self, keys, *args, deep=deep)
 
     def setdefault(self, key: _KPT, default: _V | None = None) -> _V:  # type: ignore[override]
         return cast("_V", self._cast(super().setdefault(key, default)))
 
-    def rename(self, key: _KPT, key_new: _KPT) -> None:
+    def rename(self, key: _KPT, key_new: _KPT, deep: bool = False) -> None:
         """
         Rename a dict item key from 'key' to 'key_new'.
         If key_new exists, a KeyError will be raised.
+        If deep is True, the key is renamed at every nesting level.
         """
-        _rename(self, key, key_new)  # type: ignore[misc]
+        _rename(self, key, key_new, deep=deep)  # type: ignore[misc]
 
     def search(
         self,

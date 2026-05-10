@@ -144,6 +144,7 @@ class App:
         keep_warm_seconds: int = 0,
         secrets: list[str] | None = None,
         filesystems: dict[str, FileSystem] | None = None,
+        npm_packages: list[str] | None = None,
         cpu: float = 0.25,
         memory: int = 512,
         gpu: str | None = None,
@@ -152,6 +153,7 @@ class App:
     ) -> None:
         self.name = name
         self._integrations: list[IntegrationConfig] = []
+        self._npm_packages: list[str] = list(dict.fromkeys(npm_packages or []))
         self._pages: list[dict[str, Any]] = []
         self._collections: list[CollectionDecl] = []
         self._collection_refs: list[CollectionRef] = []
@@ -162,6 +164,7 @@ class App:
         self._workflows: list[Workflow] = []
         self._message_handlers: dict[str, Callable] = {}
         self._message_handler_labels: dict[str, str] = {}
+        self._session_handlers: dict[str, Callable] = {}
         self._action_handlers: dict[str, Callable] = {}
         self._home_title: str | None = None
         self._home_subtitle: str | None = None
@@ -206,6 +209,7 @@ class App:
                 "memory": memory,
                 "gpu": gpu,
                 "integrations": [],
+                "npm_packages": list(self._npm_packages),
                 "schedules": [],
                 "pages": [],
                 "collections": [],
@@ -219,6 +223,7 @@ class App:
                 "shell": None,
                 "has_message_handler": False,
                 "message_handlers": [],
+                "session_handlers": [],
                 "actions": [],
                 "theme": None,
                 "module": None,
@@ -570,6 +575,15 @@ class App:
 
     # -- pages ---------------------------------------------------------------
 
+    def add_npm_packages(self, *packages: str) -> None:
+        """Declare npm packages available to every React/TSX page."""
+        for pkg in packages:
+            if pkg and pkg not in self._npm_packages:
+                self._npm_packages.append(pkg)
+
+    def _merge_npm_packages(self, packages: list[str] | None = None) -> list[str]:
+        return list(dict.fromkeys([*self._npm_packages, *(packages or [])]))
+
     def add_page(
         self,
         name: str,
@@ -911,6 +925,25 @@ class App:
 
         return decorator
 
+    def session(self, name: str) -> Callable[[F], F]:
+        """Register an initializer for UI-started named sessions.
+
+        The handler runs when a client explicitly starts a named session via
+        ``useSession(name, { start: true })`` and the session is newly created.
+        """
+        self._require_functional("session")
+        if not name:
+            raise ValueError("session name is required")
+
+        def decorator(fn: F) -> F:
+            self._session_handlers[name] = fn
+            self._cpsl_config.setdefault("session_handlers", [])
+            if name not in self._cpsl_config["session_handlers"]:
+                self._cpsl_config["session_handlers"].append(name)
+            return fn
+
+        return decorator
+
     def schedule(self, cron: str) -> Callable[[F], F]:
         """Register a handler that runs on a cron schedule.
 
@@ -1180,7 +1213,13 @@ class App:
             return
         cfg = self._cpsl_config
         cfg["integrations"] = [ig.to_dict() for ig in self._integrations]
-        cfg["pages"] = sorted(self._pages, key=lambda p: p.get("order", 0))
+        cfg["npm_packages"] = list(self._npm_packages)
+        cfg["pages"] = [
+            {**p, "packages": self._merge_npm_packages(p.get("packages", []))}
+            if p.get("type") == PAGE_TYPE_REACT
+            else p
+            for p in sorted(self._pages, key=lambda p: p.get("order", 0))
+        ]
         cfg["data_sources"] = list(self._data_sources.keys())
         cfg["collections"] = [c.to_dict() for c in self._collections]
         cfg["collection_refs"] = list(self._collection_refs)
@@ -1188,10 +1227,17 @@ class App:
         cfg["workflows"] = [w.to_dict() for w in self._workflows]
         cfg["home"] = self._serialize_home()
         cfg["chat"] = dict(self._chat_widget_tree) if self._chat_widget_tree else None
-        cfg["onboarding"] = dict(self._onboarding) if self._onboarding else None
+        if self._onboarding:
+            onboarding = dict(self._onboarding)
+            if onboarding.get("type") == PAGE_TYPE_REACT:
+                onboarding["packages"] = self._merge_npm_packages(onboarding.get("packages", []))
+            cfg["onboarding"] = onboarding
+        else:
+            cfg["onboarding"] = None
         cfg["shell"] = self._shell_config
         cfg["has_message_handler"] = bool(self._message_handlers)
         cfg["message_handlers"] = self._message_meta()
+        cfg["session_handlers"] = sorted(self._session_handlers.keys())
         cfg["actions"] = sorted(self._action_handlers.keys())
         cfg["theme"] = self._theme.to_dict() if self._theme else None
 

@@ -11,8 +11,6 @@ from ._interface import AbstractValueConverter
 
 
 class DateTimeConverter(AbstractValueConverter):
-    __DAYS_TO_SECONDS_COEF = 60**2 * 24
-    __MICROSECONDS_TO_SECONDS_COEF = 1000**2
     __COMMON_DST_TIMEZONE_TABLE = {
         -36000: "America/Adak",  # -1000
         -32400: "US/Alaska",  # -0900
@@ -56,7 +54,7 @@ class DateTimeConverter(AbstractValueConverter):
 
         if self.__timezone:
             if self.__datetime.tzinfo is None:
-                self.__datetime = self.__timezone.localize(self.__datetime)
+                self.__datetime = self.__datetime.replace(tzinfo=self.__timezone)
             else:
                 self.__datetime = datetime.fromtimestamp(
                     self.__datetime.timestamp(), tz=self.__timezone
@@ -68,35 +66,24 @@ class DateTimeConverter(AbstractValueConverter):
         from ..type._integer import Integer
         from ..type._realnumber import RealNumber
 
-        conv_error = TypeConversionError(
-            "timestamp is out of the range of values supported by the platform"
-        )
-
         timestamp = Integer(self._value, strict_level=1).try_convert()
-        if timestamp:
-            try:
-                self.__datetime = datetime.fromtimestamp(timestamp, self.__timezone)
-            except (ValueError, OSError, OverflowError):
-                raise conv_error
+        if timestamp is None:
+            timestamp = RealNumber(self._value, strict_level=1).try_convert()
+        if timestamp is None:
+            return None
 
-            return self.__datetime
+        try:
+            self.__datetime = datetime.fromtimestamp(float(timestamp), self.__timezone)
+        except (ValueError, OSError, OverflowError):
+            raise TypeConversionError(
+                "timestamp is out of the range of values supported by the platform"
+            )
 
-        timestamp = RealNumber(self._value, strict_level=1).try_convert()
-        if timestamp:
-            try:
-                self.__datetime = datetime.fromtimestamp(int(timestamp), self.__timezone).replace(
-                    microsecond=int((timestamp - int(timestamp)) * 1000000)
-                )
-            except (ValueError, OSError, OverflowError):
-                raise conv_error
-
-            return self.__datetime
-
-        return None
+        return self.__datetime
 
     def __from_datetime_string(self):
         import dateutil.parser
-        import pytz
+        from zoneinfo import ZoneInfo
 
         self.__validate_datetime_string()
 
@@ -113,28 +100,21 @@ class DateTimeConverter(AbstractValueConverter):
             raise TypeConversionError(f"failed to parse as a datetime: type={type(self._value)}")
 
         if self.__timezone:
-            pytz_timezone = self.__timezone
+            tz = self.__timezone
         else:
             try:
                 dst_timezone_name = self.__get_dst_timezone_name(self.__get_timedelta_sec())
             except (AttributeError, KeyError):
                 return self.__datetime
 
-            pytz_timezone = pytz.timezone(dst_timezone_name)
+            tz = ZoneInfo(dst_timezone_name)
 
-        self.__datetime = self.__datetime.replace(tzinfo=None)
-        self.__datetime = pytz_timezone.localize(self.__datetime)
+        self.__datetime = self.__datetime.replace(tzinfo=tz)
 
         return self.__datetime
 
     def __get_timedelta_sec(self):
-        dt = self.__datetime.utcoffset()
-
-        return int(
-            dt.days * self.__DAYS_TO_SECONDS_COEF
-            + float(dt.seconds)
-            + dt.microseconds / self.__MICROSECONDS_TO_SECONDS_COEF
-        )
+        return int(self.__datetime.utcoffset().total_seconds())
 
     def __get_dst_timezone_name(self, offset):
         return self.__COMMON_DST_TIMEZONE_TABLE[offset]

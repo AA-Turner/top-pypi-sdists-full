@@ -1755,13 +1755,13 @@ class TestPollStatusVariousPaths:
     """Tests for poll_status() various status paths (lines 1412-1518)."""
 
     @pytest.mark.asyncio
-    async def test_poll_status_pending_artifact_not_in_list(
+    async def test_poll_status_not_found_artifact_not_in_list(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """poll_status returns 'pending' when task_id not found in artifact list."""
+        """poll_status returns 'not_found' when task_id not found in artifact list."""
         # Return artifacts that don't include the task_id we're polling
         artifact = ["some_other_artifact", "Report", 2, None, 3]
         response = build_rpc_response(RPCMethod.LIST_ARTIFACTS, [[artifact]])
@@ -1770,7 +1770,7 @@ class TestPollStatusVariousPaths:
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.artifacts.poll_status("nb_123", "unknown_task_id")
 
-        assert result.status == "pending"
+        assert result.status == "not_found"
         assert result.task_id == "unknown_task_id"
 
     @pytest.mark.asyncio
@@ -1857,20 +1857,20 @@ class TestPollStatusVariousPaths:
         assert result.status == "completed"
 
     @pytest.mark.asyncio
-    async def test_poll_status_empty_list_returns_pending(
+    async def test_poll_status_empty_list_returns_not_found(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """poll_status returns 'pending' when artifact list is empty."""
+        """poll_status returns 'not_found' when artifact list is empty."""
         response = build_rpc_response(RPCMethod.LIST_ARTIFACTS, [[]])
         httpx_mock.add_response(content=response.encode())
 
         async with NotebookLMClient(auth_tokens) as client:
             result = await client.artifacts.poll_status("nb_123", "some_task_id")
 
-        assert result.status == "pending"
+        assert result.status == "not_found"
 
 
 class TestCallGenerateErrorHandling:
@@ -2152,7 +2152,9 @@ class TestGetArtifactTypeNameAndIsMediaReady:
         build_rpc_response,
     ):
         """poll_status returns 'completed' for video when art[8] has valid URL."""
-        # Video artifact with art[8] containing a URL
+        # Video artifact with art[8] containing a URL.
+        # Real-API shape: art[8][i][0][0] holds the URL string (matches the
+        # structure parsed by download_video).
         video_artifact = [
             "video_task",
             "Video Overview",
@@ -2162,7 +2164,7 @@ class TestGetArtifactTypeNameAndIsMediaReady:
             None,
             None,
             None,
-            [["https://storage.googleapis.com/video.mp4"]],  # art[8]
+            [[["https://storage.googleapis.com/video.mp4"]]],  # art[8]
         ]
         response = build_rpc_response(RPCMethod.LIST_ARTIFACTS, [[video_artifact]])
         httpx_mock.add_response(content=response.encode())

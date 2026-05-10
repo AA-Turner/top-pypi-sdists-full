@@ -4,6 +4,7 @@ import json
 import posixpath
 import re
 import threading
+from collections import deque
 from pathlib import Path
 from typing import Optional
 
@@ -22,8 +23,49 @@ _JS_IMPORT_FROM = re.compile(
 _JS_SIDE_EFFECT = re.compile(r"""(?:^|\n)\s*import\s+['"]([^'"]+)['"]""", re.MULTILINE)
 # JS/TS: require('specifier')
 _JS_REQUIRE = re.compile(r"""require\s*\(\s*['"]([^'"]+)['"]\s*\)""", re.MULTILINE)
-# JS/TS: export { A } from 'specifier'  (re-export without full import parse)
-_JS_REEXPORT = re.compile(r"""(?:^|\n)\s*export\s+\{[^}]*\}\s+from\s+['"]([^'"]+)['"]""", re.MULTILINE)
+# JS/TS: export { A, B as C } from 'specifier'  (selective re-export)
+# Captures the brace contents so the graph builder can do per-name barrel
+# routing — `import { A } from './barrel'` credits the leaf `A` came from,
+# not every leaf the barrel re-exports.
+_JS_REEXPORT_NAMED = re.compile(
+    r"""(?:^|\n)\s*export\s+\{([^}]*)\}\s+from\s+['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+# JS/TS: export * from 'specifier'  or  export * as ns from 'specifier'  (wildcard re-export = barrel)
+# Wildcard means "anyone importing this barrel could be using any exported
+# symbol", so the graph builder transitively credits every re-exported leaf.
+_JS_REEXPORT_STAR = re.compile(
+    r"""(?:^|\n)\s*export\s*\*\s*(?:as\s+\w+\s+)?from\s+['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+
+
+def _parse_reexport_clause(raw: str) -> list[dict]:
+    """Parse the brace contents of `export { ... } from <spec>`.
+
+    Returns a list of {exposed, original} dicts. Handles:
+        Foo              -> {exposed: Foo, original: Foo}
+        Foo as Bar       -> {exposed: Bar, original: Foo}
+        default as Qux   -> {exposed: Qux, original: default}
+        type Foo         -> {exposed: Foo, original: Foo}  (TS type-only)
+    """
+    origins: list[dict] = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        # Strip TS `type ` prefix.
+        part = re.sub(r"^type\s+", "", part).strip()
+        if not part:
+            continue
+        m = re.match(r"^(\S+)\s+as\s+(\S+)$", part)
+        if m:
+            origins.append({"original": m.group(1), "exposed": m.group(2)})
+        else:
+            # Single token; may be `default` (covers `export { default } from`).
+            tok = part.split()[0]
+            origins.append({"original": tok, "exposed": tok})
+    return origins
 # JS/TS: import('specifier') — dynamic import (Vue Router lazy routes, code splitting)
 _JS_DYNAMIC_IMPORT = re.compile(r"""import\s*\(\s*['"]([^'"]+)['"]\s*\)""", re.MULTILINE)
 
@@ -95,19 +137,55 @@ def _clean_names(raw: str) -> list[str]:
 
 
 def _extract_js_imports(content: str) -> list[dict]:
-    edges = []
+    edges: list[dict] = []
     seen: set[str] = set()
 
-    def add(specifier: str, names: list[str]) -> None:
+    def add(
+        specifier: str,
+        names: list[str],
+        *,
+        is_re_export: bool = False,
+        re_export_kind: Optional[str] = None,
+        re_export_origins: Optional[list[dict]] = None,
+    ) -> None:
         if specifier not in seen:
             seen.add(specifier)
-            edges.append({"specifier": specifier, "names": names})
-        else:
-            # Merge names into existing entry
-            for e in edges:
-                if e["specifier"] == specifier:
-                    e["names"] = sorted(set(e["names"]) | set(names))
-                    break
+            edge: dict = {"specifier": specifier, "names": names}
+            if is_re_export:
+                edge["is_re_export"] = True
+                if re_export_kind:
+                    edge["re_export_kind"] = re_export_kind
+                if re_export_origins:
+                    edge["re_export_origins"] = list(re_export_origins)
+            edges.append(edge)
+            return
+        # Merge into existing entry. Promote to re-export if either source
+        # flagged it. For mixed-kind merges (selective + wildcard against the
+        # same specifier — `export { X } from './x'; export * from './x'`),
+        # wildcard wins because it's the looser semantic.
+        for e in edges:
+            if e["specifier"] != specifier:
+                continue
+            e["names"] = sorted(set(e["names"]) | set(names))
+            if not is_re_export:
+                return
+            e["is_re_export"] = True
+            existing_kind = e.get("re_export_kind")
+            if re_export_kind == "wildcard" or existing_kind == "wildcard":
+                e["re_export_kind"] = "wildcard"
+                # Wildcard supersedes selective origins; drop them.
+                e.pop("re_export_origins", None)
+            elif re_export_kind == "selective":
+                e["re_export_kind"] = "selective"
+                if re_export_origins:
+                    existing = e.get("re_export_origins", [])
+                    seen_exposed = {o["exposed"] for o in existing}
+                    for o in re_export_origins:
+                        if o["exposed"] not in seen_exposed:
+                            existing.append(o)
+                            seen_exposed.add(o["exposed"])
+                    e["re_export_origins"] = existing
+            return
 
     for m in _JS_IMPORT_FROM.finditer(content):
         named_group, default_group, extra_named, specifier = m.group(1), m.group(2), m.group(3), m.group(4)
@@ -126,10 +204,29 @@ def _extract_js_imports(content: str) -> list[dict]:
     for m in _JS_REQUIRE.finditer(content):
         add(m.group(1), [])
 
-    for m in _JS_REEXPORT.finditer(content):
-        # Only add if not already captured by _JS_IMPORT_FROM
-        if m.group(1) not in seen:
-            add(m.group(1), [])
+    for m in _JS_REEXPORT_NAMED.finditer(content):
+        # Selective re-export `export { X, Y as Z } from <spec>`.
+        # Tagged with re_export_kind="selective" + re_export_origins so the
+        # graph builder routes per-name: importers of `X` from the barrel
+        # credit the leaf, importers of unrelated names do not.
+        raw_names, specifier = m.group(1), m.group(2)
+        origins = _parse_reexport_clause(raw_names)
+        if not origins:
+            continue
+        exposed_names = [o["exposed"] for o in origins]
+        add(
+            specifier,
+            exposed_names,
+            is_re_export=True,
+            re_export_kind="selective",
+            re_export_origins=origins,
+        )
+
+    for m in _JS_REEXPORT_STAR.finditer(content):
+        # Wildcard re-export `export * from <spec>` — barrel pattern.
+        # Anyone importing the barrel could be using any re-exported symbol,
+        # so the graph builder transitively credits every leaf.
+        add(m.group(1), [], is_re_export=True, re_export_kind="wildcard")
 
     for m in _JS_DYNAMIC_IMPORT.finditer(content):
         add(m.group(1), [])
@@ -579,21 +676,38 @@ def _get_sql_stems(source_files: set[str]) -> dict[str, str]:
 
 
 def _candidates(base: str) -> list[str]:
-    """Generate path candidates with and without extension."""
+    """Generate path candidates with and without extension.
+
+    Cases:
+    - No extension (`./foo`): try every known source extension and the
+      barrel-index forms.
+    - JS extension (`./foo.js`): plus TS/TSX equivalents (TS-ESM convention).
+    - Recognized file extension other than .js: keep as-is.
+    - Unrecognized "extension" (`./injectable.decorator`, `./foo.service`,
+      `./order.spec` if treated as code): the dotted suffix is part of
+      the basename, not a file extension. Try the same candidates as
+      the no-extension case so TS/JS naming conventions like
+      `*.service.ts`, `*.decorator.ts`, `*.controller.ts` resolve.
+    """
     cands = [base]
     _, ext = posixpath.splitext(base)
     if not ext:
         for e in _ALL_EXTENSIONS:
             cands.append(base + e)
-        # index file
         for e in _JS_EXTENSIONS:
             cands.append(posixpath.join(base, "index" + e))
         cands.append(posixpath.join(base, "__init__.py"))
     elif ext == ".js":
-        # TypeScript ESM convention: 'import "./foo.js"' may resolve to './foo.ts' or './foo.tsx'
         stem = base[:-3]
         cands.append(stem + ".ts")
         cands.append(stem + ".tsx")
+    elif ext not in _ALL_EXTENSIONS:
+        # Dotted basename: TS/JS convention (`*.service`, `*.decorator`,
+        # `*.module`, `*.spec`, etc.). Treat the whole `base` as a stem.
+        for e in _ALL_EXTENSIONS:
+            cands.append(base + e)
+        for e in _JS_EXTENSIONS:
+            cands.append(posixpath.join(base, "index" + e))
     return cands
 
 
@@ -876,6 +990,126 @@ def _expand_aliases(specifier: str, alias_map: dict[str, list[str]]) -> list[str
             for rep in replacements:
                 results.append(rep[2:] if rep.startswith("./") else rep)
     return results
+
+
+def build_re_export_maps(
+    imports: dict,
+    source_files: frozenset,
+    alias_map: Optional[dict] = None,
+    psr4_map: Optional[dict] = None,
+) -> tuple[dict[str, list[str]], dict[str, dict[str, tuple[str, str]]]]:
+    """Build wildcard + name-keyed re-export maps from raw import data.
+
+    Returns ``(wildcard_map, named_map)``:
+
+    * ``wildcard_map: {barrel_file -> [leaf_file]}`` for ``export * from <spec>``.
+    * ``named_map: {barrel_file -> {exposed_name -> (leaf_file, original_name)}}``
+      for ``export { Foo as Bar } from <spec>``. The ``original_name`` lets the
+      walker chase chains across renames (consumer imports ``Bar``, barrel
+      forwards ``Foo``, leaf may itself re-export ``Foo``).
+
+    Old indexes lacking ``re_export_kind`` default to wildcard semantics —
+    matches the v1.93 behavior so a fresh re-index is not strictly required.
+    """
+    wildcard: dict[str, list[str]] = {}
+    named: dict[str, dict[str, tuple[str, str]]] = {}
+    for src_file, file_imports in imports.items():
+        wild_leaves: list[str] = []
+        named_leaves: dict[str, tuple[str, str]] = {}
+        for imp in file_imports:
+            if not imp.get("is_re_export"):
+                continue
+            target = resolve_specifier(imp["specifier"], src_file, source_files, alias_map, psr4_map)
+            if not target or target == src_file:
+                continue
+            kind = imp.get("re_export_kind", "wildcard")
+            if kind == "selective":
+                for o in imp.get("re_export_origins", ()):
+                    exposed = o.get("exposed")
+                    original = o.get("original", exposed)
+                    if exposed and exposed not in named_leaves:
+                        named_leaves[exposed] = (target, original)
+            else:
+                wild_leaves.append(target)
+        if wild_leaves:
+            wildcard[src_file] = list(dict.fromkeys(wild_leaves))
+        if named_leaves:
+            named[src_file] = named_leaves
+    return wildcard, named
+
+
+def expand_barrel_leaves(
+    direct: str,
+    consumer_names: list[str],
+    wildcard_map: dict[str, list[str]],
+    named_map: dict[str, dict[str, tuple[str, str]]],
+) -> set[str]:
+    """Walk barrel chains to enumerate every leaf an importer transitively credits.
+
+    Args:
+        direct: The directly resolved import target (the barrel itself).
+        consumer_names: Names imported from ``direct`` by the consumer. An
+            empty list means namespace import / side-effect / require — no name
+            context, so we wildcard-expand AND walk every named leaf (the safe
+            over-credit fallback).
+        wildcard_map: Output of :func:`build_re_export_maps`.
+        named_map: Output of :func:`build_re_export_maps`.
+
+    Returns the set of leaf files (including ``direct``) the consumer should
+    credit. Cycle-safe via a visited set.
+    """
+    leaves: set[str] = {direct}
+    # Each queue entry is (barrel, names) — names=[] means "expand everything"
+    queue: deque = deque([(direct, list(consumer_names))])
+    visited: set[tuple[str, str]] = set()  # (barrel, name) — re-walk barrel under different name contexts
+
+    while queue:
+        barrel, names = queue.popleft()
+        wildcard_leaves = wildcard_map.get(barrel, ())
+        named_table = named_map.get(barrel, {})
+
+        if not names:
+            # No name context — wildcard fallback. Expand every wildcard leaf
+            # AND every named leaf (we don't know which name was used, so
+            # over-credit; matches the spec for namespace imports).
+            for leaf in wildcard_leaves:
+                if (leaf, "") not in visited:
+                    visited.add((leaf, ""))
+                    leaves.add(leaf)
+                    queue.append((leaf, []))
+            for exposed, (leaf, original) in named_table.items():
+                if (leaf, original) not in visited:
+                    visited.add((leaf, original))
+                    leaves.add(leaf)
+                    # Walk the leaf with the original name so chained selective
+                    # re-exports (`export { Foo } from './leaf'` where ./leaf is
+                    # itself a barrel) resolve correctly.
+                    queue.append((leaf, [original]))
+            continue
+
+        # Per-name routing
+        unrouted: list[str] = []
+        for n in names:
+            entry = named_table.get(n)
+            if entry is not None:
+                leaf, original = entry
+                if (leaf, original) not in visited:
+                    visited.add((leaf, original))
+                    leaves.add(leaf)
+                    queue.append((leaf, [original]))
+            else:
+                unrouted.append(n)
+
+        # Names not found in the named table might come from a wildcard
+        # re-export inside the same barrel (mixed barrel pattern).
+        if unrouted and wildcard_leaves:
+            for leaf in wildcard_leaves:
+                if (leaf, "") not in visited:
+                    visited.add((leaf, ""))
+                    leaves.add(leaf)
+                    queue.append((leaf, list(unrouted)))
+
+    return leaves
 
 
 def resolve_specifier(

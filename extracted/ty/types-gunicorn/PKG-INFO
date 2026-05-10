@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-gunicorn
-Version: 26.0.0.20260509
+Version: 26.0.0.20260510
 Summary: Typing stubs for gunicorn
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -36,4 +36,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.409
 
 It was generated from typeshed commit
-[`6a4075c7bcf192227421bc13558c19bc9fd2342e`](https://github.com/python/typeshed/commit/6a4075c7bcf192227421bc13558c19bc9fd2342e).
+[`8d08eb75ff00ea2aeb9ba5a795f5ea7bfff5de2d`](https://github.com/python/typeshed/commit/8d08eb75ff00ea2aeb9ba5a795f5ea7bfff5de2d).

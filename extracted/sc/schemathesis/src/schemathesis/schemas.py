@@ -41,7 +41,13 @@ from .filters import (
     RegexValue,
     is_deprecated,
 )
-from .hooks import GLOBAL_HOOK_DISPATCHER, HookContext, HookDispatcher, HookScope, defines, dispatch, to_filterable_hook
+from .hooks import (
+    GLOBAL_HOOK_DISPATCHER,
+    HookContext,
+    HookDispatcher,
+    HookScope,
+    to_filterable_hook,
+)
 
 if TYPE_CHECKING:
     import httpx
@@ -56,6 +62,7 @@ if TYPE_CHECKING:
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.core.schema_analysis import SchemaWarning
     from schemathesis.engine.context import EngineContext
+    from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.engine.run import Phase
     from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
     from schemathesis.engine.run.unit._pool import DefaultScheduler
@@ -81,8 +88,6 @@ class BaseSchema(Mapping):
 
     def __post_init__(self) -> None:
         self.hook = to_filterable_hook(self.hooks)  # type: ignore[method-assign]
-        # Path-level dedup of undeclared-method coverage probes; cleared per coverage phase.
-        self.coverage_unexpected_methods_seen: set[tuple[str, str]] = set()
         # Runtime auth-inference overlays keyed by operation label. Populated when the server enforces
         # auth on an operation the spec declares public; subsequent generations consult it instead of
         # mutating the parsed spec. Empty for schemas whose adapter doesn't run inference.
@@ -381,16 +386,6 @@ class BaseSchema(Mapping):
             return HookDispatcherMark.get(self.test_function)
         return None
 
-    def dispatch_hook(self, name: str, context: HookContext, *args: Any, **kwargs: Any) -> None:
-        # Fast path: skip the per-dispatcher loop overhead when nothing is registered.
-        if defines(name):
-            dispatch(name, context, *args, **kwargs)
-        if self.hooks.defines(name):
-            self.hooks.dispatch(name, context, *args, **kwargs)
-        local_dispatcher = self.get_local_hook_dispatcher()
-        if local_dispatcher is not None and local_dispatcher.defines(name):
-            local_dispatcher.dispatch(name, context, *args, **kwargs)
-
     def prepare_multipart(
         self, form_data: dict[str, Any], operation: APIOperation, selected_content_types: dict[str, str] | None = None
     ) -> tuple[list | None, dict[str, Any] | None]:
@@ -459,6 +454,31 @@ class BaseSchema(Mapping):
     def get_coverage_capabilities(self) -> CoverageCapabilities:
         """Return spec-specific data the coverage phase asks of a schema."""
         return CoverageCapabilities(format_strategies={}, update_pattern=None, validator_cls=None)
+
+    def reset_coverage_state(self) -> None:
+        """Reset spec-specific runtime state held across coverage runs; default is a no-op."""
+
+    def record_runtime_observations(
+        self,
+        *,
+        store: ErrorFeedbackStore,
+        recorder: ScenarioRecorder,
+        case: Case,
+        response: Response,
+        transport_kwargs: dict[str, Any],
+    ) -> None:
+        """Spec-specific runtime observations from a response (e.g. auth inference). Default: no-op."""
+
+    def iter_coverage_cases(
+        self,
+        operation: APIOperation,
+        *,
+        generation_modes: list[GenerationMode],
+        generation_config: GenerationConfig,
+        extra_data_source: ExtraDataSource | None = None,
+        error_feedback: ErrorFeedbackStore | None = None,
+    ) -> Iterator[Case]:
+        raise NotImplementedError
 
     def revalidate_case_metadata(self, case: Case) -> None:
         """Refresh case metadata after a container was modified; default just clears the dirty markers."""

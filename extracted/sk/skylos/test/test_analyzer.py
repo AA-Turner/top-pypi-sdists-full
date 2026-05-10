@@ -10,7 +10,13 @@ from skylos.visitors.test_aware import TestAwareVisitor
 from skylos.visitors.framework_aware import FrameworkAwareVisitor
 from skylos.penalties import apply_penalties
 
-from skylos.analyzer import Skylos, proc_file, analyze, _resolve_analysis_root
+from skylos.analyzer import (
+    Skylos,
+    proc_file,
+    analyze,
+    _architecture_iad_strict,
+    _resolve_analysis_root,
+)
 
 
 @pytest.fixture
@@ -206,6 +212,7 @@ class TestSkylos:
                 ".java",
                 ".php",
                 ".rs",
+                ".dart",
             },
             exclude_folders=None,
         )
@@ -373,6 +380,11 @@ class TestHeuristics:
 
 
 class TestAnalyze:
+    def test_architecture_iad_strict_requires_explicit_iad_opt_in(self):
+        assert _architecture_iad_strict({"strict": True}) is False
+        assert _architecture_iad_strict({"enforce_iad": True}) is True
+        assert _architecture_iad_strict({"strict_iad": True}) is True
+
     @patch("skylos.analyzer.proc_file")
     def test_analyze_basic(self, mock_proc_file, temp_python_project):
         mock_def = Mock()
@@ -657,6 +669,52 @@ class TestAnalyze:
         assert metrics["app.package_a.cli"]["ca"] == 1
         assert metrics["app.package_a.cli"]["zone"] != "zone_of_uselessness"
 
+    def test_analyze_applies_configured_architecture_layer_policy(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "pyproject.toml").write_text(
+                "[tool.skylos.architecture]\n"
+                "strict = false\n\n"
+                "[[tool.skylos.architecture.layers]]\n"
+                'name = "api"\n'
+                'patterns = ["app.api"]\n\n'
+                "[[tool.skylos.architecture.layers]]\n"
+                'name = "domain"\n'
+                'patterns = ["app.domain"]\n\n'
+                "[[tool.skylos.architecture.rules]]\n"
+                'from = "domain"\n'
+                'deny = ["api"]\n',
+                encoding="utf-8",
+            )
+            (root / "app" / "api").mkdir(parents=True)
+            (root / "app" / "domain").mkdir(parents=True)
+            (root / "app" / "__init__.py").write_text("", encoding="utf-8")
+            (root / "app" / "api" / "__init__.py").write_text("", encoding="utf-8")
+            (root / "app" / "domain" / "__init__.py").write_text(
+                "", encoding="utf-8"
+            )
+            (root / "app" / "api" / "routes.py").write_text(
+                "API_VALUE = 1\n",
+                encoding="utf-8",
+            )
+            (root / "app" / "domain" / "model.py").write_text(
+                "from app.api.routes import API_VALUE\n"
+                "def model_value():\n"
+                "    return API_VALUE\n",
+                encoding="utf-8",
+            )
+
+            result_json = analyze(str(root), enable_quality=True, grep_verify=False)
+
+        result = json.loads(result_json)
+        policy_findings = [
+            f for f in result.get("quality", []) if f.get("rule_id") == "SKY-Q805"
+        ]
+        assert len(policy_findings) == 1
+        assert policy_findings[0]["from_layer"] == "domain"
+        assert policy_findings[0]["to_layer"] == "api"
+        assert result["architecture_metrics"]["layer_policy"]["violation_count"] == 1
+
     def test_analyze_architecture_filters_cli_entrypoint_and_private_helper_noise(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -716,6 +774,34 @@ class TestAnalyze:
         assert ("SKY-Q803", "mypkg") not in architecture_rules
         assert ("SKY-Q803", "mypkg.cli") not in architecture_rules
         assert ("SKY-Q802", "mypkg._helpers") not in architecture_rules
+
+    def test_pyproject_gui_script_entrypoint_is_not_reported_dead(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            pkg = root / "mypkg"
+            pkg.mkdir()
+            (root / "pyproject.toml").write_text(
+                "[project]\n"
+                'name = "gui-entrypoint-repro"\n'
+                'version = "0.1.0"\n\n'
+                "[project.gui-scripts]\n"
+                'mypkg-gui = "mypkg.gui:launch"\n',
+                encoding="utf-8",
+            )
+            (pkg / "__init__.py").write_text("", encoding="utf-8")
+            (pkg / "gui.py").write_text(
+                "def launch():\n"
+                '    print("hello")\n',
+                encoding="utf-8",
+            )
+
+            result_json = analyze(str(root), conf=0, grep_verify=False)
+
+        result = json.loads(result_json)
+        unused_functions = {
+            item["full_name"] for item in result.get("unused_functions", [])
+        }
+        assert "mypkg.gui.launch" not in unused_functions
 
     def test_analyze_architecture_filters_low_fan_in_private_helper_q803(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1473,6 +1559,45 @@ def pytest_assertrepr_compare(config, op, left, right):
         assert "left" not in unused_parameters
         assert "right" not in unused_parameters
 
+    def test_analyze_suppresses_override_method_parameters(self, tmp_path):
+        src = tmp_path / "models.py"
+        src.write_text(
+            """
+from typing import override
+import typing_extensions
+
+class Base:
+    def render(self, value, context, unused_base):
+        return value + context + unused_base
+
+class TypedChild(Base):
+    @override
+    def render(self, value, context, compat):
+        return value + context
+
+class ExtensionChild(Base):
+    @typing_extensions.override()
+    def render(self, value, context, compat_ext):
+        return value + context
+
+class PlainChild(Base):
+    def render(self, value, context, plain_unused):
+        return value + context
+""",
+            encoding="utf-8",
+        )
+
+        result_json = analyze(str(tmp_path), conf=0, grep_verify=False)
+        result = json.loads(result_json)
+
+        unused_parameters = {
+            item["full_name"] for item in result["unused_parameters"]
+        }
+
+        assert "models.TypedChild.render.compat" not in unused_parameters
+        assert "models.ExtensionChild.render.compat_ext" not in unused_parameters
+        assert "models.PlainChild.render.plain_unused" in unused_parameters
+
     def test_analyze_suppresses_sqlalchemy_listener_parameters(self, tmp_path):
         src = tmp_path / "listener.py"
         src.write_text(
@@ -1937,6 +2062,26 @@ def fake_call():
 
         assert dependency_findings == []
 
+    def test_analyze_flags_mock_placeholder_data_in_production_file(self, tmp_path):
+        src = tmp_path / "app.py"
+        src.write_text(
+            'SUPPORT_EMAIL = "test@example.com"\n'
+            'USER_ID = "00000000-0000-0000-0000-000000000000"\n',
+            encoding="utf-8",
+        )
+
+        result = json.loads(
+            analyze(str(tmp_path), conf=0, enable_quality=True, grep_verify=False)
+        )
+        findings = [
+            f for f in result.get("quality", []) if f.get("rule_id") == "SKY-L032"
+        ]
+
+        assert {f["mock_data_type"] for f in findings} == {
+            "placeholder_email",
+            "low_entropy_uuid",
+        }
+
     def test_analyze_repo_rules_use_root_project_ignore_config(self, tmp_path):
         (tmp_path / "pyproject.toml").write_text(
             """
@@ -2385,6 +2530,85 @@ def handler(request):
 
         assert result["analysis_summary"]["sca_count"] == 1
         assert result["dependency_vulnerabilities"][0]["rule_id"] == "CVE-TEST"
+
+    def test_danger_dependency_scan_uses_project_root_for_src_layout(
+        self, tmp_path, monkeypatch
+    ):
+        (tmp_path / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
+        pkg = tmp_path / "src" / "my_package"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "module.py").write_text("import requests\n", encoding="utf-8")
+
+        from skylos.rules.danger.danger_hallucination import dependency_hallucination
+
+        seen = {}
+
+        def fake_scan(repo_root, py_files):
+            seen["repo_root"] = Path(repo_root)
+            seen["py_files"] = list(py_files)
+            cache_path = Path(repo_root) / ".skylos" / "cache" / "pypi_exists.json"
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text("{}", encoding="utf-8")
+            return []
+
+        monkeypatch.setattr(
+            dependency_hallucination,
+            "scan_python_dependency_hallucinations",
+            fake_scan,
+        )
+
+        result = json.loads(
+            analyze(
+                str(tmp_path / "src"),
+                conf=0,
+                enable_danger=True,
+                grep_verify=False,
+            )
+        )
+
+        assert "error" not in result
+        assert seen["repo_root"] == tmp_path.resolve()
+        assert (tmp_path / ".skylos" / "cache" / "pypi_exists.json").exists()
+        assert not (pkg / ".skylos").exists()
+
+    def test_sca_scan_uses_project_root_for_src_layout(self, tmp_path, monkeypatch):
+        (tmp_path / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")
+        pkg = tmp_path / "src" / "my_package"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "module.py").write_text("def handler():\n    return 1\n")
+
+        from skylos.rules.sca import vulnerability_scanner
+
+        seen = {}
+
+        def fake_scan(root):
+            seen["root"] = Path(root)
+            cache_path = Path(root) / ".skylos" / "cache" / "osv_cache.json"
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text("{}", encoding="utf-8")
+            return []
+
+        monkeypatch.setattr(
+            vulnerability_scanner,
+            "scan_dependencies",
+            fake_scan,
+        )
+
+        result = json.loads(
+            analyze(
+                str(tmp_path / "src"),
+                conf=0,
+                enable_sca=True,
+                grep_verify=False,
+            )
+        )
+
+        assert "error" not in result
+        assert seen["root"] == tmp_path.resolve()
+        assert (tmp_path / ".skylos" / "cache" / "osv_cache.json").exists()
+        assert not (pkg / ".skylos").exists()
 
     def test_prompt_injection_scan_includes_scannable_docs(self, tmp_path):
         (tmp_path / "pyproject.toml").write_text("[tool.skylos]\n", encoding="utf-8")

@@ -137,6 +137,14 @@ def handle_execute_option_7(
                 maLength = _handle_chart_pattern_6_9(
                     options, userPassedArgs, defaultAnswer, user, selectedMenu, respChartPattern
                 )
+            elif respChartPattern == 7:
+                if len(options) >= 5:
+                    insideBarToLookback = options[4] if options[4] != "D" else '0'
+                    maLength = options[4] if options[4] != "D" else '0'
+                    selectedChoice["4"] = options[4] if options[4] != "D" else '0'
+                # if len(options) >= 6:
+                #     maLength = options[5] if options[5] != "D" else '0'
+                #     selectedChoice["5"] = options[5] if options[5] != "D" else '0'
         else:
             respChartPattern, insideBarToLookback = ConsoleMenuUtility.PKConsoleMenuTools.promptChartPatterns(selectedMenu)
     else:
@@ -175,7 +183,7 @@ def handle_execute_option_7(
     
     # Handle candlestick patterns
     if respChartPattern == 7:
-        maLength = _handle_candlestick_patterns(userPassedArgs, m0, selectedChoice)
+        maLength, insideBarToLookback = _handle_candlestick_patterns(userPassedArgs, m0, selectedChoice, insideBarToLookback=insideBarToLookback, maLength=maLength)
         if maLength is None:
             return None, None, None
     
@@ -286,9 +294,9 @@ def _configure_super_confluence(options, userPassedArgs, configManager, ConfigMa
         configManager.setConfig(ConfigManager.parser, default=True, showFileCreatedText=False)
 
 
-def _handle_candlestick_patterns(userPassedArgs, m0, selectedChoice):
+def _handle_candlestick_patterns(userPassedArgs, m0, selectedChoice, insideBarToLookback, maLength='0') -> Tuple[Optional[int], Optional[int]]:
     """Handle candlestick pattern selection"""
-    maLength = "0"
+    # maLength = "0"
     if userPassedArgs is None or userPassedArgs.answerdefault is None:
         m0.renderCandleStickPatterns()
         filterOption = OutputControls().takeUserInput(colorText.FAIL + "  [+] Select option: ") or "0"
@@ -299,15 +307,20 @@ def _handle_candlestick_patterns(userPassedArgs, m0, selectedChoice):
                 "[+] Default is to find dynamically using volatility. Press enter to use default.\n"
                 "[+] Enter number of candles to consider for left cup side formation:"
             )) or "0"
+            insideBarToLookback = str(cupnHandleIndex)
         
         if str(filterOption).upper() not in ["0", "M", cupnHandleIndex]:
             maLength = str(filterOption)
         elif str(filterOption).upper() == "M":
-            return None
+            return None, None
         
         selectedChoice["4"] = filterOption
-    
-    return maLength
+    else:
+        if str(selectedChoice["4"]) != '10':  # 10 is for cup and handle which uses dynamic lookback by default
+            maLength = str(selectedChoice["4"])
+        else:
+            maLength = '0'
+    return maLength, insideBarToLookback
 
 
 def handle_execute_option_8(options: List[str], userPassedArgs) -> Tuple[Optional[int], Optional[int]]:

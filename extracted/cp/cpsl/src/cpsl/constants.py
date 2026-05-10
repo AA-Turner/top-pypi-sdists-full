@@ -92,8 +92,16 @@ HISTORY_FETCH_COUNT = 50
 
 
 ColumnType = Literal[
-    "text", "number", "currency", "date",
-    "link", "file", "email", "status", "tags", "boolean",
+    "text",
+    "number",
+    "currency",
+    "date",
+    "link",
+    "file",
+    "email",
+    "status",
+    "tags",
+    "boolean",
 ]
 
 
@@ -165,11 +173,10 @@ class CollectionDecl:
     def to_dict(self) -> dict:
         cols: list | None = None
         if self.columns:
-            has_types = any(
-                c.type != "text" or c.label or c.format
-                for c in self.columns
+            has_types = any(c.type != "text" or c.label or c.format for c in self.columns)
+            cols = (
+                [c.to_dict() for c in self.columns] if has_types else [c.key for c in self.columns]
             )
-            cols = [c.to_dict() for c in self.columns] if has_types else [c.key for c in self.columns]
         return {
             "name": self.name,
             "columns": cols,

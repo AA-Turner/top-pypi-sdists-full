@@ -24,8 +24,8 @@ def pytest_sessionfinish(session, exitstatus):
         except KeyError:
             warnings.warn(
                 "Pytest could not find tox 'TMPDIR' in the environment,"
-                " make sure the variable is set in the project tox.ini"
-                " file if you are running under tox.",
+                " make sure the variable is set in the project tox"
+                " config if you are running under tox.",
                 stacklevel=2,
             )
         else:
@@ -64,11 +64,33 @@ def memcached_server(xprocess):
 
     class Starter(ProcessStarter):
         pattern = "server listening"
-        args = ["memcached", "-vv"]
+        args = ["memcached", "-vv", "-p", "11212"]
 
         def startup_check(self):
-            out = subprocess.run(["memcached"], stderr=subprocess.PIPE)
+            out = subprocess.run(["memcached", "-p", "11212"], stderr=subprocess.PIPE)
             return b"Address already" in out.stderr
+
+    xprocess.ensure(package_name, Starter)
+    yield
+    xprocess.getinfo(package_name).terminate()
+
+
+@pytest.fixture(scope="class")
+def valkey_server(xprocess):
+    package_name = "valkey"
+    pytest.importorskip(
+        modname=package_name, reason=f"could not find python package {package_name}"
+    )
+
+    class Starter(ProcessStarter):
+        pattern = "[Rr]eady to accept connections"
+        args = ["valkey-server", "--port 6370"]
+
+        def startup_check(self):
+            out = subprocess.run(
+                ["valkey-cli", "-p", "6370", "ping"], stdout=subprocess.PIPE
+            )
+            return out.stdout == b"PONG\n"
 
     xprocess.ensure(package_name, Starter)
     yield

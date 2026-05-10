@@ -11,7 +11,9 @@ from urllib.parse import urlparse
 
 from .constants import (
     KV_KEY_FIELD,
-    SCOPE_FIELD_OWNER, SCOPE_FIELD_SESSION, SCOPE_FIELD_USER,
+    SCOPE_FIELD_OWNER,
+    SCOPE_FIELD_SESSION,
+    SCOPE_FIELD_USER,
 )
 from .db import Collection, CollectionManager, ScopedDatabaseProxy, get_active_identity
 from .integration import (
@@ -94,7 +96,14 @@ class _TrackedList(list):
         self._changed()
 
 
-class _TrackedDict(dict):
+class SessionData(dict):
+    """Persistent per-session data.
+
+    Mutating this dictionary saves the new state after the handler returns.
+    ``set`` is async so app code can write ``await session.data.set(...)`` and
+    make the persistence/broadcast behavior explicit.
+    """
+
     def __init__(self, values=(), notify: Callable[[], None] | None = None, **kwargs):
         self._notify = notify
         initial = dict(values, **kwargs)
@@ -136,13 +145,18 @@ class _TrackedDict(dict):
             super().__setitem__(key, _track_data_value(value, self._notify))
         self._changed()
 
+    async def set(self, key: str, value: Any) -> Any:
+        """Persist a named session data value and broadcast realtime updates."""
+        self[key] = value
+        return self[key]
+
 
 def _track_data_value(value: Any, notify: Callable[[], None] | None) -> Any:
-    if isinstance(value, _TrackedDict) or isinstance(value, _TrackedList):
+    if isinstance(value, SessionData) or isinstance(value, _TrackedList):
         value._notify = notify
         return value
     if isinstance(value, dict):
-        return _TrackedDict(value, notify)
+        return SessionData(value, notify)
     if isinstance(value, list):
         return _TrackedList(value, notify)
     return value
@@ -297,7 +311,7 @@ class ReplyStream:
         if not text:
             return
         if text.startswith(self._full):
-            delta = text[len(self._full):]
+            delta = text[len(self._full) :]
         else:
             delta = text
         if delta:
@@ -436,7 +450,9 @@ class SessionMedia:
                 f.write(bytes(source))
                 temp_path = f.name
             try:
-                return await self._session._upload_local_file(temp_path, filename=name, content_type=content_type), content_type
+                return await self._session._upload_local_file(
+                    temp_path, filename=name, content_type=content_type
+                ), content_type
             finally:
                 try:
                     os.unlink(temp_path)
@@ -452,15 +468,23 @@ class SessionMedia:
             async with aiohttp.ClientSession() as http:
                 async with http.get(source) as resp:
                     resp.raise_for_status()
-                    content_type = mime_type or resp.headers.get("content-type", "").split(";")[0] or "application/octet-stream"
+                    content_type = (
+                        mime_type
+                        or resp.headers.get("content-type", "").split(";")[0]
+                        or "application/octet-stream"
+                    )
                     suffix = mimetypes.guess_extension(content_type) or ""
-                    name = filename or _derive_media_filename(source, f"media-{uuid.uuid4().hex[:10]}{suffix}")
+                    name = filename or _derive_media_filename(
+                        source, f"media-{uuid.uuid4().hex[:10]}{suffix}"
+                    )
                     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
                         async for chunk in resp.content.iter_chunked(8192):
                             f.write(chunk)
                         temp_path = f.name
             try:
-                return await self._session._upload_local_file(temp_path, filename=name, content_type=content_type), content_type
+                return await self._session._upload_local_file(
+                    temp_path, filename=name, content_type=content_type
+                ), content_type
             finally:
                 try:
                     os.unlink(temp_path)
@@ -470,7 +494,9 @@ class SessionMedia:
         path = os.fspath(source)
         content_type = mime_type or mimetypes.guess_type(path)[0] or "application/octet-stream"
         name = filename or os.path.basename(path)
-        return await self._session._upload_local_file(path, filename=name, content_type=content_type), content_type
+        return await self._session._upload_local_file(
+            path, filename=name, content_type=content_type
+        ), content_type
 
 
 @dataclass(slots=True)
@@ -709,12 +735,14 @@ class Terminal:
                     stderr_parts.append(text)
                 else:
                     stdout_parts.append(text)
-                run["chunks"].append({
-                    "stream": stream_name,
-                    "text": text,
-                    "timestamp": _now_ms(),
-                    "seq": seq,
-                })
+                run["chunks"].append(
+                    {
+                        "stream": stream_name,
+                        "text": text,
+                        "timestamp": _now_ms(),
+                        "seq": seq,
+                    }
+                )
                 seq += 1
                 await self._emit()
 
@@ -805,7 +833,7 @@ class Session:
         self.user = user
         self.channel = channel
         self.history: list[Message] = history or []
-        self.data: dict[str, Any] = _track_data_value(data or {}, self._notify_data_changed)
+        self.data: SessionData = SessionData(data or {}, self._notify_data_changed)
         self.integrations: dict[str, IntegrationCredentials] = integrations or {}
         self.media = SessionMedia(self)
         self._reply_callback: Any = None
@@ -851,6 +879,28 @@ class Session:
         if self._collections_proxy is None:
             raise RuntimeError("session.collections not available (database not configured)")
         return self._collections_proxy
+
+    async def publish(self, key: str, value: Any) -> Any:
+        """Alias for ``await session.data.set(key, value)``.
+
+        ``session.data`` is the durable source of truth; publishing a value
+        stores it and broadcasts the updated session data snapshot.
+        """
+        setter = getattr(self.data, "set", None)
+        if setter is not None:
+            return await setter(key, value)
+        self.data[key] = value
+        return self.data[key]
+
+    async def emit(self, event: str, payload: dict[str, Any] | None = None) -> None:
+        """Emit a transient session event to subscribed clients."""
+        cb = self._block_callback
+        if cb is None:
+            return
+        block = Block("session_event", {"event": event, "payload": payload or {}})
+        result = cb(json.dumps(block.to_envelope()))
+        if asyncio.iscoroutine(result):
+            await result
 
     # -- key-value store -----------------------------------------------------
 
@@ -1096,9 +1146,7 @@ class Session:
         )
         return await term.show()
 
-    async def show_task(
-        self, handle_or_id: Any, *, message: str | None = None
-    ) -> None:
+    async def show_task(self, handle_or_id: Any, *, message: str | None = None) -> None:
         """Render an inline card that tracks the given task's live state.
 
         Accepts a ``TaskHandle`` or raw task-id string. The card polls
@@ -1440,16 +1488,18 @@ class Session:
             size=resp.size,
         )
 
-        await self.show(Block(
-            type="file_upload",
-            id=block_id,
-            payload={
-                "completed": True,
-                "filename": resp.filename,
-                "content_type": resp.content_type,
-                "size": resp.size,
-            },
-        ))
+        await self.show(
+            Block(
+                type="file_upload",
+                id=block_id,
+                payload={
+                    "completed": True,
+                    "filename": resp.filename,
+                    "content_type": resp.content_type,
+                    "size": resp.size,
+                },
+            )
+        )
 
         if path is not None:
             dest = path

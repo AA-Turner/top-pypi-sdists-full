@@ -32,6 +32,21 @@ class SoundSystem(System):
         """Renvoie une représentation du système"""
         return f"SoundSystem(origin={(self._origin.x, self._origin.y)})"
     
+    # ======================================== PROPERTIES ========================================
+    @property
+    def origin(self) -> HasPosition:
+        """Référentiel d'écoute des sons
+        
+        Cette propriété définie le point de référence spatial pour l'atténuation du volume sonore.
+        """
+        return self._origin
+    
+    @origin.setter
+    def origin(self, value: HasPosition) -> None:
+        if __debug__:
+            expect(value, HasPosition)
+        self._origin = value
+    
     # ======================================== LIFE CYCLE ========================================
     @profile_section("world.sound.update")
     def update(self, world: World, dt: float) -> None:

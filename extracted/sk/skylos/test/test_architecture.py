@@ -2,6 +2,7 @@ import ast
 from skylos.architecture import (
     analyze_architecture,
     get_architecture_findings,
+    get_layer_policy_findings,
     _compute_abstractness,
     _classify_zone,
     _has_main_guard,
@@ -258,6 +259,55 @@ class Command(Protocol):
         assert ("SKY-Q803", "mypkg._shared") in {
             (f["rule_id"], f["name"]) for f in findings
         }
+
+
+class TestLayerPolicy:
+    def test_layer_policy_deny_rule_reports_violation(self):
+        graph = {
+            "app.domain.model": {"app.api.routes"},
+            "app.api.routes": set(),
+        }
+        module_files = {
+            "app.domain.model": "/p/app/domain/model.py",
+            "app.api.routes": "/p/app/api/routes.py",
+        }
+        policy = {
+            "layers": [
+                {"name": "domain", "patterns": ["app.domain"]},
+                {"name": "api", "patterns": ["app.api"]},
+            ],
+            "rules": [{"from": "domain", "deny": ["api"]}],
+        }
+
+        findings, summary = get_layer_policy_findings(graph, module_files, policy)
+
+        assert summary["violation_count"] == 1
+        assert findings[0]["rule_id"] == "SKY-Q805"
+        assert findings[0]["from_layer"] == "domain"
+        assert findings[0]["to_layer"] == "api"
+
+    def test_layer_policy_allow_rule_accepts_allowed_edges(self):
+        graph = {
+            "app.api.routes": {"app.domain.model"},
+            "app.domain.model": set(),
+        }
+        module_files = {
+            "app.api.routes": "/p/app/api/routes.py",
+            "app.domain.model": "/p/app/domain/model.py",
+        }
+        policy = {
+            "layers": [
+                {"name": "api", "patterns": ["app.api"]},
+                {"name": "domain", "patterns": ["app.domain"]},
+            ],
+            "rules": [{"from": "api", "allow": ["domain"]}],
+        }
+
+        findings, summary = get_layer_policy_findings(graph, module_files, policy)
+
+        assert findings == []
+        assert summary["checked_edges"] == 1
+        assert summary["module_layers"]["app.api.routes"] == "api"
 
     def test_private_helper_filters_q803_zone_of_uselessness(self):
         graph = {
@@ -574,3 +624,91 @@ class Base2(ABC):
         assert result.modules["stableish"].zone == "off_main_sequence"
         assert "Zone: off main sequence." in q802["message"]
         assert "Zone: healthy." not in q802["message"]
+
+    def test_iad_findings_are_advisory_by_default(self):
+        findings, _ = get_architecture_findings(
+            dependency_graph={
+                "stableish": set(),
+                "consumer_a": {"stableish"},
+                "consumer_b": {"stableish"},
+            },
+            module_files={
+                "stableish": "/p/stableish.py",
+                "consumer_a": "/p/consumer_a.py",
+                "consumer_b": "/p/consumer_b.py",
+            },
+        )
+
+        iad_findings = [
+            f for f in findings if f["rule_id"] in {"SKY-Q802", "SKY-Q803"}
+        ]
+
+        assert {f["rule_id"] for f in iad_findings} == {"SKY-Q802", "SKY-Q803"}
+        assert all(f["advisory"] is True for f in iad_findings)
+        assert all(
+            f["metric_granularity"] == "file-level heuristic" for f in iad_findings
+        )
+        assert all("Martin I/A/D" in f["metric_origin"] for f in iad_findings)
+        assert all("Advisory:" in f["message"] for f in iad_findings)
+        assert all(f["docs_url"].endswith(f["rule_id"]) for f in iad_findings)
+        assert all(f.get("remediations") for f in iad_findings)
+        remediation_titles = {
+            item["title"]
+            for finding in iad_findings
+            for item in finding["remediations"]
+        }
+        assert "Mark internal helpers as private" in remediation_titles
+        assert "Introduce a real abstraction boundary" in remediation_titles
+        assert "Split responsibilities when fan-in is meaningful" in remediation_titles
+
+    def test_iad_findings_can_be_marked_enforced(self):
+        findings, _ = get_architecture_findings(
+            dependency_graph={
+                "stableish": set(),
+                "consumer_a": {"stableish"},
+                "consumer_b": {"stableish"},
+            },
+            module_files={
+                "stableish": "/p/stableish.py",
+                "consumer_a": "/p/consumer_a.py",
+                "consumer_b": "/p/consumer_b.py",
+            },
+            iad_findings_advisory=False,
+        )
+
+        iad_findings = [
+            f for f in findings if f["rule_id"] in {"SKY-Q802", "SKY-Q803"}
+        ]
+
+        assert {f["rule_id"] for f in iad_findings} == {"SKY-Q802", "SKY-Q803"}
+        assert all(f["advisory"] is False for f in iad_findings)
+        assert all("enforcement_reason" in f for f in iad_findings)
+        assert all("Advisory:" not in f["message"] for f in iad_findings)
+        assert all(f.get("remediations") for f in iad_findings)
+
+    def test_private_helper_remediation_does_not_suggest_fake_metric_workarounds(self):
+        findings, _ = get_architecture_findings(
+            dependency_graph={
+                "pkg._helpers": set(),
+                "pkg.consumer_a": {"pkg._helpers"},
+                "pkg.consumer_b": {"pkg._helpers"},
+                "pkg.consumer_c": {"pkg._helpers"},
+                "pkg.consumer_d": {"pkg._helpers"},
+            },
+            module_files={
+                "pkg._helpers": "/p/pkg/_helpers.py",
+                "pkg.consumer_a": "/p/pkg/consumer_a.py",
+                "pkg.consumer_b": "/p/pkg/consumer_b.py",
+                "pkg.consumer_c": "/p/pkg/consumer_c.py",
+                "pkg.consumer_d": "/p/pkg/consumer_d.py",
+            },
+        )
+
+        q803 = next(f for f in findings if f["rule_id"] == "SKY-Q803")
+        titles = {item["title"] for item in q803["remediations"]}
+        hints = " ".join(item["hint"] for item in q803["remediations"])
+
+        assert q803["name"] == "pkg._helpers"
+        assert "Keep private-helper intent explicit" in titles
+        assert "fake" in hints
+        assert "one-off abstractions" in hints

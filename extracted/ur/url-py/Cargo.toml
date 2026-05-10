@@ -1,15 +1,17 @@
 [package]
 name = "url-py"
-version = "0.20.0"
+version = "0.21.1"
 edition = "2021"
+publish = false
 
 [lib]
 name = "url"
 crate-type = ["cdylib"]
 
 [dependencies]
+percent-encoding = "2"
 url = "2"
 
 [dependencies.pyo3]
-version = "0.28.2"
+version = "0.28.3"
 features = ["extension-module", "generate-import-lib"]

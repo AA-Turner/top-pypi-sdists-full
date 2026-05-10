@@ -43,11 +43,13 @@ from yaml.constructor import ConstructorError
 
 from zensical.compat.autorefs import get_autorefs_extension
 from zensical.compat.mkdocstrings import get_mkdocstrings_extension
-from zensical.extensions import glightbox, macros
 from zensical.extensions.emoji import to_svg, twemoji
+from zensical.extensions.glightbox import GlightboxExtension
+from zensical.extensions.macros import MacrosExtension
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
 
 # ----------------------------------------------------------------------------
 # Globals
@@ -63,6 +65,50 @@ references to functions or other Python objects, for which we don't have any
 representation in Rust. Thus, we just keep the configuration on the Python
 side, and use it directly when needed. It's a hack but will do for now.
 """
+
+
+# ----------------------------------------------------------------------------
+# Constants
+# ----------------------------------------------------------------------------
+
+
+DEFAULT_MARKDOWN_EXTENSIONS = {
+    "abbr": {},
+    "admonition": {},
+    "attr_list": {},
+    "def_list": {},
+    "footnotes": {},
+    "md_in_html": {},
+    "toc": {"permalink": True},
+    "pymdownx.arithmatex": {"generic": True},
+    "pymdownx.betterem": {},
+    "pymdownx.caret": {},
+    "pymdownx.details": {},
+    "pymdownx.emoji": {
+        "emoji_generator": to_svg,
+        "emoji_index": twemoji,
+    },
+    "pymdownx.highlight": {
+        "anchor_linenums": True,
+        "line_spans": "__span",
+        "pygments_lang_class": True,
+    },
+    "pymdownx.inlinehilite": {},
+    "pymdownx.keys": {},
+    "pymdownx.magiclink": {},
+    "pymdownx.mark": {},
+    "pymdownx.smartsymbols": {},
+    "pymdownx.superfences": {
+        "custom_fences": [{"name": "mermaid", "class": "mermaid"}]
+    },
+    "pymdownx.tabbed": {
+        "alternate_style": True,
+        "combine_header_slug": True,
+    },
+    "pymdownx.tasklist": {"custom_checkbox": True},
+    "pymdownx.tilde": {},
+}
+
 
 # ----------------------------------------------------------------------------
 # Classes
@@ -212,6 +258,11 @@ def _apply_defaults(config: dict, path: str) -> dict:
     set_default(config, "use_directory_urls", True, bool)
     set_default(config, "dev_addr", "localhost:8000", str)
     set_default(config, "copyright", None, str)
+    set_default(config, "watch", [], list)
+
+    # Validate watch setting
+    if not all(isinstance(path, str) for path in config["watch"]):
+        raise ConfigurationError("'watch' entries must be strings.")
 
     # Set defaults for versioning with mike
     set_default(config, "remote_branch", "gh-pages", str)
@@ -446,45 +497,7 @@ def _apply_defaults(config: dict, path: str) -> dict:
     # decided to set defaults that make it easy to get started with sensible
     # Markdown support, but users can override this as needed.
     markdown_extensions, mdx_configs = _convert_markdown_extensions(
-        config.get(
-            "markdown_extensions",
-            {
-                "abbr": {},
-                "admonition": {},
-                "attr_list": {},
-                "def_list": {},
-                "footnotes": {},
-                "md_in_html": {},
-                "toc": {"permalink": True},
-                "pymdownx.arithmatex": {"generic": True},
-                "pymdownx.betterem": {},
-                "pymdownx.caret": {},
-                "pymdownx.details": {},
-                "pymdownx.emoji": {
-                    "emoji_generator": to_svg,
-                    "emoji_index": twemoji,
-                },
-                "pymdownx.highlight": {
-                    "anchor_linenums": True,
-                    "line_spans": "__span",
-                    "pygments_lang_class": True,
-                },
-                "pymdownx.inlinehilite": {},
-                "pymdownx.keys": {},
-                "pymdownx.magiclink": {},
-                "pymdownx.mark": {},
-                "pymdownx.smartsymbols": {},
-                "pymdownx.superfences": {
-                    "custom_fences": [{"name": "mermaid", "class": "mermaid"}]
-                },
-                "pymdownx.tabbed": {
-                    "alternate_style": True,
-                    "combine_header_slug": True,
-                },
-                "pymdownx.tasklist": {"custom_checkbox": True},
-                "pymdownx.tilde": {},
-            },
-        )
+        config.get("markdown_extensions", DEFAULT_MARKDOWN_EXTENSIONS)
     )
     config["markdown_extensions"] = markdown_extensions
     config["mdx_configs"] = mdx_configs
@@ -581,29 +594,21 @@ def _apply_defaults(config: dict, path: str) -> dict:
     # Map glightbox plugin configuration to the extension configuration
     if "glightbox" in config["plugins"]:
         plugin = config["plugins"]["glightbox"]["config"]
-        config["markdown_extensions"].append(
-            glightbox.makeExtension(  # ty:ignore[invalid-argument-type]
-                width=plugin.get("width", "auto"),
-                height=plugin.get("height", "auto"),
-                skip_classes=plugin.get("skip_classes", []),
-                auto=not plugin.get("manual", False),
-                auto_themed=plugin.get("auto_themed", False),
-                auto_caption=plugin.get("auto_caption", False),
-                caption_position=plugin.get("caption_position", "bottom"),
-            )
-        )
+        config["markdown_extensions"].append(GlightboxExtension.name)
+        config["mdx_configs"][GlightboxExtension.name] = plugin
 
     # Map macros plugin configuration to the extension configuration
     if "macros" in config["plugins"]:
         plugin = config["plugins"]["macros"]["config"]
-        config["markdown_extensions"].append(macros.MacrosExtension.name)
-        config["mdx_configs"][macros.MacrosExtension.name] = plugin
+        config["markdown_extensions"].append(MacrosExtension.name)
+        config["mdx_configs"][MacrosExtension.name] = plugin
 
     # List files along with their hashes, so we can rebuild when they change
     config["watched_files"] = sorted(
         _list_sources(config, path)  # mkdocstrings
         | _list_snippet_files(config, path)  # pymdownx.snippets
         | _list_macros_files(config, path)  # macros
+        | _list_watch_files(config, path)  # watch
     )
 
     # Hash all templates, so we rebuild if something changes
@@ -716,7 +721,7 @@ def _list_snippet_files(config: dict, config_file: str) -> set[tuple[str, int]]:
 def _list_macros_files(config: dict, config_file: str) -> set[tuple[str, int]]:
     """List files referenced in macros plugin/extension."""
     root = Path(config_file).parent.resolve()
-    macros_config = config["mdx_configs"].get(macros.MacrosExtension.name, {})
+    macros_config = config["mdx_configs"].get(MacrosExtension.name, {})
     macros_files = []
     files_with_mtime = set()
 
@@ -757,6 +762,24 @@ def _list_macros_files(config: dict, config_file: str) -> set[tuple[str, int]]:
                     mtime = int(os.path.getmtime(file_path))
                     files_with_mtime.add((file_path, mtime))
 
+    return files_with_mtime
+
+
+def _list_watch_files(config: dict, config_file: str) -> set[tuple[str, int]]:
+    """List files for user-defined watch paths."""
+    root = Path(config_file).parent.resolve()
+    files_with_mtime: set[tuple[str, int]] = set()
+    for watch_path in config.get("watch", []):
+        path = root.joinpath(watch_path).resolve()
+        if path.is_file():
+            mtime = int(os.path.getmtime(path))
+            files_with_mtime.add((str(path), mtime))
+        elif path.is_dir():
+            for dirpath, _, files in os.walk(path):
+                for file in files:
+                    file_path = os.path.join(dirpath, file)
+                    mtime = int(os.path.getmtime(file_path))
+                    files_with_mtime.add((file_path, mtime))
     return files_with_mtime
 
 
@@ -1028,6 +1051,8 @@ def _convert_plugins(value: Any, config: dict) -> dict:
 
 
 # ----------------------------------------------------------------------------
+
+
 def _yaml_load(source: IO) -> dict[str, Any]:
     """Load configuration file, resolve environment variables and parent files.
 

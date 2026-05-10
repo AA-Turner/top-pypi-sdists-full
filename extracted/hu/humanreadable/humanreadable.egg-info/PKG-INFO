@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: humanreadable
-Version: 0.4.1
+Version: 0.4.3
 Summary: humanreadable is a Python library to convert human-readable values to other units.
 Home-page: https://github.com/thombashi/humanreadable
 Author: Tsuyoshi Hombashi
@@ -16,11 +16,11 @@ Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -28,10 +28,10 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: typepy<2,>=1.2.0
+Requires-Dist: typepy<3,>=1.2.0
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-md-report>=0.6.2; extra == "test"
@@ -223,5 +223,5 @@ Installation: apt (for Ubuntu)
 
 Dependencies
 ============================================
-- Python 3.9+
+- Python 3.10+
 - `Python package dependencies (automatically installed) <https://github.com/thombashi/humanreadable/network/dependencies>`__

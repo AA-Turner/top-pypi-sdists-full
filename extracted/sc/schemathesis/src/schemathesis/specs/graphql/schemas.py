@@ -57,7 +57,9 @@ if TYPE_CHECKING:
     from hypothesis.strategies import SearchStrategy
 
     from schemathesis.auths import AuthContext, AuthStorage
+    from schemathesis.config import GenerationConfig
     from schemathesis.core.error_feedback import ErrorFeedbackStore
+    from schemathesis.core.spec import ApiSchema
     from schemathesis.engine.context import EngineContext
     from schemathesis.engine.run import Phase
     from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
@@ -195,6 +197,19 @@ class GraphQLSchema(BaseSchema):
         if isinstance(body, NotSet | bytes):
             return body
         return {"query": body}
+
+    @override
+    def iter_coverage_cases(
+        self,
+        operation: APIOperation,
+        *,
+        generation_modes: list[GenerationMode],
+        generation_config: GenerationConfig,
+        extra_data_source: ExtraDataSource | None = None,
+        error_feedback: ErrorFeedbackStore | None = None,
+    ) -> Iterator[Case]:
+        # GraphQL has no coverage phase yet; the schema-level case enumerator is empty.
+        return iter(())
 
     @override
     def get_unit_scheduler(
@@ -577,3 +592,10 @@ def _generate_parameter(
 
 def _noop(node: graphql.Node) -> graphql.Node:
     return node
+
+
+if TYPE_CHECKING:
+    # Verify structural conformance to the spec-agnostic protocol; mypy fails here
+    # if a method is renamed or its signature drifts from `ApiSchema`.
+    def _verify_api_schema_protocol(schema: GraphQLSchema) -> ApiSchema:
+        return schema

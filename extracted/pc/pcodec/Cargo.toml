@@ -25,7 +25,7 @@ libc = "0.2.132"
 numpy = "0.27.1"
 once_cell = "1.21.3"
 parquet = { version = "54.3.1", default-features = false }
-pco = { version = "1.0.1", path = "./pco" }
+pco = { version = "1.0.2", path = "./pco" }
 pyo3 = "0.27.2"
 q_compress = { version = "0.11.7", path = "./quantile-compression/q_compress" }
 rand_xoshiro = "0.6.0"
@@ -33,6 +33,7 @@ rayon = "1.10.0"
 rust-openzl = "0.1.0"
 snap = "1.1.0"
 spdp_sys = "0.1.0"
+sprintz_sys = "0.1.0"
 toml = "0.8.12"
 tabled = "0.18.0"
 serde = "1.0.197"

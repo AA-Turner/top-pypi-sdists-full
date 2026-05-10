@@ -1,22 +1,22 @@
 Metadata-Version: 2.4
 Name: editor
-Version: 1.7.0
+Version: 1.8.0
 Summary: 🖋 Open the default text editor 🖋
-Author: Tom Ritchford
+Project-URL: Homepage, https://github.com/rec/editor
+Project-URL: Repository, https://github.com/rec/editor
+Project-URL: Documentation, https://rec.github.io/editor
 Author-email: Tom Ritchford <tom@swirly.com>
 License-Expression: MIT
+License-File: LICENSE
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Requires-Dist: runs
 Requires-Dist: xmod
-Requires-Python: >=3.10
-Project-URL: Homepage, https://github.com/rec/editor
-Project-URL: Repository, https://github.com/rec/editor
-Project-URL: Documentation, https://rec.github.io/editor
 Description-Content-Type: text/markdown
 
 # 🖋 editor - Open a text editor 🖋

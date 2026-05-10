@@ -20,8 +20,13 @@ from .constants import (
     Column,
     CollectionDecl,
     CollectionScope,
-    SCOPE_APP, SCOPE_SESSION, SCOPE_OWNER, SCOPE_USER,
-    SCOPE_FIELD_SESSION, SCOPE_FIELD_OWNER, SCOPE_FIELD_USER,
+    SCOPE_APP,
+    SCOPE_SESSION,
+    SCOPE_OWNER,
+    SCOPE_USER,
+    SCOPE_FIELD_SESSION,
+    SCOPE_FIELD_OWNER,
+    SCOPE_FIELD_USER,
     VALID_SCOPES,
 )
 
@@ -30,8 +35,16 @@ if TYPE_CHECKING:
 
 
 VALID_COLUMN_TYPES = {
-    "text", "number", "currency", "date", "link",
-    "file", "email", "status", "tags", "boolean",
+    "text",
+    "number",
+    "currency",
+    "date",
+    "link",
+    "file",
+    "email",
+    "status",
+    "tags",
+    "boolean",
 }
 
 
@@ -168,7 +181,9 @@ def _ids_filter(rows_or_ids) -> dict:
     return {"_id": {"$in": ids}}
 
 
-def _scope_filter(scope: str, *, user_id: str = "", owner_id: str = "", session_id: str = "") -> dict[str, str]:
+def _scope_filter(
+    scope: str, *, user_id: str = "", owner_id: str = "", session_id: str = ""
+) -> dict[str, str]:
     if scope == SCOPE_APP:
         return {}
     if scope == SCOPE_USER:
@@ -204,7 +219,9 @@ def _normalize_column(column: str | Column | dict) -> Column:
     return col
 
 
-def _normalize_dynamic_columns(columns: list[str | Column | dict] | tuple[str | Column | dict, ...]) -> list[Column]:
+def _normalize_dynamic_columns(
+    columns: list[str | Column | dict] | tuple[str | Column | dict, ...],
+) -> list[Column]:
     normalized: list[Column] = []
     seen: set[str] = set()
     for raw in columns:
@@ -339,9 +356,11 @@ class Collection:
 
     async def insert_one(self, document: dict) -> dict:
         from .clients.capsule import InsertOneRequest
+
         doc_json = json.dumps(document).encode()
         resp = await asyncio.get_running_loop().run_in_executor(
-            None, self._stub.insert_one,
+            None,
+            self._stub.insert_one,
             InsertOneRequest(app_id=self._app_id, collection=self._name, document_json=doc_json),
         )
         result = dict(document)
@@ -350,9 +369,11 @@ class Collection:
 
     async def insert_many(self, documents: list[dict]) -> list[dict]:
         from .clients.capsule import InsertManyRequest
+
         docs_json = [json.dumps(d).encode() for d in documents]
         resp = await asyncio.get_running_loop().run_in_executor(
-            None, self._stub.insert_many,
+            None,
+            self._stub.insert_many,
             InsertManyRequest(app_id=self._app_id, collection=self._name, documents_json=docs_json),
         )
         results = []
@@ -364,22 +385,27 @@ class Collection:
 
     async def raw_get(self, filter: dict | None = None) -> CollectionRow | None:
         from .clients.capsule import FindOneRequest
+
         filter_json = json.dumps(filter or {}).encode()
         resp = await asyncio.get_running_loop().run_in_executor(
-            None, self._stub.find_one,
+            None,
+            self._stub.find_one,
             FindOneRequest(app_id=self._app_id, collection=self._name, filter_json=filter_json),
         )
         if not resp.document_json:
             return None
         return CollectionRow(json.loads(resp.document_json), self)
 
-    async def raw_filter(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
-                         sort: dict | None = None) -> list[CollectionRow]:
+    async def raw_filter(
+        self, filter: dict | None = None, limit: int = 0, skip: int = 0, sort: dict | None = None
+    ) -> list[CollectionRow]:
         from .clients.capsule import FindRequest
+
         filter_json = json.dumps(filter or {}).encode()
-        sort_json = json.dumps(sort or {}).encode() if sort else b''
+        sort_json = json.dumps(sort or {}).encode() if sort else b""
         resp = await asyncio.get_running_loop().run_in_executor(
-            None, self._stub.find,
+            None,
+            self._stub.find,
             FindRequest(
                 app_id=self._app_id,
                 collection=self._name,
@@ -394,8 +420,9 @@ class Collection:
     async def find_one(self, filter: dict | None = None) -> CollectionRow | None:
         return await self.raw_get(filter)
 
-    async def find(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
-                   sort: dict | None = None) -> list[CollectionRow]:
+    async def find(
+        self, filter: dict | None = None, limit: int = 0, skip: int = 0, sort: dict | None = None
+    ) -> list[CollectionRow]:
         return await self.raw_filter(filter=filter, limit=limit, skip=skip, sort=sort)
 
     def all(self) -> CollectionQuery:
@@ -419,11 +446,13 @@ class Collection:
             await col.update_one({"_id": lid}, {"$set": {"status": "sent"}})
         """
         from .clients.capsule import UpdateOneRequest
+
         normalized = _normalize_update(update)
         filter_json = json.dumps(filter).encode()
         update_json = json.dumps(normalized).encode()
         resp = await asyncio.get_running_loop().run_in_executor(
-            None, self._stub.update_one,
+            None,
+            self._stub.update_one,
             UpdateOneRequest(
                 app_id=self._app_id,
                 collection=self._name,
@@ -436,18 +465,22 @@ class Collection:
 
     async def delete_one(self, filter: dict) -> dict:
         from .clients.capsule import DeleteOneRequest
+
         filter_json = json.dumps(filter).encode()
         resp = await asyncio.get_running_loop().run_in_executor(
-            None, self._stub.delete_one,
+            None,
+            self._stub.delete_one,
             DeleteOneRequest(app_id=self._app_id, collection=self._name, filter_json=filter_json),
         )
         return {"deleted": resp.deleted}
 
     async def delete_many(self, filter: dict) -> dict:
         from .clients.capsule import DeleteManyRequest
+
         filter_json = json.dumps(filter).encode()
         resp = await asyncio.get_running_loop().run_in_executor(
-            None, self._stub.delete_many,
+            None,
+            self._stub.delete_many,
             DeleteManyRequest(app_id=self._app_id, collection=self._name, filter_json=filter_json),
         )
         return {"deleted": resp.deleted}
@@ -457,9 +490,11 @@ class Collection:
 
     async def count(self, filter: dict | None = None) -> int:
         from .clients.capsule import CountRequest
+
         filter_json = json.dumps(filter or {}).encode()
         resp = await asyncio.get_running_loop().run_in_executor(
-            None, self._stub.count,
+            None,
+            self._stub.count,
             CountRequest(app_id=self._app_id, collection=self._name, filter_json=filter_json),
         )
         return resp.count
@@ -514,6 +549,7 @@ class DynamicCollection:
     @staticmethod
     def _proto_columns(columns: list[Column]):
         from .clients.capsule import CollectionColumnSpec
+
         return [
             CollectionColumnSpec(
                 key=col.key,
@@ -527,12 +563,18 @@ class DynamicCollection:
     @staticmethod
     def _columns_from_schema(schema) -> list[Column]:
         return [
-            Column(key=col.key, type=col.type or "text", label=col.label or None, format=col.format or None)
+            Column(
+                key=col.key,
+                type=col.type or "text",
+                label=col.label or None,
+                format=col.format or None,
+            )
             for col in schema.columns
         ]
 
     async def list_columns(self) -> list[Column]:
         from .clients.capsule import GetCollectionSchemaRequest
+
         resp = await asyncio.get_running_loop().run_in_executor(
             None,
             self._stub.get_collection_schema,
@@ -544,6 +586,7 @@ class DynamicCollection:
 
     async def set_columns(self, columns: list[str | Column | dict]) -> list[Column]:
         from .clients.capsule import CollectionSchema, UpsertCollectionSchemaRequest
+
         normalized = _normalize_dynamic_columns(columns)
         schema = CollectionSchema(
             name=self.name,
@@ -571,11 +614,15 @@ class DynamicCollection:
         backfill: bool = False,
     ) -> list[Column]:
         if backfill or default is not None:
-            raise NotImplementedError("column backfill is not supported yet; update rows explicitly")
+            raise NotImplementedError(
+                "column backfill is not supported yet; update rows explicitly"
+            )
         columns = await self.list_columns()
         if any(col.key == key for col in columns):
             raise ValueError(f"column {key!r} already exists")
-        return await self.set_columns([*columns, Column(key=key, type=type, label=label, format=format)])
+        return await self.set_columns(
+            [*columns, Column(key=key, type=type, label=label, format=format)]
+        )
 
     async def remove_column(self, key: str, *, drop_values: bool = False) -> list[Column]:
         if drop_values:
@@ -597,7 +644,9 @@ class DynamicCollection:
         found = False
         for col in columns:
             if col.key == old_key:
-                renamed.append(Column(key=new_key, type=col.type, label=col.label, format=col.format))
+                renamed.append(
+                    Column(key=new_key, type=col.type, label=col.label, format=col.format)
+                )
                 found = True
             else:
                 renamed.append(col)
@@ -614,15 +663,17 @@ class DynamicCollection:
     async def find_one(self, filter: dict | None = None) -> dict | None:
         return await self._collection.find_one(filter)
 
-    async def find(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
-                   sort: dict | None = None) -> list[dict]:
+    async def find(
+        self, filter: dict | None = None, limit: int = 0, skip: int = 0, sort: dict | None = None
+    ) -> list[dict]:
         return await self._collection.find(filter=filter, limit=limit, skip=skip, sort=sort)
 
     async def raw_get(self, filter: dict | None = None) -> CollectionRow | None:
         return await self._collection.find_one(filter)
 
-    async def raw_filter(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
-                         sort: dict | None = None) -> list[CollectionRow]:
+    async def raw_filter(
+        self, filter: dict | None = None, limit: int = 0, skip: int = 0, sort: dict | None = None
+    ) -> list[CollectionRow]:
         return await self._collection.find(filter=filter, limit=limit, skip=skip, sort=sort)
 
     def all(self) -> CollectionQuery:
@@ -810,11 +861,15 @@ class CollectionRef:
         backfill: bool = False,
     ) -> list[Column]:
         if backfill or default is not None:
-            raise NotImplementedError("column backfill is not supported yet; update rows explicitly")
+            raise NotImplementedError(
+                "column backfill is not supported yet; update rows explicitly"
+            )
         columns = await self.list_columns()
         if any(col.key == key for col in columns):
             raise ValueError(f"column {key!r} already exists")
-        return await self.set_columns([*columns, Column(key=key, type=type, label=label, format=format)])
+        return await self.set_columns(
+            [*columns, Column(key=key, type=type, label=label, format=format)]
+        )
 
     async def remove_column(self, key: str, *, drop_values: bool = False) -> list[Column]:
         if drop_values:
@@ -836,7 +891,9 @@ class CollectionRef:
         found = False
         for col in columns:
             if col.key == old_key:
-                renamed.append(Column(key=new_key, type=col.type, label=col.label, format=col.format))
+                renamed.append(
+                    Column(key=new_key, type=col.type, label=col.label, format=col.format)
+                )
                 found = True
             else:
                 renamed.append(col)
@@ -856,12 +913,14 @@ class CollectionRef:
     async def find_one(self, filter: dict | None = None) -> CollectionRow | None:
         return await self.raw_get(filter)
 
-    async def raw_filter(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
-                         sort: dict | None = None) -> list[CollectionRow]:
+    async def raw_filter(
+        self, filter: dict | None = None, limit: int = 0, skip: int = 0, sort: dict | None = None
+    ) -> list[CollectionRow]:
         return await self._resolve().find(filter=filter, limit=limit, skip=skip, sort=sort)
 
-    async def find(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
-                   sort: dict | None = None) -> list[CollectionRow]:
+    async def find(
+        self, filter: dict | None = None, limit: int = 0, skip: int = 0, sort: dict | None = None
+    ) -> list[CollectionRow]:
         return await self.raw_filter(filter=filter, limit=limit, skip=skip, sort=sort)
 
     def all(self) -> CollectionQuery:
@@ -941,13 +1000,15 @@ class ScopedCollection:
     async def find_one(self, filter: dict | None = None) -> CollectionRow | None:
         return await self.raw_get(filter)
 
-    async def raw_filter(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
-                         sort: dict | None = None) -> list[CollectionRow]:
+    async def raw_filter(
+        self, filter: dict | None = None, limit: int = 0, skip: int = 0, sort: dict | None = None
+    ) -> list[CollectionRow]:
         rows = await self._inner.find(filter=self._merge(filter), limit=limit, skip=skip, sort=sort)
         return [CollectionRow(dict(row), self) for row in rows]
 
-    async def find(self, filter: dict | None = None, limit: int = 0, skip: int = 0,
-                   sort: dict | None = None) -> list[CollectionRow]:
+    async def find(
+        self, filter: dict | None = None, limit: int = 0, skip: int = 0, sort: dict | None = None
+    ) -> list[CollectionRow]:
         return await self.raw_filter(filter=filter, limit=limit, skip=skip, sort=sort)
 
     def all(self) -> CollectionQuery:

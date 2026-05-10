@@ -456,6 +456,7 @@ class MultiContextSession:
         api_key: str,
         tts_url: str,
         default_voice_id: Optional[int] = None,
+        model_id: Optional[str] = None,
         sample_rate: int = 24000,
         cfg_scale: float = 2.0,
         temperature: Optional[float] = None,
@@ -469,6 +470,7 @@ class MultiContextSession:
         self._api_key = api_key
         self._tts_url = tts_url
         self._default_voice_id = default_voice_id
+        self._model_id = model_id
         self._sample_rate = sample_rate
         self._cfg_scale = cfg_scale
         self._temperature = temperature
@@ -550,6 +552,8 @@ class MultiContextSession:
             "normalize": self._normalize,
             "word_timestamps": self._word_timestamps,
         }
+        if self._model_id is not None:
+            init_msg["model_id"] = self._model_id
         if self._language is not None:
             init_msg["language"] = self._language
         if self._temperature is not None:
@@ -603,6 +607,8 @@ class MultiContextSession:
         # Send context initialization — voice_id must be in voice_settings
         effective_voice_id = voice_id or self._default_voice_id
         msg: Dict[str, Any] = {"text": " ", "context_id": context_id}
+        if self._model_id is not None:
+            msg["model_id"] = self._model_id
         if effective_voice_id is not None:
             msg["voice_settings"] = {
                 "voice_id": effective_voice_id,
@@ -629,6 +635,7 @@ class MultiContextSession:
         context_id: str,
         text: str,
         flush: bool = False,
+        chunk_complete_idle_timeout: Optional[float] = None,
     ) -> AsyncIterator[AudioChunk]:
         """Send text to a specific context and yield audio chunks.
 
@@ -636,6 +643,9 @@ class MultiContextSession:
             context_id: Context to send text to
             text: Text to synthesize
             flush: Force flush the buffer
+            chunk_complete_idle_timeout: Override how long to wait after
+                ``chunk_complete`` for follow-up chunks. ``0`` returns
+                immediately after the first completion signal.
 
         Yields:
             AudioChunk as audio is generated
@@ -659,7 +669,11 @@ class MultiContextSession:
         # Collect audio for this context. The server marks each text chunk's
         # audio delivery with `chunk_complete`; the sole terminal signal is
         # `context_closed`, which only arrives once `close_context` is called.
-        async for chunk in self._receive_audio(context_id):
+        async for chunk in self._receive_audio(
+            context_id,
+            wait_for_chunk_complete=flush,
+            chunk_complete_idle_timeout=chunk_complete_idle_timeout,
+        ):
             yield chunk
 
     async def flush(self, context_id: str) -> AsyncIterator[AudioChunk]:
@@ -686,7 +700,10 @@ class MultiContextSession:
         # flush yields every audio chunk produced by the buffer drain, ending
         # once chunk_complete arrives (or we idle out). Use close_context for
         # terminal drains.
-        async for chunk in self._receive_audio(context_id):
+        async for chunk in self._receive_audio(
+            context_id,
+            wait_for_chunk_complete=True,
+        ):
             yield chunk
 
     async def close_context(self, context_id: str) -> AsyncIterator[AudioChunk]:
@@ -735,6 +752,8 @@ class MultiContextSession:
         self,
         context_id: str,
         wait_for_close: bool = False,
+        wait_for_chunk_complete: bool = False,
+        chunk_complete_idle_timeout: Optional[float] = None,
     ) -> AsyncIterator[AudioChunk]:
         """Receive audio messages for a specific context.
 
@@ -752,13 +771,20 @@ class MultiContextSession:
         """
         received_any_audio = False
         last_chunk_complete = False
+        idle_after_chunk_complete = (
+            _INTER_CHUNK_IDLE_S
+            if chunk_complete_idle_timeout is None
+            else chunk_complete_idle_timeout
+        )
 
         while True:
             # Use longer timeout when waiting for a definitive server signal
             if wait_for_close:
                 timeout = _DEFAULT_RECV_TIMEOUT_S
             elif last_chunk_complete:
-                timeout = _INTER_CHUNK_IDLE_S
+                timeout = idle_after_chunk_complete
+            elif wait_for_chunk_complete:
+                timeout = _DEFAULT_RECV_TIMEOUT_S
             else:
                 timeout = (
                     _POLL_TIMEOUT_S if received_any_audio else _DEFAULT_RECV_TIMEOUT_S
@@ -800,6 +826,8 @@ class MultiContextSession:
 
                 # chunk_complete = one text-chunk done (there may be more)
                 if data.get("chunk_complete"):
+                    if not wait_for_close and idle_after_chunk_complete <= 0:
+                        break
                     last_chunk_complete = True
                     continue
 

@@ -5,7 +5,11 @@ from collections import deque
 from typing import Optional
 
 from ..storage import IndexStore
-from ..parser.imports import resolve_specifier
+from ..parser.imports import (
+    build_re_export_maps,
+    expand_barrel_leaves,
+    resolve_specifier,
+)
 from ._utils import resolve_repo
 from .package_registry import extract_root_package_from_specifier
 
@@ -14,16 +18,38 @@ def _build_adjacency(
     imports: dict, source_files: frozenset, alias_map: Optional[dict] = None,
     psr4_map: Optional[dict] = None,
 ) -> dict[str, list[str]]:
-    """Build forward adjacency {file: [files_it_imports]} from raw import data."""
+    """Build forward adjacency {file: [files_it_imports]} from raw import data.
+
+    v1.93.0+: when an import targets a TypeScript/JavaScript barrel file,
+    the importer is also credited with importing the leaf files re-exported
+    through that barrel.
+
+    v1.94.0+: barrel expansion is now per-name. Wildcard re-exports
+    (`export * from`) credit every leaf to anyone importing the barrel.
+    Selective re-exports (`export { Foo } from`) credit only the consumers
+    that actually import `Foo` from the barrel. Mixed barrels work too —
+    names not in the selective table fall back to the wildcard expansion.
+    """
+    wildcard_map, named_map = build_re_export_maps(
+        imports, source_files, alias_map, psr4_map,
+    )
+
     adj: dict[str, list[str]] = {}
     for src_file, file_imports in imports.items():
-        resolved = []
+        resolved: list[str] = []
         for imp in file_imports:
-            target = resolve_specifier(imp["specifier"], src_file, source_files, alias_map, psr4_map)
-            if target and target != src_file:
-                resolved.append(target)
+            direct = resolve_specifier(imp["specifier"], src_file, source_files, alias_map, psr4_map)
+            if not direct or direct == src_file:
+                continue
+            leaves = expand_barrel_leaves(
+                direct, imp.get("names", []), wildcard_map, named_map,
+            )
+            for leaf in leaves:
+                if leaf != src_file:
+                    resolved.append(leaf)
         if resolved:
             adj[src_file] = list(dict.fromkeys(resolved))  # deduplicate, preserve order
+
     return adj
 
 

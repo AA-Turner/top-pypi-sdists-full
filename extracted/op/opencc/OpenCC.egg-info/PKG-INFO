@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: OpenCC
-Version: 1.3.0
+Version: 1.3.1
 Summary:  Conversion between Traditional and Simplified Chinese
 Home-page: https://github.com/BYVoid/OpenCC
 Author: Carbo Kuo, Peng Huang, Kefu Chai, LI Daobing, Asias, Peng Wu, Xiaojun Ma, 佛振
@@ -53,7 +53,7 @@ Dynamic: summary
 
 Open Chinese Convert (OpenCC, 開放中文轉換) is an opensource project for conversions between Traditional Chinese, Simplified Chinese and Japanese Kanji (Shinjitai). It supports character-level and phrase-level conversion, character variant conversion and regional idioms among Mainland China, Taiwan and Hong Kong. This is not translation tool between Mandarin and Cantonese, etc.
 
-中文簡繁轉換開源項目，支持詞彙級別的轉換、異體字轉換和地區習慣用詞轉換（中國大陸、臺灣、香港、日本新字體）。不提供普通話與粵語的轉換。
+中文簡繁轉換開源項目，支持詞彙級別的轉換、異體字轉換和地區習慣用詞轉換（中國大陸、台灣、香港、日本新字體）。不提供普通話與粵語的轉換。
 
 Discussion (Telegram): https://t.me/open_chinese_convert
 
@@ -62,7 +62,7 @@ Discussion (Telegram): https://t.me/open_chinese_convert
 * 嚴格區分「一簡對多繁」和「一簡對多異」。
 * 完全兼容異體字，可以實現動態替換。
 * 嚴格審校一簡對多繁詞條，原則爲「能分則不合」。
-* 支持中國大陸、臺灣、香港異體字和地區習慣用詞轉換，如「裏」「裡」、「鼠標」「滑鼠」。
+* 支持中國大陸、台灣、香港異體字和地區習慣用詞轉換，如「裏」「裡」、「鼠標」「滑鼠」。
 * 詞庫和函數庫完全分離，可以自由修改、導入、擴展。
 
 ## Installation 安裝
@@ -74,17 +74,21 @@ Discussion (Telegram): https://t.me/open_chinese_convert
 * [Fedora](https://packages.fedoraproject.org/pkgs/opencc/opencc/)
 * [Arch Linux](https://archlinux.org/packages/extra/x86_64/opencc/)
 * [macOS (Homebrew)](https://formulae.brew.sh/formula/opencc)
-* WinGet (`winget install BYVoid.OpenCC`) - WIP
+* [WinGet](https://github.com/microsoft/winget-pkgs/tree/master/manifests/b/BYVoid/OpenCC)
+    * 使用 `winget install BYVoid.OpenCC` 命令可直接安裝 opencc.exe 應用程式
 * [Bazel](https://registry.bazel.build/modules/opencc)
 * [Node.js](https://npmjs.org/package/opencc)
+    * 使用 `npm install -g opencc` 命令可直接安裝 OpenCC Node CLI 工具 
 * [Python](https://pypi.org/project/OpenCC/)
 * [More (Repology)](https://repology.org/project/opencc/versions)
 
 ### Prebuilt 預編譯
 
-* Windows (x86_64): [OpenCC-1.2.1-alpha2](https://opencc.byvoid.com/opencc-winget-release/OpenCC-1.2.1-alpha2-windows-x64-portable.zip) ([SHA-256](https://opencc.byvoid.com/opencc-winget-release/OpenCC-1.2.1-alpha2-windows-x64-portable.zip.sha256))
-
-This is a Windows release intended for WinGet distribution. For details, see [doc/windows-winget-release.md](doc/windows-winget-release.md).
+* Windows (x86_64): [OpenCC-1.3.1](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.1/OpenCC-1.3.1-windows-x64-portable.zip) ([SHA-256](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.1/OpenCC-1.3.1-windows-x64-portable.zip.sha256))
+    This is a Windows release intended for WinGet distribution. For details, see [doc/windows-winget-release.md](doc/windows-winget-release.md).
+* Debian/Ubuntu (amd64):
+    * [opencc_1.3.1_amd64.deb](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.1/opencc_1.3.1_amd64.deb)
+    * [opencc-jieba_1.3.1_amd64.deb](https://github.com/BYVoid/OpenCC/releases/download/ver.1.3.1/opencc-jieba_1.3.1_amd64.deb)
 
 ## Usage 使用
 
@@ -95,6 +99,20 @@ https://opencc.js.org/converter?config=s2t
 ### Node.js
 
 `npm install opencc`
+
+The npm package supports Node.js `>=20.17 <26`. It uses bundled Node-API
+prebuilds when available and falls back to a local `node-gyp` build when the
+current platform does not have a matching prebuild.
+
+To install the npm CLI:
+
+```sh
+npm install -g opencc
+opencc -c s2t.json -i input.txt -o output.txt
+```
+
+The npm CLI supports basic text conversion. Plugins, `--inspect`, and
+`--segmentation` require the native OpenCC CLI.
 
 ```ts
 import { OpenCC } from 'opencc';
@@ -154,6 +172,35 @@ int main() {
 * `opencc --help`
 * `opencc_dict --help`
 
+#### Segmentation and Inspection Modes
+
+OpenCC CLI supports two diagnostic modes that output JSON instead of converted text:
+
+**`--segmentation`** — Output segmentation result only (no conversion):
+
+```bash
+echo "他只看了几行日志，就一叶知秋，猜到整个系统是数据库连接池出了问题" | opencc -c s2twp.json --segmentation
+# {"input":"他只看了几行日志，就一叶知秋，猜到整个系统是数据库连接池出了问题","segments":["他","只看","了几行","日志","，就","一叶知秋","，猜到","整个","系统","是","数据库","连接池","出了","问题"]}
+```
+
+**`--inspect`** — Output full inspection result (segmentation + per-stage conversion + final output):
+
+```bash
+echo "他只看了几行日志，就一叶知秋，猜到整个系统是数据库连接池出了问题" | opencc -c s2twp.json --inspect
+# {"input":"他只看了几行日志，就一叶知秋，猜到整个系统是数据库连接池出了问题","segments":["他","只看","了几行","日志","，就","一叶知秋","，猜到","整个","系统","是","数据库","连接池","出了","问题"],"stages":[{"index":1,"segments":["他","只看","了幾行","日誌","，就","一葉知秋","，猜到","整個","系統","是","數據庫","連接池","出了","問題"]},{"index":2,"segments":["他","只看","了幾行","日誌","，就","一葉知秋","，猜到","整個","系統","是","資料庫","連線池","出了","問題"]},{"index":3,"segments":["他","只看","了幾行","日誌","，就","一葉知秋","，猜到","整個","系統","是","資料庫","連線池","出了","問題"]}],"output":"他只看了幾行日誌，就一葉知秋，猜到整個系統是資料庫連線池出了問題"}
+
+# Pretty-print with jq:
+echo "他只看了几行日志，就一叶知秋，猜到整个系统是数据库连接池出了问题" | opencc -c s2twp.json --inspect | jq .
+```
+
+These modes are useful for diagnosing conversion issues:
+
+1. Use `--segmentation` to verify that the input is segmented as expected.
+2. Use `--inspect` to see which conversion stage produces an unexpected result.
+
+Rules:
+- `--segmentation` and `--inspect` are mutually exclusive.
+
 ### Other Ports (Unofficial)
 
 * Swift (iOS): [SwiftyOpenCC](https://github.com/XQS6LB3A/SwiftyOpenCC)
@@ -162,6 +209,7 @@ int main() {
 * Android: [android-opencc](https://github.com/qichuan/android-opencc)
 * PHP: [opencc4php](https://github.com/nauxliu/opencc4php)
 * Pure JavaScript: [opencc-js](https://github.com/nk2028/opencc-js)
+    * See [notes about different OpenCC NPM packages](#links-%E7%9B%B8%E9%97%9C%E9%8F%88%E6%8E%A5) below.
 * WebAssembly:
     * [opencc-wasm](https://www.npmjs.com/package/opencc-wasm) ([website](https://opencc.js.org/))
     * [wasm-opencc](https://github.com/oyyd/wasm-opencc)
@@ -173,20 +221,20 @@ int main() {
 
 #### 預設配置文件
 
-* `s2t.json` Simplified Chinese to Traditional Chinese 簡體到繁體
-* `t2s.json` Traditional Chinese to Simplified Chinese 繁體到簡體
-* `s2tw.json` Simplified Chinese to Traditional Chinese (Taiwan Standard) 簡體到臺灣正體
-* `tw2s.json` Traditional Chinese (Taiwan Standard) to Simplified Chinese 臺灣正體到簡體
-* `s2hk.json` Simplified Chinese to Traditional Chinese (Hong Kong variant) 簡體到香港繁體
-* `hk2s.json` Traditional Chinese (Hong Kong variant) to Simplified Chinese 香港繁體到簡體
-* `s2twp.json` Simplified Chinese to Traditional Chinese (Taiwan Standard) with Taiwanese idiom 簡體到繁體（臺灣正體標準）並轉換爲臺灣常用詞彙
-* `tw2sp.json` Traditional Chinese (Taiwan Standard) to Simplified Chinese with Mainland Chinese idiom 繁體（臺灣正體標準）到簡體並轉換爲中國大陸常用詞彙
-* `t2tw.json` Traditional Chinese (OpenCC Standard) to Taiwan Standard 繁體（OpenCC 標準）到臺灣正體
-* `hk2t.json` Traditional Chinese (Hong Kong variant) to Traditional Chinese 香港繁體到繁體（OpenCC 標準）
-* `t2hk.json` Traditional Chinese (OpenCC Standard) to Hong Kong variant 繁體（OpenCC 標準）到香港繁體
-* `t2jp.json` Traditional Chinese Characters (Kyūjitai) to New Japanese Kanji (Shinjitai) 繁體（OpenCC 標準，舊字體）到日文新字體
-* `jp2t.json` New Japanese Kanji (Shinjitai) to Traditional Chinese Characters (Kyūjitai) 日文新字體到繁體（OpenCC 標準，舊字體）
-* `tw2t.json` Traditional Chinese (Taiwan standard) to Traditional Chinese 臺灣正體到繁體（OpenCC 標準）
+* `s2t.json` **Simplified Chinese** to **Traditional Chinese (OpenCC Standard)** / **簡體** 到 **OpenCC 標準繁體**
+* `t2s.json` **Traditional Chinese (OpenCC Standard)** to **Simplified Chinese** / **OpenCC 標準繁體** 到 **簡體**
+* `s2tw.json` **Simplified Chinese** to **Traditional Chinese (Taiwan Standard)** / **簡體** 到 **台灣正體**
+* `tw2s.json` **Traditional Chinese (Taiwan Standard)** to **Simplified Chinese** / **台灣正體** 到 **簡體**
+* `s2hk.json` **Simplified Chinese** to **Traditional Chinese (Hong Kong variant)** / **簡體** 到 **香港繁體**
+* `hk2s.json` **Traditional Chinese (Hong Kong variant)** to **Simplified Chinese** / **香港繁體** 到 **簡體**
+* `s2twp.json` **Simplified Chinese** to **Traditional Chinese (Taiwan Standard)** with Taiwanese idiom / **簡體** 到 **台灣正體** 並轉換爲台灣常用詞彙
+* `tw2sp.json` **Traditional Chinese (Taiwan Standard)** to **Simplified Chinese** with Mainland Chinese idiom / **台灣正體** 到 **簡體** 並轉換爲中國大陸常用詞彙
+* `t2tw.json` **Traditional Chinese (OpenCC Standard)** to **Traditional Chinese (Taiwan Standard)** / **OpenCC 標準繁體** 到 **台灣正體**
+* `tw2t.json` **Traditional Chinese (Taiwan standard)** to **Traditional Chinese (OpenCC Standard)** / **台灣正體** 到 **OpenCC 標準繁體**
+* `t2hk.json` **Traditional Chinese (OpenCC Standard)** to **Traditional Chinese (Hong Kong variant)** / **OpenCC 標準繁體** 到 **香港繁體**
+* `hk2t.json` **Traditional Chinese (Hong Kong variant)** to **Traditional Chinese (OpenCC Standard)** / **香港繁體** 到 **OpenCC 標準繁體**
+* `t2jp.json` **Traditional Chinese Characters (Kyūjitai)** to **New Japanese Kanji (Shinjitai)** / **OpenCC 標準繁體（日文舊字體）** 到 **日文新字體**
+* `jp2t.json` **New Japanese Kanji (Shinjitai)** to **Traditional Chinese Characters (Kyūjitai)** / **日文新字體** 到 **OpenCC 標準繁體（日文舊字體）**
 
 #### 指定配置文件
 
@@ -198,11 +246,13 @@ OPENCC_DATA_DIR=/path/to/your/config/dir opencc --help
 ### Experimental Plugins 試驗性插件
 
 OpenCC 現已支援外部 C++ 分詞插件。當前第一個插件為 `opencc-jieba`，
-可通過 `s2twp_jieba.json`、`tw2sp_jieba.json` 等插件配置啓用。
+可通過 `s2t_jieba.json`、`s2tw_jieba.json`、`s2hk_jieba.json`、
+`s2twp_jieba.json`、`tw2sp_jieba.json` 等插件配置啓用。
 
 OpenCC now supports external C++ segmentation plugins. The first plugin is
 `opencc-jieba`, which can be enabled through plugin-backed configs such as
-`s2twp_jieba.json` and `tw2sp_jieba.json`.
+`s2t_jieba.json`, `s2tw_jieba.json`, `s2hk_jieba.json`,
+`s2twp_jieba.json`, and `tw2sp_jieba.json`.
 
 注意：
 
@@ -352,7 +402,9 @@ Apache License 2.0
 ### Links 相關鏈接
 
 * Introduction 詳細介紹 https://github.com/BYVoid/OpenCC/wiki/%E7%B7%A3%E7%94%B1
-* 現代漢語常用簡繁一對多字義辨析表 http://ytenx.org/byohlyuk/KienxPyan
+* 現代漢語常用簡繁一對多字義辨析表 https://ytenx.org/byohlyuk/KienxPyan
+* 關於 [`opencc`](https://www.npmjs.com/package/opencc), [`opencc-js`](https://www.npmjs.com/package/opencc-js) 与 [`opencc-wasm`](https://www.npmjs.com/package/opencc-wasm) 三个 NPM packages 區別的說明
+  https://github.com/nk2028/opencc-js/blob/HEAD/README-zh-TW.md#%E8%88%87-opencc-npm-package-%E7%9A%84%E5%8D%80%E5%88%A5
 
 ## Contributors 貢獻者
 

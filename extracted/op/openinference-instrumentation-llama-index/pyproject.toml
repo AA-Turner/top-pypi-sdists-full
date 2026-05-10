@@ -18,7 +18,6 @@ classifiers = [
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -29,7 +28,7 @@ dependencies = [
   "opentelemetry-api",
   "opentelemetry-instrumentation",
   "opentelemetry-semantic-conventions",
-  "openinference-instrumentation>=0.1.27",
+  "openinference-instrumentation>=0.1.49",
   "openinference-semantic-conventions>=0.1.17",
   "typing-extensions",
   "wrapt",
@@ -88,6 +87,12 @@ module = [
   "llama_index.llms.azure_openai",
   "llama_index.llms.openai",
   "llama_index.llms.vertex",
+]
+
+[[tool.mypy.overrides]]
+follow_imports = "skip"
+module = [
+  "transformers.*",
 ]
 
 [tool.ruff]

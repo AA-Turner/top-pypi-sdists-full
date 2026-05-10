@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Generator, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -8,17 +8,25 @@ from jsonschema_rs import Validator
 
 from schemathesis import hooks, transport
 from schemathesis.checks import CHECKS, CheckContext, CheckFunction, CheckResult, load_all_checks, run_checks
-from schemathesis.core import NOT_SET, SCHEMATHESIS_TEST_CASE_HEADER, NotSet, curl
+from schemathesis.core import NOT_SET, SCHEMATHESIS_TEST_CASE_HEADER, NotSet, curl, media_types
 from schemathesis.core.errors import IncorrectUsage
 from schemathesis.core.failures import Failure, FailureGroup, failure_report_title, format_failures
 from schemathesis.core.jsonschema import make_validator
 from schemathesis.core.parameters import CONTAINER_TO_LOCATION, ParameterLocation
-from schemathesis.core.transport import Response
+from schemathesis.core.transport import Response, prepare_urlencoded
+from schemathesis.core.validation import has_invalid_characters, is_latin_1_encodable
 from schemathesis.engine import Status
 from schemathesis.generation import generate_random_case_id
 from schemathesis.generation.meta import CaseMetadata
 from schemathesis.generation.overrides import Override, store_components
-from schemathesis.hooks import HookContext, dispatch
+from schemathesis.hooks import (
+    GLOBAL_HOOK_DISPATCHER,
+    HookContext,
+    dispatch_after_call,
+    dispatch_after_network_error,
+    dispatch_after_validate,
+    dispatch_before_call,
+)
 from schemathesis.transport.prepare import prepare_path, prepare_request
 from schemathesis.transport.serialization import Binary
 
@@ -334,7 +342,7 @@ class Case:
 
         """
         hook_context = HookContext(operation=self.operation)
-        dispatch("before_call", hook_context, self, _with_dual_style_kwargs=True, **kwargs)
+        dispatch_before_call(GLOBAL_HOOK_DISPATCHER, context=hook_context, case=self, kwargs=kwargs)
 
         # Revalidate metadata if dirty before freezing (captures user modifications)
         if self._meta and self._meta.is_dirty():
@@ -381,11 +389,17 @@ class Case:
 
             request = getattr(exc, "request", None)
             if isinstance(request, requests.PreparedRequest):
-                dispatch("after_network_error", hook_context, self, request)
-                self.operation.schema.hooks.dispatch("after_network_error", hook_context, self, request)
+                dispatch_after_network_error(
+                    GLOBAL_HOOK_DISPATCHER,
+                    self.operation.schema.hooks,
+                    context=hook_context,
+                    case=self,
+                    request=request,
+                )
             raise
-        dispatch("after_call", hook_context, self, response)
-        self.operation.schema.hooks.dispatch("after_call", hook_context, self, response)
+        dispatch_after_call(
+            GLOBAL_HOOK_DISPATCHER, self.operation.schema.hooks, context=hook_context, case=self, response=response
+        )
         return response
 
     def validate_response(
@@ -473,8 +487,14 @@ class Case:
         )
         if has_after_validate:
             hook_context = HookContext(operation=self.operation)
-            dispatch("after_validate", hook_context, self, response, check_results)
-            self.operation.schema.hooks.dispatch("after_validate", hook_context, self, response, check_results)
+            dispatch_after_validate(
+                GLOBAL_HOOK_DISPATCHER,
+                self.operation.schema.hooks,
+                context=hook_context,
+                case=self,
+                response=response,
+                results=check_results,
+            )
         if failures:
             _failures = list(failures)
             message = failure_report_title(_failures) + "\n"
@@ -531,3 +551,14 @@ class Case:
             transport_kwargs=transport_kwargs,
         )
         return response
+
+
+def adjust_urlencoded_payload(case: Case) -> None:
+    if media_types.is_form_urlencoded(case.media_type):
+        case.body = prepare_urlencoded(case.body)
+
+
+def find_invalid_headers(headers: Mapping) -> Generator[tuple[str, str], None, None]:
+    for name, value in headers.items():
+        if not is_latin_1_encodable(value) or has_invalid_characters(name, value):
+            yield name, value

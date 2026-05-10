@@ -62,15 +62,12 @@ class StockScreener:
         # Re-setup logger for this child process if needed
         if logLevel > logging.NOTSET:
             pklog.setup_custom_logger(
-                "pkscreener.child",
+                "pkscreener",
                 levelname=logLevel,
                 trace=False,
                 log_file_path=None,  # Let the main process handle file output
                 selective_debug=False
             )
-        # Now log something to verify
-        # if hostRef and hostRef.default_logger:
-        #     hostRef.default_logger.debug(f"Child process started for stock: {stock}")
 
     # @tracelog
     def screenStocks(
@@ -476,13 +473,13 @@ class StockScreener:
                             return returnLegibleData(f"hasBbandsSqz:{hasBbandsSqz}")
                     elif respChartPattern == 7:
                         try:
+                            from pkscreener.classes.MenuOptions import CANDLESTICK_DICT
                             filterPattern = None
                             if str(maLength) != "0":
-                                from pkscreener.classes.MenuOptions import CANDLESTICK_DICT
                                 filterPattern = CANDLESTICK_DICT[str(maLength)]
                         except: # pragma: no cover
                             pass
-                        if "Cup and Handle" in filterPattern:
+                        if (filterPattern is not None and "Cup and Handle" in filterPattern) or CANDLESTICK_DICT.get(insideBarToLookback,"") == "Cup and Handle":
                             isCandlePattern,_ = screener.find_cup_and_handle(fullData,saveDictionary,screeningDictionary,int(maLength))
                         else:
                             isCandlePattern = candlePatterns.findPattern(
@@ -1242,7 +1239,7 @@ class StockScreener:
                     while num_diff > 0:
                         columns.append(f"temp{num_diff}")
                         num_diff -= 1
-                    data = pd.DataFrame(hostData["data"], columns=columns, index=parsed_index)
+                    data = pd.DataFrame(hostData["data"], columns=columns, index=index_data)
                 else:
                     hostRef.default_logger.debug(e, exc_info=True)
         

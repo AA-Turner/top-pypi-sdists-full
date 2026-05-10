@@ -21,6 +21,7 @@ set(
   Config.hpp
   Conversion.hpp
   ConversionChain.hpp
+  ConversionInspection.hpp
   Converter.hpp
   Dict.hpp
   DictConverter.hpp
@@ -34,6 +35,7 @@ set(
   Optional.hpp
   PluginSegmentation.hpp
   PhraseExtract.hpp
+  PrefixMatch.hpp
   Segmentation.hpp
   Segments.hpp
   SerializableDict.hpp
@@ -61,6 +63,7 @@ set(
   MaxMatchSegmentation.cpp
   PluginSegmentation.cpp
   PhraseExtract.cpp
+  PrefixMatch.cpp
   SerializedValues.cpp
   SimpleConverter.cpp
   Segmentation.cpp
@@ -72,6 +75,7 @@ set(
 set(UNITTESTS
   ConfigTest
   ConversionChainTest
+  ConversionInspectionTest
   ConversionTest
   DictGroupTest
   LexiconAnnotationTest
@@ -180,6 +184,7 @@ else()
   set(INSTALL_TARGETS libopencc marisa)
 endif()
 
+if(OPENCC_ENABLE_INSTALL)
 install(
   TARGETS ${INSTALL_TARGETS} EXPORT ${OPENCC_TARGETS_EXPORT_NAME}
   LIBRARY DESTINATION ${DIR_LIBRARY}
@@ -203,6 +208,7 @@ install(
   FILES plugin/OpenCCPlugin.h
   DESTINATION ${DIR_INCLUDE}/opencc/plugin
 )
+endif()
 
 # Gtest
 

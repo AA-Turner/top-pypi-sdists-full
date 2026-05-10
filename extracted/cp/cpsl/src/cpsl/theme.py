@@ -209,9 +209,7 @@ def resolve_theme(
 
     if preset is not None:
         if preset not in PRESETS:
-            raise ValueError(
-                f"Unknown preset '{preset}'. Available: {', '.join(sorted(PRESETS))}"
-            )
+            raise ValueError(f"Unknown preset '{preset}'. Available: {', '.join(sorted(PRESETS))}")
         base = PRESETS[preset]
         result = base.merge(overrides)
         result.preset = preset

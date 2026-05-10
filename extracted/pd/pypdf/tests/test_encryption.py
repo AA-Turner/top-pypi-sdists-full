@@ -390,6 +390,22 @@ def test_aes_decrypt__wrong_padding(caplog):
         )
         caplog.clear()
 
+    with pytest.raises(
+            PdfStreamError,
+            match=(
+                r"^(The length of the provided data is not a multiple of the block length\.|"
+                r"Data must be padded to 16 byte boundary in CBC mode)$"
+            )
+    ):
+        aes.decrypt(encrypted[:-2])
+
+    assert aes.decrypt(encrypted[:-2], strict=False) != original
+    assert caplog.messages[0] == "Adding missing padding."
+    assert re.match(
+        r"^Ignoring padding error: (Invalid padding bytes|(PKCS#7 p|P)adding is incorrect)\.$",
+        caplog.messages[1]
+    )
+
 
 @pytest.mark.samples
 def test_encrypt_stream_dictionary(pdf_file_path):
@@ -497,7 +513,7 @@ def test_aes256_decrypt_does_not_call_md5(monkeypatch):
 def test_reader__decryption_error_handling(caplog) -> None:
     url = "https://github.com/user-attachments/files/26631168/757.pdf"
     name = "issue3725.pdf"
-    data = get_data_from_url(url, name=name)
+    data = get_data_from_url(url=url, name=name)
 
     reader = PdfReader(BytesIO(data), strict=False)
     assert len(reader.pages) == 7

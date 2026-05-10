@@ -10,7 +10,7 @@ from io import BytesIO
 import pytest
 
 from pypdf import PdfReader, PdfWriter
-from pypdf.constants import CheckboxRadioButtonAttributes
+from pypdf.constants import CheckboxRadioButtonAttributes, OutlineFontFlag
 from pypdf.errors import DeprecationError, PdfReadError, PdfStreamError
 from pypdf.generic import (
     ArrayObject,
@@ -282,6 +282,14 @@ def test_destination_fit_r():
     assert d.bottom == FloatObject(0)
     assert list(d) == []
     d.empty_tree()
+
+
+def test_destination_color_and_font_format_defaults():
+    d = Destination(NameObject("title"), NullObject(), Fit.fit_rectangle(0, 0, 0, 0))
+    assert isinstance(d.color, ArrayObject)
+    assert d.color == [FloatObject(0), FloatObject(0), FloatObject(0)]
+    assert isinstance(d.font_format, OutlineFontFlag)
+    assert d.font_format == 0
 
 
 def test_destination_fit_v():
@@ -652,6 +660,37 @@ def test_remove_child_in_tree():
     tree.empty_tree()
 
 
+def test_insert_child_before_last_with_multiple_existing():
+    """Cover TreeObject.insert_child try-success path.
+
+    Inserts a child before the existing /Last node when the tree already
+    has multiple children, so the node being inserted before has a /Prev.
+    """
+    writer = PdfWriter()
+    tree = TreeObject()
+    writer._add_object(tree)
+
+    child1 = TreeObject()
+    child1[NameObject("/Foo")] = TextStringObject("1")
+    child1_ref = writer._add_object(child1)
+    tree.add_child(child1_ref, writer)
+
+    child2 = TreeObject()
+    child2[NameObject("/Foo")] = TextStringObject("2")
+    child2_ref = writer._add_object(child2)
+    tree.add_child(child2_ref, writer)
+
+    # /Last is now child2, /First is child1, child2 has /Prev pointing at child1.
+    # Inserting before child2_ref hits the try block successfully.
+    new_child = TreeObject()
+    new_child[NameObject("/Foo")] = TextStringObject("new")
+    new_child_ref = writer._add_object(new_child)
+    tree.insert_child(new_child_ref, child2_ref, writer)
+
+    assert tree[NameObject("/Count")] == 3
+    assert len(list(tree.children())) == 3
+
+
 @pytest.mark.enable_socket
 @pytest.mark.parametrize(
     ("url", "name", "caplog_content"),
@@ -691,7 +730,7 @@ def test_remove_child_in_tree():
     ],
 )
 def test_extract_text(caplog, url: str, name: str, caplog_content: str):
-    reader = PdfReader(BytesIO(get_data_from_url(url, name=name)))
+    reader = PdfReader(BytesIO(get_data_from_url(url=url, name=name)))
     for page in reader.pages:
         page.extract_text()
     if caplog_content == "":
@@ -706,7 +745,7 @@ def test_text_string_write_to_stream():
     url = "https://github.com/user-attachments/files/18381698/tika-924562.pdf"
     name = "tika-924562.pdf"
 
-    reader = PdfReader(BytesIO(get_data_from_url(url, name=name)))
+    reader = PdfReader(BytesIO(get_data_from_url(url=url, name=name)))
     writer = PdfWriter()
     writer.clone_document_from_reader(reader)
     for page in writer.pages:
@@ -718,7 +757,7 @@ def test_bool_repr(tmp_path):
     url = "https://github.com/user-attachments/files/18381703/tika-932449.pdf"
     name = "tika-932449.pdf"
 
-    reader = PdfReader(BytesIO(get_data_from_url(url, name=name)))
+    reader = PdfReader(BytesIO(get_data_from_url(url=url, name=name)))
     write_path = tmp_path / "tmp-fields-report.txt"
     with open(write_path, "w") as fp:
         fields = reader.get_fields(fileobj=fp)
@@ -742,14 +781,14 @@ def test_issue_997(pdf_file_path):
     name = "gh-issue-997.pdf"
 
     merger = PdfWriter()
-    merger.append(BytesIO(get_data_from_url(url, name=name)))  # here the error raises
+    merger.append(BytesIO(get_data_from_url(url=url, name=name)))  # here the error raises
     with open(pdf_file_path, "wb") as f:
         merger.write(f)
     merger.close()
 
     # Strict
     merger = PdfWriter()
-    merger.append(BytesIO(get_data_from_url(url, name=name)))  # here the error raises
+    merger.append(BytesIO(get_data_from_url(url=url, name=name)))  # here the error raises
     with open(pdf_file_path, "wb") as f:
         merger.write(f)
     merger.close()
@@ -979,7 +1018,7 @@ def test_append_with_indirectobject_not_pointing(caplog):
     """
     url = "https://github.com/py-pdf/pypdf/files/10729142/document.pdf"
     name = "tst_iss1631.pdf"
-    data = BytesIO(get_data_from_url(url, name=name))
+    data = BytesIO(get_data_from_url(url=url, name=name))
     reader = PdfReader(data, strict=False)
     writer = PdfWriter()
     writer.append(reader)
@@ -995,7 +1034,7 @@ def test_iss1615_1673():
     # #1615
     url = "https://github.com/py-pdf/pypdf/files/10671366/graph_letter.pdf"
     name = "graph_letter.pdf"
-    reader = PdfReader(BytesIO(get_data_from_url(url, name=name)))
+    reader = PdfReader(BytesIO(get_data_from_url(url=url, name=name)))
     writer = PdfWriter()
     writer.append(reader)
     assert (
@@ -1007,7 +1046,7 @@ def test_iss1615_1673():
     # #1673
     url = "https://github.com/py-pdf/pypdf/files/10848750/budgeting-loan-form-sf500.pdf"
     name = "budgeting-loan-form-sf500.pdf"
-    reader = PdfReader(BytesIO(get_data_from_url(url, name=name)))
+    reader = PdfReader(BytesIO(get_data_from_url(url=url, name=name)))
     writer = PdfWriter()
     writer.clone_document_from_reader(reader)
 
@@ -1017,7 +1056,7 @@ def test_destination_withoutzoom():
     """Cf issue #1832"""
     url = "https://github.com/user-attachments/files/15605648/2021_book_security.pdf"
     name = "2021_book_security.pdf"
-    reader = PdfReader(BytesIO(get_data_from_url(url, name=name)))
+    reader = PdfReader(BytesIO(get_data_from_url(url=url, name=name)))
     reader.outline
 
     out = BytesIO()
@@ -1071,7 +1110,7 @@ def test_set_data_2():
     """
     url = "https://github.com/user-attachments/files/16796095/f5471sm-2.pdf"
     name = "iss2780.pdf"
-    writer = PdfWriter(BytesIO(get_data_from_url(url, name=name)))
+    writer = PdfWriter(BytesIO(get_data_from_url(url=url, name=name)))
     writer.root_object["/AcroForm"]["/XFA"][7].set_data(b"test")
     assert writer.root_object["/AcroForm"]["/XFA"][7].get_object()["/Filter"] == [
         "/FlateDecode"
@@ -1084,7 +1123,7 @@ def test_calling_indirect_objects():
     """Cope with cases where attributes/items are called from indirectObject"""
     url = "https://github.com/user-attachments/files/15605648/2021_book_security.pdf"
     name = "2021_book_security.pdf"
-    reader = PdfReader(BytesIO(get_data_from_url(url, name=name)))
+    reader = PdfReader(BytesIO(get_data_from_url(url=url, name=name)))
     reader.trailer.get("/Info")["/Creator"]
     reader.pages[0]["/Contents"][0].get_data()
     writer = PdfWriter(clone_from=reader)
@@ -1103,7 +1142,7 @@ def test_calling_indirect_objects():
 def test_indirect_object_page_dimensions():
     url = "https://github.com/py-pdf/pypdf/files/13302338/Zymeworks_Corporate.Presentation_FINAL1101.pdf.pdf"
     name = "issue2287.pdf"
-    data = BytesIO(get_data_from_url(url, name=name))
+    data = BytesIO(get_data_from_url(url=url, name=name))
     reader = PdfReader(data, strict=False)
     mediabox = reader.pages[0].mediabox
     assert mediabox == RectangleObject((0, 0, 792, 612))
@@ -1327,7 +1366,7 @@ def test_dictionaryobject__length_0_stream():
     """Test for issue #3052."""
     url = "https://github.com/user-attachments/files/18734105/correct.pdf"
     name = "issue3052.pdf"
-    writer = PdfWriter(clone_from=BytesIO(get_data_from_url(url, name=name)))
+    writer = PdfWriter(clone_from=BytesIO(get_data_from_url(url=url, name=name)))
     output = BytesIO()
     writer.write(output)
     assert b"\n8 0 obj\n<<\n/Length 0\n>>\nstream\n\nendstream\nendobj\n" in output.getvalue()

@@ -106,7 +106,7 @@ fn resolve_and_add_manifest_asset(
 }
 
 /// Run `cargo package --list --allow-dirty` and return the list of files.
-fn cargo_package_file_list(manifest_path: &Path) -> Result<Vec<String>> {
+fn cargo_package_file_list(manifest_path: &Path, target_dir: &Path) -> Result<Vec<String>> {
     debug!(
         "Getting cargo package file list for {}",
         manifest_path.display()
@@ -115,6 +115,8 @@ fn cargo_package_file_list(manifest_path: &Path) -> Result<Vec<String>> {
     let output = Command::new("cargo")
         .args(args)
         .arg(manifest_path)
+        .arg("--target-dir")
+        .arg(target_dir)
         .output()
         .with_context(|| {
             format!(
@@ -183,8 +185,9 @@ fn add_crate_to_source_distribution(
     readme: Option<&ManifestAsset>,
     license_file: Option<&ManifestAsset>,
     opts: &AddCrateOptions<'_>,
+    target_dir: &Path,
 ) -> Result<()> {
-    let file_list = cargo_package_file_list(manifest_path)?;
+    let file_list = cargo_package_file_list(manifest_path, target_dir)?;
 
     trace!("File list: {:?}", file_list);
 
@@ -575,6 +578,7 @@ fn add_path_dep(
                     .expect("workspace inheritance cache missing entry")
             }),
         },
+        &ctx.project.target_dir,
     )
     .with_context(|| {
         format!(
@@ -687,6 +691,7 @@ fn add_main_crate(writer: &mut VirtualWriter<SDistWriter>, ctx: &SdistContext<'_
             package_metadata: main_crate,
             workspace_inheritance: None,
         },
+        &ctx.project.target_dir,
     )?;
 
     Ok(())
@@ -694,7 +699,18 @@ fn add_main_crate(writer: &mut VirtualWriter<SDistWriter>, ctx: &SdistContext<'_
 
 /// Add Cargo.lock to the sdist.
 fn add_cargo_lock(writer: &mut VirtualWriter<SDistWriter>, ctx: &SdistContext<'_>) -> Result<()> {
-    let manifest_cargo_lock_path = ctx.abs_manifest_dir.join("Cargo.lock");
+    // `abs_manifest_dir` is canonicalized (symlinks resolved). Use the
+    // logical absolute manifest dir from `project.manifest_path` so the
+    // resulting `Cargo.lock` path is consistent with `project_root` (also a
+    // logical path) when `Cargo.toml` is a symlink pointing outside the
+    // project root (#3177).
+    let manifest_dir = ctx
+        .project
+        .manifest_path
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| ctx.abs_manifest_dir.clone());
+    let manifest_cargo_lock_path = manifest_dir.join("Cargo.lock");
     let workspace_cargo_lock = ctx.workspace_root.join("Cargo.lock").into_std_path_buf();
     let cargo_lock_path = if manifest_cargo_lock_path.exists() {
         Some(manifest_cargo_lock_path)
@@ -733,15 +749,18 @@ fn add_workspace_manifest(
     // the crate's own directory as `workspace_root`, so this check correctly
     // skips adding the parent workspace Cargo.toml for excluded crates.
     //
-    // We normalize workspace_root to match abs_manifest_dir (also normalized) so
-    // that symlinks or .. components don't cause a false positive.
-    let normalized_workspace_root = ctx
-        .workspace_root
-        .as_std_path()
-        .normalize()
-        .map(|p| p.into_path_buf())
-        .unwrap_or_else(|_| ctx.workspace_root.as_std_path().to_path_buf());
-    let is_in_workspace = normalized_workspace_root != ctx.abs_manifest_dir;
+    // `abs_manifest_dir` is canonicalized while `workspace_root` (from cargo
+    // metadata) is not. Comparing them directly produces a false positive when
+    // `Cargo.toml` is a symlink pointing outside the workspace, so use the
+    // logical absolute manifest dir from `project.manifest_path` instead
+    // (#3177).
+    let logical_manifest_dir = ctx
+        .project
+        .manifest_path
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| ctx.abs_manifest_dir.clone());
+    let is_in_workspace = ctx.workspace_root.as_std_path() != logical_manifest_dir;
     if !is_in_workspace {
         return Ok(());
     }
@@ -755,8 +774,7 @@ fn add_workspace_manifest(
     // Collect all crates that must remain in `workspace.members`:
     // the known path dependencies plus the main Python binding crate itself.
     let mut deps_to_keep = ctx.known_path_deps.clone();
-    let main_member_name = ctx
-        .abs_manifest_dir
+    let main_member_name = logical_manifest_dir
         .strip_prefix(ctx.workspace_root)
         .unwrap()
         .to_slash()

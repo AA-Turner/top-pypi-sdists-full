@@ -19,7 +19,9 @@ class ScopedIdentityTests(unittest.TestCase):
         self.assertIsNone(UserInfo.org_id_from_owner_id("user_hash"))
 
     def test_collection_ref_uses_context_local_identity(self):
-        ref = CollectionRef("property_listings", CollectionDecl(name="property_listings", scope="owner"))
+        ref = CollectionRef(
+            "property_listings", CollectionDecl(name="property_listings", scope="owner")
+        )
         ref._bound = object()
 
         token = set_active_identity(

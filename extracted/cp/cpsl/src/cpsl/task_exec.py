@@ -28,7 +28,15 @@ from .clients.capsule import (
     SessionServiceStub,
 )
 from .constants import DEFAULT_CHANNEL_TYPE, HISTORY_FETCH_COUNT, KV_COLLECTION, CollectionDecl
-from .db import Collection, CollectionManager, CollectionRef, DatabaseProxy, ScopedDatabaseProxy, reset_active_identity, set_active_identity
+from .db import (
+    Collection,
+    CollectionManager,
+    CollectionRef,
+    DatabaseProxy,
+    ScopedDatabaseProxy,
+    reset_active_identity,
+    set_active_identity,
+)
 from .msg import Message
 from .task_types import TaskDescriptor
 
@@ -66,6 +74,7 @@ def _parse_integration_credential(ic: Any) -> Any:
 # ---------------------------------------------------------------------------
 # Child process entrypoint
 # ---------------------------------------------------------------------------
+
 
 def _subprocess_entry(
     module_path: str,
@@ -107,6 +116,7 @@ def _subprocess_entry(
         # Expose stubs to session methods (prompt_file, prompt_integration,
         # show_image) which locate them via Runner._instance_ref.
         from .runner import Runner
+
         _shim = object.__new__(Runner)
         _shim._runner_stub = runner_stub
         _shim._session_stub = session_stub
@@ -153,10 +163,16 @@ def _subprocess_entry(
                         ref._bound = getattr(db, ref.name)
             if isinstance(obj, App):
                 obj._kv = Collection(data_stub, data_app_id, KV_COLLECTION)
-                obj.collections = CollectionManager(data_stub, data_app_id, collection_scopes=collection_scopes)
+                obj.collections = CollectionManager(
+                    data_stub, data_app_id, collection_scopes=collection_scopes
+                )
             elif instance is not None:
                 setattr(instance, "db", db)
-                setattr(instance, "collections", CollectionManager(data_stub, data_app_id, collection_scopes=collection_scopes))
+                setattr(
+                    instance,
+                    "collections",
+                    CollectionManager(data_stub, data_app_id, collection_scopes=collection_scopes),
+                )
 
         _bind_collection_refs()
 
@@ -197,10 +213,7 @@ def _subprocess_entry(
                         env=canonical_type,
                     )
                 )
-                return {
-                    ic.type: _parse_integration_credential(ic)
-                    for ic in resp.integrations
-                }
+                return {ic.type: _parse_integration_credential(ic) for ic in resp.integrations}
             except Exception:
                 return {}
 
@@ -249,7 +262,10 @@ def _subprocess_entry(
                     session.channel = SessionChannel(type=resp.channel_type)
                 if resp.data_json:
                     from .session import _track_data_value
-                    session.data = _track_data_value(json.loads(resp.data_json), session._notify_data_changed)
+
+                    session.data = _track_data_value(
+                        json.loads(resp.data_json), session._notify_data_changed
+                    )
 
                 raw = [
                     Message(text=e.text, sender=e.sender, channel_type=e.channel_type)
@@ -269,8 +285,7 @@ def _subprocess_entry(
 
                 if resp.integrations:
                     session.integrations = {
-                        ic.type: _parse_integration_credential(ic)
-                        for ic in resp.integrations
+                        ic.type: _parse_integration_credential(ic) for ic in resp.integrations
                     }
 
                 async def _task_reply(msg: Message) -> None:
@@ -310,11 +325,13 @@ def _subprocess_entry(
                             app_id=app_id,
                             session_id=session_id,
                             request_id=rid,
-                            block_json=json.dumps({
-                                "id": f"widget_update_{session_id}",
-                                "type": "widget_update",
-                                "payload": {"reason": "data", "session_id": session_id},
-                            }),
+                            block_json=json.dumps(
+                                {
+                                    "id": f"widget_update_{session_id}",
+                                    "type": "widget_update",
+                                    "payload": {"reason": "data", "session_id": session_id},
+                                }
+                            ),
                             external_delivery=False,
                         )
                     )
@@ -370,6 +387,7 @@ def _subprocess_entry(
 # ---------------------------------------------------------------------------
 # Parent-side subprocess driver
 # ---------------------------------------------------------------------------
+
 
 async def run_task_subprocess(
     module_path: str,

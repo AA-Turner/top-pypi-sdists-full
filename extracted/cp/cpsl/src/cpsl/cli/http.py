@@ -18,7 +18,11 @@ def api_base(path: str) -> tuple[str, dict[str, str]]:
 
     port = ctx.gateway_http_port
     if port is None:
-        port = ctx.gateway_port if ctx.gateway_port in (HTTPS_PORT, HTTP_PORT) else ctx.gateway_port + 1
+        port = (
+            ctx.gateway_port
+            if ctx.gateway_port in (HTTPS_PORT, HTTP_PORT)
+            else ctx.gateway_port + 1
+        )
     scheme = "https" if port == HTTPS_PORT else "http"
     host = ctx.gateway_host if port in (HTTPS_PORT, HTTP_PORT) else f"{ctx.gateway_host}:{port}"
     if ctx.gateway_host == PROD_GATEWAY_HOST and port == HTTPS_PORT:

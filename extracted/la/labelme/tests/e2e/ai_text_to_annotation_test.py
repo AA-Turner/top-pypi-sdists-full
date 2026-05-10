@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import functools
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
+import numpy as np
 import osam.types
 import pytest
 from pytestqt.qtbot import QtBot
@@ -25,11 +27,15 @@ def _make_response(
     boxes: list[tuple[int, int, int, int]],
     scores: list[float],
     label_indices: list[int],
+    with_masks: bool = False,
 ) -> osam.types.GenerateResponse:
     annotations = []
     for (xmin, ymin, xmax, ymax), score, label_idx in zip(
         boxes, scores, label_indices, strict=True
     ):
+        mask = None
+        if with_masks:
+            mask = np.ones((ymax - ymin + 1, xmax - xmin + 1), dtype=bool)
         annotations.append(
             osam.types.Annotation(
                 bounding_box=osam.types.BoundingBox(
@@ -37,18 +43,22 @@ def _make_response(
                 ),
                 text=texts[label_idx],
                 score=score,
+                mask=mask,
             )
         )
     return osam.types.GenerateResponse(model=_AI_TEXT_MODEL, annotations=annotations)
 
 
-def _make_person_response(texts: list[str]) -> osam.types.GenerateResponse:
+def _make_person_response(
+    texts: list[str], with_masks: bool = False
+) -> osam.types.GenerateResponse:
     person_idx = texts.index("person")
     return _make_response(
         texts=texts,
         boxes=[(50, 30, 200, 300), (220, 40, 350, 290)],
         scores=[0.85, 0.45],
         label_indices=[person_idx, person_idx],
+        with_masks=with_masks,
     )
 
 
@@ -91,7 +101,7 @@ def _run_text_prompt(
     create_mode: str,
     score_threshold: float = 0.1,
 ) -> None:
-    win._switch_canvas_mode(edit=False, createMode=create_mode)
+    win._switch_canvas_mode(edit=False, create_mode=create_mode)
     qtbot.wait(50)
 
     win._ai_text._text_input.setText(text)
@@ -124,7 +134,7 @@ def _run_text_prompt(
             "polygon",
             "polygon",
             "person",
-            _make_person_response,
+            functools.partial(_make_person_response, with_masks=True),
             {"person"},
             id="polygon",
         ),
@@ -132,7 +142,7 @@ def _run_text_prompt(
             "ai_box_to_shape",
             "polygon",
             "person",
-            _make_person_response,
+            functools.partial(_make_person_response, with_masks=True),
             {"person"},
             id="ai_box-polygon",
         ),

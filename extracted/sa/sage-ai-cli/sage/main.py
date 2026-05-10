@@ -1985,6 +1985,13 @@ app.add_typer(secrets_app, name="secrets")
 sms_app = typer.Typer(help="Message bridge — control any SAGE computer from iMessage or Google Messages")
 app.add_typer(sms_app, name="sms")
 
+# Wave 1-4 extensions: RAG, web search, project detect, auto-pick model, finetune, corpus
+try:
+    from sage.cli_extensions import register as _register_extensions
+    _register_extensions(app)
+except Exception:  # pragma: no cover - extensions are optional
+    pass
+
 
 @secrets_app.command("gitignore")
 def secrets_gitignore() -> None:
@@ -2839,6 +2846,103 @@ def _set_last_used_model(cwd: Path, model_id: str) -> None:
     state["last_model"] = model_id
     state["updated_at"] = datetime.now().isoformat(timespec="seconds")
     _save_session_state(cwd, state)
+
+
+# Cached "is this Python under Rosetta on Apple Silicon" check. Computed once
+# per process — it's stable for the process lifetime.
+_ROSETTA_DETECTED: bool | None = None
+
+
+def _is_rosetta() -> bool:
+    """True if this Python is running under Rosetta translation on arm64 Mac.
+
+    On Rosetta'd Python, llama-cpp-python's GGUF backend cannot use the GPU
+    even if it loads, and on macOS 14+ SDKs the rebuild fails with vecLib
+    `__m128i` clashes. So we silently route around it whenever Ollama has
+    the same model. The check is cached because we call it on every model
+    resolution and `subprocess.run` is not free.
+    """
+    global _ROSETTA_DETECTED
+    if _ROSETTA_DETECTED is not None:
+        return _ROSETTA_DETECTED
+    if sys.platform != "darwin":
+        _ROSETTA_DETECTED = False
+        return False
+    try:
+        import subprocess as _sp
+        r = _sp.run(
+            ["sysctl", "-n", "sysctl.proc_translated"],
+            capture_output=True, text=True, timeout=2,
+        )
+        _ROSETTA_DETECTED = r.stdout.strip() == "1"
+    except Exception:
+        _ROSETTA_DETECTED = False
+    return _ROSETTA_DETECTED
+
+
+# Cached "ollama models we've seen on this host". Refreshed at most once per
+# process — `ollama list` is a subprocess call, cheap but not free.
+_OLLAMA_MODEL_CACHE: set[str] | None = None
+
+
+def _ollama_local_models() -> set[str]:
+    """Return the set of model names Ollama has locally pulled (no tag suffix).
+
+    Returns empty set if Ollama isn't installed or fails. Used to decide
+    whether to auto-substitute `llama_cpp:X` → `ollama:X`.
+    """
+    global _OLLAMA_MODEL_CACHE
+    if _OLLAMA_MODEL_CACHE is not None:
+        return _OLLAMA_MODEL_CACHE
+    names: set[str] = set()
+    try:
+        import subprocess as _sp
+        r = _sp.run(
+            ["ollama", "list"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if r.returncode == 0:
+            for line in r.stdout.splitlines()[1:]:
+                first = line.split()[0] if line.strip() else ""
+                if first:
+                    names.add(first)
+                    if ":" in first:
+                        names.add(first.split(":", 1)[0])
+    except Exception:
+        pass
+    _OLLAMA_MODEL_CACHE = names
+    return names
+
+
+def _prefer_working_backend(model_id: str) -> str:
+    """Auto-substitute `llama_cpp:X` → `ollama:X` when llama_cpp can't work.
+
+    Two trigger conditions, both opt-in conservative (we never override an
+    explicit `ollama:` or other non-llama_cpp prefix):
+      1. We're on Rosetta'd Python (llama_cpp will fail to load any GGUF)
+      2. We're not on Rosetta but the GGUF model file is missing or unreadable
+         AND Ollama has an equivalent — usually means a stale config
+
+    Plain `gemma4` (no prefix) also gets normalized to `ollama:gemma4` if
+    Ollama has it, so the user's `sage use gemma4` does the right thing
+    regardless of whether their config later resolves it via llama_cpp.
+    """
+    if not isinstance(model_id, str) or not model_id:
+        return model_id
+    base: str | None = None
+    if model_id.startswith("llama_cpp:"):
+        base = model_id.split(":", 1)[1]
+    elif ":" not in model_id:
+        base = model_id
+    if base is None:
+        return model_id
+    ollama_models = _ollama_local_models()
+    has_in_ollama = base in ollama_models or f"{base}:latest" in ollama_models
+    if not has_in_ollama:
+        return model_id
+    if _is_rosetta() or model_id.startswith("llama_cpp:"):
+        return f"ollama:{base}"
+    return model_id
 
 
 # =============================================================================
@@ -5925,6 +6029,22 @@ def _extract_and_write_files(
         r"`FILE:\s*(\S+)`\s*\n```[^\n]*\n(.*?)```",
         # Pattern 5: ### FILE: path\n```content``` (header style)
         r"#+\s*FILE:\s*(\S+)\s*\n```[^\n]*\n(.*?)```",
+        # Pattern 6 (FALLBACK): FENCE-LESS. Weaker local models (4B-class
+        # GGUFs like gemma4) routinely omit the triple-backtick code fences
+        # and emit:
+        #     FILE: src/foo.js
+        #     export const foo = () => 1;
+        #
+        #     FILE: src/bar.js
+        #     ...
+        # The strict fenced patterns above silently drop those blocks and
+        # the user gets "no files written" plus a confused agent that
+        # doesn't understand why nothing happened. This pattern captures
+        # everything between `FILE: <path>` and the next FILE:/RUN:/READ:/
+        # SEARCH: line (or end of output) as the file's contents. The
+        # `seen` set later in the loop prevents double-extraction when a
+        # higher-priority fenced pattern already matched the same filepath.
+        r"(?ms)^FILE:\s*(\S+)\s*\n((?:(?!^(?:FILE:|RUN:|READ:|SEARCH:|EDIT:)\b).)*)",
     ]
 
     pending_filepaths: list[str] = []
@@ -13050,10 +13170,32 @@ def install() -> None:
                     f"  {model_name} — timed out (see SAGE_OLLAMA_PULL_TIMEOUT_SEC; unset for no limit)"
                 )
 
+    # ── Wave 5+ auto-bootstrap: optional deps, RAG, prewarm, default-pick.
+    # Heavy phases (finetune, full datasets) opt-in only.
+    try:
+        from sage.core.bootstrap import BootstrapOptions, run_bootstrap
+        renderer.info("")
+        renderer.info("Running post-install bootstrap (RAG, prewarm, optional deps)…")
+        result = run_bootstrap(BootstrapOptions(
+            pull_models=False,         # already done above
+            build_llama_cpp=False,     # opt-in via `sage ext bootstrap --build-llama-cpp`
+            mirror_datasets=False,     # opt-in (large network)
+            finetune=False,
+            quiet=True,
+        ))
+        for p in result.phases:
+            if p.status == "ok":
+                renderer.success(f"  {p.name}: {p.detail}")
+            elif p.status == "failed":
+                renderer.warning(f"  {p.name}: {p.detail}")
+    except Exception as exc:
+        renderer.warning(f"  bootstrap skipped: {exc}")
+
     renderer.info("")
     renderer.header("Setup Complete!")
     renderer.info("  Default model: qwen2.5-coder-7b (best local coding model)")
     renderer.info("  Run: sage chat    — to start chatting")
+    renderer.info("  Run: sage ext bootstrap --finetune  — kick off project-aware fine-tune")
     renderer.info("  Run: sage models  — to see all available models")
     renderer.info("  Run: sage pull    — to download more models")
     renderer.info("")
@@ -14278,6 +14420,189 @@ def whoami_cmd() -> None:
     renderer.console.print(f"  Plan:   [bold]{info['tier']}[/bold]")
 
 
+@app.command("fix-llama-cpp")
+def fix_llama_cpp_cmd(
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip confirmation prompt and run immediately"),
+    ] = False,
+) -> None:
+    """Rebuild llama-cpp-python from source with GPU acceleration for this machine.
+
+    Use this when local GGUF models fail to load with errors like:
+      • "Failed to create llama_context"
+      • "ggml_metal_library_init: error"
+      • "Metal library compilation failed"
+      • "CUDA error: ..."
+
+    What this does (per platform):
+      • macOS:   GGML_METAL=ON + GGML_METAL_EMBED_LIBRARY=ON + GGML_ACCELERATE=OFF
+                  (pre-compiles Metal shaders at build time, avoids vecLib clash)
+      • Linux:   GGML_CUDA=ON if nvcc found, else GGML_HIPBLAS for ROCm,
+                  else GGML_BLAS for OpenBLAS CPU acceleration
+      • Windows: GGML_CUDA=ON if nvcc found, else uses prebuilt wheel
+
+    Skipped automatically when Python's architecture doesn't match the
+    hardware (e.g. x86_64 Python under Rosetta on arm64 Mac) — the build
+    can't possibly produce a working binary in that case.
+
+    Takes ~5-10 minutes. Requires cmake + native compiler (Xcode/gcc/MSVC).
+    Falls back gracefully on failure: Ollama backend continues to work.
+    """
+    import os, platform, shutil, subprocess
+
+    plat = sys.platform
+    py_arch = platform.machine()  # what THIS python process sees as its arch
+
+    # Architecture-mismatch guard. On macOS, an x86_64 Python running under
+    # Rosetta on arm64 hardware will report `platform.machine() == 'x86_64'`
+    # because Rosetta translates the syscall. So we can't compare py_arch to
+    # platform.uname().machine — they'll both lie. The reliable check is
+    # `sysctl sysctl.proc_translated` from inside this process: returns "1"
+    # iff we're running under Rosetta. On Linux/Windows the check is N/A
+    # (no equivalent translation layer for our case).
+    rosetta = False
+    if plat == "darwin":
+        try:
+            r = subprocess.run(
+                ["sysctl", "-n", "sysctl.proc_translated"],
+                capture_output=True, text=True, timeout=2,
+            )
+            rosetta = r.stdout.strip() == "1"
+        except Exception:
+            rosetta = False
+    if rosetta:
+        renderer.error(
+            f"This Python ({py_arch}) is running under Rosetta translation on "
+            "Apple Silicon hardware. Rebuilding llama-cpp-python in this "
+            "environment will fail (vecLib/__m128i clash with the arm64 SDK), "
+            "and even if it succeeded the binary couldn't take advantage of "
+            "the GPU."
+        )
+        renderer.info(
+            "Fix: install an arm64 native Python. On macOS the easiest path is "
+            "Homebrew (`brew install python@3.12`) — its Python is arm64 by "
+            "default on Apple Silicon. Then re-run `sage fix-llama-cpp`."
+        )
+        renderer.info(
+            "Workaround (no Python migration needed): use the Ollama backend, "
+            "which handles GPU acceleration outside of Python: "
+            "`sage use ollama:gemma4` (or whichever model you've pulled)."
+        )
+        raise typer.Exit(code=2)
+
+    # Pick CMAKE_ARGS for this platform + GPU.
+    cmake_args: str
+    if plat == "darwin":
+        # GGML_NATIVE=OFF + GGML_CPU_REPACK=OFF: Apple clang on arm64 rejects
+        # `-mcpu=native` which llama.cpp adds when GGML_NATIVE is on. Disabling
+        # native-CPU detection costs us a small tuning bonus (NEON is still
+        # used; that's the actual ARM SIMD path) but is necessary for the
+        # build to complete on macOS 26+ SDKs.
+        cmake_args = (
+            "-DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON "
+            "-DGGML_ACCELERATE=OFF -DGGML_BLAS=OFF "
+            "-DGGML_NATIVE=OFF -DGGML_CPU_REPACK=OFF "
+            # Skip optional binaries that pull in cpp-httplib + TLS — those
+            # have an arm64 link mismatch (httplib::tls::get_cert_der)
+            # on macOS 26 SDK and we don't need them for Python bindings.
+            "-DLLAMA_CURL=OFF -DLLAMA_BUILD_SERVER=OFF "
+            "-DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TESTS=OFF"
+        )
+        backend = "Apple Metal (GPU)"
+    elif plat.startswith("linux"):
+        if shutil.which("nvcc") or os.path.exists("/usr/local/cuda/bin/nvcc"):
+            cmake_args = "-DGGML_CUDA=ON"
+            backend = "NVIDIA CUDA (GPU)"
+        elif shutil.which("hipcc"):
+            cmake_args = "-DGGML_HIPBLAS=ON"
+            backend = "AMD ROCm (GPU)"
+        else:
+            cmake_args = "-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS"
+            backend = "OpenBLAS (CPU)"
+    elif plat == "win32":
+        if shutil.which("nvcc"):
+            cmake_args = "-DGGML_CUDA=ON"
+            backend = "NVIDIA CUDA (GPU)"
+        else:
+            renderer.warning(
+                "No CUDA detected on Windows. The PyPI wheel is already CPU-only — "
+                "rebuilding from source rarely helps. Use Ollama for GPU."
+            )
+            raise typer.Exit(code=0)
+    else:
+        renderer.error(f"Unsupported platform: {plat}")
+        raise typer.Exit(code=2)
+
+    if not shutil.which("cmake"):
+        renderer.error(
+            "cmake is required to rebuild llama-cpp-python. Install it:\n"
+            "  macOS:   brew install cmake\n"
+            "  Ubuntu:  sudo apt install cmake\n"
+            "  Fedora:  sudo dnf install cmake\n"
+            "  Windows: winget install Kitware.CMake"
+        )
+        raise typer.Exit(code=2)
+
+    renderer.console.print(
+        f"\nWill rebuild [bold]llama-cpp-python[/bold] for [cyan]{backend}[/cyan]."
+    )
+    renderer.console.print(f"  CMAKE_ARGS = [dim]{cmake_args}[/dim]")
+    renderer.console.print("  Build takes ~5-10 minutes. Disk + CPU-intensive.")
+    renderer.console.print(
+        "  Falls back to Ollama on failure (your bridge keeps working).\n"
+    )
+
+    if not yes:
+        try:
+            confirm = input("Proceed? [y/N] ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            confirm = "n"
+        if confirm not in ("y", "yes"):
+            renderer.info("Skipped. Re-run with --yes to bypass confirmation.")
+            raise typer.Exit(code=0)
+
+    # Run the build via pip with proper CMAKE_ARGS.
+    # IMPORTANT: scrub env vars that can silently force the wrong target
+    # arch. Specifically `CC` and `CXX` set in user shell profiles often
+    # point at Homebrew GCC (e.g. /usr/local/bin/g++-14 = x86_64), which
+    # CMake honors over its own toolchain detection — producing an x86_64
+    # dylib that arm64 Python can't dlopen. Let CMake pick Apple clang.
+    env = {**os.environ, "CMAKE_ARGS": cmake_args}
+    for var in ("CC", "CXX", "ARCHFLAGS", "CFLAGS", "CXXFLAGS",
+                "CMAKE_C_COMPILER", "CMAKE_CXX_COMPILER"):
+        env.pop(var, None)
+    # On macOS, force the build to target the running Python's arch. Without
+    # this, environment leakage (Conda, x86_64 GCC on PATH, etc.) can silently
+    # build for the wrong arch and the resulting dylib fails to load.
+    if plat == "darwin":
+        env["CMAKE_OSX_ARCHITECTURES"] = py_arch
+        env["ARCHFLAGS"] = f"-arch {py_arch}"
+        env["CMAKE_ARGS"] = (
+            f"{cmake_args} -DCMAKE_OSX_ARCHITECTURES={py_arch}"
+        )
+    cmd = [
+        sys.executable, "-m", "pip", "install",
+        "--upgrade", "--force-reinstall", "--no-cache-dir",
+        "--no-binary", "llama-cpp-python",
+        "llama-cpp-python",
+    ]
+    renderer.info(
+        f"Running pip install (target arch: {py_arch})… this is the long step."
+    )
+    result = subprocess.run(cmd, env=env)
+    if result.returncode != 0:
+        renderer.error("Rebuild failed. See pip output above for the specific error.")
+        renderer.info(
+            "Common causes: missing Xcode (macOS), missing CUDA toolkit (Linux), "
+            "Python arch mismatch with hardware. Ollama backend keeps working."
+        )
+        raise typer.Exit(code=result.returncode)
+
+    renderer.success("✓ llama-cpp-python rebuilt successfully.")
+    renderer.info("Test: sage use llama_cpp:gemma4 (or whichever GGUF you have)")
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SMS / MESSAGE BRIDGE
 # User-scoped: authorized contacts and device registry live in the SAGE backend.
@@ -14289,6 +14614,59 @@ def _sms_backend():
     from sage.core.sms_bridge import SAGEBackend, _load_sage_token
     token, base = _load_sage_token()
     return SAGEBackend(token, base)
+
+
+def _sms_process_alive(pid: int) -> bool:
+    """Cross-platform "is this PID still running?" check.
+
+    `os.kill(pid, 0)` is the POSIX idiom but on Windows it raises
+    `OSError: [WinError 87] The parameter is incorrect` because Windows
+    doesn't support signal 0. Use `tasklist /FI "PID eq <pid>"` on
+    Windows instead — it's a built-in command that ships with every
+    supported Windows version.
+    """
+    if sys.platform == "win32":
+        try:
+            r = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
+                capture_output=True, text=True, timeout=3,
+            )
+            return str(pid) in (r.stdout or "")
+        except Exception:
+            return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError, PermissionError):
+        return False
+
+
+def _sms_terminate_process(pid: int) -> bool:
+    """Cross-platform "terminate this PID" — equivalent of SIGTERM.
+
+    On Windows, `os.kill(pid, signal.SIGTERM)` raises
+    `OSError: [WinError 5] Access is denied` for any process the
+    current user didn't spawn with appropriate flags. Use `taskkill /PID`
+    instead, which respects user-process ACLs and is the canonical way
+    to terminate a Windows process by PID.
+    """
+    if sys.platform == "win32":
+        try:
+            r = subprocess.run(
+                ["taskkill", "/PID", str(pid), "/F", "/T"],
+                capture_output=True, text=True, timeout=5,
+            )
+            return r.returncode == 0
+        except Exception:
+            return False
+    try:
+        import signal as _signal
+        os.kill(pid, _signal.SIGTERM)
+        return True
+    except ProcessLookupError:
+        return False
+    except Exception:
+        return False
 
 
 @sms_app.command("setup")
@@ -14356,12 +14734,14 @@ def sms_start(
     if SMS_PID_FILE.exists():
         try:
             pid = int(SMS_PID_FILE.read_text().strip())
-            os.kill(pid, 0)  # signal 0 = existence check
-            renderer.console.print(f"[yellow]Bridge already running[/yellow] (pid {pid})")
-            renderer.console.print(f"  Stop with: [bold]sage sms stop[/bold]")
-            renderer.console.print(f"  Logs: [dim]{SMS_LOG_FILE}[/dim]")
-            return
-        except (ProcessLookupError, ValueError):
+        except ValueError:
+            SMS_PID_FILE.unlink(missing_ok=True)
+        else:
+            if _sms_process_alive(pid):
+                renderer.console.print(f"[yellow]Bridge already running[/yellow] (pid {pid})")
+                renderer.console.print(f"  Stop with: [bold]sage sms stop[/bold]")
+                renderer.console.print(f"  Logs: [dim]{SMS_LOG_FILE}[/dim]")
+                return
             SMS_PID_FILE.unlink(missing_ok=True)
 
     # Build re-exec command, forwarding any overrides
@@ -14396,21 +14776,31 @@ def sms_start(
 def sms_stop() -> None:
     """Stop the running bridge daemon on this computer."""
     from sage.core.sms_bridge import SMS_PID_FILE
-    import signal
 
     if not SMS_PID_FILE.exists():
         renderer.warning("Bridge not running (no PID file).")
         return
     try:
         pid = int(SMS_PID_FILE.read_text().strip())
-        os.kill(pid, signal.SIGTERM)
-        SMS_PID_FILE.unlink()
-        renderer.success(f"Bridge stopped (pid {pid})")
-    except ProcessLookupError:
+    except ValueError:
+        SMS_PID_FILE.unlink(missing_ok=True)
+        renderer.warning("Stale PID file removed.")
+        return
+
+    if not _sms_process_alive(pid):
         SMS_PID_FILE.unlink(missing_ok=True)
         renderer.warning("Bridge already stopped.")
-    except Exception as exc:
-        renderer.error(str(exc))
+        return
+
+    if _sms_terminate_process(pid):
+        SMS_PID_FILE.unlink(missing_ok=True)
+        renderer.success(f"Bridge stopped (pid {pid})")
+    else:
+        renderer.error(
+            f"Could not terminate pid {pid}. "
+            "Try running PowerShell as Administrator, or end the process "
+            "in Task Manager and run `sage sms start` again."
+        )
 
 
 @sms_app.command("logs")
@@ -14473,9 +14863,8 @@ def sms_status() -> None:
     if SMS_PID_FILE.exists():
         try:
             pid = int(SMS_PID_FILE.read_text().strip())
-            os.kill(pid, 0)
-            running = True
-        except (ProcessLookupError, ValueError):
+            running = _sms_process_alive(pid)
+        except ValueError:
             pass
 
     dot = "[green]●[/green]" if running else "[yellow]○[/yellow]"
@@ -14988,10 +15377,13 @@ def sms_diagnose() -> None:
     if SMS_PID_FILE.exists():
         try:
             pid = int(SMS_PID_FILE.read_text().strip())
-            os.kill(pid, 0)  # signal 0: probe
-            line(OK, f"Bridge daemon running  (pid {pid})")
-        except (ValueError, ProcessLookupError, PermissionError):
-            line(WARN, "Bridge PID file stale", "Run: sage sms start")
+        except ValueError:
+            line(WARN, "Bridge PID file unparseable", "Run: sage sms start")
+        else:
+            if _sms_process_alive(pid):
+                line(OK, f"Bridge daemon running  (pid {pid})")
+            else:
+                line(WARN, "Bridge PID file stale", "Run: sage sms start")
     else:
         line(WARN, "Bridge daemon not running", "Run: sage sms start")
 

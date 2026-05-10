@@ -17,20 +17,26 @@ class IntegrationDXTests(unittest.TestCase):
             scopes=["repo"],
         )
 
-        self.assertEqual(cfg.to_dict(), {
-            "type": "github",
-            "mode": "oauth",
-            "scopes": ["repo"],
-            "client_id_secret": "GITHUB_CLIENT_ID",
-            "client_secret_secret": "GITHUB_CLIENT_SECRET",
-        })
+        self.assertEqual(
+            cfg.to_dict(),
+            {
+                "type": "github",
+                "mode": "oauth",
+                "scopes": ["repo"],
+                "client_id_secret": "GITHUB_CLIENT_ID",
+                "client_secret_secret": "GITHUB_CLIENT_SECRET",
+            },
+        )
 
     def test_constructor_serializes_secret_config(self):
-        self.assertEqual(cpsl.AWS().to_dict(), {
-            "type": "aws",
-            "mode": MODE_SECRET,
-            "fields": ["access_key_id", "secret_access_key", "region"],
-        })
+        self.assertEqual(
+            cpsl.AWS().to_dict(),
+            {
+                "type": "aws",
+                "mode": MODE_SECRET,
+                "fields": ["access_key_id", "secret_access_key", "region"],
+            },
+        )
 
     def test_app_add_integration_accepts_config_and_string(self):
         app = cpsl.App(name="integration-dx", image=cpsl.Image())
@@ -55,7 +61,9 @@ class IntegrationDXTests(unittest.TestCase):
         )
         self.assertIs(session.get_integration("github"), cred)
         self.assertIs(session.get_integration(cpsl.Integration.GITHUB), cred)
-        self.assertIs(session.get_integration(cpsl.GitHub(client_id="id", client_secret="secret")), cred)
+        self.assertIs(
+            session.get_integration(cpsl.GitHub(client_id="id", client_secret="secret")), cred
+        )
 
 
 if __name__ == "__main__":

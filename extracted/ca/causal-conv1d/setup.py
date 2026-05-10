@@ -51,6 +51,9 @@ def get_platform():
     Returns the platform name as used in wheel filenames.
     """
     if sys.platform.startswith("linux"):
+        machine = platform.machine().lower()
+        if machine in ("aarch64", "arm64"):
+            return "linux_aarch64"
         return "linux_x86_64"
     elif sys.platform == "darwin":
         mac_version = ".".join(platform.mac_ver()[0].split(".")[:2])
@@ -173,13 +176,6 @@ if not SKIP_CUDA_BUILD:
                     "Note: make sure nvcc has a supported version by running nvcc -V."
                 )
 
-        if bare_metal_version <= Version("12.9"):
-            cc_flag.append("-gencode")
-            cc_flag.append("arch=compute_62,code=sm_62")
-            cc_flag.append("-gencode")
-            cc_flag.append("arch=compute_70,code=sm_70")
-            cc_flag.append("-gencode")
-            cc_flag.append("arch=compute_72,code=sm_72")
         cc_flag.append("-gencode")
         cc_flag.append("arch=compute_75,code=sm_75")
         cc_flag.append("-gencode")

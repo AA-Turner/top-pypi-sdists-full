@@ -24,10 +24,13 @@ pre-warming, language-skip, etc.).
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import os
 import time
+import uuid
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, AsyncGenerator, Optional
 
 from pipecat.frames.frames import (
@@ -41,7 +44,7 @@ from pipecat.services.tts_service import TTSService
 
 from kugelaudio import KugelAudio
 from kugelaudio.client import REGION_URLS, _parse_api_key
-from kugelaudio.models import AudioChunk
+from kugelaudio.streaming import MultiContextSession
 
 from .models import (
     DEFAULT_CFG_SCALE,
@@ -53,6 +56,44 @@ from .models import (
 )
 
 logger = logging.getLogger("kugelaudio.pipecat")
+
+
+@lru_cache(maxsize=None)
+def _frame_supports_context_id(frame_type: type[Frame]) -> bool:
+    """Return whether the installed Pipecat frame accepts context_id."""
+    try:
+        return "context_id" in inspect.signature(frame_type).parameters
+    except (TypeError, ValueError):
+        return False
+
+
+def _tts_started_frame(context_id: Optional[str]) -> TTSStartedFrame:
+    if context_id and _frame_supports_context_id(TTSStartedFrame):
+        return TTSStartedFrame(context_id=context_id)
+    return TTSStartedFrame()
+
+
+def _tts_stopped_frame(context_id: Optional[str]) -> TTSStoppedFrame:
+    if context_id and _frame_supports_context_id(TTSStoppedFrame):
+        return TTSStoppedFrame(context_id=context_id)
+    return TTSStoppedFrame()
+
+
+def _tts_audio_frame(
+    *,
+    audio: bytes,
+    sample_rate: int,
+    num_channels: int,
+    context_id: Optional[str],
+) -> TTSAudioRawFrame:
+    kwargs: dict[str, Any] = {
+        "audio": audio,
+        "sample_rate": sample_rate,
+        "num_channels": num_channels,
+    }
+    if context_id and _frame_supports_context_id(TTSAudioRawFrame):
+        kwargs["context_id"] = context_id
+    return TTSAudioRawFrame(**kwargs)
 
 
 @dataclass
@@ -175,7 +216,42 @@ class KugelAudioTTSService(TTSService):
             api_key=clean_key,
             tts_url=resolved_url,
         )
+        self._multi_session: Optional[MultiContextSession] = None
+        self._multi_session_lock = asyncio.Lock()
+        self._multi_session_needs_reset = False
         self._closed = False
+
+    def _create_multi_session(self) -> MultiContextSession:
+        return self._client.tts.multi_context_session(
+            default_voice_id=self._opts.voice_id,
+            model_id=self._opts.model,
+            sample_rate=self._opts.sample_rate,
+            cfg_scale=self._opts.cfg_scale,
+            max_new_tokens=self._opts.max_new_tokens,
+            normalize=self._opts.normalize,
+            language=self._opts.language,
+        )
+
+    async def _get_multi_session(self) -> MultiContextSession:
+        if self._multi_session_needs_reset:
+            await self._close_multi_session()
+            self._multi_session_needs_reset = False
+        if self._multi_session is None:
+            session = self._create_multi_session()
+            await session.connect()
+            self._multi_session = session
+        return self._multi_session
+
+    async def _close_multi_session(self) -> None:
+        session = self._multi_session
+        self._multi_session = None
+        self._multi_session_needs_reset = False
+        if session is not None:
+            await session.close()
+
+    async def _close_multi_session_locked(self) -> None:
+        async with self._multi_session_lock:
+            await self._close_multi_session()
 
     def can_generate_metrics(self) -> bool:
         """Check if this service can generate processing metrics.
@@ -205,7 +281,8 @@ class KugelAudioTTSService(TTSService):
 
         async def _do_prewarm() -> None:
             try:
-                await self._client.tts.connect_async(model=self._opts.model)
+                async with self._multi_session_lock:
+                    await self._get_multi_session()
                 logger.info("KugelAudio PipeCat TTS connection pre-warmed")
             except Exception:
                 logger.warning(
@@ -226,7 +303,8 @@ class KugelAudioTTSService(TTSService):
             model: The model identifier to use.
         """
         if model != self._opts.model:
-            await self._client.tts._close_ws_connection()
+            async with self._multi_session_lock:
+                await self._close_multi_session()
         self._opts.model = model
         await super().set_model(model)
 
@@ -236,66 +314,86 @@ class KugelAudioTTSService(TTSService):
         Args:
             voice: The voice identifier (integer as string).
         """
+        previous_voice_id = self._opts.voice_id
         self._opts.voice_id = int(voice) if voice else None
+        if self._opts.voice_id != previous_voice_id:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                if self._multi_session is not None:
+                    logger.warning(
+                        "set_voice() changed voice outside an event loop; "
+                        "existing Pipecat multi-context session will be reset on next use"
+                    )
+                self._multi_session_needs_reset = True
+            else:
+                loop.create_task(self._close_multi_session_locked())
         super().set_voice(voice)
 
     async def cleanup(self) -> None:
         """Clean up resources when the service is stopped."""
         self._closed = True
+        async with self._multi_session_lock:
+            await self._close_multi_session()
         self._client.close()
 
-    async def run_tts(self, text: str) -> AsyncGenerator[Frame, None]:
+    async def run_tts(
+        self, text: str, context_id: Optional[str] = None
+    ) -> AsyncGenerator[Frame, None]:
         """Synthesize text to speech via the core KugelAudio SDK.
 
-        Delegates to ``client.tts.stream_async()`` which handles connection
-        pooling, keepalive pings, and reconnection transparently.
+        Delegates to ``client.tts.multi_context_session()`` so Pipecat context
+        IDs map onto KugelAudio's ``/ws/tts/multi`` endpoint.
 
         Args:
             text: The text to synthesize into speech.
+            context_id: Pipecat TTS context ID. Pipecat 0.x calls this method
+                with only ``text``; Pipecat 1.x passes this second argument for
+                context tracking.
 
         Yields:
             Frame: TTSStartedFrame, TTSAudioRawFrame chunks, and TTSStoppedFrame.
         """
         logger.debug(f"Generating TTS [{text}]")
+        effective_context_id = context_id or f"kugelaudio-{uuid.uuid4()}"
+        error_frame: Optional[ErrorFrame] = None
 
         try:
             await self.start_ttfb_metrics()
             await self.start_tts_usage_metrics(text)
 
-            yield TTSStartedFrame()
+            yield _tts_started_frame(context_id)
 
             t0 = time.perf_counter()
             first_chunk = True
 
-            async for item in self._client.tts.stream_async(
-                text=text,
-                model_id=self._opts.model,
-                voice_id=self._opts.voice_id,
-                cfg_scale=self._opts.cfg_scale,
-                max_new_tokens=self._opts.max_new_tokens,
-                sample_rate=self._opts.sample_rate,
-                normalize=self._opts.normalize,
-                language=self._opts.language,
-                reuse_connection=True,
-            ):
-                if isinstance(item, AudioChunk):
+            async with self._multi_session_lock:
+                session = await self._get_multi_session()
+                async for item in session.send(
+                    effective_context_id,
+                    text,
+                    flush=True,
+                    chunk_complete_idle_timeout=0.0,
+                ):
                     if first_chunk:
                         ttfa_ms = (time.perf_counter() - t0) * 1000
                         logger.info(f"KugelAudio TTFA: {ttfa_ms:.0f}ms")
                         first_chunk = False
                     await self.stop_ttfb_metrics()
-                    yield TTSAudioRawFrame(
+                    yield _tts_audio_frame(
                         audio=item.audio,
                         sample_rate=self._opts.sample_rate,
                         num_channels=1,
+                        context_id=context_id,
                     )
-                elif isinstance(item, dict) and item.get("final"):
-                    break
 
         except Exception as e:
             logger.error(f"TTS error: {e}")
-            yield ErrorFrame(error=f"KugelAudio error: {e}")
+            error_frame = ErrorFrame(error=f"KugelAudio error: {e}")
         finally:
             await self.stop_ttfb_metrics()
-            yield TTSStoppedFrame()
             logger.debug(f"Finished TTS [{text}]")
+
+        if error_frame is not None:
+            yield error_frame
+        yield _tts_stopped_frame(context_id)

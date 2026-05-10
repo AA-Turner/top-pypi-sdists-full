@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.3.14
+Version: 0.3.16
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License: AGPL-3.0
@@ -48,8 +48,8 @@ Requires-Dist: urllib3>=2.6.3
 Requires-Dist: protobuf>=6.33.5
 Requires-Dist: pdfminer-six>=20251230
 Requires-Dist: typer>=0.12.0
-Requires-Dist: litellm<1.83.13,>=1.0.0
-Requires-Dist: python-multipart>=0.0.22
+Requires-Dist: litellm<1.83.13,>=1.83.7
+Requires-Dist: python-multipart>=0.0.27
 Requires-Dist: tree-sitter>=0.23.0
 Requires-Dist: tree-sitter-python>=0.23.0
 Requires-Dist: tree-sitter-javascript>=0.23.0
@@ -667,9 +667,12 @@ set "OPENVIKING_CONFIG_FILE=%USERPROFILE%\.openviking\ov.conf"
 
 #### CLI/Client Configuration Examples
 
-👇 Expand to see the configuration example for your CLI/Client:
+You can initialize the configuration of the CLI/client interactively through the `ov config setup-cli` command. If you have multiple openviking servers, you can also switch to other configurations using the `ov config switch` command.
 
-Example: ovcli.conf for visiting localhost server
+👇 Expand to see the configuration example for your CLI/Client:
+<details>
+<summary><b>Example: ovcli.conf for visiting localhost server</b></summary>
+
 
 ```json
 {
@@ -697,6 +700,7 @@ Command Prompt (cmd.exe):
 ```bat
 set "OPENVIKING_CLI_CONFIG_FILE=%USERPROFILE%\.openviking\ovcli.conf"
 ```
+</details>
 
 ### 4. Run Your First Example
 

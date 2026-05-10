@@ -56,7 +56,12 @@ from schemathesis.specs.openapi.analysis import OpenAPIAnalysis
 from schemathesis.specs.openapi.content_keywords import ContentSchemaViolation
 
 from ...generation import GenerationMode
-from ...hooks import HookContext, HookDispatcher
+from ...hooks import (
+    HookContext,
+    HookDispatcher,
+    dispatch_before_init_operation,
+    dispatch_before_process_path,
+)
 from ...schemas import APIOperation, APIOperationMap, BaseSchema, OperationDefinition
 from ._hypothesis import openapi_cases
 from ._operation_lookup import OperationLookup
@@ -70,7 +75,9 @@ if TYPE_CHECKING:
     from schemathesis.config import GenerationConfig
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.core.schema_analysis import SchemaWarning
+    from schemathesis.core.spec import ApiSchema
     from schemathesis.engine.context import EngineContext
+    from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.engine.run import Phase
     from schemathesis.engine.run.unit._layered_scheduler import LayeredScheduler
     from schemathesis.engine.run.unit._pool import DefaultScheduler
@@ -96,6 +103,9 @@ class OpenApiSchema(BaseSchema):
         self._bundler = Bundler()
         self._bundle_cache: BundleCache = {}
         self._operation_lookup = OperationLookup(self, HTTP_METHODS)
+        # Path-level dedup of undeclared-method coverage probes; cleared per coverage phase via
+        # `reset_coverage_state`.
+        self.coverage_unexpected_methods_seen: set[tuple[str, str]] = set()
 
     def _initialize_adapter(self) -> None:
         swagger_version = self.raw_schema.get("swagger")
@@ -157,6 +167,54 @@ class OpenApiSchema(BaseSchema):
             format_strategies={**get_default_format_strategies(), **STRING_FORMATS},
             update_pattern=update_quantifier,
             validator_cls=self.adapter.jsonschema_validator_cls,
+        )
+
+    @override
+    def reset_coverage_state(self) -> None:
+        self.coverage_unexpected_methods_seen.clear()
+
+    @override
+    def record_runtime_observations(
+        self,
+        *,
+        store: ErrorFeedbackStore,
+        recorder: ScenarioRecorder,
+        case: Case,
+        response: Response,
+        transport_kwargs: dict[str, Any],
+    ) -> None:
+        from schemathesis.specs.openapi.auth_inference import record_auth_inference
+
+        record_auth_inference(
+            store=store,
+            recorder=recorder,
+            case=case,
+            response=response,
+            transport_kwargs=transport_kwargs,
+        )
+
+    @override
+    def iter_coverage_cases(
+        self,
+        operation: APIOperation,
+        *,
+        generation_modes: list[GenerationMode],
+        generation_config: GenerationConfig,
+        extra_data_source: ExtraDataSource | None = None,
+        error_feedback: ErrorFeedbackStore | None = None,
+    ) -> Iterator[Case]:
+        from schemathesis.specs.openapi.coverage._operation import iter_coverage_cases
+
+        phases_config = self.config.phases_for(operation=operation)
+        return iter_coverage_cases(
+            operation=operation,
+            generation_modes=generation_modes,
+            generate_duplicate_query_parameters=phases_config.coverage.generate_duplicate_query_parameters,
+            unexpected_methods=phases_config.coverage.unexpected_methods,
+            generation_config=generation_config,
+            extra_data_source=extra_data_source,
+            unexpected_methods_seen=self.coverage_unexpected_methods_seen,
+            error_feedback=error_feedback,
         )
 
     @override
@@ -336,7 +394,7 @@ class OpenApiSchema(BaseSchema):
         else:
             path_resolver = self.root_resolver
             scope = path_resolver.base_uri
-        self.dispatch_hook("before_process_path", HookContext(), path, path_item)
+        dispatch_before_process_path(self, HookContext(), path, path_item)
         map = APIOperationMap(self, {})
         map._data = MethodMap(map, path_resolver, scope, path, CaseInsensitiveDict(path_item))
         return map
@@ -503,7 +561,6 @@ class OpenApiSchema(BaseSchema):
 
         context = HookContext()
         # Optimization: local variables are faster than attribute access
-        dispatch_hook = self.dispatch_hook
         filters_active = not self.filter_set.is_empty()
         should_skip = self._should_skip
         iter_parameters = self._iter_parameters
@@ -512,7 +569,7 @@ class OpenApiSchema(BaseSchema):
         for path, path_item in paths.items():
             method = None
             try:
-                dispatch_hook("before_process_path", context, path, path_item)
+                dispatch_before_process_path(self, context, path, path_item)
                 if "$ref" in path_item:
                     path_resolver, path_item = resolve_reference(root_resolver, path_item["$ref"])
                     scope = path_resolver.base_uri
@@ -669,7 +726,7 @@ class OpenApiSchema(BaseSchema):
                 operation.add_parameter(
                     OpenApiParameter.from_definition(definition=param, name_to_uri={}, adapter=self.adapter)
                 )
-        self.dispatch_hook("before_init_operation", HookContext(operation=operation), operation)
+        dispatch_before_init_operation(self, HookContext(operation=operation), operation)
         return operation
 
     @property
@@ -1093,3 +1150,10 @@ class MethodMap(Mapping):
             if available_methods:
                 message += f" Available methods: {available_methods}"
             raise LookupError(message) from exc
+
+
+if TYPE_CHECKING:
+    # Verify structural conformance to the spec-agnostic protocol; mypy fails here
+    # if a method is renamed or its signature drifts from `ApiSchema`.
+    def _verify_api_schema_protocol(schema: OpenApiSchema) -> ApiSchema:
+        return schema

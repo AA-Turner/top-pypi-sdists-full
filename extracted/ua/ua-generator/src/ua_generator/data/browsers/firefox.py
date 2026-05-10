@@ -1,6 +1,6 @@
 """
 Random User-Agent
-Copyright: 2022-2024 Ekin Karadeniz (github.com/iamdual)
+Copyright: 2022-2026 Ekin Karadeniz (github.com/iamdual)
 License: Apache License 2.0 
 """
 import random
@@ -68,17 +68,11 @@ VERSIONS: List[Version] = [
     Version(major=147, minor=0, build=(0, 3)),
     Version(major=148, minor=0, build=(0, 2)),
     Version(major=149, minor=0, build=(0, 2)),
-    Version(major=150, minor=0, build=0),
+    Version(major=150, minor=0, build=(0, 2)),
 ]
 
 
 def get_version(options: Options) -> Version:
-    filterer = Filterer(VERSIONS)
-
-    if options.version_ranges and 'firefox' in options.version_ranges:
-        filterer.version_range(options.version_ranges['firefox'])
-
-    if options.weighted_versions:
-        filterer.weighted_versions()
+    filterer = Filterer(VERSIONS, 'firefox', options)
 
     return random.choice(filterer.versions)

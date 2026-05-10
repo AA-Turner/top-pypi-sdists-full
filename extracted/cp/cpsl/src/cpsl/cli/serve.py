@@ -40,10 +40,26 @@ START_SERVE_TIMEOUT = 180.0
 BUILD_LOG_PREFIX = "Image build: "
 
 _WATCHED_EXTENSIONS = (
-    ".py", ".tsx", ".ts", ".jsx", ".js",
-    ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",
-    ".css", ".json", ".yaml", ".yml", ".toml",
-    ".html", ".md", ".txt",
+    ".py",
+    ".tsx",
+    ".ts",
+    ".jsx",
+    ".js",
+    ".svg",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".ico",
+    ".css",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".html",
+    ".md",
+    ".txt",
 )
 _IGNORED_WATCH_DIRS = {".git", ".venv", "__pycache__", "node_modules"}
 
@@ -53,7 +69,7 @@ def _handle_status(spinner, status: str, build_logs_seen: bool) -> bool:
         if not build_logs_seen:
             terminal.header("Build logs")
             build_logs_seen = True
-        terminal.detail(f"  │ {status[len(BUILD_LOG_PREFIX):]}", dim=True)
+        terminal.detail(f"  │ {status[len(BUILD_LOG_PREFIX) :]}", dim=True)
         spinner.update("Building image...")
         return build_logs_seen
 
@@ -158,7 +174,11 @@ def serve(
             self.queue.put((normalized, data, False))
 
         def on_created(self, event):
-            if event.is_directory or self._is_ignored(event.src_path) or not self._is_watched(event.src_path):
+            if (
+                event.is_directory
+                or self._is_ignored(event.src_path)
+                or not self._is_watched(event.src_path)
+            ):
                 return
             self._enqueue_if_changed(event.src_path)
 
@@ -166,7 +186,11 @@ def serve(
             self.on_created(event)
 
         def on_deleted(self, event):
-            if event.is_directory or self._is_ignored(event.src_path) or not self._is_watched(event.src_path):
+            if (
+                event.is_directory
+                or self._is_ignored(event.src_path)
+                or not self._is_watched(event.src_path)
+            ):
                 return
             normalized = self._normalize(event.src_path)
             if self._known_hashes.pop(normalized, None) is None:
@@ -197,12 +221,16 @@ def serve(
             existing_channel_names.add(name)
 
     pages = config.get("pages", [])
+    type_stub_pages = list(pages)
+    onboarding = config.get("onboarding")
+    if onboarding and onboarding.get("type") == "react":
+        type_stub_pages.append(onboarding)
     data_sources = config.get("data_sources", [])
 
-    generate_type_stubs(pages)
+    generate_type_stubs(type_stub_pages, config.get("npm_packages", []))
 
     terminal.header("Serving", f"[bold]{config['app_name']}[/bold]")
-    entry_label = config['class_name'] or config['app_name']
+    entry_label = config["class_name"] or config["app_name"]
     terminal.detail(f"  entry:     {config['module']}:{entry_label}")
     compute = f"{cpu} vCPU / {memory} MiB"
     if gpu:

@@ -37,7 +37,7 @@ def create(client: ServiceClient, pairs: tuple[str, ...]):
             terminal.error(f"Failed to create {name}: {res.err_msg}")
             raise SystemExit(1)
 
-        terminal.success(f"Secret \"{name}\" created.")
+        terminal.success(f'Secret "{name}" created.')
 
 
 @secret.command("list")
@@ -76,4 +76,4 @@ def delete(client: ServiceClient, name: str):
         terminal.error(f"Failed: {res.err_msg}")
         raise SystemExit(1)
 
-    terminal.success(f"Secret \"{name}\" deleted.")
+    terminal.success(f'Secret "{name}" deleted.')

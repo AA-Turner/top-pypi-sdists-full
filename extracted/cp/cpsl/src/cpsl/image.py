@@ -1,14 +1,14 @@
 """Image: environment specification for a Capsule app's runtime.
 
-    image = Image(python_packages=["openai", "numpy"])
+image = Image(python_packages=["openai", "numpy"])
 
-    image = (
-        Image()
-        .add_python_packages(["openai", "numpy"])
-        .add_commands(["apt-get install -y ffmpeg"])
-    )
+image = (
+    Image()
+    .add_python_packages(["openai", "numpy"])
+    .add_commands(["apt-get install -y ffmpeg"])
+)
 
-    image = Image(python_packages="requirements.txt")
+image = Image(python_packages="requirements.txt")
 """
 
 from __future__ import annotations

@@ -58,10 +58,10 @@ def main() -> None:
     )
 
     for ts_path in ts_paths:
-        # Zero out line numbers to reduce unnecessary diffs in .ts file
         ts_content: str = ts_path.read_text()
         new_ts_content: str = re.sub(r'line="\d+"', 'line="0"', ts_content)
-        assert ts_content.strip() != new_ts_content.strip()
+        if ts_content == new_ts_content:
+            raise RuntimeError(f"no line numbers found in {ts_path}")
         ts_path.write_text(new_ts_content)
 
         qm_path: Path = ts_path.with_suffix(".qm")
@@ -70,7 +70,8 @@ def main() -> None:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        assert qm_path.exists()
+        if not qm_path.exists():
+            raise RuntimeError(f"lrelease did not produce {qm_path}")
 
     logger.info("updated {} languages", len(ts_paths))
 

@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import html
-
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 
 from .label_list_widget import HTMLDelegate
+from .label_list_widget import format_label_with_color_dot
 
 
 class _EscapableQListWidget(QtWidgets.QListWidget):
-    def keyPressEvent(self, keyEvent: QtGui.QKeyEvent) -> None:  # type: ignore[override]
+    def keyPressEvent(self, keyEvent: QtGui.QKeyEvent) -> None:  # ty: ignore[invalid-method-override]
         super().keyPressEvent(keyEvent)
         if keyEvent.key() == Qt.Key_Escape:
             self.clearSelection()
@@ -21,7 +20,7 @@ class UniqueLabelQListWidget(_EscapableQListWidget):
         super().__init__(parent=parent)
         self.setItemDelegate(HTMLDelegate(parent=self))
 
-    def mousePressEvent(self, mouseEvent: QtGui.QMouseEvent) -> None:  # type: ignore[override]
+    def mousePressEvent(self, mouseEvent: QtGui.QMouseEvent) -> None:  # ty: ignore[invalid-method-override]
         super().mousePressEvent(mouseEvent)
         if not self.indexAt(mouseEvent.pos()).isValid():
             self.clearSelection()
@@ -39,8 +38,5 @@ class UniqueLabelQListWidget(_EscapableQListWidget):
 
         item = QtWidgets.QListWidgetItem()
         item.setData(Qt.UserRole, label)  # for find_label_item
-        item.setText(
-            f"{html.escape(label)} "
-            f"<font color='#{color[0]:02x}{color[1]:02x}{color[2]:02x}'>●</font>"
-        )
+        item.setText(format_label_with_color_dot(text=label, color=color))
         self.addItem(item)

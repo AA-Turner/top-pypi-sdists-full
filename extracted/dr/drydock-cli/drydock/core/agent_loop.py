@@ -1080,7 +1080,8 @@ class AgentLoop:
                         and assistant_msg.tool_calls):
                     prev_tool_name = assistant_msg.tool_calls[-1].function.name if assistant_msg.tool_calls[-1].function else None
             _readonly_tools = {"read_file", "grep", "glob", "ls", "pwd",
-                               "ralph_repo_index", "retrieve", "search_files"}
+                               "ralph_repo_index", "ralph_file_summary",
+                               "retrieve", "search_files"}
             _write_tools = {"write_file", "search_replace"}
             _prev_was_read = prev_tool_name in _readonly_tools
             _prev_was_write = prev_tool_name in _write_tools
@@ -1127,6 +1128,27 @@ class AgentLoop:
                 and "file" in _prev_tool_result
                 and "changed" in _prev_tool_result
             )
+            # Detect bash that returned an error/traceback.
+            # These stalls fire as empty_after_tool:bash :: source=canned — the
+            # generic note doesn't tell the model what to DO with the error.
+            _prev_bash_had_error = (
+                prev_tool_name in ("bash", "run_command")
+                and not _prev_bash_nothing_to_commit
+                and not _prev_bash_commit_succeeded
+                and bool(_re.search(
+                    r"(Error|error|Traceback|FAILED|exit code [1-9]|command not found)",
+                    _prev_tool_result
+                ))
+            )
+            # Detect bash that returned non-empty output without an error.
+            # Model stalls instead of using the output to write or fix code.
+            _prev_bash_had_output = (
+                prev_tool_name in ("bash", "run_command")
+                and not _prev_bash_nothing_to_commit
+                and not _prev_bash_commit_succeeded
+                and not _prev_bash_had_error
+                and bool(_prev_tool_result.strip())
+            )
             if _stall_attempt == 0:
                 if _prev_write_path_error:
                     note = (
@@ -1142,11 +1164,19 @@ class AgentLoop:
                         "or grep(pattern='...') to search content. "
                         "Do NOT send an empty response."
                     )
-                elif _prev_was_read:
+                elif prev_tool_name == "ralph_repo_index":
                     note = (
-                        f"You read a file but produced no output. "
+                        "You indexed the repository but produced no output. "
+                        "Now write a text answer to the user's question, "
+                        "or call read_file to inspect a specific file. "
+                        "Do NOT call ralph_repo_index again."
+                    )
+                elif _prev_was_read:
+                    _tool_name_str = prev_tool_name or "read_file"
+                    note = (
+                        f"You called {_tool_name_str} but produced no output. "
                         f"Now use write_file, search_replace, or bash "
-                        f"to make changes — do NOT call read_file again."
+                        f"to make changes — do NOT call {_tool_name_str} again."
                     )
                 elif _prev_write_success:
                     note = (
@@ -1166,6 +1196,18 @@ class AgentLoop:
                         "Respond with a short summary of what you changed and stop. "
                         "Do NOT run git add or git commit again."
                     )
+                elif _prev_bash_had_error:
+                    note = (
+                        "The command returned an error. Read the error message above, "
+                        "then fix the code with search_replace or write_file, or try a "
+                        "different command. Do NOT re-run the same failing command."
+                    )
+                elif _prev_bash_had_output:
+                    note = (
+                        "The command ran and returned output. Use that output now: "
+                        "write or update code files, fix any issues shown, or respond "
+                        "to the user. Do NOT re-run the same command."
+                    )
                 else:
                     note = (
                         "Continue working. Use a tool (write_file, "
@@ -1173,12 +1215,20 @@ class AgentLoop:
                         "your plan in text."
                     )
             elif _stall_attempt == 1:
-                if _prev_was_read:
+                if prev_tool_name == "ralph_repo_index":
                     note = (
-                        f"You sent an empty response after reading a file. "
+                        "You sent an empty response after indexing the repository. "
+                        "Respond in TEXT now — answer the user's question directly, "
+                        "or state in one sentence why you cannot proceed. "
+                        "Do NOT call ralph_repo_index again."
+                    )
+                elif _prev_was_read:
+                    _tool_name_str = prev_tool_name or "read_file"
+                    note = (
+                        f"You sent an empty response after calling {_tool_name_str}. "
                         f"Call write_file or search_replace NOW to apply "
                         f"what you read — OR state in one sentence why you "
-                        f"cannot proceed."
+                        f"cannot proceed. Do NOT call {_tool_name_str} again."
                     )
                 else:
                     note = (

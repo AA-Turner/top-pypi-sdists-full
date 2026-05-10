@@ -1,10 +1,13 @@
 Metadata-Version: 2.4
 Name: xmod
-Version: 1.9.0
+Version: 1.10.0
 Summary: 🌱 Turn any object into a module 🌱
-Author: Tom Ritchford
+Project-URL: Homepage, https://github.com/rec/xmod
+Project-URL: Repository, https://github.com/rec/xmod
+Project-URL: Documentation, https://rec.github.io/xmod
 Author-email: Tom Ritchford <tom@swirly.com>
 License-Expression: MIT
+License-File: LICENSE
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -12,9 +15,6 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Project-URL: Homepage, https://github.com/rec/xmod
-Project-URL: Repository, https://github.com/rec/xmod
-Project-URL: Documentation, https://rec.github.io/xmod
 Description-Content-Type: text/markdown
 
 # 🌱 Turn any object into a module 🌱

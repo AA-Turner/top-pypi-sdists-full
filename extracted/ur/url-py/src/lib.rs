@@ -1,8 +1,10 @@
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
+    path::PathBuf,
 };
 
+use percent_encoding::percent_decode_str;
 use pyo3::{
     create_exception, exceptions::PyException, prelude::*, pybacked::PyBackedStr, types::PyType,
 };
@@ -26,26 +28,25 @@ struct UrlPy {
     inner: Url,
 }
 
-fn from_result(input: Result<url::Url, ParseError>) -> PyResult<UrlPy> {
-    match input {
-        Ok(inner) => Ok(UrlPy { inner }),
-        Err(e) => Err(match e {
-            ParseError::EmptyHost => EmptyHost::new_err(e.to_string()),
-            ParseError::IdnaError => IdnaError::new_err(e.to_string()),
-            ParseError::InvalidPort => InvalidPort::new_err(e.to_string()),
-            ParseError::InvalidIpv4Address => InvalidIPv4Address::new_err(e.to_string()),
-            ParseError::InvalidIpv6Address => InvalidIPv6Address::new_err(e.to_string()),
-            ParseError::InvalidDomainCharacter => InvalidDomainCharacter::new_err(e.to_string()),
-            ParseError::RelativeUrlWithoutBase => RelativeURLWithoutBase::new_err(e.to_string()),
-            ParseError::RelativeUrlWithCannotBeABaseBase => {
-                RelativeURLWithCannotBeABaseBase::new_err(e.to_string())
-            }
-            ParseError::SetHostOnCannotBeABaseUrl => {
-                SetHostOnCannotBeABaseURL::new_err(e.to_string())
-            }
-            _ => URLError::new_err(e.to_string()),
-        }),
+fn parse_err_to_py(e: ParseError) -> PyErr {
+    match e {
+        ParseError::EmptyHost => EmptyHost::new_err(e.to_string()),
+        ParseError::IdnaError => IdnaError::new_err(e.to_string()),
+        ParseError::InvalidPort => InvalidPort::new_err(e.to_string()),
+        ParseError::InvalidIpv4Address => InvalidIPv4Address::new_err(e.to_string()),
+        ParseError::InvalidIpv6Address => InvalidIPv6Address::new_err(e.to_string()),
+        ParseError::InvalidDomainCharacter => InvalidDomainCharacter::new_err(e.to_string()),
+        ParseError::RelativeUrlWithoutBase => RelativeURLWithoutBase::new_err(e.to_string()),
+        ParseError::RelativeUrlWithCannotBeABaseBase => {
+            RelativeURLWithCannotBeABaseBase::new_err(e.to_string())
+        }
+        ParseError::SetHostOnCannotBeABaseUrl => SetHostOnCannotBeABaseURL::new_err(e.to_string()),
+        _ => URLError::new_err(e.to_string()),
     }
+}
+
+fn from_result(input: Result<url::Url, ParseError>) -> PyResult<UrlPy> {
+    input.map(|inner| UrlPy { inner }).map_err(parse_err_to_py)
 }
 
 #[pymethods]
@@ -87,8 +88,32 @@ impl UrlPy {
     }
 
     #[classmethod]
-    fn parse(_cls: &Bound<'_, PyType>, input: &str) -> PyResult<Self> {
-        from_result(Url::parse(input))
+    #[pyo3(signature = (input, base=None))]
+    fn parse(_cls: &Bound<'_, PyType>, input: &str, base: Option<&UrlPy>) -> PyResult<Self> {
+        match base {
+            None => from_result(Url::parse(input)),
+            Some(b) => from_result(b.inner.join(input)),
+        }
+    }
+
+    #[classmethod]
+    fn from_file_path(_cls: &Bound<'_, PyType>, path: PathBuf) -> PyResult<Self> {
+        Url::from_file_path(&path)
+            .map(|inner| UrlPy { inner })
+            .map_err(|()| URLError::new_err(format!("not an absolute path: {}", path.display())))
+    }
+
+    #[classmethod]
+    fn from_directory_path(_cls: &Bound<'_, PyType>, path: PathBuf) -> PyResult<Self> {
+        Url::from_directory_path(&path)
+            .map(|inner| UrlPy { inner })
+            .map_err(|()| URLError::new_err(format!("not an absolute path: {}", path.display())))
+    }
+
+    fn to_file_path(&self) -> PyResult<PathBuf> {
+        self.inner
+            .to_file_path()
+            .map_err(|()| URLError::new_err(format!("not a file URL: {}", self.inner.as_str())))
     }
 
     #[classmethod]
@@ -161,13 +186,31 @@ impl UrlPy {
     }
 
     #[getter]
+    fn path_decoded(&self) -> String {
+        percent_decode_str(self.inner.path())
+            .decode_utf8_lossy()
+            .into_owned()
+    }
+
+    #[getter]
+    fn path_segments_decoded(&self) -> Option<Vec<String>> {
+        Some(
+            self.inner
+                .path_segments()?
+                .map(|s| percent_decode_str(s).decode_utf8_lossy().into_owned())
+                .collect(),
+        )
+    }
+
+    #[getter]
     fn query(&self) -> Option<&str> {
         self.inner.query()
     }
 
     #[getter]
     fn query_pairs(&self) -> Vec<(String, String)> {
-        self.inner.query_pairs()
+        self.inner
+            .query_pairs()
             .map(|(k, v)| (k.into_owned(), v.into_owned()))
             .collect()
     }
@@ -200,6 +243,56 @@ impl UrlPy {
         let mut cloned = self.inner.clone();
         cloned.query_pairs_mut().clear();
         UrlPy { inner: cloned }
+    }
+
+    fn with_scheme(&self, scheme: &str) -> PyResult<Self> {
+        let mut cloned = self.inner.clone();
+        cloned.set_scheme(scheme).map_err(|()| {
+            URLError::new_err(format!(
+                "cannot set scheme to {scheme:?} on {}",
+                self.inner.as_str()
+            ))
+        })?;
+        Ok(UrlPy { inner: cloned })
+    }
+
+    #[pyo3(signature = (host=None))]
+    fn with_host(&self, host: Option<&str>) -> PyResult<Self> {
+        let mut cloned = self.inner.clone();
+        cloned.set_host(host).map_err(parse_err_to_py)?;
+        Ok(UrlPy { inner: cloned })
+    }
+
+    fn with_path(&self, path: &str) -> Self {
+        let mut cloned = self.inner.clone();
+        cloned.set_path(path);
+        UrlPy { inner: cloned }
+    }
+
+    #[pyo3(signature = (port=None))]
+    fn with_port(&self, port: Option<u16>) -> PyResult<Self> {
+        let mut cloned = self.inner.clone();
+        cloned.set_port(port).map_err(|()| {
+            URLError::new_err(format!("cannot set port on {}", self.inner.as_str()))
+        })?;
+        Ok(UrlPy { inner: cloned })
+    }
+
+    fn with_username(&self, username: &str) -> PyResult<Self> {
+        let mut cloned = self.inner.clone();
+        cloned.set_username(username).map_err(|()| {
+            URLError::new_err(format!("cannot set username on {}", self.inner.as_str()))
+        })?;
+        Ok(UrlPy { inner: cloned })
+    }
+
+    #[pyo3(signature = (password=None))]
+    fn with_password(&self, password: Option<&str>) -> PyResult<Self> {
+        let mut cloned = self.inner.clone();
+        cloned.set_password(password).map_err(|()| {
+            URLError::new_err(format!("cannot set password on {}", self.inner.as_str()))
+        })?;
+        Ok(UrlPy { inner: cloned })
     }
 
     fn with_pair(&self, key: &str, value: &str) -> Self {

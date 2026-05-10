@@ -11,17 +11,17 @@ import type { NudgeResult, PullRequest, WorkflowRun, WorkflowRunsResponse } from
 
 const NUDGE_CONCLUSIONS = new Set(['failure', 'cancelled', 'timed_out']);
 
-function buildNudgeComment(failedRuns: WorkflowRun[]): string {
-    const runLines = failedRuns.map(
-        (r) => `- [${r.name}](${r.html_url}) — \`${r.conclusion}\``,
-    );
-
+function buildNudgeComment(run: WorkflowRun): string {
     return [
-        '@copilot The following CI run(s) failed:',
+        '@copilot The latest CI run failed:',
         '',
-        ...runLines,
+        `- [${run.name}](${run.html_url}) — \`${run.conclusion}\``,
         '',
         'Read the logs, fix your code, and push again. Keep trying until CI is green.',
+        'Even if the failure appears as if it\`s not related to your changes, do **NOT**',
+        'dismiss as "transient" Fabric issue, do the due dilligence to make the necessary.',
+        'code changes to ensure this doesn\'t happen again by improving the CI suite for the',
+        'repository so that future runs are less likely to fail for the same reason.',
     ].join('\n');
 }
 
@@ -31,18 +31,26 @@ export class NudgeService {
         private readonly logger: Logger,
     ) {}
 
-    /** Get failed/cancelled/timed-out workflow runs for a branch. */
-    getFailedRuns(branch: string): WorkflowRun[] {
+    /** Get the latest failed/cancelled/timed-out workflow run for a branch, only if it's the most recent completed run. */
+    getLatestFailedRun(branch: string): WorkflowRun | null {
         const encoded = encodeURIComponent(branch);
         const response = this.client.execJson<WorkflowRunsResponse>([
             'api',
-            `repos/${this.client.owner}/${this.client.repoName}/actions/runs?branch=${encoded}&per_page=100`,
+            `repos/${this.client.owner}/${this.client.repoName}/actions/runs?branch=${encoded}&per_page=10`,
         ]);
 
-        if (!response) return [];
-        return response.workflow_runs.filter(
-            (r) => r.conclusion !== null && NUDGE_CONCLUSIONS.has(r.conclusion),
-        );
+        if (!response) return null;
+
+        // Find the most recent completed run (has a non-null conclusion).
+        const latestCompleted = response.workflow_runs.find((r) => r.conclusion !== null);
+        if (!latestCompleted) return null;
+
+        // Only nudge if that most recent completed run has a bad conclusion.
+        if (NUDGE_CONCLUSIONS.has(latestCompleted.conclusion!)) {
+            return latestCompleted;
+        }
+
+        return null;
     }
 
     /** Nudge all PRs with failed CI runs. */
@@ -61,31 +69,29 @@ export class NudgeService {
                 continue;
             }
 
-            const failedRuns = this.getFailedRuns(pr.headRefName);
+            const latestFailedRun = this.getLatestFailedRun(pr.headRefName);
 
-            if (failedRuns.length === 0) {
+            if (!latestFailedRun) {
                 this.logger.noCiFailures();
                 results.push({ pr, failedRuns: 0, commented: false });
                 clean++;
                 continue;
             }
 
-            for (const run of failedRuns) {
-                this.logger.ciFailure(run.name, run.id, run.conclusion!);
-            }
+            this.logger.ciFailure(latestFailedRun.name, latestFailedRun.id, latestFailedRun.conclusion!);
 
-            const comment = buildNudgeComment(failedRuns);
+            const comment = buildNudgeComment(latestFailedRun);
             const success = this.client.postComment(pr.number, comment);
 
             if (success) {
-                this.logger.nudgePosted(pr.number, failedRuns.length);
+                this.logger.nudgePosted(pr.number, 1);
                 nudged++;
             } else {
                 this.logger.nudgeFailed(pr.number);
                 failed++;
             }
 
-            results.push({ pr, failedRuns: failedRuns.length, commented: success });
+            results.push({ pr, failedRuns: 1, commented: success });
         }
 
         this.logger.nudgeSummary(nudged, clean, failed);

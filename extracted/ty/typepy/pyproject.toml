@@ -35,7 +35,6 @@ known_third_party = [
   'logbook',
   'pytablewriter',
   'pytest',
-  'pytz',
   'sphinx_rtd_theme',
   'tcolorpy',
 ]

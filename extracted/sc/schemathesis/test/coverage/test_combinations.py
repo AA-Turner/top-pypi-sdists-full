@@ -9,8 +9,10 @@ import pytest
 
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY
 from schemathesis.core.parameters import ParameterLocation
+from schemathesis.core.transforms import transform
 from schemathesis.generation import GenerationMode
-from schemathesis.generation.coverage import (
+from schemathesis.specs.openapi.converter import to_json_schema
+from schemathesis.specs.openapi.coverage._schema import (
     CoverageContext,
     CoverageScenario,
     GeneratedValue,
@@ -155,8 +157,11 @@ class AnyNumber:
         ({"type": "null"}, [0, "false", "", ["null", "null"]]),
         ({"type": "boolean"}, [0, "null", "", ["null", "null"]]),
         ({"type": ["boolean", "null"]}, [0, "", ["null", "null"]]),
-        ({"enum": [1, 2]}, ["AAA"]),
-        ({"enum": [1, 2, {}]}, ["AAA"]),
+        # canonicalish drops `type` when `enum` is present; infer it from the values so type
+        # violations still appear alongside the enum violation.
+        ({"enum": [1, 2]}, ["AAA", "false", "null", "", ["null", "null"]]),
+        ({"enum": [1, 2, {}]}, ["AAA", "false", "null", "", ["null", "null"]]),
+        ({"enum": ["a", "b"]}, ["AAA", 0, "false", "null", ["null", "null"]]),
         ({"const": 42}, ["AAA"]),
         ({"multipleOf": 2}, lambda x: x % 2 != 0),
         ({"format": "date-time"}, [AnyString()]),
@@ -184,6 +189,20 @@ def test_negative_primitive_schemas(nctx, schema, expected):
         assert covered == expected
     assert_unique(covered)
     assert_not_conform(covered, schema)
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        # `default: null` — Python `None` after JSON load. Must round-trip through the `null`
+        # type branch and not be skipped as "absent". Sentinel-based read ensures that.
+        {"type": ["string", "null"], "default": None},
+        {"type": ["integer", "null"], "example": None},
+    ],
+)
+def test_positive_null_default_or_example_round_trips(pctx, schema):
+    covered = [v.value for v in cover_schema_iter(pctx, schema)]
+    assert None in covered, f"`null` default/example was dropped: {covered!r}"
 
 
 @pytest.mark.parametrize("allow_extra_parameters", [True, False])
@@ -239,13 +258,24 @@ def test_body_unexpected_parameters_control(ctx_factory, allow_extra_parameters)
         ({"type": "string", "minLength": 5, "maxLength": 6}, {5, 6}),
         ({"type": "string", "minLength": 5, "maxLength": 5}, {5}),
         ({"type": "string", "minLength": 0, "maxLength": 512, "pattern": r"^[\w\W]+$"}, {1}),
+        # Nullable string: union type must not leak into boundary generation,
+        # otherwise hypothesis-jsonschema may pick null and skip both length variants.
+        ({"type": ["string", "null"], "maxLength": 10}, {9, 10}),
+        ({"type": ["string", "null"], "minLength": 5, "maxLength": 10}, {5, 6, 9, 10}),
+        # Falsy `default`/`example` are still set: empty string must be exercised.
+        ({"type": "string", "default": ""}, {0}),
+        ({"type": "string", "example": ""}, {0}),
+        # Falsy `default` alongside truthy `examples`: both must be emitted.
+        ({"type": "string", "default": "", "examples": ["a"]}, {0, 1}),
     ],
 )
 def test_positive_string(ctx, schema, lengths):
     covered = list(_positive_string(ctx, schema))
     assert_unique(covered)
     for length in lengths:
-        assert len([x for x in covered if len(x.value) == length]) == 1
+        assert len([x for x in covered if isinstance(x.value, str) and len(x.value) == length]) == 1
+    for value in covered:
+        assert isinstance(value.value, str), f"non-string from _positive_string: {value.value!r}"
     assert_conform(covered, schema)
 
 
@@ -300,6 +330,11 @@ def test_negative_string_with_pattern(nctx):
         ({"type": "integer", "example": 2, "default": 2}, [2], [2]),
         ({"type": "integer", "example": 2, "default": 4}, [2, 4], [2, 4]),
         ({"type": "integer", "default": 2}, [2], [2]),
+        # `default: 0` / `example: 0` are valid spec hints; falsy must not skip them.
+        ({"type": "integer", "default": 0}, [0], [0]),
+        ({"type": "integer", "example": 0}, [0], [0]),
+        # Falsy `default` alongside truthy `examples`: both must be emitted.
+        ({"type": "integer", "default": 0, "examples": [1]}, [1, 0], [0]),
         ({"type": "integer", "examples": [42, 44]}, [42, 44], [42, 44]),
         ({"type": "number"}, [0], [0]),
         ({"type": "integer", "minimum": 5}, [5, 6], [6, 8]),
@@ -400,6 +435,22 @@ def test_positive_number(ctx, schema, multiple_of, values, with_multiple_of):
             },
             [
                 {"foo": 42},
+            ],
+        ),
+        # Nested object declared with just `properties` (no `type: object`):
+        # per-property example must lift into the template, not just appear in per-property variants.
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "settings": {"properties": {"active": {"type": "boolean", "example": True}}},
+                },
+                "required": ["settings"],
+            },
+            [
+                {"settings": {"active": True}},
+                {"settings": {}},
+                {"settings": {"active": False}},
             ],
         ),
         (
@@ -661,6 +712,38 @@ def test_positive_number(ctx, schema, multiple_of, values, with_multiple_of):
                 [],
                 [0, 0, 0, 0, 0],
                 [0, 0, 0, 0],
+                [0],
+            ],
+        ),
+        # Multi-branch items must be exercised individually; boundary-size arrays
+        # repeat one branch and miss the other.
+        (
+            {
+                "type": "array",
+                "maxItems": 3,
+                "items": {
+                    "anyOf": [
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["a"],
+                            "properties": {"a": {"type": "string"}},
+                        },
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["b"],
+                            "properties": {"b": {"type": "string"}},
+                        },
+                    ],
+                },
+            },
+            [
+                [],
+                [{"a": ""}, {"a": ""}, {"a": ""}],
+                [{"a": ""}, {"a": ""}],
+                [{"a": ""}],
+                [{"b": ""}],
             ],
         ),
         (
@@ -741,6 +824,7 @@ def test_positive_number(ctx, schema, multiple_of, values, with_multiple_of):
             [
                 [{"foo": 5}],
                 [{"foo": 5}, {"foo": 5}],
+                [{"foo": 6}],
             ],
         ),
         (
@@ -1140,6 +1224,30 @@ def test_negative_pattern(nctx, schema, expected):
     covered = cover_schema(nctx, schema)
     assert covered == expected
     assert_unique(covered)
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        (
+            {"type": "object", "propertyNames": {"maxLength": 3}},
+            [0, "false", "null", "", ["null", "null"], {"0000": ""}],
+        ),
+        (
+            {"type": "object", "propertyNames": {"pattern": "^[a-z]+$"}},
+            [0, "false", "null", "", ["null", "null"], {"": ""}],
+        ),
+        (
+            {"type": "object", "propertyNames": {"minLength": 3}},
+            [0, "false", "null", "", ["null", "null"], {"00": ""}],
+        ),
+    ],
+)
+def test_negative_property_names(nctx, schema, expected):
+    covered = cover_schema(nctx, schema)
+    assert covered == expected
+    assert_unique(covered)
+    assert_not_conform(covered, schema)
     assert_not_conform(covered, schema)
 
 
@@ -1192,8 +1300,11 @@ def test_negative_multiple_types(nctx):
 
 
 def test_positive_multiple_types(pctx):
+    # Nullable date-time: string branch must honour `format` (null branch yields `None`).
     schema = {"type": ["string", "null"], "format": "date-time"}
-    assert cover_schema(pctx, schema) == ["", None]
+    covered = cover_schema(pctx, schema)
+    assert covered == [AnyString(), None]
+    assert_conform(covered, schema)
 
 
 @pytest.mark.parametrize(
@@ -2406,3 +2517,40 @@ def test_array_with_unique_items_enum_not_violated(pctx):
     # so every variant gets coverage
     first_elements = {arr[0] for arr in covered if arr}
     assert first_elements == {"A", "B", "C"}
+
+
+def test_positive_if_then_else_emits_only_conforming_cases(ctx_factory):
+    # Body context applies the parent-validator gate; query context skips it.
+    pctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
+    original = {
+        "type": "object",
+        "properties": {"kind": {"type": "string"}, "value": {}},
+        "required": ["kind"],
+        "if": {"properties": {"kind": {"const": "number"}}},
+        "then": {"properties": {"value": {"type": "integer"}}, "required": ["value"]},
+        "else": {"properties": {"value": {"type": "string"}}, "required": ["value"]},
+    }
+    rewritten = transform(original, to_json_schema, nullable_keyword="x-nullable")
+    validator = jsonschema_rs.Draft202012Validator(original)
+    cases = [v.value for v in cover_schema_iter(pctx, rewritten)]
+    invalid = [c for c in cases if not validator.is_valid(c)]
+    assert not invalid, f"positive cases violate if/then/else: {invalid}"
+    assert any(isinstance(c, dict) and c.get("kind") == "number" for c in cases), "then-branch case missing"
+    assert any(isinstance(c, dict) and c.get("kind") != "number" for c in cases), "else-branch case missing"
+
+
+def test_negative_if_then_else_violates_branches(ctx_factory):
+    nctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE])
+    original = {
+        "type": "object",
+        "properties": {"kind": {"type": "string"}, "value": {}},
+        "required": ["kind"],
+        "if": {"properties": {"kind": {"const": "number"}}},
+        "then": {"properties": {"value": {"type": "integer"}}, "required": ["value"]},
+        "else": {"properties": {"value": {"type": "string"}}, "required": ["value"]},
+    }
+    rewritten = transform(original, to_json_schema, nullable_keyword="x-nullable")
+    validator = jsonschema_rs.Draft202012Validator(original)
+    cases = [v.value for v in cover_schema_iter(nctx, rewritten)]
+    invalid = [c for c in cases if isinstance(c, dict) and not validator.is_valid(c)]
+    assert invalid, "no negative cases violate the conditional"

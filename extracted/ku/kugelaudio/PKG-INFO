@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: kugelaudio
-Version: 1.2.0
+Version: 1.2.2
 Summary: Official Python SDK for KugelAudio TTS API
 Project-URL: Homepage, https://kugelaudio.com
 Project-URL: Documentation, https://docs.kugelaudio.com
-Project-URL: Repository, https://github.com/kugelaudio/kugelaudio-python
+Project-URL: Repository, https://github.com/Kugelaudio/KugelAudio
 Author-email: KugelAudio <hello@kugelaudio.com>
 License: MIT
 License-File: LICENSE

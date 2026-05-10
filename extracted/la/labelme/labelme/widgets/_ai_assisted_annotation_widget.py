@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import typing
 from collections.abc import Callable
-from typing import Literal
 
 from loguru import logger
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
+
+from labelme._automation import AiOutputFormat
 
 from ._info_button import InfoButton
 
@@ -36,7 +37,7 @@ class AiAssistedAnnotationWidget(QtWidgets.QWidget):
         self,
         default_model: str,
         on_model_changed: Callable[[str], None],
-        on_output_format_changed: Callable[[Literal["polygon", "mask"]], None],
+        on_output_format_changed: Callable[[AiOutputFormat], None],
         parent: QtWidgets.QWidget | None = None,
     ) -> None:
         super().__init__(parent=parent)
@@ -47,14 +48,14 @@ class AiAssistedAnnotationWidget(QtWidgets.QWidget):
         )
 
     @property
-    def output_format(self) -> Literal["polygon", "mask"]:
+    def output_format(self) -> AiOutputFormat:
         return self._output_format_combo.currentData()
 
     def _init_ui(
         self,
         default_model: str,
         on_model_changed: Callable[[str], None],
-        on_output_format_changed: Callable[[Literal["polygon", "mask"]], None],
+        on_output_format_changed: Callable[[AiOutputFormat], None],
     ) -> None:
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(4, 4, 4, 4)
@@ -88,6 +89,9 @@ class AiAssistedAnnotationWidget(QtWidgets.QWidget):
         self._output_format_combo = QtWidgets.QComboBox()
         self._output_format_combo.addItem("Polygon", "polygon")
         self._output_format_combo.addItem("Mask", "mask")
+        self._output_format_combo.addItem("Rectangle", "rectangle")
+        self._output_format_combo.addItem("Oriented Rectangle", "oriented_rectangle")
+        self._output_format_combo.addItem("Circle", "circle")
         body_layout.addWidget(self._output_format_combo)
 
         layout.addWidget(body)

@@ -72,14 +72,13 @@ pub fn create_auditwheel_sbom(
     // Sort by filepath for deterministic SBOM output (HashMap iteration
     // order is non-deterministic).
     let mut sorted_packages: Vec<_> = packages.iter().collect();
-    sorted_packages.sort_by(|(a, _), (b, _)| a.cmp(b));
+    sorted_packages.sort_by_key(|(a, _)| *a);
 
     for (filepath, provided_by) in sorted_packages {
         // Use a hash of the filepath to disambiguate components from the same
         // package (matching Python auditwheel's approach).
-        let hash = format!(
-            "{:x}",
-            Sha256::digest(filepath.to_string_lossy().as_bytes())
+        let hash = crate::util::sha256_hex(
+            Sha256::digest(filepath.to_string_lossy().as_bytes()).as_slice(),
         );
         let bom_ref = format!("{}#{hash}", provided_by.purl());
 

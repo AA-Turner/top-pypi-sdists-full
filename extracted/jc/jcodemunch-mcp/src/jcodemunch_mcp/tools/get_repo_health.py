@@ -15,6 +15,7 @@ tools — no logic is duplicated here.
 
 from __future__ import annotations
 
+import re
 import time
 from typing import Optional
 
@@ -37,28 +38,76 @@ def _avg_complexity(index) -> float:
     return round(sum(values) / len(values), 2) if values else 0.0
 
 
-def _count_unstable_modules(index) -> int:
-    """Count files with instability > 0.7 (Ce-dominated)."""
+# Directory names that hold non-production code: tests, benchmarks, scripts,
+# examples. Files in these directories have Ca=0 by construction (pytest
+# collects tests, benchmarks/scripts run from the shell, examples are
+# illustrative) so they trivially meet the instability > 0.7 threshold and
+# would otherwise dominate the coupling axis for any well-tested project.
+# Exclusion applies to both the iteration AND the denominator — see
+# _count_unstable_modules below.
+_NON_PRODUCTION_DIR_NAMES = frozenset({
+    "tests", "test", "benchmarks", "examples", "scripts",
+})
+
+# Filename suffixes for ecosystems that co-locate tests with source rather
+# than placing them under a tests/ directory:
+#   Go:        foo_test.go
+#   Jest:      foo.test.{js,jsx,ts,tsx}
+#   Jasmine/Karma/Angular/NestJS:  foo.spec.{js,jsx,ts,tsx}
+#   RSpec:     foo_spec.rb
+#   JUnit:     FooTest.java
+# Inline conventions like Rust's #[cfg(test)] mod tests cannot be detected
+# by path alone and are out of scope — would need an AST-aware approach.
+_NON_PRODUCTION_FILENAME_RE = re.compile(
+    r"(?:_test\.go|\.(?:test|spec)\.[jt]sx?|_spec\.rb|Test\.java)$",
+    re.IGNORECASE,
+)
+
+
+def _is_production_path(path: str) -> bool:
+    """True when the path is neither under a non-production directory nor
+    a test-suffix file. See module-level constants for the exact rules."""
+    norm = path.replace("\\", "/")
+    if any(p in _NON_PRODUCTION_DIR_NAMES for p in norm.split("/")):
+        return False
+    if _NON_PRODUCTION_FILENAME_RE.search(norm):
+        return False
+    return True
+
+
+def _count_unstable_modules(index) -> tuple[int, int]:
+    """Return ``(unstable_count, production_total)``.
+
+    Counts files with instability > 0.7 (Ce-dominated) among production
+    code only — tests, benchmarks, scripts, and examples are excluded
+    from both the numerator AND the denominator. Including them would
+    structurally penalize any project with a real test suite.
+
+    Inbound references *from* test files still count toward production
+    files' Ca (so well-tested code looks more stable, which is correct).
+    """
     if not index.imports:
-        return 0
+        return 0, 0
     source_files = frozenset(index.source_files)
     alias_map = getattr(index, "alias_map", None)
     fwd = _build_adjacency(index.imports, source_files, alias_map, getattr(index, "psr4_map", None))
 
-    # Build reverse (importers per file)
+    # Build reverse (importers per file). The graph still includes test
+    # imports — they credit production Ca and that's the correct shape.
     rev: dict[str, list] = {}
     for src, targets in fwd.items():
         for tgt in targets:
             rev.setdefault(tgt, []).append(src)
 
+    production_files = [f for f in index.source_files if _is_production_path(f)]
     unstable = 0
-    for f in index.source_files:
+    for f in production_files:
         ca = len(rev.get(f, []))
         ce = len(fwd.get(f, []))
         total = ca + ce
         if total > 0 and (ce / total) > 0.7:
             unstable += 1
-    return unstable
+    return unstable, len(production_files)
 
 
 def get_repo_health(
@@ -125,8 +174,10 @@ def get_repo_health(
     cycle_count = len(cycles)
     cycles_sample = cycles[:3]  # Show first 3 examples
 
-    # Unstable modules
-    unstable_count = _count_unstable_modules(index)
+    # Unstable modules — `coupling_total` excludes tests/benchmarks/scripts
+    # and is the correct denominator for the coupling axis. `total_files`
+    # in the response stays as the unfiltered count.
+    unstable_count, coupling_total = _count_unstable_modules(index)
 
     # Build a human-readable summary line
     health_issues: list[str] = []
@@ -146,6 +197,42 @@ def get_repo_health(
     else:
         summary = "Issues found: " + "; ".join(health_issues) + "."
 
+    # Six-axis radar (todo.md item #5). Test-gap and churn-surface inputs
+    # are best-effort — failures degrade gracefully and the relevant axis
+    # is omitted from the radar's composite.
+    untested_pct: Optional[float] = None
+    try:
+        from .get_untested_symbols import get_untested_symbols
+        untested = get_untested_symbols(
+            repo=f"{owner}/{name}",
+            min_confidence=0.5,
+            max_results=1,  # we only need the count
+            storage_path=storage_path,
+        )
+        if "error" not in untested:
+            reached_pct = float(untested.get("reached_pct", 0))
+            untested_pct = max(0.0, 100.0 - reached_pct)
+    except Exception:
+        pass
+
+    top_hotspot_score: Optional[float] = None
+    if top_hotspots:
+        try:
+            top_hotspot_score = float(top_hotspots[0].get("hotspot_score", 0))
+        except (TypeError, ValueError):
+            top_hotspot_score = None
+
+    from .health_radar import compute_radar
+    radar = compute_radar(
+        avg_complexity=avg_complexity,
+        dead_code_pct=dead_code_pct,
+        cycle_count=cycle_count,
+        unstable_modules=unstable_count,
+        total_files=coupling_total,  # production-code denominator
+        untested_pct=untested_pct,
+        top_hotspot_score=top_hotspot_score,
+    )
+
     elapsed = (time.perf_counter() - t0) * 1000
     return {
         "repo": f"{owner}/{name}",
@@ -160,6 +247,7 @@ def get_repo_health(
         "cycles_sample": cycles_sample,
         "unstable_modules": unstable_count,
         "top_hotspots": top_hotspots,
+        "radar": radar,
         "_meta": {
             "timing_ms": round(elapsed, 1),
             "days": days,

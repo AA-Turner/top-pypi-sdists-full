@@ -20,6 +20,7 @@ Example:
 """
 
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -73,12 +74,18 @@ class NotebookLMClient:
         auth: The AuthTokens used for authentication
     """
 
-    def __init__(self, auth: AuthTokens, timeout: float = DEFAULT_TIMEOUT):
+    def __init__(
+        self,
+        auth: AuthTokens,
+        timeout: float = DEFAULT_TIMEOUT,
+        storage_path: Path | None = None,
+    ):
         """Initialize the NotebookLM client.
 
         Args:
             auth: Authentication tokens from browser login.
             timeout: HTTP request timeout in seconds. Defaults to 30 seconds.
+            storage_path: Path to the storage state file for loading download cookies.
         """
         # Pass refresh_auth as callback for automatic retry on auth failures
         # Note: refresh_auth calls update_auth_headers internally
@@ -89,7 +96,7 @@ class NotebookLMClient:
         self.notebooks = NotebooksAPI(self._core)
         self.sources = SourcesAPI(self._core)
         self.notes = NotesAPI(self._core)
-        self.artifacts = ArtifactsAPI(self._core, notes_api=self.notes)
+        self.artifacts = ArtifactsAPI(self._core, notes_api=self.notes, storage_path=storage_path)
         self.chat = ChatAPI(self._core)
         self.research = ResearchAPI(self._core)
         self.settings = SettingsAPI(self._core)
@@ -118,7 +125,10 @@ class NotebookLMClient:
 
     @classmethod
     async def from_storage(
-        cls, path: str | None = None, timeout: float = DEFAULT_TIMEOUT
+        cls,
+        path: str | None = None,
+        timeout: float = DEFAULT_TIMEOUT,
+        profile: str | None = None,
     ) -> "NotebookLMClient":
         """Create a client from Playwright storage state file.
 
@@ -126,9 +136,10 @@ class NotebookLMClient:
         Handles all authentication setup automatically.
 
         Args:
-            path: Path to storage_state.json. If None, uses default location
-                  (~/.notebooklm/storage_state.json).
+            path: Path to storage_state.json. If provided, takes precedence over profile.
             timeout: HTTP request timeout in seconds. Defaults to 30 seconds.
+            profile: Profile name to load auth from (e.g., "work", "personal").
+                If None, uses the active profile (from CLI flag, env var, or config).
 
         Returns:
             NotebookLMClient instance (not yet connected).
@@ -136,10 +147,21 @@ class NotebookLMClient:
         Example:
             async with await NotebookLMClient.from_storage() as client:
                 notebooks = await client.notebooks.list()
+
+            # Use a specific profile
+            async with await NotebookLMClient.from_storage(profile="work") as client:
+                notebooks = await client.notebooks.list()
         """
         storage_path = Path(path) if path else None
-        auth = await AuthTokens.from_storage(storage_path)
-        return cls(auth, timeout=timeout)
+        auth = await AuthTokens.from_storage(storage_path, profile=profile)
+        # Always resolve the storage path so downstream cookie loading
+        # (e.g. artifact downloads) uses the correct file, whether the
+        # caller provided an explicit path, a named profile, or neither.
+        if storage_path is None and not os.environ.get("NOTEBOOKLM_AUTH_JSON"):
+            from .paths import get_storage_path
+
+            storage_path = get_storage_path(profile)
+        return cls(auth, timeout=timeout, storage_path=storage_path)
 
     async def refresh_auth(self) -> AuthTokens:
         """Refresh authentication tokens by fetching the NotebookLM homepage.
@@ -183,5 +205,11 @@ class NotebookLMClient:
         # CRITICAL: Update the HTTP client headers with new auth tokens
         # Without this, the client continues using stale credentials
         self._core.update_auth_headers()
+
+        # Persist refreshed cookies back to disk so the next CLI invocation
+        # picks up the updated short-lived tokens (e.g., __Secure-1PSIDCC)
+        from .auth import save_cookies_to_storage
+
+        save_cookies_to_storage(http_client.cookies, self._core.auth.storage_path)
 
         return self._core.auth

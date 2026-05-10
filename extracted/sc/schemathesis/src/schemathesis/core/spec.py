@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn, Protocol
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+    from collections.abc import Callable, Generator, Iterator
 
     import jsonschema_rs
     from hypothesis.strategies import SearchStrategy
@@ -22,11 +22,9 @@ if TYPE_CHECKING:
     from schemathesis.generation.case import Case
     from schemathesis.generation.meta import CaseMetadata
     from schemathesis.generation.stateful.state_machine import APIStateMachine
-    from schemathesis.hooks import HookContext, HookDispatcher
+    from schemathesis.hooks import HookDispatcher
     from schemathesis.resources import ExtraDataSource
     from schemathesis.schemas import APIOperation
-    from schemathesis.specs.graphql.schemas import GraphQLSchema
-    from schemathesis.specs.openapi.schemas import OpenApiSchema
 
 
 @dataclass
@@ -101,6 +99,18 @@ class ApiSchema(Protocol):
 
     def get_coverage_capabilities(self) -> CoverageCapabilities: ...  # pragma: no cover
 
+    def reset_coverage_state(self) -> None: ...  # pragma: no cover
+
+    def iter_coverage_cases(
+        self,
+        operation: APIOperation,
+        *,
+        generation_modes: list[GenerationMode],
+        generation_config: GenerationConfig,
+        extra_data_source: ExtraDataSource | None = ...,
+        error_feedback: ErrorFeedbackStore | None = ...,
+    ) -> Iterator[Case]: ...  # pragma: no cover
+
     def get_custom_format_strategies(
         self, generation_config: GenerationConfig, mode: GenerationMode
     ) -> dict[str, SearchStrategy]: ...  # pragma: no cover
@@ -112,8 +122,6 @@ class ApiSchema(Protocol):
     ) -> type[APIStateMachine]: ...  # pragma: no cover
 
     def create_extra_data_source(self) -> ExtraDataSource | None: ...  # pragma: no cover
-
-    def dispatch_hook(self, name: str, context: HookContext, *args: Any, **kwargs: Any) -> None: ...  # pragma: no cover
 
     def compute_fuzz_operation_weights(self, operations: list[APIOperation]) -> dict[str, int]: ...  # pragma: no cover
 
@@ -151,11 +159,3 @@ class ApiSchema(Protocol):
     ) -> tuple[list | None, dict[str, Any] | None]: ...  # pragma: no cover
 
     def get_request_payload_content_types(self, operation: APIOperation) -> list[str]: ...  # pragma: no cover
-
-
-if TYPE_CHECKING:
-    # Force the type checker to verify that concrete schema classes structurally satisfy
-    # `Specification`. If the Protocol changes (or a method is renamed/removed on a schema
-    # class) without updating both sides, mypy fails here.
-    def _check_protocol_conformance(openapi: OpenApiSchema, graphql: GraphQLSchema) -> tuple[ApiSchema, ApiSchema]:
-        return openapi, graphql

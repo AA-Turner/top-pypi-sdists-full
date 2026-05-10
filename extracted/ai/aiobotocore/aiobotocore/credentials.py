@@ -552,6 +552,13 @@ class AioAssumeRoleWithWebIdentityCredentialFetcher(
         return assume_role_kwargs
 
 
+def _run_credential_process_sync(process_list):
+    # Synchronous fallback for event loops that don't implement
+    # subprocess transports. Caller runs this via ``asyncio.to_thread``.
+    p = subprocess.run(process_list, capture_output=True, check=False)
+    return p.stdout, p.stderr, p.returncode
+
+
 class AioProcessProvider(ProcessProvider):
     def __init__(self, *args, popen=asyncio.create_subprocess_exec, **kwargs):
         super().__init__(*args, **kwargs, popen=popen)
@@ -583,11 +590,23 @@ class AioProcessProvider(ProcessProvider):
         # We're not using shell=True, so we need to pass the
         # command and all arguments as a list.
         process_list = compat_shell_split(credential_process)
-        p = await self._popen(
-            *process_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        stdout, stderr = await p.communicate()
-        if p.returncode != 0:
+        try:
+            p = await self._popen(
+                *process_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            stdout, stderr = await p.communicate()
+            returncode = p.returncode
+        except NotImplementedError:
+            # Some event loops don't implement subprocess transports —
+            # notably ``asyncio.SelectorEventLoop`` on Windows, which
+            # users select when integrating with libraries that don't
+            # support the Proactor loop (e.g. ``psycopg``). Fall back
+            # to running the credential process synchronously in a
+            # worker thread so the loop stays unblocked. (#1415)
+            stdout, stderr, returncode = await asyncio.to_thread(
+                _run_credential_process_sync, process_list
+            )
+        if returncode != 0:
             raise CredentialRetrievalError(
                 provider=self.METHOD, error_msg=stderr.decode('utf-8')
             )
@@ -775,6 +794,10 @@ class AioBotoProvider(BotoProvider):
 
 class AioAssumeRoleProvider(AssumeRoleProvider):
     async def load(self):
+        # Reset visited profiles on each load() call to avoid false positives
+        # when multiple async tasks concurrently call load() on the same provider
+        # instance and one task's _visited_profiles state leaks into another.
+        self._visited_profiles = [self._profile_name]
         self._loaded_config = self._load_config()
         profiles = self._loaded_config.get('profiles', {})
         profile = profiles.get(self._profile_name, {})

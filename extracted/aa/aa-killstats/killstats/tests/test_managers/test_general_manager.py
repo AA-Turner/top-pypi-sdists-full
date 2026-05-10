@@ -2,7 +2,6 @@
 from unittest.mock import patch
 
 # AA Killstats
-# AA Ledger
 from killstats.models.general import EveEntity
 from killstats.tests import NoSocketsTestCase
 from killstats.tests.testdata.esi_stub_openapi import (

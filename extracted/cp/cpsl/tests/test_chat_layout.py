@@ -15,24 +15,35 @@ class ChatLayoutTests(unittest.TestCase):
 
         @app.chat_page(mode="single", scope="owner", sidebar_label="Notebook")
         def chat_page():
-            return cpsl.ui.Page([
-                cpsl.ui.Row([
-                    cpsl.ui.Column([cpsl.ui.Text("Sources")], fill=True, gap=12),
-                    cpsl.ui.ChatPanel(
-                        title="Chat",
-                        placeholder="Ask about your sources...",
-                        height=520,
-                    ),
-                ], columns=[0.8, 1.2], min_widths=[220, 320], gap=16, fill=True)
-            ])
+            return cpsl.ui.Page(
+                [
+                    cpsl.ui.Row(
+                        [
+                            cpsl.ui.Column([cpsl.ui.Text("Sources")], fill=True, gap=12),
+                            cpsl.ui.ChatPanel(
+                                title="Chat",
+                                placeholder="Ask about your sources...",
+                                height=520,
+                            ),
+                        ],
+                        columns=[0.8, 1.2],
+                        min_widths=[220, 320],
+                        gap=16,
+                        fill=True,
+                    )
+                ]
+            )
 
         cfg = app._serialize()
 
-        self.assertEqual(cfg["shell"], {
-            "home": "chat",
-            "show_sidebar": True,
-            "show_pages": False,
-        })
+        self.assertEqual(
+            cfg["shell"],
+            {
+                "home": "chat",
+                "show_sidebar": True,
+                "show_pages": False,
+            },
+        )
         self.assertEqual(cfg["chat"]["mode"], "single")
         self.assertEqual(cfg["chat"]["scope"], "owner")
         self.assertEqual(cfg["chat"]["thread_key"], "chat_page:default")
@@ -71,11 +82,13 @@ class ChatLayoutTests(unittest.TestCase):
         app = cpsl.App(name="chat-layout-validation", image=cpsl.Image())
 
         with self.assertRaises(ValueError):
+
             @app.chat_page()
             def missing_panel():
                 return cpsl.ui.Page([cpsl.ui.Text("No chat")])
 
         with self.assertRaises(ValueError):
+
             @app.chat_page()
             def duplicate_panel():
                 return cpsl.ui.Page([cpsl.ui.ChatPanel(), cpsl.ui.ChatPanel()])
@@ -87,11 +100,13 @@ class ChatLayoutTests(unittest.TestCase):
             app.shell(home="landing")
 
         with self.assertRaises(ValueError):
+
             @app.chat_page(mode="shared")
             def bad_mode():
                 return cpsl.ui.Page([cpsl.ui.ChatPanel()])
 
         with self.assertRaises(ValueError):
+
             @app.chat_page(sidebar_label="")
             def bad_label():
                 return cpsl.ui.Page([cpsl.ui.ChatPanel()])

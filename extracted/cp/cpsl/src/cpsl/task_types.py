@@ -116,8 +116,10 @@ class TaskHandle:
         ``"scheduled"``, or ``"timeout"``.
         """
         from .clients.capsule import GetTaskRequest
+
         resp = await asyncio.get_running_loop().run_in_executor(
-            _runner_rpc_executor(self._runner), self._runner._task_stub.get_task,
+            _runner_rpc_executor(self._runner),
+            self._runner._task_stub.get_task,
             GetTaskRequest(
                 task_id=self.task_id,
                 **_task_scope(self._runner),
@@ -132,8 +134,10 @@ class TaskHandle:
         Only affects running tasks.
         """
         from .clients.capsule import RefreshTaskTimeoutRequest
+
         await asyncio.get_running_loop().run_in_executor(
-            _runner_rpc_executor(self._runner), self._runner._task_stub.refresh_task_timeout,
+            _runner_rpc_executor(self._runner),
+            self._runner._task_stub.refresh_task_timeout,
             RefreshTaskTimeoutRequest(task_id=self.task_id, version_id=self._runner._version_id),
         )
 
@@ -145,8 +149,10 @@ class TaskHandle:
         heartbeat and interrupts the task handler.
         """
         from .clients.capsule import CancelTasksRequest
+
         resp = await asyncio.get_running_loop().run_in_executor(
-            _runner_rpc_executor(self._runner), self._runner._task_stub.cancel_tasks,
+            _runner_rpc_executor(self._runner),
+            self._runner._task_stub.cancel_tasks,
             CancelTasksRequest(
                 app_id=self._runner._app_id,
                 task_id=self.task_id,
@@ -229,12 +235,14 @@ class TaskDescriptor:
             if self._is_async:
                 return await self._fn(*args, **kwargs)
             return await asyncio.get_running_loop().run_in_executor(
-                None, functools.partial(self._fn, *args, **kwargs),
+                None,
+                functools.partial(self._fn, *args, **kwargs),
             )
         if self._is_async:
             return await self._fn(self._instance, *args, **kwargs)
         return await asyncio.get_running_loop().run_in_executor(
-            None, functools.partial(self._fn, self._instance, *args, **kwargs),
+            None,
+            functools.partial(self._fn, self._instance, *args, **kwargs),
         )
 
     def _build_request(
@@ -246,6 +254,7 @@ class TaskDescriptor:
         display_name: str = "",
     ) -> Any:
         from .clients.capsule import SubmitTaskRequest
+
         runner = self._require_runner()
         # user_id/version_id come from the runtime env so tasks submitted
         # from inside the app dispatch to the correct owner's inbox rather
@@ -286,7 +295,9 @@ class TaskDescriptor:
         runner = self._require_runner()
         req = self._build_request(session, kwargs, display_name=display_name)
         resp = await asyncio.get_running_loop().run_in_executor(
-            _runner_rpc_executor(runner), runner._task_stub.submit_task, req,
+            _runner_rpc_executor(runner),
+            runner._task_stub.submit_task,
+            req,
         )
         return TaskHandle(resp.task_id, runner)
 
@@ -335,24 +346,32 @@ class TaskDescriptor:
 
         req = self._build_request(session, kwargs, scheduled_at, recurrence_seconds, display_name)
         resp = await asyncio.get_running_loop().run_in_executor(
-            _runner_rpc_executor(runner), runner._task_stub.submit_task, req,
+            _runner_rpc_executor(runner),
+            runner._task_stub.submit_task,
+            req,
         )
         return TaskHandle(resp.task_id, runner)
 
     async def find(
-        self, status: str | None = None, session_id: str | None = None,
-        limit: int = 100, offset: int = 0, **kwargs: Any,
+        self,
+        status: str | None = None,
+        session_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        **kwargs: Any,
     ) -> list[TaskHandle]:
         from .clients.capsule import FindTasksRequest
+
         runner = self._require_runner()
         resp = await asyncio.get_running_loop().run_in_executor(
-            _runner_rpc_executor(runner), runner._task_stub.find_tasks,
+            _runner_rpc_executor(runner),
+            runner._task_stub.find_tasks,
             FindTasksRequest(
                 app_id=runner._app_id,
                 task_name=self._name,
                 status=_str_to_proto_status(status) if status else 0,
                 session_id=session_id or "",
-                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b'{}',
+                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b"{}",
                 limit=limit,
                 offset=offset,
                 **_task_scope(runner),
@@ -362,14 +381,16 @@ class TaskDescriptor:
 
     async def count(self, status: str | None = None, **kwargs: Any) -> int:
         from .clients.capsule import CountTasksRequest
+
         runner = self._require_runner()
         resp = await asyncio.get_running_loop().run_in_executor(
-            _runner_rpc_executor(runner), runner._task_stub.count_tasks,
+            _runner_rpc_executor(runner),
+            runner._task_stub.count_tasks,
             CountTasksRequest(
                 app_id=runner._app_id,
                 task_name=self._name,
                 status=_str_to_proto_status(status) if status else 0,
-                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b'{}',
+                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b"{}",
                 **_task_scope(runner),
             ),
         )
@@ -377,14 +398,16 @@ class TaskDescriptor:
 
     async def cancel(self, status: str | None = None, **kwargs: Any) -> int:
         from .clients.capsule import CancelTasksRequest
+
         runner = self._require_runner()
         resp = await asyncio.get_running_loop().run_in_executor(
-            _runner_rpc_executor(runner), runner._task_stub.cancel_tasks,
+            _runner_rpc_executor(runner),
+            runner._task_stub.cancel_tasks,
             CancelTasksRequest(
                 app_id=runner._app_id,
                 task_name=self._name,
                 status=_str_to_proto_status(status) if status else 0,
-                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b'{}',
+                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b"{}",
                 **_task_scope(runner),
             ),
         )
@@ -406,12 +429,14 @@ class GlobalTaskQuery:
         self, status: str | None = None, limit: int = 100, offset: int = 0, **kwargs: Any
     ) -> list[TaskHandle]:
         from .clients.capsule import FindTasksRequest
+
         resp = await asyncio.get_running_loop().run_in_executor(
-            _runner_rpc_executor(self._runner), self._runner._task_stub.find_tasks,
+            _runner_rpc_executor(self._runner),
+            self._runner._task_stub.find_tasks,
             FindTasksRequest(
                 app_id=self._runner._app_id,
                 status=_str_to_proto_status(status) if status else 0,
-                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b'{}',
+                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b"{}",
                 limit=limit,
                 offset=offset,
                 **_task_scope(self._runner),
@@ -421,12 +446,14 @@ class GlobalTaskQuery:
 
     async def count(self, status: str | None = None, **kwargs: Any) -> int:
         from .clients.capsule import CountTasksRequest
+
         resp = await asyncio.get_running_loop().run_in_executor(
-            _runner_rpc_executor(self._runner), self._runner._task_stub.count_tasks,
+            _runner_rpc_executor(self._runner),
+            self._runner._task_stub.count_tasks,
             CountTasksRequest(
                 app_id=self._runner._app_id,
                 status=_str_to_proto_status(status) if status else 0,
-                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b'{}',
+                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b"{}",
                 **_task_scope(self._runner),
             ),
         )
@@ -434,12 +461,14 @@ class GlobalTaskQuery:
 
     async def cancel(self, status: str | None = None, **kwargs: Any) -> int:
         from .clients.capsule import CancelTasksRequest
+
         resp = await asyncio.get_running_loop().run_in_executor(
-            _runner_rpc_executor(self._runner), self._runner._task_stub.cancel_tasks,
+            _runner_rpc_executor(self._runner),
+            self._runner._task_stub.cancel_tasks,
             CancelTasksRequest(
                 app_id=self._runner._app_id,
                 status=_str_to_proto_status(status) if status else 0,
-                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b'{}',
+                kwargs_filter_json=json.dumps(kwargs).encode() if kwargs else b"{}",
                 **_task_scope(self._runner),
             ),
         )
@@ -447,9 +476,11 @@ class GlobalTaskQuery:
 
     async def get(self, task_id: str) -> TaskHandle | None:
         from .clients.capsule import GetTaskRequest
+
         try:
             resp = await asyncio.get_running_loop().run_in_executor(
-                _runner_rpc_executor(self._runner), self._runner._task_stub.get_task,
+                _runner_rpc_executor(self._runner),
+                self._runner._task_stub.get_task,
                 GetTaskRequest(
                     task_id=task_id,
                     **_task_scope(self._runner),
@@ -484,7 +515,7 @@ def _parse_schedule_value(value: str | timedelta) -> tuple[timedelta, int]:
     recurring = False
     for prefix in ("every ", "repeat every "):
         if raw.startswith(prefix):
-            raw = raw[len(prefix):].strip()
+            raw = raw[len(prefix) :].strip()
             recurring = True
             break
     delay = _parse_delay(raw)
@@ -518,12 +549,17 @@ _STR_TO_STATUS = {}
 
 def _init_status_maps():
     from .clients.capsule import TaskStatus
+
     global _STATUS_TO_STR, _STR_TO_STATUS
     pairs = [
-        (TaskStatus.PENDING, "pending"), (TaskStatus.CLAIMED, "claimed"),
-        (TaskStatus.RUNNING, "running"), (TaskStatus.COMPLETED, "completed"),
-        (TaskStatus.FAILED, "failed"), (TaskStatus.RETRY, "retry"),
-        (TaskStatus.CANCELLED, "cancelled"), (TaskStatus.SCHEDULED, "scheduled"),
+        (TaskStatus.PENDING, "pending"),
+        (TaskStatus.CLAIMED, "claimed"),
+        (TaskStatus.RUNNING, "running"),
+        (TaskStatus.COMPLETED, "completed"),
+        (TaskStatus.FAILED, "failed"),
+        (TaskStatus.RETRY, "retry"),
+        (TaskStatus.CANCELLED, "cancelled"),
+        (TaskStatus.SCHEDULED, "scheduled"),
         (TaskStatus.TIMEOUT, "timeout"),
     ]
     _STATUS_TO_STR = {k: v for k, v in pairs}

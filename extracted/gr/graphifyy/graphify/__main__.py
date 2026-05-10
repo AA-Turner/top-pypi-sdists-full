@@ -28,6 +28,9 @@ def _check_skill_version(skill_dst: Path) -> None:
     version_file = skill_dst.parent / ".graphify_version"
     if not version_file.exists():
         return
+    if not skill_dst.exists():
+        print("  warning: skill dir exists but SKILL.md is missing. Run 'graphify install' to repair.")
+        return
     installed = version_file.read_text(encoding="utf-8").strip()
     if installed != __version__:
         print(f"  warning: skill is from graphify {installed}, package is {__version__}. Run 'graphify install' to update.")
@@ -40,9 +43,9 @@ def _refresh_all_version_stamps() -> None:
     but not explicitly re-installed during this upgrade.
     """
     for cfg in _PLATFORM_CONFIG.values():
-        vf = Path.home() / cfg["skill_dst"]
-        vf = vf.parent / ".graphify_version"
-        if vf.exists():
+        skill_dst = Path.home() / cfg["skill_dst"]
+        vf = skill_dst.parent / ".graphify_version"
+        if skill_dst.exists():
             vf.write_text(__version__, encoding="utf-8")
 
 _SETTINGS_HOOK = {
@@ -139,7 +142,7 @@ _PLATFORM_CONFIG: dict[str, dict] = {
     },
     "antigravity": {
         "skill_file": "skill.md",
-        "skill_dst": Path.home() / ".agent" / "skills" / "graphify" / "SKILL.md",
+        "skill_dst": Path(".agents") / "skills" / "graphify" / "SKILL.md",
         "claude_md": False,
     },
     "windows": {
@@ -182,7 +185,16 @@ def install(platform: str = "claude") -> None:
     else:
         skill_dst = Path.home() / cfg["skill_dst"]
     skill_dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy(skill_src, skill_dst)
+    tmp_dst = skill_dst.with_suffix(skill_dst.suffix + ".tmp")
+    try:
+        shutil.copy(skill_src, tmp_dst)
+        os.replace(tmp_dst, skill_dst)
+    except Exception:
+        try:
+            tmp_dst.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
     (skill_dst.parent / ".graphify_version").write_text(__version__, encoding="utf-8")
     print(f"  skill installed  ->  {skill_dst}")
 
@@ -462,10 +474,15 @@ def vscode_uninstall(project_dir: Path | None = None) -> None:
         print(f"  {instructions}  ->  deleted (was empty after removal)")
 
 
-_ANTIGRAVITY_RULES_PATH = Path(".agent") / "rules" / "graphify.md"
-_ANTIGRAVITY_WORKFLOW_PATH = Path(".agent") / "workflows" / "graphify.md"
+_ANTIGRAVITY_RULES_PATH = Path(".agents") / "rules" / "graphify.md"
+_ANTIGRAVITY_WORKFLOW_PATH = Path(".agents") / "workflows" / "graphify.md"
 
 _ANTIGRAVITY_RULES = """\
+---
+trigger: always_on
+description: Always consult the graphify knowledge graph at graphify-out/ before answering codebase or architecture questions.
+---
+
 ## graphify
 
 This project has a graphify knowledge graph at graphify-out/.
@@ -474,7 +491,7 @@ Rules:
 - Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
 - If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
 - If the graphify MCP server is active, utilize tools like `query_graph`, `get_node`, and `shortest_path` for precise architecture navigation instead of falling back to `grep`
-- If the MCP server is not active, the CLI equivalents are `graphify query "<question>"`, `graphify path "<A>" "<B>"`, and `graphify explain "<concept>"` — prefer these over grep for cross-module questions
+- If the MCP server is not active, the CLI equivalents are `graphify query "<question>"`, `graphify path "<A>" "<B>"`, and `graphify explain "<concept>"` - prefer these over grep for cross-module questions
 - After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
 """
 
@@ -486,7 +503,7 @@ description: Turn any folder of files into a navigable knowledge graph
 
 # Workflow: graphify
 
-Follow the graphify skill installed at ~/.agent/skills/graphify/SKILL.md to run the full pipeline.
+Follow the graphify skill installed at ~/.agents/skills/graphify/SKILL.md to run the full pipeline.
 
 If no path argument is given, use `.` (current directory).
 """
@@ -561,7 +578,7 @@ def _antigravity_install(project_dir: Path) -> None:
     install(platform="antigravity")
 
     # 1.5. Inject YAML frontmatter for native Antigravity tool discovery
-    skill_dst = Path.home() / _PLATFORM_CONFIG["antigravity"]["skill_dst"]
+    skill_dst = _PLATFORM_CONFIG["antigravity"]["skill_dst"]
     if skill_dst.exists():
         content = skill_dst.read_text(encoding="utf-8")
         if not content.startswith("---\n"):
@@ -624,7 +641,7 @@ def _antigravity_uninstall(project_dir: Path) -> None:
         print(f"graphify workflow removed from {wf_path.resolve()}")
 
     # Remove skill file
-    skill_dst = Path.home() / _PLATFORM_CONFIG["antigravity"]["skill_dst"]
+    skill_dst = _PLATFORM_CONFIG["antigravity"]["skill_dst"]
     if skill_dst.exists():
         skill_dst.unlink()
         print(f"graphify skill removed from {skill_dst}")
@@ -970,6 +987,44 @@ def _uninstall_claude_hook(project_dir: Path) -> None:
     print(f"  .claude/settings.json  ->  PreToolUse hook removed")
 
 
+def uninstall_all(project_dir: Path | None = None, purge: bool = False) -> None:
+    """Remove graphify from every platform detected in the current project."""
+    pd = project_dir or Path(".")
+    print("Uninstalling graphify from all detected platforms...\n")
+
+    # Skill-file / config-section uninstallers
+    claude_uninstall(pd)
+    gemini_uninstall(pd)
+    vscode_uninstall(pd)
+    _cursor_uninstall(pd)
+    _kiro_uninstall(pd)
+    _antigravity_uninstall(pd)
+    # AGENTS.md covers: codex, aider, opencode, claw, droid, trae, trae-cn, hermes, copilot
+    _agents_uninstall(pd)
+    _uninstall_opencode_plugin(pd)
+    _uninstall_codex_hook(pd)
+
+    # Git hook
+    try:
+        from graphify.hooks import uninstall as hook_uninstall
+        result = hook_uninstall(pd)
+        if result:
+            print(result)
+    except Exception:
+        pass
+
+    if purge:
+        import shutil as _shutil
+        out = pd / "graphify-out"
+        if out.exists():
+            _shutil.rmtree(out)
+            print(f"\n  graphify-out/  ->  deleted (--purge)")
+        else:
+            print("\n  graphify-out/  ->  not found (nothing to purge)")
+
+    print("\nDone. Run 'pip uninstall graphifyy' to remove the package itself.")
+
+
 def claude_uninstall(project_dir: Path | None = None) -> None:
     """Remove the graphify section from the local CLAUDE.md."""
     target = (project_dir or Path(".")) / "CLAUDE.md"
@@ -1070,6 +1125,8 @@ def main() -> None:
         print()
         print("Commands:")
         print("  install [--platform P]  copy skill to platform config dir (claude|windows|codex|opencode|aider|claw|droid|trae|trae-cn|gemini|cursor|antigravity|hermes|kiro|pi)")
+        print("  uninstall               remove graphify from all detected platforms in one shot")
+        print("    --purge                 also delete graphify-out/ directory")
         print("  path \"A\" \"B\"            shortest path between two nodes in graph.json")
         print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
         print("  explain \"X\"             plain-language explanation of a node and its neighbors")
@@ -1113,6 +1170,10 @@ def main() -> None:
         print("  extract <path>          headless full extraction (AST + semantic LLM) for CI/scripts")
         print("    --backend B             gemini|kimi|claude|openai|ollama (default: whichever API key is set)")
         print("    --model M               override backend default model")
+        print("    --max-workers N         AST extraction subprocess count (default: cpu_count)")
+        print("    --token-budget N        per-chunk token cap for semantic extraction (default: 60000)")
+        print("    --max-concurrency N     parallel semantic chunks in flight (default: 4; set 1 for local LLMs)")
+        print("    --api-timeout S         per-request timeout in seconds for the LLM client (default: 600)")
         print("    --out DIR               output dir (default: <path>); writes <DIR>/graphify-out/")
         print("    --google-workspace      export .gdoc/.gsheet/.gslides shortcuts via gws before extraction")
         print("    --no-cluster            skip clustering, write raw extraction only")
@@ -1124,6 +1185,7 @@ def main() -> None:
         print("  global list              list repos in the global graph")
         print("  global path              print path to the global graph file")
         print("  benchmark [graph.json]  measure token reduction vs naive full-corpus approach")
+        print("  export callflow-html    emit Mermaid-based architecture/call-flow HTML")
         print("  hook install            install post-commit/post-checkout git hooks (all platforms)")
         print("  hook uninstall          remove git hooks")
         print("  hook status             check if git hooks are installed")
@@ -1151,8 +1213,8 @@ def main() -> None:
         print("  trae uninstall         remove graphify section from AGENTS.md")
         print("  trae-cn install         write graphify section to AGENTS.md (Trae CN)")
         print("  trae-cn uninstall      remove graphify section from AGENTS.md")
-        print("  antigravity install     write .agent/rules + .agent/workflows + skill (Google Antigravity)")
-        print("  antigravity uninstall   remove .agent/rules, .agent/workflows, and skill")
+        print("  antigravity install     write .agents/rules + .agents/workflows + skill (Google Antigravity)")
+        print("  antigravity uninstall   remove .agents/rules, .agents/workflows, and skill")
         print("  hermes install          write skill to ~/.hermes/skills/graphify/ (Hermes)")
         print("  hermes uninstall        remove skill from ~/.hermes/skills/graphify/")
         print("  kiro install            write skill to .kiro/skills/graphify/ + steering file (Kiro IDE/CLI)")
@@ -1202,6 +1264,9 @@ def main() -> None:
                 i += 1
         chosen_platform = selected_platform or default_platform
         install(platform=chosen_platform)
+    elif cmd == "uninstall":
+        purge = "--purge" in sys.argv[2:]
+        uninstall_all(purge=purge)
     elif cmd == "claude":
         subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
         if subcmd == "install":
@@ -1450,9 +1515,10 @@ def main() -> None:
             sys.exit(0)
         hops = len(path_nodes) - 1
         segments = []
+        from graphify.build import edge_data
         for i in range(len(path_nodes) - 1):
             u, v = path_nodes[i], path_nodes[i + 1]
-            edata = G.edges[u, v]
+            edata = edge_data(G, u, v)
             rel = edata.get("relation", "")
             conf = edata.get("confidence", "")
             conf_str = f" [{conf}]" if conf else ""
@@ -1498,9 +1564,10 @@ def main() -> None:
         print(f"  Degree:    {G.degree(nid)}")
         neighbors = list(G.neighbors(nid))
         if neighbors:
+            from graphify.build import edge_data
             print(f"\nConnections ({len(neighbors)}):")
             for nb in sorted(neighbors, key=lambda n: G.degree(n), reverse=True)[:20]:
-                edata = G.edges[nid, nb]
+                edata = edge_data(G, nid, nb)
                 rel = edata.get("relation", "")
                 conf = edata.get("confidence", "")
                 print(f"  --> {G.nodes[nb].get('label', nb)} [{rel}] [{conf}]")
@@ -1651,7 +1718,10 @@ def main() -> None:
             sys.exit(1)
         from graphify.watch import _rebuild_code
         print(f"Re-extracting code files in {watch_path} (no LLM needed)...")
-        ok = _rebuild_code(watch_path, force=force)
+        # Interactive CLI: block on the per-repo lock rather than skip, so the
+        # user sees their explicit `graphify update` complete instead of
+        # exiting silently when a hook-driven rebuild happens to be running.
+        ok = _rebuild_code(watch_path, force=force, block_on_lock=True)
         if ok:
             print("Code graph updated. For doc/paper/image changes run /graphify --update in your AI assistant.")
             if not (
@@ -1854,9 +1924,11 @@ def main() -> None:
 
     elif cmd == "export":
         subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
-        if subcmd not in ("html", "obsidian", "wiki", "svg", "graphml", "neo4j"):
+        if subcmd not in ("html", "callflow-html", "obsidian", "wiki", "svg", "graphml", "neo4j"):
             print("Usage: graphify export <format>", file=sys.stderr)
             print("  html      [--graph PATH] [--labels PATH] [--node-limit N] [--no-viz]", file=sys.stderr)
+            print("  callflow-html [GRAPH|DIR] [--graph PATH] [--labels PATH] [--report PATH] [--sections PATH] [--output HTML]", file=sys.stderr)
+            print("            [--lang auto|zh-CN|en] [--max-sections N] [--diagram-scale N]", file=sys.stderr)
             print("  obsidian  [--graph PATH] [--labels PATH] [--dir PATH]", file=sys.stderr)
             print("  wiki      [--graph PATH] [--labels PATH]", file=sys.stderr)
             print("  svg       [--graph PATH] [--labels PATH]", file=sys.stderr)
@@ -1868,7 +1940,18 @@ def main() -> None:
         # Parse shared args
         args = sys.argv[3:]
         graph_path = Path(_GRAPHIFY_OUT) / "graph.json"
+        graph_path_explicit = False
         labels_path = Path(_GRAPHIFY_OUT) / ".graphify_labels.json"
+        labels_path_explicit = False
+        report_path = Path(_GRAPHIFY_OUT) / "GRAPH_REPORT.md"
+        report_path_explicit = False
+        sections_path: Path | None = None
+        callflow_output: Path | None = None
+        callflow_lang = "auto"
+        callflow_max_sections = 15
+        callflow_diagram_scale = 1.0
+        callflow_max_diagram_nodes = 18
+        callflow_max_diagram_edges = 24
         analysis_path = Path(_GRAPHIFY_OUT) / ".graphify_analysis.json"
         node_limit = 5000
         no_viz = False
@@ -1883,9 +1966,45 @@ def main() -> None:
         while i < len(args):
             a = args[i]
             if a == "--graph" and i + 1 < len(args):
-                graph_path = Path(args[i + 1]); i += 2
+                graph_path = Path(args[i + 1])
+                graph_path_explicit = True
+                i += 2
             elif a == "--labels" and i + 1 < len(args):
-                labels_path = Path(args[i + 1]); i += 2
+                labels_path = Path(args[i + 1])
+                labels_path_explicit = True
+                i += 2
+            elif a == "--report" and i + 1 < len(args):
+                report_path = Path(args[i + 1])
+                report_path_explicit = True
+                i += 2
+            elif a == "--sections" and i + 1 < len(args):
+                sections_path = Path(args[i + 1]); i += 2
+            elif a == "--output" and i + 1 < len(args):
+                callflow_output = Path(args[i + 1]).expanduser()
+                if not callflow_output.is_absolute():
+                    callflow_output = Path.cwd() / callflow_output
+                i += 2
+            elif a == "--lang" and i + 1 < len(args):
+                callflow_lang = args[i + 1]; i += 2
+            elif a == "--max-sections" and i + 1 < len(args):
+                callflow_max_sections = int(args[i + 1]); i += 2
+            elif a == "--diagram-scale" and i + 1 < len(args):
+                callflow_diagram_scale = float(args[i + 1]); i += 2
+            elif a == "--max-diagram-nodes" and i + 1 < len(args):
+                callflow_max_diagram_nodes = int(args[i + 1]); i += 2
+            elif a == "--max-diagram-edges" and i + 1 < len(args):
+                callflow_max_diagram_edges = int(args[i + 1]); i += 2
+            elif a in ("-h", "--help") and subcmd == "callflow-html":
+                print("Usage: graphify export callflow-html [GRAPH|DIR] [--graph PATH] [--labels PATH]")
+                print("  --report PATH          path to GRAPH_REPORT.md")
+                print("  --sections PATH        JSON section definitions")
+                print("  --output HTML          output path (default graphify-out/<project>-callflow.html)")
+                print("  --lang LANG            auto, zh-CN, en, etc. (default auto)")
+                print("  --max-sections N       maximum auto-derived sections (default 15)")
+                print("  --diagram-scale N      Mermaid diagram scale (default 1.0)")
+                print("  --max-diagram-nodes N  representative nodes per section (default 18)")
+                print("  --max-diagram-edges N  representative edges per section (default 24)")
+                sys.exit(0)
             elif a == "--node-limit" and i + 1 < len(args):
                 node_limit = int(args[i + 1]); i += 2
             elif a == "--no-viz":
@@ -1898,12 +2017,50 @@ def main() -> None:
                 neo4j_user = args[i + 1]; i += 2
             elif a == "--password" and i + 1 < len(args):
                 neo4j_password = args[i + 1]; i += 2
+            elif subcmd == "callflow-html" and not a.startswith("-") and not graph_path_explicit:
+                candidate = Path(a)
+                if candidate.name == "graph.json" or candidate.suffix.lower() == ".json":
+                    graph_path = candidate
+                elif (candidate / "graph.json").exists():
+                    graph_path = candidate / "graph.json"
+                else:
+                    graph_path = candidate / _GRAPHIFY_OUT / "graph.json"
+                graph_path_explicit = True
+                i += 1
             else:
                 i += 1
+
+        graph_path = graph_path.expanduser()
+        if graph_path_explicit:
+            graph_out_dir = graph_path.parent
+            if not labels_path_explicit:
+                labels_path = graph_out_dir / ".graphify_labels.json"
+            if not report_path_explicit:
+                report_path = graph_out_dir / "GRAPH_REPORT.md"
+        labels_path = labels_path.expanduser()
+        report_path = report_path.expanduser()
 
         if not graph_path.exists():
             print(f"error: graph not found: {graph_path}. Run /graphify <path> first.", file=sys.stderr)
             sys.exit(1)
+
+        if subcmd == "callflow-html":
+            from graphify.callflow_html import write_callflow_html as _write_callflow_html
+            out = _write_callflow_html(
+                graph=graph_path,
+                report=report_path,
+                labels=labels_path,
+                sections=sections_path,
+                output=callflow_output,
+                lang=callflow_lang,
+                max_sections=callflow_max_sections,
+                diagram_scale=callflow_diagram_scale,
+                max_diagram_nodes=callflow_max_diagram_nodes,
+                max_diagram_edges=callflow_max_diagram_edges,
+                verbose=True,
+            )
+            print(f"callflow HTML written - open in any browser: {out}")
+            sys.exit(0)
 
         from networkx.readwrite import json_graph as _jg
         from graphify.build import build_from_json as _bfj
@@ -2077,8 +2234,10 @@ def main() -> None:
         # has an API key set.
         if len(sys.argv) < 3:
             print(
-                "Usage: graphify extract <path> [--backend gemini|kimi|claude|openai] "
-                "[--out DIR] [--google-workspace] [--no-cluster]",
+                "Usage: graphify extract <path> [--backend gemini|kimi|claude|openai|ollama] "
+                "[--model M] [--out DIR] [--google-workspace] [--no-cluster] "
+                "[--max-workers N] [--token-budget N] [--max-concurrency N] "
+                "[--api-timeout S]",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -2096,6 +2255,34 @@ def main() -> None:
         google_workspace = False
         global_merge = False
         global_repo_tag: str | None = None
+        # Performance/tuning knobs (issue #792). None means "use library default".
+        cli_max_workers: int | None = None
+        cli_token_budget: int | None = None
+        cli_max_concurrency: int | None = None
+        cli_api_timeout: float | None = None
+
+        def _parse_int(name: str, raw: str) -> int:
+            try:
+                v = int(raw)
+            except ValueError:
+                print(f"error: {name} must be a positive integer (got {raw!r})", file=sys.stderr)
+                sys.exit(2)
+            if v <= 0:
+                print(f"error: {name} must be > 0 (got {v})", file=sys.stderr)
+                sys.exit(2)
+            return v
+
+        def _parse_float(name: str, raw: str) -> float:
+            try:
+                v = float(raw)
+            except ValueError:
+                print(f"error: {name} must be a positive number (got {raw!r})", file=sys.stderr)
+                sys.exit(2)
+            if v <= 0:
+                print(f"error: {name} must be > 0 (got {v})", file=sys.stderr)
+                sys.exit(2)
+            return v
+
         args = sys.argv[3:]
         i = 0
         while i < len(args):
@@ -2122,8 +2309,31 @@ def main() -> None:
                 global_merge = True; i += 1
             elif a == "--as" and i + 1 < len(args):
                 global_repo_tag = args[i + 1]; i += 2
+            elif a == "--max-workers" and i + 1 < len(args):
+                cli_max_workers = _parse_int("--max-workers", args[i + 1]); i += 2
+            elif a.startswith("--max-workers="):
+                cli_max_workers = _parse_int("--max-workers", a.split("=", 1)[1]); i += 1
+            elif a == "--token-budget" and i + 1 < len(args):
+                cli_token_budget = _parse_int("--token-budget", args[i + 1]); i += 2
+            elif a.startswith("--token-budget="):
+                cli_token_budget = _parse_int("--token-budget", a.split("=", 1)[1]); i += 1
+            elif a == "--max-concurrency" and i + 1 < len(args):
+                cli_max_concurrency = _parse_int("--max-concurrency", args[i + 1]); i += 2
+            elif a.startswith("--max-concurrency="):
+                cli_max_concurrency = _parse_int("--max-concurrency", a.split("=", 1)[1]); i += 1
+            elif a == "--api-timeout" and i + 1 < len(args):
+                cli_api_timeout = _parse_float("--api-timeout", args[i + 1]); i += 2
+            elif a.startswith("--api-timeout="):
+                cli_api_timeout = _parse_float("--api-timeout", a.split("=", 1)[1]); i += 1
             else:
                 i += 1
+
+        # CLI flag wins over env var. Setting GRAPHIFY_API_TIMEOUT here so
+        # _call_openai_compat picks it up without needing a new kwarg path.
+        if cli_api_timeout is not None:
+            os.environ["GRAPHIFY_API_TIMEOUT"] = str(cli_api_timeout)
+        if cli_max_workers is not None:
+            os.environ["GRAPHIFY_MAX_WORKERS"] = str(cli_max_workers)
 
         # Backend resolution. If user did not pass --backend, sniff env.
         # If backend was explicitly requested, validate its key is present
@@ -2155,11 +2365,31 @@ def main() -> None:
             )
             sys.exit(1)
         if not _get_backend_api_key(backend):
-            print(
-                f"error: backend '{backend}' requires {_format_backend_env_keys(backend)} to be set.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+            # Ollama on a loopback URL ignores auth entirely; don't block
+            # the run just because OLLAMA_API_KEY is unset (issue #792).
+            # extract_files_direct already prints a warning and substitutes
+            # a placeholder key in that case.
+            allow_no_key = False
+            if backend == "ollama":
+                from urllib.parse import urlparse
+                ollama_url = os.environ.get(
+                    "OLLAMA_BASE_URL",
+                    _BACKENDS["ollama"].get("base_url", ""),
+                )
+                try:
+                    host = (urlparse(ollama_url).hostname or "").lower()
+                except Exception:
+                    host = ""
+                allow_no_key = (
+                    host in ("localhost", "127.0.0.1", "::1")
+                    or host.startswith("127.")
+                )
+            if not allow_no_key:
+                print(
+                    f"error: backend '{backend}' requires {_format_backend_env_keys(backend)} to be set.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
         # Resolve output dir. The user-facing contract is "<out>/graphify-out/"
         # so a fresh checkout writes graphify-out/ at the project root, matching
@@ -2224,9 +2454,12 @@ def main() -> None:
         ast_result: dict = {"nodes": [], "edges": [], "input_tokens": 0, "output_tokens": 0}
         if code_files:
             from graphify.extract import extract as _ast_extract
+            ast_kwargs: dict = {"cache_root": target}
+            if cli_max_workers is not None:
+                ast_kwargs["max_workers"] = cli_max_workers
             print(f"[graphify extract] AST extraction on {len(code_files)} code files...")
             try:
-                ast_result = _ast_extract(code_files, cache_root=target)
+                ast_result = _ast_extract(code_files, **ast_kwargs)
             except Exception as exc:
                 print(f"[graphify extract] AST extraction failed: {exc}", file=sys.stderr)
                 ast_result = {"nodes": [], "edges": [], "input_tokens": 0, "output_tokens": 0}
@@ -2257,12 +2490,31 @@ def main() -> None:
 
             if uncached_paths:
                 print(f"[graphify extract] semantic extraction on {len(uncached_paths)} files via {backend}...")
+                corpus_kwargs: dict = {
+                    "backend": backend,
+                    "model": model,
+                    "root": target,
+                }
+                if cli_token_budget is not None:
+                    corpus_kwargs["token_budget"] = cli_token_budget
+                if cli_max_concurrency is not None:
+                    corpus_kwargs["max_concurrency"] = cli_max_concurrency
+
+                # Minimal progress callback so the CLI is no longer silent
+                # during long local-inference runs (issue #792 addendum).
+                _total_chunks = {"n": 0}
+                def _progress(idx: int, total: int, _result: dict) -> None:
+                    _total_chunks["n"] = total
+                    print(
+                        f"[graphify extract] chunk {idx + 1}/{total} done",
+                        flush=True,
+                    )
+                corpus_kwargs["on_chunk_done"] = _progress
+
                 try:
                     fresh = _extract_corpus_parallel(
                         [Path(p) for p in uncached_paths],
-                        backend=backend,
-                        model=model,
-                        root=target,
+                        **corpus_kwargs,
                     )
                 except ImportError as exc:
                     print(f"error: {exc}", file=sys.stderr)

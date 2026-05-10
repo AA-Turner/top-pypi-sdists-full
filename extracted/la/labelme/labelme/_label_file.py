@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import base64
-import contextlib
 import io
 import json
-import os.path as osp
 import time
-from collections.abc import Iterator
+import warnings
+from dataclasses import dataclass
+from pathlib import Path
 from pathlib import PureWindowsPath
 from typing import Any
+from typing import Final
 from typing import TypedDict
 
 import numpy as np
@@ -21,14 +22,6 @@ from labelme import __version__
 from labelme import utils
 
 PIL.Image.MAX_IMAGE_PIXELS = None
-
-
-@contextlib.contextmanager
-def _open(name: str, mode: str) -> Iterator[io.TextIOWrapper]:
-    assert mode in ["r", "w"]
-    encoding = "utf-8"
-    yield open(name, mode, encoding=encoding)
-    return
 
 
 class ShapeDict(TypedDict):
@@ -133,163 +126,283 @@ def _load_shape_json_obj(shape_json_obj: dict) -> ShapeDict:
 
 
 class LabelFileError(Exception):
-    pass
+    """Base for read/write failures of labelme JSON annotation files."""
+
+
+class LabelFileReadError(LabelFileError):
+    """Wraps an underlying parse or image-decode failure during load."""
+
+
+class LabelFileWriteError(LabelFileError):
+    """Wraps an underlying I/O failure during save."""
+
+
+@dataclass(frozen=True)
+class LabelData:
+    image_path: str
+    image_data: bytes
+    shapes: list[ShapeDict]
+    flags: dict[str, bool]
+    other_data: dict[str, Any]
+
+
+LABEL_FILE_SUFFIX: Final[str] = ".json"
+
+_RESERVED_TOP_LEVEL_KEYS: Final[tuple[str, ...]] = (
+    "version",
+    "imageData",
+    "imagePath",
+    "shapes",
+    "flags",
+    "imageHeight",
+    "imageWidth",
+)
+
+
+def is_label_file_path(filename: str) -> bool:
+    return Path(filename).suffix.lower() == LABEL_FILE_SUFFIX
+
+
+def read_image_file(filename: str) -> bytes:
+    t_start = time.time()
+    image_pil = _imread(filename=filename)
+
+    oriented: PIL.Image.Image = utils.apply_exif_orientation(image=image_pil)
+    ext = Path(filename).suffix.lower()
+    if oriented is image_pil and ext in (".jpg", ".jpeg", ".png"):
+        with open(filename, "rb") as f:
+            image_data = f.read()
+    else:
+        with io.BytesIO() as f:
+            fmt = "PNG" if "A" in oriented.mode else "JPEG"
+            oriented.save(fp=f, format=fmt, quality=95)
+            f.seek(0)
+            image_data = f.read()
+
+    logger.debug(
+        "Loaded image file: {!r} in {:.0f}ms", filename, (time.time() - t_start) * 1000
+    )
+    return image_data
+
+
+def _check_image_dimensions(
+    *,
+    image_data: bytes,
+    expected_height: int | None,
+    expected_width: int | None,
+) -> None:
+    if expected_height is None and expected_width is None:
+        return
+    actual_w, actual_h = utils.img_data_to_pil(img_data=image_data).size
+    if expected_height is not None and expected_height != actual_h:
+        raise ValueError(
+            f"imageHeight mismatch: declared={expected_height}, actual={actual_h}"
+        )
+    if expected_width is not None and expected_width != actual_w:
+        raise ValueError(
+            f"imageWidth mismatch: declared={expected_width}, actual={actual_w}"
+        )
+
+
+def read_label_file(filename: str) -> LabelData:
+    try:
+        with open(filename, encoding="utf-8") as f:
+            raw: dict[str, Any] = json.load(f)
+        image_path = PureWindowsPath(raw["imagePath"]).as_posix()
+        if raw["imageData"] is not None:
+            image_data = base64.b64decode(raw["imageData"])
+        else:
+            image_data = read_image_file(
+                filename=str(Path(filename).parent / image_path)
+            )
+        _check_image_dimensions(
+            image_data=image_data,
+            expected_height=raw.get("imageHeight"),
+            expected_width=raw.get("imageWidth"),
+        )
+        shapes: list[ShapeDict] = [
+            _load_shape_json_obj(shape_json_obj=s) for s in raw["shapes"]
+        ]
+        flags = raw.get("flags") or {}
+    except (
+        OSError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+        ValueError,
+        RuntimeError,
+    ) as e:
+        raise LabelFileReadError(f"failed to load {filename!r}: {e}") from e
+    other_data = {k: v for k, v in raw.items() if k not in _RESERVED_TOP_LEVEL_KEYS}
+    return LabelData(
+        image_path=image_path,
+        image_data=image_data,
+        shapes=shapes,
+        flags=flags,
+        other_data=other_data,
+    )
+
+
+def write_label_file(
+    filename: str,
+    *,
+    shapes: list[dict[str, Any]],
+    image_path: str,
+    image_height: int | None,
+    image_width: int | None,
+    image_data: bytes | None = None,
+    other_data: dict[str, Any] | None = None,
+    flags: dict[str, bool] | None = None,
+) -> None:
+    try:
+        image_data_b64: str | None = None
+        if image_data is not None:
+            _check_image_dimensions(
+                image_data=image_data,
+                expected_height=image_height,
+                expected_width=image_width,
+            )
+            image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+        # JSON keys stay camelCase: changing them would break existing .json files.
+        payload: dict[str, Any] = {
+            "version": __version__,
+            "flags": dict(flags) if flags else {},
+            "shapes": list(shapes),
+            "imagePath": image_path,
+            "imageData": image_data_b64,
+            "imageHeight": image_height,
+            "imageWidth": image_width,
+        }
+        for key, value in (other_data or {}).items():
+            if key in _RESERVED_TOP_LEVEL_KEYS:
+                raise ValueError(f"reserved key in other_data: {key!r}")
+            payload[key] = value
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+    except (OSError, TypeError, ValueError) as e:
+        raise LabelFileWriteError(f"failed to write {filename!r}: {e}") from e
 
 
 class LabelFile:
     shapes: list[ShapeDict]
-    suffix = ".json"
+    suffix: Final[str] = LABEL_FILE_SUFFIX
 
     def __init__(self, filename: str | None = None) -> None:
-        self.shapes: list[ShapeDict] = []
-        self.imagePath: str | None = None
-        self.imageData: bytes | None = None
-        if filename is not None:
-            self.load(filename)
+        self.shapes = []
+        self.image_path: str | None = None
+        self.image_data: bytes | None = None
+        self.other_data: dict[str, Any] = {}
+        self.flags: dict[str, bool] = {}
         self.filename: str | None = filename
+        if filename is not None:
+            self.load(filename=filename)
+
+    @property
+    def imagePath(self) -> str | None:
+        warnings.warn(
+            "LabelFile.imagePath is deprecated and will be removed in a future "
+            "release; use image_path",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.image_path
+
+    @imagePath.setter
+    def imagePath(self, value: str | None) -> None:
+        warnings.warn(
+            "LabelFile.imagePath is deprecated and will be removed in a future "
+            "release; use image_path",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.image_path = value
+
+    @property
+    def imageData(self) -> bytes | None:
+        warnings.warn(
+            "LabelFile.imageData is deprecated and will be removed in a future "
+            "release; use image_data",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.image_data
+
+    @imageData.setter
+    def imageData(self, value: bytes | None) -> None:
+        warnings.warn(
+            "LabelFile.imageData is deprecated and will be removed in a future "
+            "release; use image_data",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.image_data = value
+
+    @property
+    def otherData(self) -> dict[str, Any]:
+        warnings.warn(
+            "LabelFile.otherData is deprecated and will be removed in a future "
+            "release; use other_data",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.other_data
+
+    @otherData.setter
+    def otherData(self, value: dict[str, Any]) -> None:
+        warnings.warn(
+            "LabelFile.otherData is deprecated and will be removed in a future "
+            "release; use other_data",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.other_data = value
 
     @staticmethod
     def load_image_file(filename: str) -> bytes:
-        t0 = time.time()
-        image_pil = _imread(filename=filename)
-
-        oriented: PIL.Image.Image = utils.apply_exif_orientation(image_pil)
-        ext = osp.splitext(filename)[1].lower()
-        if oriented is image_pil and ext in (".jpg", ".jpeg", ".png"):
-            # no encoding needed
-            with open(filename, "rb") as f:
-                imageData = f.read()
-        else:
-            with io.BytesIO() as f:
-                format = "PNG" if "A" in oriented.mode else "JPEG"
-                oriented.save(f, format=format, quality=95)
-                f.seek(0)
-                imageData = f.read()
-
-        logger.debug(
-            "Loaded image file: {!r} in {:.0f}ms", filename, (time.time() - t0) * 1000
-        )
-        return imageData
+        return read_image_file(filename=filename)
 
     def load(self, filename: str) -> None:
-        keys = [
-            "version",
-            "imageData",
-            "imagePath",
-            "shapes",  # polygonal annotations
-            "flags",  # image level flags
-            "imageHeight",
-            "imageWidth",
-        ]
-        try:
-            with _open(filename, "r") as f:
-                data = json.load(f)
-
-            # Normalize Windows-style backslash paths to POSIX forward slashes
-            imagePath = PureWindowsPath(data["imagePath"]).as_posix()
-
-            if data["imageData"] is not None:
-                imageData = base64.b64decode(data["imageData"])
-            else:
-                # relative path from label file to relative path from cwd
-                imageData = self.load_image_file(
-                    osp.join(osp.dirname(filename), imagePath)
-                )
-            flags = data.get("flags") or {}
-            self._check_image_height_and_width(
-                imageData,
-                data.get("imageHeight"),
-                data.get("imageWidth"),
-            )
-            shapes: list[ShapeDict] = [
-                _load_shape_json_obj(shape_json_obj=s) for s in data["shapes"]
-            ]
-        except Exception as e:
-            raise LabelFileError(e)
-
-        otherData = {}
-        for key, value in data.items():
-            if key not in keys:
-                otherData[key] = value
-
-        # Only replace data after everything is loaded.
-        self.flags = flags
-        self.shapes = shapes
-        self.imagePath = imagePath
-        self.imageData = imageData
+        loaded: LabelData = read_label_file(filename=filename)
+        self.flags = loaded.flags
+        self.shapes = loaded.shapes
+        self.image_path = loaded.image_path
+        self.image_data = loaded.image_data
+        self.other_data = loaded.other_data
         self.filename = filename
-        self.otherData = otherData
-
-    @staticmethod
-    def _check_image_height_and_width(
-        imageData: bytes, imageHeight: int | None, imageWidth: int | None
-    ) -> tuple[int | None, int | None]:
-        img_pil = utils.img_data_to_pil(imageData)
-        actual_w, actual_h = img_pil.size
-        if imageHeight is not None and actual_h != imageHeight:
-            logger.error(
-                "imageHeight does not match with imageData or imagePath, "
-                "so getting imageHeight from actual image."
-            )
-            imageHeight = actual_h
-        if imageWidth is not None and actual_w != imageWidth:
-            logger.error(
-                "imageWidth does not match with imageData or imagePath, "
-                "so getting imageWidth from actual image."
-            )
-            imageWidth = actual_w
-        return imageHeight, imageWidth
 
     def save(
         self,
         filename: str,
         shapes: list[dict[str, Any]],
-        imagePath: str,
-        imageHeight: int | None,
-        imageWidth: int | None,
-        imageData: bytes | None = None,
-        otherData: dict[str, Any] | None = None,
+        image_path: str,
+        image_height: int | None,
+        image_width: int | None,
+        image_data: bytes | None = None,
+        other_data: dict[str, Any] | None = None,
         flags: dict[str, bool] | None = None,
     ) -> None:
-        imageData_b64: str | None = None
-        if imageData is not None:
-            imageHeight, imageWidth = self._check_image_height_and_width(
-                imageData, imageHeight, imageWidth
-            )
-            imageData_b64 = base64.b64encode(imageData).decode("utf-8")
-        if otherData is None:
-            otherData = {}
-        if flags is None:
-            flags = {}
-        data = dict(
-            version=__version__,
-            flags=flags,
+        write_label_file(
+            filename=filename,
             shapes=shapes,
-            imagePath=imagePath,
-            imageData=imageData_b64,
-            imageHeight=imageHeight,
-            imageWidth=imageWidth,
+            image_path=image_path,
+            image_height=image_height,
+            image_width=image_width,
+            image_data=image_data,
+            other_data=other_data,
+            flags=flags,
         )
-        for key, value in otherData.items():
-            assert key not in data
-            data[key] = value
-        try:
-            with _open(filename, "w") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            self.filename = filename
-        except Exception as e:
-            raise LabelFileError(e)
+        self.filename = filename
 
     @staticmethod
     def is_label_file(filename: str) -> bool:
-        return osp.splitext(filename)[1].lower() == LabelFile.suffix
+        return is_label_file_path(filename=filename)
 
 
 _DISPLAYABLE_MODES = {"1", "L", "P", "RGB", "RGBA", "LA", "PA"}
 
 
 def _imread(filename: str) -> PIL.Image.Image:
-    ext: str = osp.splitext(filename)[1].lower()
+    ext: str = Path(filename).suffix.lower()
     try:
         image_pil = PIL.Image.open(filename)
         if image_pil.mode not in _DISPLAYABLE_MODES:

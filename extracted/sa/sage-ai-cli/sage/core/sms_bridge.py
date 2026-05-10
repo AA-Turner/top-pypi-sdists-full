@@ -455,37 +455,120 @@ def _strip_ansi(text: str) -> str:
 # We strip these before SMS so the user gets the FINAL ANSWER, not the work log.
 _TOOL_LINE_RE = re.compile(
     r'^\s*(READ|WRITE|EDIT|RUN|BASH|GREP|GLOB|LS|FIND|FETCH|SEARCH|TASK|TODO|'
-    r'PATCH|APPLY|DIFF|CREATE|DELETE|MOVE|COPY|VIEW|OPEN|TOOL|CALL)\s*:.*$',
+    r'PATCH|APPLY|DIFF|CREATE|DELETE|MOVE|COPY|VIEW|OPEN|TOOL|CALL|FILE|'
+    r'COMMAND|EXEC|EXECUTE|SHELL)\s*:.*$',
     re.IGNORECASE,
 )
+# `+ filename` and `- filename` markers SAGE prints after FILE: writes
+_FILE_MARKER_RE = re.compile(r'^\s*[+\-]\s+\S+\s*$')
 _PROMPT_LINE_RE = re.compile(r'^\s*\[SAGE[^\]]*\]\s*sage>.*$', re.IGNORECASE)
+# A bare `sage>` prefix at line start — strip the prefix only, not the whole line,
+# so legitimate content after `sage>` (the agent's actual answer line) is kept.
+_SAGE_PREFIX_RE = re.compile(r'^\s*sage>\s?', re.IGNORECASE)
 _FOOTER_LINE_RE = re.compile(r'^\s*[─\-]\s*\d+\s*tokens?\b.*$')
 _THINK_BLOCK_RE = re.compile(r'<thinking>.*?</thinking>', re.DOTALL | re.IGNORECASE)
+# Agent planning lines (the model recapping its plan in numbered steps) —
+# `STEP 1: ...`, `STEP 2: ...`, `Step 1.`, etc. These are not the answer.
+_STEP_LINE_RE = re.compile(r'^\s*STEP\s+\d+\s*[:.—–-]', re.IGNORECASE)
+# Planning-step metadata tail. The agent emits steps with trailing markers like
+# `— None`, `— None (Execution step)`, `— No files`, `— `<file>``. When a long
+# STEP description wraps onto a continuation line, that wrapped line still
+# ends with this tail. Catches the wrap-continuation that _STEP_LINE_RE misses.
+_PLANNING_TAIL_RE = re.compile(
+    r'—\s*(?:None|No files|`[^`]+`)(?:\s*\([^)]*\))?\s*$',
+    re.IGNORECASE,
+)
+
+# Rich Panel art / box-drawing UI chrome. Matches anything starting with
+# one of: ╭ ╮ ╯ ╰ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼ ─ ━ ═ │ ┃ ║. The interactive `sage run`
+# banner is wrapped in this; over SMS it's just garbage characters.
+_PANEL_LINE_RE = re.compile(r'^\s*[╭╮╯╰┌┐└┘├┤┬┴┼─━═│┃║▏▕]')
+
+# Rich status-spinner final states ("✓ Project scanned", "✓ done", etc.) and
+# the harness's "Shell cwd was reset to ..." trailer that the parent process
+# prints after the subprocess returns. None of these are the model's answer.
+_STATUS_LINE_RE = re.compile(
+    r'^\s*(?:'
+    r'[✓✗⚠ℹ]\s+|'                                     # Status glyphs
+    r'Shell cwd was reset to|'                         # Subprocess trailer
+    r'(?:Project scanned|Loading|Initializing|Ready)\b'
+    r')',
+    re.IGNORECASE,
+)
+
+# Model-backend init noise. llama-cpp-python and ggml print warnings/errors
+# to stderr during model load: Metal compilation messages, n_ctx warnings,
+# load-failure tracebacks. None of this is the agent's answer — it's
+# infrastructure complaining at the SMS user. Strip aggressively.
+_BACKEND_NOISE_RE = re.compile(
+    r'^\s*(?:'
+    r'\[llama_cpp\]|'                                      # [llama_cpp] failed: ...
+    r'llama_(?:context|model|backend|new_context)|'        # llama_context: n_ctx_seq...
+    r'ggml_|'                                              # ggml_metal_init / ggml_backend / etc.
+    r'Metal\s+(?:GPU|backend|library)|'                    # Metal-related lines
+    r'GGML_|'                                              # GGML_BACKEND etc.
+    r'Failed to load model|'                               # llama_cpp load failures
+    r'Exception ignored in:|'                              # Python __del__ noise
+    r'Traceback \(most recent call last\):|'               # Python tracebacks
+    r'  File "/[^"]+", line \d+|'                          # Traceback frames
+    r'  +\^+\s*$|'                                         # Traceback ^^^^^ marker
+    r'(?:AttributeError|TypeError|ValueError|RuntimeError|FileNotFoundError|OSError|ImportError):'
+    r')',
+    re.IGNORECASE,
+)
 
 
 def _extract_final_answer(raw: str) -> str:
-    """Pull the model's actual reply out of `sage ask --raw` output.
+    """Pull the model's actual reply out of `sage run` / `sage ask --raw` output.
 
-    The raw stream interleaves three things we don't want over SMS:
+    The raw stream interleaves UI chrome we don't want over SMS:
       1. `<thinking>...</thinking>` blocks — internal reasoning.
-      2. Tool-call trace lines (`READ: foo.py`, `EDIT: bar.ts`, etc.) — the
-         work log, not the answer.
-      3. The `[SAGE — host] sage>` prompt prefix and the trailing
-         `─ 124 tokens · 10s · …` token footer.
+      2. Tool-call trace lines (`READ: foo.py`, `EDIT: bar.ts`, …) — work log.
+      3. The `[SAGE — host] sage>` prompt prefix and the `─ 124 tokens · …` footer.
+      4. Rich Panel art (the `╭─╮ │ ╰─╯` startup banner with model/project info)
+         that prints when `sage run --prompt` boots in non-interactive mode.
+      5. Status-spinner final states (`✓ Project scanned`) and the harness
+         trailer (`Shell cwd was reset to …`).
 
     Strip all of that and return only the real prose. If nothing is left
-    (model produced only tool calls, e.g. it ran out of budget mid-research),
-    we fall back to the original text so the summarizer still has something
+    (model produced only tool calls / banner, e.g. it crashed mid-run), we
+    fall back to the original text so the summarizer still has something
     to work with rather than empty string.
     """
     text = _THINK_BLOCK_RE.sub('', raw)
     cleaned_lines: list[str] = []
+    in_code_fence = False  # Track ``` triple-backtick fenced code blocks
     for line in text.splitlines():
+        # Strip the `sage>` prompt prefix FIRST — turns `sage> RUN: foo` into
+        # `RUN: foo` so the tool-line filter below can drop it, and turns
+        # `sage> The answer is X` into `The answer is X` so the answer is kept.
+        line = _SAGE_PREFIX_RE.sub('', line)
+        # Code fences: skip the fence markers AND everything inside them.
+        # The agent's FILE: blocks ship as ```lang\ncontent\n```; over SMS we
+        # don't want to dump source code.
+        stripped = line.lstrip()
+        if stripped.startswith("```"):
+            in_code_fence = not in_code_fence
+            continue
+        if in_code_fence:
+            continue
         if _TOOL_LINE_RE.match(line):
             continue
         if _PROMPT_LINE_RE.match(line):
             continue
         if _FOOTER_LINE_RE.match(line):
+            continue
+        if _PANEL_LINE_RE.match(line):
+            continue
+        if _STATUS_LINE_RE.match(line):
+            continue
+        if _STEP_LINE_RE.match(line):
+            continue
+        if _PLANNING_TAIL_RE.search(line):
+            continue
+        if _FILE_MARKER_RE.match(line):
+            continue
+        if _BACKEND_NOISE_RE.match(line):
             continue
         cleaned_lines.append(line)
     cleaned = '\n'.join(cleaned_lines).strip()
@@ -973,21 +1056,141 @@ class SAGEMessageBridge:
             self._stop.wait(5)
         self._log("iMessage inbound poller stopped")
 
+    @staticmethod
+    def _classify_sms_intent(task: str) -> str:
+        """Decide whether a texted message needs the full agent loop or just chat.
+
+        The agent loop loads the GGUF model + tool runtime — for trivial
+        greetings ("Hello Sage") that's overkill AND fires backend errors
+        like the gemma4.gguf load failure. We route those to the much lighter
+        `sage ask` chat path.
+
+        Conservative bias: when in doubt, return "agent" so real coding
+        requests don't get downgraded to chat (which couldn't execute them).
+
+        Returns "chat" only when the message is unambiguously trivial:
+          • Pure greetings ("hi", "hello", "hey", "yo", "sup", "gm")
+          • Acknowledgments ("ok", "thanks", "ty", "cool", "got it")
+          • Pure questions starting with question words AND no action verbs
+            ("what is X", "how does Y work")
+          • Very short messages (<= 30 chars) with no imperative verbs
+        Otherwise returns "agent".
+        """
+        if not task:
+            return "chat"
+        s = task.strip().lower()
+
+        # Imperative / action verbs anywhere → agent.
+        ACTION_VERBS = (
+            "run", "create", "build", "make", "write", "edit", "add", "fix",
+            "delete", "remove", "deploy", "install", "scaffold", "generate",
+            "set up", "setup", "configure", "test", "commit", "push", "pull",
+            "merge", "rebase", "checkout", "compile", "lint", "format",
+            "refactor", "rename", "implement", "ship", "publish", "init",
+            "clone", "open", "save", "update", "upgrade", "downgrade",
+            "start", "stop", "restart", "kill", "spawn", "execute",
+            "show me the", "list the", "find the", "search for",
+        )
+        for verb in ACTION_VERBS:
+            # Word-boundary match so "stop" doesn't match "stopwatch".
+            if re.search(rf'\b{re.escape(verb)}\b', s):
+                return "agent"
+
+        # Path-like or command-like tokens → agent.
+        if re.search(r'(?:~/|/Users/|\.\w{1,5}\b|\$|`|--?\w+)', s):
+            return "agent"
+
+        # Pure greetings / acknowledgments → chat.
+        TRIVIAL_PATTERNS = (
+            r'^(?:hi|hello|hey|yo|sup|gm|gn|good\s*(?:morning|night|evening|afternoon))\b',
+            r'^(?:thanks|thank\s*you|ty|tysm)\b',
+            r'^(?:ok(?:ay)?|cool|got\s*it|sure|nice|great|awesome|sweet)\b',
+            r'^(?:bye|goodbye|cya|see\s*you|later)\b',
+        )
+        for pat in TRIVIAL_PATTERNS:
+            if re.match(pat, s):
+                return "chat"
+
+        # Pure question (starts with a question word) → chat.
+        if re.match(r'^(?:what|how|why|when|where|who|which|is|are|can|could|do|does|did)\b', s):
+            return "chat"
+
+        # Very short with no action verb and no path → chat.
+        if len(s) <= 30:
+            return "chat"
+
+        # Default conservatively to agent so real tasks aren't downgraded.
+        return "agent"
+
+    @staticmethod
+    def _ollama_has_model(name: str) -> bool:
+        """Check if Ollama has the named model locally pulled and ready."""
+        try:
+            result = subprocess.run(
+                ["ollama", "list"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode != 0:
+                return False
+            base = name.split(":", 1)[0]
+            for line in result.stdout.splitlines()[1:]:
+                first = line.split()[0] if line.strip() else ""
+                if first == name or first == f"{base}:latest" or first.startswith(f"{base}:"):
+                    return True
+            return False
+        except Exception:
+            return False
+
+    def _resolve_dispatch_model(self) -> str | None:
+        """Pick the model to use for SMS dispatch, with auto-Ollama preference.
+
+        Resolution order:
+          1. SMSConfig.model — if the user explicitly set a per-bridge model,
+             trust them and use it as-is.
+          2. ~/.sage/config.json default_model — the user's chosen default.
+             If it's `llama_cpp:X` and `ollama:X` is available locally, swap
+             to ollama (avoids llama_cpp Metal-compilation failures on macOS).
+          3. None — let sage pick (usually fine in chat/ask mode).
+
+        We pass the result via `--model` to override any per-cwd
+        `last_used_model` cache that would otherwise win, which was the cause
+        of the SMS thread where `Run: sage --version` errored on a model
+        the user didn't ask for (cached from an unrelated session).
+        """
+        if self.cfg.model:
+            return self.cfg.model
+        try:
+            from sage.config import load_config
+            cfg = load_config()
+            chosen = (cfg.default_model or "").strip()
+        except Exception:
+            return None
+        if not chosen:
+            return None
+        # Auto-prefer Ollama: if default is `llama_cpp:gemma4` and ollama has
+        # `gemma4`, use `ollama:gemma4` — Ollama handles GPU/Metal correctly
+        # while llama-cpp-python often fails to compile Metal shaders on the fly.
+        if chosen.startswith("llama_cpp:"):
+            base_name = chosen.split(":", 1)[1]
+            if self._ollama_has_model(base_name):
+                return f"ollama:{base_name}"
+        return chosen
+
     def _run_sage_task(
         self,
         task: str,
         timeout: int | None = None,
-        mode: str = "agent",
+        mode: str = "auto",
     ) -> str:
         """Execute a sage task as a subprocess.
 
-        Two dispatch modes:
-        - mode="agent" (default, used for real SMS tasks): runs `sage run --prompt`
-          which fires the full agent loop — shell, file edits, RUN: blocks, test
-          loops, retries. This is what makes texted requests like "create a
-          project at ~/foo" or "run the tests" actually execute. Without this,
-          the model just chats back ("I cannot run commands").
-        - mode="chat" (used for the SMS reply summarizer): runs `sage ask --raw`
+        Three dispatch modes:
+        - mode="auto" (default for SMS dispatch): classify the message and
+          route greetings/questions to chat, action requests to agent. This
+          avoids burning the heavy llama_cpp model load on a "Hello Sage".
+        - mode="agent": force the full `sage run --prompt` agent loop —
+          shell, file edits, RUN: blocks, test loops, retries.
+        - mode="chat": force `sage ask --raw` (used for the SMS reply summarizer):
           which is a fast one-shot text completion with no tool use. Right for
           pure compression tasks where we don't want the agent reasoning loop.
 
@@ -995,7 +1198,15 @@ class SAGEMessageBridge:
         any timeout we'd pick, and dropping the reply mid-run is the worst
         possible UX. Callers that genuinely want a deadline pass `timeout`.
         """
-        model_flags = ["--model", self.cfg.model] if self.cfg.model else []
+        # Resolve auto-mode now so the rest of the function only sees agent/chat.
+        if mode == "auto":
+            mode = self._classify_sms_intent(task)
+        # Always pass --model explicitly so per-cwd `last_used_model` caches
+        # in ~/.sage/.../session_state.json can't override the user's intent.
+        # The resolver also auto-prefers ollama:<name> over llama_cpp:<name>
+        # if both are available — avoids Metal-shader compilation failures.
+        resolved_model = self._resolve_dispatch_model()
+        model_flags = ["--model", resolved_model] if resolved_model else []
         if mode == "agent":
             cmd_variants = (
                 [sys.executable, "-m", "sage", "run"] + model_flags + ["--prompt", task],
@@ -1027,15 +1238,38 @@ class SAGEMessageBridge:
     def _summarize_for_sms(self, full_response: str, original_task: str) -> str:
         """Use the model to compress a long SAGE response into a phone-friendly reply.
 
-        Falls back to the cleaned full text if the model is unavailable or the
-        response is already short enough.
+        Three-tier strategy by length:
+          1. Already ≤ 280 chars → return as-is (no model call).
+          2. 281-700 chars → cheap fast-path: keep the last natural paragraph
+             (which is where the agent's actual conclusion sits) and hard-cap.
+             Avoids burning 60+ seconds running the model just to drop ~150 chars.
+          3. > 700 chars → run the LLM summarizer with NO deadline (the user
+             accepted "this can take a while" by texting a complex task — and
+             the prior 60s deadline was the literal cause of the SMS thread the
+             user pasted, where every reply came back as "⏱ Timed out").
         """
-        # _run_sage_task already strips tool-call traces, but if a caller hands
-        # us raw output (or a future code path forgets), clean again here so
-        # the summarizer never sees `READ: foo` / `[SAGE] sage>` noise.
         cleaned = _extract_final_answer(full_response)
         if len(cleaned) <= 280:
             return cleaned
+
+        # Fast-path: short-but-over-limit outputs → take the last paragraph
+        # (typically the agent's final answer; everything before is the work log)
+        # and hard-truncate. Cheap, no LLM call, no timeout risk.
+        if len(cleaned) <= 700:
+            paragraphs = [p.strip() for p in cleaned.split("\n\n") if p.strip()]
+            if paragraphs:
+                last = paragraphs[-1]
+                if len(last) <= 280:
+                    return last
+                # Try the second-to-last if the last is itself too long
+                if len(paragraphs) >= 2 and len(paragraphs[-2]) <= 280:
+                    return paragraphs[-2]
+            # No clean paragraph cut — hard truncate with ellipsis
+            return cleaned[:277].rstrip() + "…"
+
+        # Long-output path: actually summarize. NO timeout — local models on
+        # cold start can take 30-90s, and a deadline here is what was eating
+        # real replies and surfacing as "⏱ Timed out" over SMS.
         prompt = (
             "You are summarizing the FINAL ANSWER of a SAGE coding-assistant run "
             "for delivery as a single SMS reply (max 280 characters).\n\n"
@@ -1048,13 +1282,13 @@ class SAGEMessageBridge:
             f"User asked: {original_task[:200]}\n\n"
             f"SAGE final answer (already stripped of tool-call traces):\n{cleaned[:4000]}"
         )
-        summary = self._run_sage_task(prompt, timeout=60, mode="chat").strip()
+        summary = self._run_sage_task(prompt, mode="chat").strip()
         # Run the cleaner over the summary too — if the summarizer itself
         # leaked any process-log lines, drop them before sending.
         summary = _extract_final_answer(summary)
-        # Guard against empty / overly long summaries
+        # Guard against empty / overly long summaries — fall back to truncated cleaned
         if not summary or len(summary) > 320:
-            return cleaned  # backend will hard-truncate
+            return cleaned[:277].rstrip() + "…"
         return summary
 
     @staticmethod

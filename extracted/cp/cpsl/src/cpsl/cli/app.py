@@ -36,13 +36,15 @@ def create(client: ServiceClient, name: str, price: int, pricing_type: str):
         terminal.error(f"Failed: {res.err_msg}")
         raise SystemExit(1)
 
-    terminal.success(f"Created app \"{res.app.name}\" at {app_url(res.app.hostname)}")
+    terminal.success(f'Created app "{res.app.name}" at {app_url(res.app.hostname)}')
     terminal.info(f"  ID:       {res.app.id}")
     terminal.info(f"  Hostname: {res.app.hostname}")
     if res.app.price_in_cents <= 0:
         terminal.info("  Price:    free")
     else:
-        terminal.info(f"  Price:    {res.app.price_in_cents}¢ / {res.app.pricing_type.replace('_', ' ')}")
+        terminal.info(
+            f"  Price:    {res.app.price_in_cents}¢ / {res.app.pricing_type.replace('_', ' ')}"
+        )
 
 
 @app.command("list")

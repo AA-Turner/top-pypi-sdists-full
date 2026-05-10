@@ -1066,6 +1066,7 @@ class TTSResource:
     def multi_context_session(
         self,
         default_voice_id: Optional[int] = None,
+        model_id: Optional[str] = None,
         sample_rate: int = 24000,
         cfg_scale: float = 2.0,
         temperature: Optional[float] = None,
@@ -1087,6 +1088,7 @@ class TTSResource:
 
         Args:
             default_voice_id: Default voice ID for new contexts
+            model_id: Model to use (e.g., "kugel-1-turbo")
             sample_rate: Output sample rate (default 24000)
             cfg_scale: CFG scale for generation (default 2.0)
             max_new_tokens: Maximum tokens to generate (default 2048)
@@ -1118,6 +1120,7 @@ class TTSResource:
             api_key=self._client._api_key,
             tts_url=self._client._tts_url,
             default_voice_id=default_voice_id,
+            model_id=model_id,
             sample_rate=sample_rate,
             cfg_scale=cfg_scale,
             temperature=temperature,

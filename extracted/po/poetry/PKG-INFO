@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry
-Version: 2.4.0
+Version: 2.4.1
 Summary: Python dependency management and packaging made easy.
 License-Expression: MIT
 License-File: LICENSE
@@ -24,7 +24,7 @@ Requires-Dist: cleo (>=2.1.0,<3.0.0)
 Requires-Dist: dulwich (>=0.25.0,<2)
 Requires-Dist: fastjsonschema (>=2.18.0,<3.0.0)
 Requires-Dist: findpython (>=0.6.2,<0.9.0)
-Requires-Dist: installer (>=1.0.0,<2.0.0)
+Requires-Dist: installer (>=0.7.0,<2.0.0)
 Requires-Dist: keyring (>=25.1.0,<26.0.0)
 Requires-Dist: packaging (>=24.2)
 Requires-Dist: pbs-installer[download,install] (>=2025.6.10)

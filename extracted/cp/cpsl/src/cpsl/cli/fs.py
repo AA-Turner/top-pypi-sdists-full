@@ -1,5 +1,4 @@
 import os
-import sys
 
 import click
 import requests
@@ -166,6 +165,7 @@ def upload(client: ServiceClient, name: str, local_path: str, remote_path: str):
     base, headers = _http_base()
 
     import mimetypes
+
     content_type = mimetypes.guess_type(local_path)[0] or "application/octet-stream"
 
     r = requests.post(

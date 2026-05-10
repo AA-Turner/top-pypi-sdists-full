@@ -7,13 +7,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from cpsl.constants import CollectionDecl, Column
 from cpsl.clients.capsule import (
-    CollectionSchema,
     DeleteManyResponse,
     FindResponse,
     GetCollectionSchemaResponse,
     UpsertCollectionSchemaResponse,
 )
-from cpsl.db import Collection, CollectionManager, CollectionRef, reset_active_identity, set_active_identity
+from cpsl.db import (
+    Collection,
+    CollectionManager,
+    CollectionRef,
+    reset_active_identity,
+    set_active_identity,
+)
 from cpsl.session import UserInfo
 
 
@@ -40,7 +45,16 @@ class FakeDataStub:
 
     def upsert_collection_schema(self, req):
         schema = req.schema
-        self.schemas[(req.app_id, schema.name, schema.scope, schema.user_id, schema.owner_id, schema.session_id)] = schema
+        self.schemas[
+            (
+                req.app_id,
+                schema.name,
+                schema.scope,
+                schema.user_id,
+                schema.owner_id,
+                schema.session_id,
+            )
+        ] = schema
         return UpsertCollectionSchemaResponse(schema=schema)
 
     def find(self, req):
@@ -64,10 +78,12 @@ class DynamicCollectionTests(unittest.IsolatedAsyncioTestCase):
         )
 
         leads = await manager.get("leads")
-        columns = await leads.set_columns([
-            "name",
-            Column("score", type="number", label="Lead Score"),
-        ])
+        columns = await leads.set_columns(
+            [
+                "name",
+                Column("score", type="number", label="Lead Score"),
+            ]
+        )
 
         self.assertEqual([c.key for c in columns], ["name", "score"])
         self.assertEqual([c.key for c in await leads.list_columns()], ["name", "score"])
@@ -85,30 +101,40 @@ class DynamicCollectionTests(unittest.IsolatedAsyncioTestCase):
         leads = await manager.get("leads", scope="owner")
         await leads.find({"status": "open"})
 
-        self.assertEqual(json.loads(stub.last_find.filter_json), {"_team_id": "org:o1", "status": "open"})
+        self.assertEqual(
+            json.loads(stub.last_find.filter_json), {"_team_id": "org:o1", "status": "open"}
+        )
 
     async def test_lazy_filter_limit_order_and_query_delete(self):
         stub = FakeDataStub()
         stub.find_docs = [{"_id": "row-1", "status": "archived"}]
-        manager = CollectionManager(stub, "app-1", collection_scopes={"leads": "owner"}, user_id="u1", owner_id="org:o1")
+        manager = CollectionManager(
+            stub, "app-1", collection_scopes={"leads": "owner"}, user_id="u1", owner_id="org:o1"
+        )
 
         leads = await manager.get("leads")
         rows = await leads.filter(status="archived", score__gt=80).order_by("-created_at").limit(10)
 
         self.assertEqual(rows[0]["id"], "row-1")
-        self.assertEqual(json.loads(stub.last_find.filter_json), {
-            "_team_id": "org:o1",
-            "status": "archived",
-            "score": {"$gt": 80},
-        })
+        self.assertEqual(
+            json.loads(stub.last_find.filter_json),
+            {
+                "_team_id": "org:o1",
+                "status": "archived",
+                "score": {"$gt": 80},
+            },
+        )
         self.assertEqual(stub.last_find.limit, 10)
         self.assertEqual(json.loads(stub.last_find.sort_json), {"created_at": -1})
 
         await leads.filter(status="archived").delete()
-        self.assertEqual(json.loads(stub.last_delete_many.filter_json), {
-            "_team_id": "org:o1",
-            "status": "archived",
-        })
+        self.assertEqual(
+            json.loads(stub.last_delete_many.filter_json),
+            {
+                "_team_id": "org:o1",
+                "status": "archived",
+            },
+        )
 
     async def test_row_delete_and_delete_rows_use_ids(self):
         stub = FakeDataStub()
@@ -156,10 +182,16 @@ class DynamicCollectionTests(unittest.IsolatedAsyncioTestCase):
             CollectionDecl(name="notes", columns=(Column("title"),), scope="owner"),
         )
         ref._bound = Collection(stub, "app-1", "notes")
-        token = set_active_identity(type("Identity", (), {
-            "id": "",
-            "user": UserInfo(id="u1", org_id="org_1"),
-        })())
+        token = set_active_identity(
+            type(
+                "Identity",
+                (),
+                {
+                    "id": "",
+                    "user": UserInfo(id="u1", org_id="org_1"),
+                },
+            )()
+        )
         try:
             columns = await ref.add_column("body")
         finally:

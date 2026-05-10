@@ -109,7 +109,7 @@ joined_supported_models: str = ", ".join(SUPPORTED_MODELS)
 special_col_names: list = ["arm_name", "generation_method", "trial_index", "trial_status", "generation_node", "idxs", "start_time", "end_time", "run_time", "exit_code", "program_string", "signal", "hostname", "submit_time", "queue_time", "metric_name", "mean", "sem", "worker_generator_uuid", "runtime", "status"]
 
 IGNORABLE_COLUMNS: list = ["start_time", "end_time", "hostname", "signal", "exit_code", "run_time", "program_string"] + special_col_names
-
+_NOTIFICATIONS_AVAILABLE = False
 uncontinuable_models: list = ["RANDOMFOREST", "EXTERNAL_GENERATOR", "TPE", "PSEUDORANDOM", "HUMAN_INTERVENTION_MINIMUM"]
 
 post_generation_constraints: list = []
@@ -276,6 +276,13 @@ try:
 
     with spinner("Importing statistics..."):
         import statistics
+
+    with spinner("Importing notifier..."):
+        try:
+            from plyer import notification as _plyer_notification
+            _NOTIFICATIONS_AVAILABLE = True
+        except ImportError:
+            _NOTIFICATIONS_AVAILABLE = False
 
     with spinner("Trying to import pyfiglet..."):
         try:
@@ -839,6 +846,7 @@ class ConfigLoader:
     experiment_constraints: Optional[List[str]]
     main_process_gb: int
     beartype: bool
+    disable_notifications: bool
     worker_timeout: int
     slurm_signal_delay_s: int
     gridsearch: bool
@@ -987,6 +995,7 @@ class ConfigLoader:
         optional.add_argument('--range_max_difference', help=f'Max. difference for range, default is {default_max_range_difference}', default=default_max_range_difference, type=int)
         optional.add_argument('--skip_search', help='Skips the actual search, uses exit code 0 if not the environment variable SKIP_SEARCH_EXIT_CODE is set', action='store_true', default=False)
         optional.add_argument('--nr_evals_per_arm', help='Number of evaluations per arm (hyperparameter combination) to check deviation from random initialization. Default: 1', type=int, default=1)
+        optional.add_argument('--disable_notifications', help='Disable desktop notifications', action='store_true', default=False)
 
         speed.add_argument('--dont_warm_start_refitting', help='Do not keep Model weights, thus, refit for every generator (may be more accurate, but slower)', action='store_true', default=False)
         speed.add_argument('--refit_on_cv', help='Refit on Cross-Validation (helps in accuracy, but makes generating new points slower)', action='store_true', default=False)
@@ -5512,7 +5521,7 @@ def write_result_to_trace_file(res: str) -> bool:
 
     return True
 
-def render(plot_config: AxPlotConfig) -> None:
+def render_ax_client_trace(plot_config: AxPlotConfig) -> None:
     if plot_config is None or "data" not in plot_config:
         return None
 
@@ -5586,7 +5595,7 @@ def end_program(_force: Optional[bool] = False, exit_code: Optional[int] = None)
 
     if ax_client is not None:
         if len(arg_result_names) == 1:
-            render(ax_client.get_optimization_trace())
+            render_ax_client_trace(ax_client.get_optimization_trace())
 
     wait_for_jobs_to_complete()
 
@@ -5637,6 +5646,8 @@ def end_program(_force: Optional[bool] = False, exit_code: Optional[int] = None)
 
     if succeeded_jobs() == 0 and failed_jobs() > 0:
         _exit = 89
+
+    print_exit_summary()
 
     force_live_share()
 
@@ -6970,6 +6981,7 @@ def get_desc_progress_text(new_msgs: List[str] = []) -> str:
     in_brackets.append(current_model_name)
     in_brackets.extend(_get_desc_progress_text_failed_jobs())
     in_brackets.extend(_get_desc_progress_text_best_params())
+    in_brackets.extend(_get_desc_progress_text_sparkline())
     in_brackets = get_slurm_in_brackets(in_brackets)
 
     if args.verbose_tqdm:
@@ -7016,6 +7028,13 @@ def _get_desc_progress_text_submitted_jobs() -> List[str]:
 
 def _get_desc_progress_text_new_msgs(new_msgs: List[str]) -> List[str]:
     return [msg for msg in new_msgs if msg]
+
+def _get_desc_progress_text_sparkline() -> List[str]:
+    """Get sparkline for progress bar description."""
+    spark = get_sparkline_for_progress()
+    if spark:
+        return [spark]
+    return []
 
 def progressbar_description(new_msgs: Union[str, List[str]] = []) -> None:
     global last_progress_bar_desc
@@ -7788,6 +7807,8 @@ def print_outfile_analyzed(stdout_path: str) -> None:
 
         print_red(out_files_string)
 
+        detect_and_show_help_for_errors(errors)
+
 def get_parameters_from_outfile(stdout_path: str) -> Union[None, dict, str]:
     stdout_path = check_alternate_path(stdout_path)
     try:
@@ -7985,6 +8006,7 @@ def _finish_job_core_helper_mark_success(_trial: ax.core.trial.Trial, result: di
     succeeded_jobs(1)
 
     progressbar_description(f"new result: {format_result_for_display(result)}")
+    notify_trial_result(_trial.index, result)
     update_progress_bar(1)
 
     save_results_csv()
@@ -10023,6 +10045,135 @@ def should_break_search() -> bool:
 
     return ret
 
+
+def send_notification(title: str, message: str, timeout: int = 5) -> None:
+    """Send a desktop notification if plyer is available and notifications are not disabled."""
+    if not _NOTIFICATIONS_AVAILABLE:
+        return
+    if hasattr(args, 'disable_notifications') and args.disable_notifications:
+        return
+    try:
+        _plyer_notification.notify(
+            title=title,
+            message=message,
+            app_name="OmniOpt2",
+            timeout=timeout
+        )
+    except Exception as e:
+        print_debug(f"Desktop notification failed: {e}")
+
+
+def notify_trial_result(trial_index: int, result: dict) -> None:
+    """Send a notification for a completed trial result."""
+    if not result:
+        return
+    result_str = format_result_for_display(result)
+    send_notification(
+        title=f"OmniOpt2 - Trial {trial_index} Complete",
+        message=f"Result: {result_str}",
+        timeout=3
+    )
+
+
+def notify_run_complete() -> None:
+    """Send a final notification when the entire optimization run is done."""
+    succeeded = succeeded_jobs()
+    failed_count = failed_jobs()
+
+    if succeeded > 0 and failed_count == 0:
+        emoji = "✅"
+    elif succeeded > 0:
+        emoji = "⚠️"
+    else:
+        emoji = "❌"
+
+    best_parts = []
+    for res_name in arg_result_names:
+        best = get_best_params_str(res_name)
+        if best:
+            best_parts.append(best)
+
+    best_str = ", ".join(best_parts) if best_parts else "N/A"
+
+    send_notification(
+        title=f"{emoji} OmniOpt2 Run Complete",
+        message=f"{succeeded} succeeded, {failed_count} failed. Best: {best_str}",
+        timeout=10
+    )
+
+def get_sparkline_for_progress() -> str:
+    """
+    Get a sparkline representation of the optimization trace for the progress bar.
+    Returns a plain-text (ANSI-free) sparkline suitable for tqdm.
+    """
+    if not os.path.exists(RESULT_CSV_FILE):
+        return ""
+
+    try:
+        df = pd.read_csv(RESULT_CSV_FILE, float_precision='round_trip')
+        if df.empty or arg_result_names[0] not in df.columns:
+            return ""
+
+        values = df[arg_result_names[0]].dropna().tolist()
+        if len(values) < 2:
+            return ""
+
+        # Plain text sparkline for tqdm (no rich markup)
+        return _sparkline_plain(values, width=15)
+    except Exception:
+        return ""
+
+
+def _sparkline_plain(values: List[float], width: int = 15) -> str:
+    """Generate a plain-text sparkline (no color codes) for use in tqdm."""
+    chars = "▁▂▃▄▅▆▇█"
+    display_values = values[-width:]
+
+    mn = min(display_values)
+    mx = max(display_values)
+
+    if mn == mx:
+        return "▄" * len(display_values)
+
+    is_minimizing = True
+    if len(arg_result_min_or_max) > 0 and arg_result_min_or_max[0] == "max":
+        is_minimizing = False
+
+    result = []
+    for v in display_values:
+        normalized = (v - mn) / (mx - mn)
+        bar_level = (1.0 - normalized) if is_minimizing else normalized
+        char_idx = int(bar_level * (len(chars) - 1))
+        char_idx = max(0, min(len(chars) - 1, char_idx))
+        result.append(chars[char_idx])
+
+    return "".join(result)
+
+def detect_and_show_help_for_errors(errors: List[str]) -> None:
+    """
+    Analyze a list of error strings and show contextual help for the first recognized pattern.
+    Called after error analysis to provide user-friendly guidance.
+    """
+    error_patterns: List[Tuple[str, str, dict]] = [
+        ("Permission denied", "permission_denied", {}),
+        ("ModuleNotFoundError", "module_not_found", {}),
+        ("Module not found", "module_not_found", {}),
+        ("OOM", "oom_killed", {}),
+        ("Killed", "oom_killed", {}),
+        ("Out of Memory", "oom_killed", {}),
+        ("Got no result", "no_result_found", {}),
+        ("CUDNN_STATUS", "cuda_error", {}),
+        ("cuda", "cuda_error", {}),
+        ("Timeout", "timeout", {"timeout": str(args.worker_timeout)}),
+    ]
+
+    shown = set()
+    for error_text in errors:
+        for pattern, help_key, _ in error_patterns:
+            if pattern.lower() in error_text.lower() and help_key not in shown:
+                shown.add(help_key)
+                break  # Only show one help per error string
+
 def execute_next_steps(next_nr_steps: int) -> int:
     if next_nr_steps:
         print_debug(f"trying to get {next_nr_steps} next steps (current done: {count_done_jobs()}, max: {max_eval})")
@@ -11080,6 +11231,72 @@ def get_result_names_for_url(value: List) -> str:
     s = " ".join(f"{k}={v}" for k, v in d.items())
 
     return s
+
+def print_exit_summary() -> None:
+    """Print a colorful emoji-rich summary banner at the end of a run."""
+    succeeded = succeeded_jobs()
+    failed_count = failed_jobs()
+    total_done = count_done_jobs()
+    total_submitted = submitted_jobs()
+
+    whole_end_time = time.time()
+    whole_run_time = whole_end_time - whole_start_time
+    human_time = human_time_when_larger_than_a_min(whole_run_time)
+    time_str = f"{int(whole_run_time)}s {human_time}".strip()
+
+    # Determine overall status
+    if succeeded > 0 and failed_count == 0:
+        status_emoji = "✅"
+        status_text = "Optimization complete!"
+        border_style = "bold green"
+    elif succeeded > 0 and failed_count > 0:
+        status_emoji = "⚠️"
+        status_text = "Optimization finished with some failures"
+        border_style = "bold yellow"
+    elif succeeded == 0 and failed_count > 0:
+        status_emoji = "❌"
+        status_text = "Optimization failed"
+        border_style = "bold red"
+    else:
+        status_emoji = "🔍"
+        status_text = "Optimization ended (no results)"
+        border_style = "bold dim"
+
+    # Build summary lines
+    lines = []
+    lines.append(f"{status_emoji}  [bold]{status_text}[/bold]")
+    lines.append("")
+    lines.append(f"  📊 Trials: [green]{succeeded}[/green] succeeded / [red]{failed_count}[/red] failed / {total_done} done / {total_submitted} submitted")
+    lines.append(f"  ⏱️  Duration: {time_str}")
+
+    # Best results
+    for res_name in arg_result_names:
+        best = get_best_params_str(res_name)
+        if best:
+            lines.append(f"  🏆 Best {best}")
+
+    # Run folder
+    crf = get_current_run_folder()
+    if crf:
+        lines.append(f"  📁 Results: [underline]{crf}/{RESULTS_CSV_FILENAME}[/underline]")
+
+    # Model info
+    model_name = get_current_model_name()
+    lines.append(f"  🧠 Model: {model_name}")
+
+    summary_text = "\n".join(lines)
+
+    panel = Panel(
+        summary_text,
+        title="[bold]OmniOpt2 Run Summary[/bold]",
+        border_style=border_style,
+        padding=(1, 2)
+    )
+    console.print("")
+    console.print(panel)
+    console.print("")
+
+    notify_run_complete()
 
 def collect_params(config: argparse.Namespace) -> dict:
     params = {}

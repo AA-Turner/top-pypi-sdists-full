@@ -6,17 +6,17 @@
     <message>
         <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
         <source>AI-Assisted Annotation</source>
-        <translation>AI Destekli Etiketleme</translation>
+        <translation>Yapay Zeka Destekli Açıklama</translation>
     </message>
     <message>
         <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
         <source>AI suggests annotation in &apos;AI-Points&apos; and &apos;AI-Box&apos; modes</source>
-        <translation>AI, 'AI-Points' ve 'AI-Box' modlarında etiketleme önerir</translation>
+        <translation>Yapay zeka, 'AI-Points' ve 'AI-Box' modlarında açıklama önerir</translation>
     </message>
     <message>
         <location filename="../widgets/_ai_assisted_annotation_widget.py" line="0"/>
         <source>Select &apos;AI-Points&apos; or &apos;AI-Box&apos; mode to enable AI-Assisted Annotation</source>
-        <translation>AI Destekli Açıklamayı etkinleştirmek için 'AI-Points' veya 'AI-Box' modunu seçin</translation>
+        <translation>Yapay Zeka Destekli Açıklamayı etkinleştirmek için 'AI-Points' veya 'AI-Box' modunu seçin</translation>
     </message>
 </context>
 <context>
@@ -24,12 +24,12 @@
     <message>
         <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
         <source>AI Text-to-Annotation</source>
-        <translation>AI Metinden Etiketleme</translation>
+        <translation>Yapay Zeka Metinden Açıklama</translation>
     </message>
     <message>
         <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
         <source>e.g., dog,cat,bird</source>
-        <translation>örn., köpek,kedi,kuş</translation>
+        <translation>ör. köpek, kedi, kuş</translation>
     </message>
     <message>
         <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
@@ -39,7 +39,7 @@
     <message>
         <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
         <source>Score</source>
-        <translation>Skor</translation>
+        <translation>Puan</translation>
     </message>
     <message>
         <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
@@ -49,7 +49,7 @@
     <message>
         <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
         <source>AI creates annotations from the text prompt</source>
-        <translation>AI, metin isteminden etiketlemeler oluşturur</translation>
+        <translation>Yapay zeka, metin isteminden açıklamalar üretir</translation>
     </message>
     <message>
         <location filename="../widgets/_ai_text_to_annotation_widget.py" line="0"/>
@@ -70,12 +70,12 @@
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click &amp; drag to move point</source>
-        <translation>Noktayı taşımak için tıkla ve sürükle</translation>
+        <translation>Noktayı taşımak için tıklayıp sürükleyin</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click &amp; drag to move shape</source>
-        <translation>Şekli taşımak için tıkla ve sürükle</translation>
+        <translation>Şekli taşımak için tıklayıp sürükleyin</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
@@ -85,12 +85,12 @@
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>ESC to cancel</source>
-        <translation>İptal için ESC</translation>
+        <translation>İptal etmek için ESC</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Enter or Space to finalize</source>
-        <translation>Bitirmek için Enter veya Space</translation>
+        <translation>Tamamlamak için Enter veya Space</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
@@ -100,77 +100,97 @@
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click start point for line</source>
-        <translation>Çizgi için başlangıç noktasına tıkla</translation>
+        <translation>Çizginin başlangıç noktasına tıklayın</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click end point for line</source>
-        <translation>Çizgi için bitiş noktasına tıkla</translation>
+        <translation>Çizginin bitiş noktasına tıklayın</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click start point for linestrip</source>
-        <translation>Çizgi şeridi için başlangıç noktasına tıkla</translation>
+        <translation>Çizgi şeridinin başlangıç noktasına tıklayın</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click next point or finish by Ctrl/Cmd+Click for linestrip</source>
-        <translation>Çizgi şeridi için sonraki noktaya tıkla veya Ctrl/Cmd+tıkla ile bitir</translation>
+        <translation>Çizgi şeridi için sonraki noktaya tıklayın veya Ctrl/Cmd+Tıklama ile tamamlayın</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click center point for circle</source>
-        <translation>Daire için merkez noktaya tıkla</translation>
+        <translation>Dairenin merkezine tıklayın</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click point on circumference for circle</source>
-        <translation>Daire için çevre üzerindeki bir noktaya tıkla</translation>
+        <translation>Dairenin çevresi üzerindeki bir noktaya tıklayın</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click first corner for rectangle</source>
-        <translation>Dikdörtgen için ilk köşeye tıkla</translation>
+        <translation>Dikdörtgenin ilk köşesine tıklayın</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click to add point</source>
-        <translation>Nokta eklemek için tıkla</translation>
+        <translation>Nokta eklemek için tıklayın</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>ALT + SHIFT + Click to delete point</source>
-        <translation>Noktayı silmek için ALT + SHIFT + tıkla</translation>
+        <translation>Noktayı silmek için ALT + SHIFT + Tıklama</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>ALT + Click to create point on shape</source>
-        <translation>Şekil üzerinde nokta oluşturmak için ALT + tıkla</translation>
+        <translation>Şekil üzerinde nokta oluşturmak için ALT + Tıklama</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Right-click &amp; drag to copy shape</source>
-        <translation>Şekli kopyalamak için sağ tıkla ve sürükle</translation>
+        <translation>Şekli kopyalamak için sağ tıklayıp sürükleyin</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click opposite corner for rectangle (Shift for square)</source>
-        <translation>Dikdörtgen için karşı köşeye tıkla (kare için Shift)</translation>
+        <translation>Dikdörtgenin karşı köşesine tıklayın (kare için Shift)</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click points to include or Shift+Click to exclude. Ctrl+LeftClick ends creation.</source>
-        <translation>Dahil etmek için noktalara tıkla veya hariç tutmak için Shift+Click. Ctrl+LeftClick oluşturmayı bitirir.</translation>
+        <translation>Dahil etmek için noktalara tıklayın, dışlamak için Shift+Tıklama. Ctrl+Sol Tıklama oluşturmayı sonlandırır.</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click first corner of bbox for AI segmentation</source>
-        <translation>AI segmentasyonu için bbox'ın ilk köşesine tıklayın</translation>
+        <translation>Yapay zeka bölütlemesi için sınır kutusunun ilk köşesine tıklayın</translation>
     </message>
     <message>
         <location filename="../widgets/canvas.py" line="0"/>
         <source>Click opposite corner to segment object</source>
-        <translation>Nesneyi segmentlemek için karşı köşeye tıklayın</translation>
+        <translation>Nesneyi bölütlemek için karşı köşeye tıklayın</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click first corner for oriented rectangle</source>
+        <translation>Yönlü dikdörtgenin ilk köşesine tıklayın</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click second corner to set orientation</source>
+        <translation>Yönü belirlemek için ikinci köşeye tıklayın</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click third corner to close oriented rectangle</source>
+        <translation>Yönlü dikdörtgeni kapatmak için üçüncü köşeye tıklayın</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click &amp; drag to rotate the shape</source>
+        <translation>Şekli döndürmek için tıklayıp sürükleyin</translation>
     </message>
 </context>
 <context>
@@ -183,12 +203,12 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Annotation List</source>
-        <translation>Etiketleme Listesi</translation>
+        <translation>Açıklama Listesi</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Select label to start annotating for it. Press &apos;Esc&apos; to deselect.</source>
-        <translation>Etiketlemeye başlamak için bir etiket seçin. Seçimi kaldırmak için 'Esc' tuşuna basın.</translation>
+        <translation>Açıklama eklemek için bir etiket seçin. Seçimi kaldırmak için 'Esc' tuşuna basın.</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -198,7 +218,7 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Search Filename</source>
-        <translation>Dosya Adı Ara</translation>
+        <translation>Dosya Adında Ara</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -224,12 +244,12 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Open image or label file</source>
-        <translation>Görüntü veya etiket dosyası aç</translation>
+        <translation>Görüntü veya etiket dosyasını aç</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Open Dir</source>
-        <translation>Dizin Aç</translation>
+        <translation>Klasörü Aç</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -239,7 +259,7 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Open next (hold Ctl+Shift to copy labels)</source>
-        <translation>Sonrakini aç (etiketleri kopyalamak için Ctrl+Shift basılı tutun)</translation>
+        <translation>Sonrakini aç (etiketleri kopyalamak için Ctrl+Shift'i basılı tutun)</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -249,7 +269,7 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Open prev (hold Ctl+Shift to copy labels)</source>
-        <translation>Öncekini aç (etiketleri kopyalamak için Ctrl+Shift basılı tutun)</translation>
+        <translation>Öncekini aç (etiketleri kopyalamak için Ctrl+Shift'i basılı tutun)</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -265,12 +285,12 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>&amp;Save As</source>
-        <translation>Farklı &amp;Kaydet</translation>
+        <translation>&amp;Farklı Kaydet</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Save labels to a different file</source>
-        <translation>Etiketleri farklı bir dosyaya kaydet</translation>
+        <translation>Etiketleri başka bir dosyaya kaydet</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -280,27 +300,27 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Delete current label file</source>
-        <translation>Geçerli etiket dosyasını sil</translation>
+        <translation>Açık olan etiket dosyasını sil</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>&amp;Change Output Dir</source>
-        <translation>Çıktı Dizinini &amp;Değiştir</translation>
+        <translation>Çıktı Klasörünü &amp;Değiştir</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Change where annotations are loaded/saved</source>
-        <translation>Etiketlemelerin yüklendiği/kaydedildiği yeri değiştir</translation>
+        <translation>Açıklamaların yüklendiği/kaydedildiği konumu değiştir</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Save &amp;Automatically</source>
-        <translation>Otomatik &amp;Kaydet</translation>
+        <translation>&amp;Otomatik Kaydet</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Save automatically</source>
-        <translation>Otomatik kaydet</translation>
+        <translation>Otomatik olarak kaydet</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -310,7 +330,7 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Save image data in label file</source>
-        <translation>Görüntü verisini etiket dosyasında kaydet</translation>
+        <translation>Görüntü verisini etiket dosyasına kaydet</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -320,12 +340,12 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Close current file</source>
-        <translation>Geçerli dosyayı kapat</translation>
+        <translation>Açık olan dosyayı kapat</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Keep Previous Annotation</source>
-        <translation>Önceki Etiketlemeyi Koru</translation>
+        <translation>Önceki Açıklamayı Koru</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -355,7 +375,7 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Start drawing linestrip. Ctrl+LeftClick ends creation.</source>
-        <translation>Çizgi şeridi çizmeye başla. Ctrl+Sol Tık ile oluşturmayı bitirir.</translation>
+        <translation>Çizgi şeridi çizmeye başla. Ctrl+Sol Tıklama oluşturmayı sonlandırır.</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -385,7 +405,7 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Create a duplicate of the selected shapes</source>
-        <translation>Seçili şekillerin kopyasını oluştur</translation>
+        <translation>Seçili şekillerin bir kopyasını oluştur</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -405,7 +425,7 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Paste copied shapes</source>
-        <translation>Kopyalanan şekilleri yapıştır</translation>
+        <translation>Kopyalanmış şekilleri yapıştır</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -420,12 +440,12 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Remove Selected Point</source>
-        <translation>Seçili Noktayı Sil</translation>
+        <translation>Seçili Noktayı Kaldır</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Remove selected point from polygon</source>
-        <translation>Seçili noktayı çokgenden sil</translation>
+        <translation>Seçili noktayı çokgenden kaldır</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -436,13 +456,14 @@
     <message>
         <location filename="../app.py" line="0"/>
         <source>Undo last add and edit of shape</source>
-        <translation>Şeklin son ekleme ve düzenlemesini geri al</translation>
+        <translation>Şekle yapılan son ekleme ve düzenlemeyi geri al</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>&amp;Hide
 Shapes</source>
-        <translation>Şekilleri &amp;Gizle</translation>
+        <translation>Şekilleri
+&amp;Gizle</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -453,7 +474,8 @@ Shapes</source>
         <location filename="../app.py" line="0"/>
         <source>&amp;Show
 Shapes</source>
-        <translation>Şekilleri &amp;Göster</translation>
+        <translation>Şekilleri
+&amp;Göster</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -464,7 +486,8 @@ Shapes</source>
         <location filename="../app.py" line="0"/>
         <source>&amp;Toggle
 Shapes</source>
-        <translation>Şekilleri &amp;Aç/Kapat</translation>
+        <translation>Şekilleri
+&amp;Aç/Kapat</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -488,11 +511,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Zoom in or out of the image. Also accessible with {} and {} from the canvas.</source>
-        <translation>Görüntüyü yakınlaştır veya uzaklaştır. Tuvalde {} ve {} ile de erişilebilir.</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Ctrl+Wheel</source>
         <translation>Ctrl+Tekerlek</translation>
     </message>
@@ -504,7 +522,7 @@ Shapes</source>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Increase zoom level</source>
-        <translation>Yakınlaştırma seviyesini artır</translation>
+        <translation>Yakınlaştırma düzeyini artır</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -514,12 +532,12 @@ Shapes</source>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Decrease zoom level</source>
-        <translation>Yakınlaştırma seviyesini azalt</translation>
+        <translation>Yakınlaştırma düzeyini azalt</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>&amp;Original size</source>
-        <translation>&amp;Orijinal boyut</translation>
+        <translation>&amp;Orijinal Boyut</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -528,18 +546,8 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>&amp;Keep Previous Scale</source>
-        <translation>Önceki Ölçeği &amp;Koru</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Keep previous zoom scale</source>
-        <translation>Önceki yakınlaştırma ölçeğini koru</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>&amp;Fit Window</source>
-        <translation>&amp;Pencereye Sığdır</translation>
+        <translation>Pencereye &amp;Sığdır</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -559,12 +567,12 @@ Shapes</source>
     <message>
         <location filename="../app.py" line="0"/>
         <source>&amp;Brightness Contrast</source>
-        <translation>&amp;Parlaklık Kontrast</translation>
+        <translation>&amp;Parlaklık ve Kontrast</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Adjust brightness and contrast</source>
-        <translation>Parlaklık ve kontrastı ayarla</translation>
+        <translation>Parlaklığı ve kontrastı ayarla</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -584,7 +592,7 @@ Shapes</source>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Fill polygon while drawing</source>
-        <translation>Çizerken çokgeni doldur</translation>
+        <translation>Çizim sırasında çokgeni doldur</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -619,12 +627,12 @@ Shapes</source>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Invalid label &apos;{}&apos; with validation type &apos;{}&apos;</source>
-        <translation>Doğrulama türü '{}' olan '{}' etiketi geçersiz</translation>
+        <translation>'{}' doğrulama türü için '{}' etiketi geçersiz</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Error saving label data</source>
-        <translation>Etiket verisi kaydedilirken hata</translation>
+        <translation>Etiket verisi kaydedilirken hata oluştu</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -634,27 +642,17 @@ Shapes</source>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Error opening file</source>
-        <translation>Dosya açma hatası</translation>
+        <translation>Dosya açılırken hata oluştu</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>No such file: &lt;b&gt;%s&lt;/b&gt;</source>
-        <translation>Böyle bir dosya yok: &lt;b&gt;%s&lt;/b&gt;</translation>
+        <translation>Belirtilen dosya bulunamadı: &lt;b&gt;%s&lt;/b&gt;</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Loading %s...</source>
-        <translation>%s yükleniyor...</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Error reading %s</source>
-        <translation>%s okunurken hata</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;Make sure &lt;i&gt;{0}&lt;/i&gt; is a valid image file.&lt;br/&gt;Supported image formats: {1}&lt;/p&gt;</source>
-        <translation>&lt;p&gt;Lütfen &lt;i&gt;{0}&lt;/i&gt; geçerli bir görüntü dosyası olduğundan emin olun.&lt;br/&gt;Desteklenen görüntü biçimleri: {1}&lt;/p&gt;</translation>
+        <translation>%s yükleniyor…</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -669,22 +667,22 @@ Shapes</source>
     <message>
         <location filename="../app.py" line="0"/>
         <source>%s - Choose Image or Label file</source>
-        <translation>%s - Görüntü veya Etiket dosyası seç</translation>
+        <translation>%s - Görüntü veya Etiket dosyası seçin</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>%s - Save/Load Annotations in Directory</source>
-        <translation>%s - Dizinde Etiketlemeleri Kaydet/Yükle</translation>
+        <translation>%s - Klasördeki Açıklamaları Kaydet/Yükle</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>%s . Annotations will be saved/loaded in %s</source>
-        <translation>%s . Etiketlemeler %s içinde kaydedilecek/yüklenecek</translation>
+        <translation>%s . Açıklamalar %s konumunda kaydedilecek/yüklenecek</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>%s - Choose File</source>
-        <translation>%s - Dosya Seç</translation>
+        <translation>%s - Dosya Seçin</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -694,12 +692,7 @@ Shapes</source>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Choose File</source>
-        <translation>Dosya Seç</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>You are about to permanently delete this label file, proceed anyway?</source>
-        <translation>Bu etiket dosyasını kalıcı olarak silmek üzeresiniz, yine de devam edilsin mi?</translation>
+        <translation>Dosya Seçin</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -709,27 +702,22 @@ Shapes</source>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Save annotations to &quot;{}&quot; before closing?</source>
-        <translation>Kapatmadan önce etiketlemeler &quot;{}&quot; konumuna kaydedilsin mi?</translation>
+        <translation>Kapatmadan önce açıklamalar &quot;{}&quot; konumuna kaydedilsin mi?</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Save annotations?</source>
-        <translation>Etiketlemeler kaydedilsin mi?</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>You are about to permanently delete {} shapes, proceed anyway?</source>
-        <translation>{} şekli kalıcı olarak silmek üzeresiniz, yine de devam edilsin mi?</translation>
+        <translation>Açıklamalar kaydedilsin mi?</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>%s - Open Directory</source>
-        <translation>%s - Dizini Aç</translation>
+        <translation>%s - Klasörü Aç</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Toggle &quot;keep previous annotation&quot; mode</source>
-        <translation>&quot;önceki etiketlemeyi koru&quot; modunu değiştir</translation>
+        <translation>&quot;önceki açıklamayı koru&quot; modunu aç/kapat</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -757,7 +745,7 @@ Shapes</source>
 
 To use the preferences editor, start Labelme with a config file:
   labelme --config ~/.labelmerc</source>
-        <translation>Yapılandırma, komut satırı üzerinden bir YAML ifadesi olarak sağlandı.
+        <translation>Yapılandırma, komut satırı üzerinden bir YAML ifadesi olarak verildi.
 
 Tercihler düzenleyicisini kullanmak için Labelme'i bir yapılandırma dosyasıyla başlatın:
   labelme --config ~/.labelmerc</translation>
@@ -770,22 +758,12 @@ Tercihler düzenleyicisini kullanmak için Labelme'i bir yapılandırma dosyası
     <message>
         <location filename="../app.py" line="0"/>
         <source>Errors were found while loading the configuration. Please review the errors below and reload your configuration or ignore the erroneous lines.</source>
-        <translation>Yapılandırma yüklenirken hatalar bulundu. Lütfen aşağıdaki hataları inceleyin ve yapılandırmayı yeniden yükleyin ya da hatalı satırları yok sayın.</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid label file.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Lütfen &lt;i&gt;%s&lt;/i&gt; geçerli bir etiket dosyası olduğundan emin olun.&lt;/p&gt;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid image file.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Lütfen &lt;i&gt;%s&lt;/i&gt; geçerli bir görüntü dosyası olduğundan emin olun.&lt;/p&gt;</translation>
+        <translation>Yapılandırma yüklenirken hatalar bulundu. Lütfen aşağıdaki hataları gözden geçirip yapılandırmayı yeniden yükleyin veya hatalı satırları yok sayın.</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Reset Layout</source>
-        <translation>Düzeni sıfırla</translation>
+        <translation>Düzeni Sıfırla</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -825,7 +803,7 @@ Tercihler düzenleyicisini kullanmak için Labelme'i bir yapılandırma dosyası
     <message>
         <location filename="../app.py" line="0"/>
         <source>Click points to segment object. Ctrl+LeftClick ends creation.</source>
-        <translation>Nesneyi bölütlemek için noktalara tıkla. Ctrl+LeftClick oluşturmayı bitirir.</translation>
+        <translation>Nesneyi bölütlemek için noktalara tıklayın. Ctrl+Sol Tıklama oluşturmayı sonlandırır.</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -835,12 +813,12 @@ Tercihler düzenleyicisini kullanmak için Labelme'i bir yapılandırma dosyası
     <message>
         <location filename="../app.py" line="0"/>
         <source>Draw a bounding box to segment object.</source>
-        <translation>Nesneyi segmentlemek için bir sınırlayıcı kutu çizin.</translation>
+        <translation>Nesneyi bölütlemek için bir sınır kutusu çizin.</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
         <source>AI-Points Unavailable</source>
-        <translation>AI-Points kullanılamıyor</translation>
+        <translation>AI-Points Kullanılamıyor</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -852,7 +830,67 @@ Lütfen farklı bir model seçin veya AI-Box modunu kullanın.</translation>
     <message>
         <location filename="../app.py" line="0"/>
         <source>File list is disabled when a label file is opened</source>
-        <translation>Bir etiket dosyası açıkken dosya listesi devre dışıdır</translation>
+        <translation>Bir etiket dosyası açıkken dosya listesi devre dışı kalır</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Add Point to Edge</source>
+        <translation>Kenara nokta ekle</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Insert a new point at the hovered polygon edge</source>
+        <translation>Üzerinde durulan poligon kenarına yeni bir nokta ekle</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>&amp;Keep Previous Zoom</source>
+        <translation>Önceki &amp;Yakınlaştırmayı Koru</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Permanently delete this label file? This action cannot be undone.</source>
+        <translation>Bu etiket dosyası kalıcı olarak silinsin mi? Bu işlem geri alınamaz.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Permanently delete {} shapes? This action cannot be undone.</source>
+        <translation>{} şekil kalıcı olarak silinsin mi? Bu işlem geri alınamaz.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Zoom the image in or out. The shortcuts {} and {} also work on the canvas.</source>
+        <translation>Görüntüyü yakınlaştırın veya uzaklaştırın. {} ve {} kısayolları tuvalde de çalışır.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Allowed formats: {formats}</source>
+        <translation>İzin verilen biçimler: {formats}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>The selected label file could not be opened: {path}</source>
+        <translation>Seçilen etiket dosyası açılamadı: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>The selected image file could not be opened: {path}</source>
+        <translation>Seçilen görüntü dosyası açılamadı: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Failed to load: {path}</source>
+        <translation>Yükleme başarısız: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Oriented Rectangle</source>
+        <translation>Yönlü Dikdörtgen</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Start drawing oriented rectangles</source>
+        <translation>Yönlü dikdörtgen çizmeye başla</translation>
     </message>
 </context>
 </TS>

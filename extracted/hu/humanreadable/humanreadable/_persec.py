@@ -6,11 +6,12 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from decimal import Decimal
 from re import Pattern
-from typing import Final, NamedTuple, Optional, Union, cast
+from typing import Final, NamedTuple, cast
 
 from ._base import HumanReadableValue
 from ._common import compile_units_regex_pattern
 from ._types import HumanReadableStyle, SupportsUnit, TextUnitsMap, Units
+from .error import ParameterError
 
 
 _BPS_PATTERN: Final[str] = r"bits?(/|\s?per\s?)(s|sec|second)"
@@ -127,6 +128,14 @@ class BitsPerSecond(HumanReadableValue):
     def get_text_units(cls) -> TextUnitsMap:
         return cls._TEXT_UNITS
 
+    def __init__(self, readable_value: str, default_unit: str | SupportsUnit | None = None) -> None:
+        super().__init__(readable_value, default_unit)
+        if self._number < 0:
+            raise ParameterError(
+                "bps value must be non-negative",
+                value=readable_value,
+            )
+
     @property
     def _text_units(self) -> TextUnitsMap:
         return self._TEXT_UNITS
@@ -239,7 +248,7 @@ class BitsPerSecond(HumanReadableValue):
         number = self._number + Decimal(other.get_as(self._from_unit))
         return BitsPerSecond(str(number), default_unit=self._from_unit)
 
-    def get_as(self, unit: Union[str, SupportsUnit]) -> float:
+    def get_as(self, unit: str | SupportsUnit) -> float:
         unit_maps: dict[SupportsUnit, str] = {
             self.Unit.BPS: "bps",
             self.Unit.KBPS: "kilo_bps",
@@ -256,7 +265,7 @@ class BitsPerSecond(HumanReadableValue):
 
         return getattr(self, unit_maps[norm_unit])
 
-    def _normalize_unit(self, unit: Union[str, SupportsUnit, None]) -> Optional[SupportsUnit]:
+    def _normalize_unit(self, unit: str | SupportsUnit | None) -> SupportsUnit | None:
         if isinstance(unit, ByteUnit):
             return unit
 

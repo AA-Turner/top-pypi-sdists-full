@@ -172,6 +172,26 @@
         <source>Click opposite corner to segment object</source>
         <translation>คลิกมุมตรงข้ามเพื่อแบ่งส่วนวัตถุ</translation>
     </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click first corner for oriented rectangle</source>
+        <translation>คลิกมุมแรกของสี่เหลี่ยมมีทิศทาง</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click second corner to set orientation</source>
+        <translation>คลิกมุมที่สองเพื่อกำหนดทิศทาง</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click third corner to close oriented rectangle</source>
+        <translation>คลิกมุมที่สามเพื่อปิดสี่เหลี่ยมมีทิศทาง</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click &amp; drag to rotate the shape</source>
+        <translation>คลิกและลากเพื่อหมุนรูปร่าง</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -488,11 +508,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Zoom in or out of the image. Also accessible with {} and {} from the canvas.</source>
-        <translation>ซูมเข้า-ออกของรูป ใช้ {} และ {} ที่แคนวาสได้เช่นกัน</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Ctrl+Wheel</source>
         <translation>Ctrl+ล้อเลื่อน</translation>
     </message>
@@ -525,16 +540,6 @@ Shapes</source>
         <location filename="../app.py" line="0"/>
         <source>Zoom to original size</source>
         <translation>ซูมเป็นขนาดจริง</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&amp;Keep Previous Scale</source>
-        <translation>คงระดับซูมก่อนหน้า (&amp;K)</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Keep previous zoom scale</source>
-        <translation>คงระดับซูมก่อนหน้า</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -648,16 +653,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Error reading %s</source>
-        <translation>เกิดข้อผิดพลาดในการอ่าน %s</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;Make sure &lt;i&gt;{0}&lt;/i&gt; is a valid image file.&lt;br/&gt;Supported image formats: {1}&lt;/p&gt;</source>
-        <translation>&lt;p&gt;ตรวจสอบว่า &lt;i&gt;{0}&lt;/i&gt; เป็นไฟล์รูปที่ถูกต้อง&lt;br/&gt;รูปแบบรูปที่รองรับ: {1}&lt;/p&gt;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Loaded %s</source>
         <translation>โหลด %s แล้ว</translation>
     </message>
@@ -698,11 +693,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>You are about to permanently delete this label file, proceed anyway?</source>
-        <translation>คุณกำลังจะลบไฟล์เลเบลนี้อย่างถาวร ต้องการดำเนินการต่อหรือไม่?</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Attention</source>
         <translation>คำเตือน</translation>
     </message>
@@ -715,11 +705,6 @@ Shapes</source>
         <location filename="../app.py" line="0"/>
         <source>Save annotations?</source>
         <translation>บันทึกแอนโนเทชันหรือไม่?</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>You are about to permanently delete {} shapes, proceed anyway?</source>
-        <translation>คุณกำลังจะลบรูปร่าง {} รายการอย่างถาวร ต้องการดำเนินการต่อหรือไม่?</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -771,16 +756,6 @@ To use the preferences editor, start Labelme with a config file:
         <location filename="../app.py" line="0"/>
         <source>Errors were found while loading the configuration. Please review the errors below and reload your configuration or ignore the erroneous lines.</source>
         <translation>พบข้อผิดพลาดขณะโหลดการตั้งค่า กรุณาตรวจสอบด้านล่าง แล้วโหลดการตั้งค่าใหม่หรือข้ามบรรทัดที่มีข้อผิดพลาด</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid label file.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;ตรวจสอบว่า &lt;i&gt;%s&lt;/i&gt; เป็นไฟล์เลเบลที่ถูกต้อง&lt;/p&gt;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid image file.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;ตรวจสอบว่า &lt;i&gt;%s&lt;/i&gt; เป็นไฟล์รูปที่ถูกต้อง&lt;/p&gt;</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -853,6 +828,66 @@ Please select a different model or use AI-Box mode.</source>
         <location filename="../app.py" line="0"/>
         <source>File list is disabled when a label file is opened</source>
         <translation>รายการไฟล์ถูกปิดใช้งานเมื่อเปิดไฟล์ป้ายกำกับ</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Add Point to Edge</source>
+        <translation>เพิ่มจุดบนขอบ</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Insert a new point at the hovered polygon edge</source>
+        <translation>แทรกจุดใหม่บนขอบของรูปหลายเหลี่ยมที่เคอร์เซอร์ชี้อยู่</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>&amp;Keep Previous Zoom</source>
+        <translation>คงระดับซูมก่อนหน้า (&amp;K)</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Permanently delete this label file? This action cannot be undone.</source>
+        <translation>ลบไฟล์เลเบลนี้อย่างถาวร? การกระทำนี้ไม่สามารถยกเลิกได้</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Permanently delete {} shapes? This action cannot be undone.</source>
+        <translation>ลบรูปร่าง {} รายการอย่างถาวร? การกระทำนี้ไม่สามารถยกเลิกได้</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Zoom the image in or out. The shortcuts {} and {} also work on the canvas.</source>
+        <translation>ซูมเข้า-ออกของรูป ใช้ทางลัด {} และ {} ที่แคนวาสได้เช่นกัน</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Allowed formats: {formats}</source>
+        <translation>รูปแบบที่อนุญาต: {formats}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>The selected label file could not be opened: {path}</source>
+        <translation>ไม่สามารถเปิดไฟล์ป้ายกำกับที่เลือก: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>The selected image file could not be opened: {path}</source>
+        <translation>ไม่สามารถเปิดไฟล์ภาพที่เลือก: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Failed to load: {path}</source>
+        <translation>โหลดไม่สำเร็จ: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Oriented Rectangle</source>
+        <translation>สี่เหลี่ยมมีทิศทาง</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Start drawing oriented rectangles</source>
+        <translation>เริ่มวาดสี่เหลี่ยมมีทิศทาง</translation>
     </message>
 </context>
 </TS>

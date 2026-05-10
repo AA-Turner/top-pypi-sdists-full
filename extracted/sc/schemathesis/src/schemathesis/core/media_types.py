@@ -16,7 +16,9 @@ YAML_MEDIA_TYPES: tuple[str, ...] = (
     "text/vnd.yaml",
     "application/yaml",
 )
-JSON_MEDIA_TYPES: frozenset[tuple[str, str]] = frozenset({("application", "jose+jwe")})
+JSON_MEDIA_TYPES: frozenset[tuple[str, str]] = frozenset(
+    {("application", "jose+jwe"), ("application", "jwt"), ("application", "x-json"), ("text", "json")}
+)
 
 FORM_MEDIA_TYPES: frozenset[str] = frozenset(["multipart/form-data", "application/x-www-form-urlencoded"])
 
@@ -124,8 +126,10 @@ def is_form_urlencoded(value: str | None) -> bool:
 
 def is_json_parts(media_type: tuple[str, str]) -> bool:
     """Detect variations of the ``application/json`` media type from a parsed tuple."""
+    if media_type in JSON_MEDIA_TYPES:
+        return True
     main, sub = media_type
-    return main == "application" and (sub == "json" or sub.endswith("+json") or media_type in JSON_MEDIA_TYPES)
+    return main == "application" and (sub == "json" or sub.endswith("+json"))
 
 
 def is_xml(value: str) -> bool:
@@ -138,6 +142,11 @@ def is_xml_parts(media_type: tuple[str, str]) -> bool:
     """Detect variations of the ``application/xml`` media type from a parsed tuple."""
     _, sub = media_type
     return sub == "xml" or sub.endswith("+xml")
+
+
+def is_form_parts(media_type: tuple[str, str] | None) -> bool:
+    """Detect ``application/x-www-form-urlencoded`` or ``multipart/form-data`` from a parsed tuple."""
+    return media_type == ("application", "x-www-form-urlencoded") or media_type == ("multipart", "form-data")
 
 
 def matches_parts(expected: tuple[str, str], actual: tuple[str, str]) -> bool:

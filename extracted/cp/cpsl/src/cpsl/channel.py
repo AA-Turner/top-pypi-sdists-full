@@ -127,6 +127,7 @@ class ServiceClient:
     def capsule(self):
         if not self._capsule_stub:
             from .clients.capsule import CapsuleServiceStub
+
             self._capsule_stub = CapsuleServiceStub(self.channel)
         return self._capsule_stub
 
@@ -134,6 +135,7 @@ class ServiceClient:
     def secrets(self):
         if not self._secret_stub:
             from .clients.capsule import SecretServiceStub
+
             self._secret_stub = SecretServiceStub(self.channel)
         return self._secret_stub
 
@@ -141,6 +143,7 @@ class ServiceClient:
     def filesystems(self):
         if not self._filesystem_stub:
             from .clients.capsule import FilesystemServiceStub
+
             self._filesystem_stub = FilesystemServiceStub(self.channel)
         return self._filesystem_stub
 

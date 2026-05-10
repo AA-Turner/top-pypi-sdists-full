@@ -42,6 +42,7 @@ from mypy_django_plugin.transformers.functional import resolve_str_promise_attri
 from mypy_django_plugin.transformers.managers import (
     add_as_manager_to_queryset_class,
     create_new_manager_class_from_from_queryset_method,
+    reparametrize_any_field_hook,
     reparametrize_any_manager_hook,
     reparametrize_any_queryset_hook,
     resolve_manager_method,
@@ -145,21 +146,23 @@ class NewSemanalDjangoPlugin(Plugin):
     @override
     def get_function_hook(self, fullname: str) -> Callable[[FunctionContext], MypyType] | None:
         info = self._get_typeinfo_or_none(fullname)
-        if info:
-            if info.has_base(fullnames.FIELD_FULLNAME):
-                return partial(fields.transform_into_proper_return_type, django_context=self.django_context)
+        if not info:
+            return None
 
-            if helpers.is_model_type(info):
-                return partial(init_create.typecheck_model_init, django_context=self.django_context)
+        if info.has_base(fullnames.FIELD_FULLNAME):
+            return partial(fields.transform_into_proper_return_type, django_context=self.django_context)
 
-            if info.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME):
-                return querysets.determine_proper_manager_type
+        if helpers.is_model_type(info):
+            return partial(init_create.typecheck_model_init, django_context=self.django_context)
 
-            if info.has_base(fullnames.PREFETCH_CLASS_FULLNAME):
-                return partial(querysets.specialize_prefetch_type, django_context=self.django_context)
+        if info.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME):
+            return querysets.determine_proper_manager_type
 
-            if info.has_base(fullnames.FUNC_EXPRESSION_FULLNAME):
-                return querysets.reparameterize_func_output_field
+        if info.has_base(fullnames.PREFETCH_CLASS_FULLNAME):
+            return partial(querysets.specialize_prefetch_type, django_context=self.django_context)
+
+        if info.has_base(fullnames.FUNC_EXPRESSION_FULLNAME):
+            return querysets.reparameterize_func_output_field
 
         return None
 
@@ -246,10 +249,18 @@ class NewSemanalDjangoPlugin(Plugin):
     @override
     def get_customize_class_mro_hook(self, fullname: str) -> Callable[[ClassDefContext], None] | None:
         info = self._get_typeinfo_or_none(fullname)
-        if info and info.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME):
+        if not info:
+            return None
+
+        if info.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME):
             return reparametrize_any_manager_hook
-        if info and info.has_base(fullnames.QUERYSET_CLASS_FULLNAME):
+
+        if info.has_base(fullnames.QUERYSET_CLASS_FULLNAME):
             return reparametrize_any_queryset_hook
+
+        if info.has_base(fullnames.FIELD_FULLNAME):
+            return reparametrize_any_field_hook
+
         return None
 
     @override

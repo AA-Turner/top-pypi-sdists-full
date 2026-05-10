@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from schemathesis.core.mutations import Mutation
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation import GenerationMode
-
-if TYPE_CHECKING:
-    from schemathesis.specs.openapi.negative.mutations import Mutation
 
 
 class TestPhase(str, Enum):
@@ -78,6 +76,7 @@ class CoverageScenario(str, Enum):
     # Negative scenarios - Constraint violations
     OBJECT_UNEXPECTED_PROPERTIES = "object_unexpected_properties"
     OBJECT_MISSING_REQUIRED_PROPERTY = "object_missing_required_property"
+    OBJECT_INVALID_PROPERTY_NAME = "object_invalid_property_name"
     INCORRECT_TYPE = "incorrect_type"
     INVALID_ENUM_VALUE = "invalid_enum_value"
     INVALID_FORMAT = "invalid_format"
@@ -313,7 +312,4 @@ class CaseMetadata:
 
 
 def _load_mutations(raw: dict[str, Any]) -> tuple[Mutation, ...]:
-    # Avoid Hypothesis import at module level
-    from schemathesis.specs.openapi.negative.mutations import Mutation
-
     return tuple(Mutation.from_dict(m) for m in raw.get("mutations", ()))

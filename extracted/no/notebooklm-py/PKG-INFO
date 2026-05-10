@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: notebooklm-py
-Version: 0.3.4
+Version: 0.4.0
 Summary: Unofficial Python library for automating Google NotebookLM
 Project-URL: Homepage, https://github.com/teng-lin/notebooklm-py
 Project-URL: Repository, https://github.com/teng-lin/notebooklm-py
@@ -35,10 +35,12 @@ Requires-Dist: pytest-rerunfailures>=14.0; extra == 'all'
 Requires-Dist: pytest-timeout>=2.3.0; extra == 'all'
 Requires-Dist: pytest>=8.0.0; extra == 'all'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'all'
-Requires-Dist: ruff>=0.4.0; extra == 'all'
+Requires-Dist: ruff==0.8.6; extra == 'all'
 Requires-Dist: vcrpy>=6.0.0; extra == 'all'
 Provides-Extra: browser
 Requires-Dist: playwright>=1.40.0; extra == 'browser'
+Provides-Extra: cookies
+Requires-Dist: rookiepy>=0.1.0; extra == 'cookies'
 Provides-Extra: dev
 Requires-Dist: mypy>=1.0.0; extra == 'dev'
 Requires-Dist: pre-commit>=4.5.1; extra == 'dev'
@@ -49,7 +51,7 @@ Requires-Dist: pytest-rerunfailures>=14.0; extra == 'dev'
 Requires-Dist: pytest-timeout>=2.3.0; extra == 'dev'
 Requires-Dist: pytest>=8.0.0; extra == 'dev'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'dev'
-Requires-Dist: ruff>=0.4.0; extra == 'dev'
+Requires-Dist: ruff==0.8.6; extra == 'dev'
 Requires-Dist: vcrpy>=6.0.0; extra == 'dev'
 Description-Content-Type: text/markdown
 
@@ -58,7 +60,7 @@ Description-Content-Type: text/markdown
   <img src="https://raw.githubusercontent.com/teng-lin/notebooklm-py/main/notebooklm-py.png" alt="notebooklm-py logo" width="128">
 </p>
 
-**Unofficial Python API and agentic skill for Google NotebookLM.** Full programmatic access to NotebookLM's features—including capabilities the web UI doesn't expose—via Python, CLI, and AI agents like Claude Code, Codex, and OpenClaw.
+**A Comprehensive NotebookLM Skill & Unofficial Python API.** Full programmatic access to NotebookLM's features—including capabilities the web UI doesn't expose—via Python, CLI, and AI agents like Claude Code, Codex, and OpenClaw.
 
 [![PyPI version](https://img.shields.io/pypi/v/notebooklm-py.svg)](https://pypi.org/project/notebooklm-py/)
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://pypi.org/project/notebooklm-py/)
@@ -78,11 +80,11 @@ Description-Content-Type: text/markdown
 > - **APIs may break** - Google can change internal endpoints anytime
 > - **Rate limits apply** - Heavy usage may be throttled
 >
-> Best for prototypes, research, and personal projects. See [Troubleshooting](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/docs/troubleshooting.md) for debugging tips.
+> Best for prototypes, research, and personal projects. See [Troubleshooting](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/troubleshooting.md) for debugging tips.
 
 ## What You Can Build
 
-🤖 **AI Agent Tools** - Integrate NotebookLM into Claude Code or other LLM agents. Ships with [Claude Code skills](#agent-skills-claude-code) for natural language automation (`notebooklm skill install`), or build your own integrations with the async Python API.
+🤖 **AI Agent Tools** - Integrate NotebookLM into Claude Code, Codex, and other LLM agents. Ships with a root [NotebookLM skill](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/SKILL.md) for GitHub and `npx skills add` discovery, local `notebooklm skill install` support for Claude Code and `.agents` skill directories, and repo-level Codex guidance in [`AGENTS.md`](AGENTS.md).
 
 📚 **Research Automation** - Bulk-import sources (URLs, PDFs, YouTube, Google Drive), run web/Drive research queries with auto-import, and extract insights programmatically. Build repeatable research pipelines.
 
@@ -96,7 +98,7 @@ Description-Content-Type: text/markdown
 |--------|----------|
 | **Python API** | Application integration, async workflows, custom pipelines |
 | **CLI** | Shell scripts, quick tasks, CI/CD automation |
-| **Agent Skills** | Claude Code, LLM agents, natural language automation |
+| **Agent Integration** | Claude Code, Codex, LLM agents, natural language automation |
 
 ## Features
 
@@ -105,7 +107,7 @@ Description-Content-Type: text/markdown
 | Category | Capabilities |
 |----------|--------------|
 | **Notebooks** | Create, list, rename, delete |
-| **Sources** | URLs, YouTube, files (PDF, text, Markdown, Word, audio, video, images), Google Drive, pasted text; refresh, get guide/fulltext |
+| **Sources** | URLs, YouTube, files (PDF, text, Markdown, Word, EPUB, audio, video, images), Google Drive, pasted text; refresh, get guide/fulltext |
 | **Chat** | Questions, conversation history, custom personas |
 | **Research** | Web and Drive research agents (fast/deep modes) with auto-import |
 | **Sharing** | Public/private links, user permissions (viewer/editor), view level control |
@@ -138,6 +140,8 @@ These features are available via API/CLI but not exposed in NotebookLM's web int
 - **Save chat to notes** - Save Q&A answers or conversation history as notebook notes
 - **Source fulltext access** - Retrieve the indexed text content of any source
 - **Programmatic sharing** - Manage permissions without the UI
+- **Multi-account profiles** - Switch between Google accounts without re-authenticating
+- **Browser cookie import** - Reuse cookies from your existing browser session instead of driving Playwright
 
 ## Installation
 
@@ -148,7 +152,12 @@ pip install notebooklm-py
 # With browser login support (required for first-time setup)
 pip install "notebooklm-py[browser]"
 playwright install chromium
+
+# Optional: import cookies from your existing browser instead of running Playwright
+pip install "notebooklm-py[cookies]"
 ```
+
+If `playwright install chromium` fails with `TypeError: onExit is not a function`, see the Linux workaround in [Troubleshooting](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/troubleshooting.md#linux).
 
 ### Development Installation
 
@@ -173,6 +182,15 @@ pip install git+https://github.com/teng-lin/notebooklm-py@main
 ```bash
 # 1. Authenticate (opens browser)
 notebooklm login
+# Or use Microsoft Edge (for orgs that require Edge for SSO)
+# notebooklm login --browser msedge
+# Or reuse cookies from an already-logged-in browser session
+# notebooklm login --browser-cookies chrome
+# (combine with --profile to populate a specific profile;
+#  cookie import always uses the browser's active Google account
+#  for google.com / notebooklm.google.com, so switch accounts in
+#  the browser between runs to populate multiple profiles from
+#  one browser)
 
 # 2. Create a notebook and add sources
 notebooklm create "My Research"
@@ -210,11 +228,15 @@ Other useful CLI commands:
 
 ```bash
 notebooklm auth check --test         # Diagnose auth/cookie issues
+notebooklm agent show codex          # Print bundled Codex instructions
+notebooklm agent show claude         # Print bundled Claude Code skill template
 notebooklm language list             # List supported output languages
 notebooklm metadata --json           # Export notebook metadata and sources
 notebooklm share status              # Inspect sharing state
 notebooklm source add-research "AI"  # Start web research and import sources
-notebooklm skill status              # Check Claude Code skill installation
+notebooklm skill status              # Check local agent skill installation
+notebooklm profile list              # List all Google account profiles
+notebooklm profile switch work       # Switch active account profile
 ```
 
 ### Python API
@@ -250,34 +272,41 @@ async def main():
 asyncio.run(main())
 ```
 
-### Agent Skills (Claude Code)
+### Agent Setup
+
+**Option 1 — CLI install**:
 
 ```bash
-# Install via CLI or ask Claude Code to do it
 notebooklm skill install
-
-# Then use natural language:
-# "Create a podcast about quantum computing"
-# "Download the quiz as markdown"
-# "/notebooklm generate video"
 ```
+
+Installs the skill into `~/.claude/skills/notebooklm` and `~/.agents/skills/notebooklm`.
+
+**Option 2 — `npx` install** (via the open skills ecosystem):
+
+```bash
+npx skills add teng-lin/notebooklm-py
+```
+
+Fetches the canonical [SKILL.md](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/SKILL.md) directly from GitHub.
+
 
 ## Documentation
 
-- **[CLI Reference](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/docs/cli-reference.md)** - Complete command documentation
-- **[Python API](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/docs/python-api.md)** - Full API reference
-- **[Configuration](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/docs/configuration.md)** - Storage and settings
-- **[Release Guide](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/docs/releasing.md)** - Release checklist and packaging verification
-- **[Troubleshooting](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/docs/troubleshooting.md)** - Common issues and solutions
-- **[API Stability](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/docs/stability.md)** - Versioning policy and stability guarantees
+- **[CLI Reference](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/cli-reference.md)** - Complete command documentation
+- **[Python API](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/python-api.md)** - Full API reference
+- **[Configuration](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/configuration.md)** - Storage and settings
+- **[Release Guide](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/releasing.md)** - Release checklist and packaging verification
+- **[Troubleshooting](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/troubleshooting.md)** - Common issues and solutions
+- **[API Stability](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/stability.md)** - Versioning policy and stability guarantees
 
 ### For Contributors
 
-- **[Development Guide](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/docs/development.md)** - Architecture, testing, and releasing
-- **[RPC Development](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/docs/rpc-development.md)** - Protocol capture and debugging
-- **[RPC Reference](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/docs/rpc-reference.md)** - Payload structures
-- **[Changelog](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/CHANGELOG.md)** - Version history and release notes
-- **[Security](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/SECURITY.md)** - Security policy and credential handling
+- **[Development Guide](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/development.md)** - Architecture, testing, and releasing
+- **[RPC Development](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/rpc-development.md)** - Protocol capture and debugging
+- **[RPC Reference](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/rpc-reference.md)** - Payload structures
+- **[Changelog](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/CHANGELOG.md)** - Version history and release notes
+- **[Security](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/SECURITY.md)** - Security policy and credential handling
 
 ## Platform Support
 
@@ -293,4 +322,4 @@ notebooklm skill install
 
 ## License
 
-MIT License. See [LICENSE](https://github.com/teng-lin/notebooklm-py/blob/v0.3.4/LICENSE) for details.
+MIT License. See [LICENSE](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/LICENSE) for details.

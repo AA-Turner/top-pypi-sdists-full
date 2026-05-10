@@ -711,10 +711,24 @@ def release_from_source(
             commited_files=[],
         )
 
+        # Resolve pyproject_root: if subdirectory is declared in config.release.source,
+        # the strategy lives inside a subpath of the clone (monorepo / uv workspace
+        # layout). Otherwise the strategy lives at the clone root (single-package layout).
+        source = stg_config.release.source
+        if source.subdirectory:
+            pyproject_root = os.path.join(str(clone_dir), source.subdirectory)
+            if not os.path.exists(os.path.join(pyproject_root, "pyproject.toml")):
+                raise FileNotFoundError(
+                    f"Configured release.source.subdirectory={source.subdirectory!r} "
+                    f"does not contain a pyproject.toml: {pyproject_root}"
+                )
+        else:
+            pyproject_root = str(clone_dir)
+
         create_released_pack(
             stg_info=stg_info,
             git_info=git_info,
-            pyproject_root=str(clone_dir),
+            pyproject_root=pyproject_root,
             output_dir=output_dir,
             config_file=cloned_config,
         )
@@ -764,7 +778,6 @@ def _find_source_root(pyproject_root: str, project_name: str) -> str | None:
         return candidate
 
     return None
-
 
 
 def _parse_uv_lock(uv_lock_path: str) -> dict[str, str]:
@@ -1044,10 +1057,7 @@ def create_released_pack(
 
     # Parse uv.lock once as the single source of truth for versions.
     # If missing, generate it first.
-    uv_lock_path = os.path.join(pyproject_root, "uv.lock")
-    if not os.path.exists(uv_lock_path):
-        logger.info("uv.lock not found in source project, generating...")
-        _generate_lock_file(pyproject_root)
+    uv_lock_path = _resolve_source_lockfile(pyproject_root)
     lock_versions = _parse_uv_lock(uv_lock_path)
 
     # --- Step 1: Build strategy wheel (if custom code) ---
@@ -1325,6 +1335,122 @@ def _resolve_local_package_version(local_path: str, pkg_norm: str) -> str | None
     return None
 
 
+def _resolve_source_lockfile(pyproject_root: str) -> str:
+    """Locate the uv.lock for a source project, handling uv workspaces.
+
+    For a single-package project, uv.lock lives at the project root. For a
+    workspace member, uv only writes a single workspace-root lock — the member
+    directory has no uv.lock of its own. This helper picks the right one:
+
+    1. If `<pyproject_root>/uv.lock` exists, use it.
+    2. Otherwise, if `pyproject_root` is inside a uv workspace and the
+       workspace root has a uv.lock, use the workspace-root lock.
+    3. Otherwise, run `uv lock` from `pyproject_root` (which may write the lock
+       at the workspace root if `pyproject_root` is a member). Re-check both
+       locations and prefer whichever exists.
+
+    The returned path is what callers should hand to `_parse_uv_lock` /
+    `_parse_uv_lock_git_commits`. If neither location ends up populated, the
+    member-local path is returned so the caller can surface the missing-lock
+    warning via `_parse_uv_lock`.
+    """
+    member_lock = os.path.join(pyproject_root, "uv.lock")
+    if os.path.exists(member_lock):
+        return member_lock
+
+    workspace_root = _find_uv_workspace_root(pyproject_root)
+    if workspace_root and workspace_root != pyproject_root:
+        ws_lock = os.path.join(workspace_root, "uv.lock")
+        if os.path.exists(ws_lock):
+            logger.debug(f"Using workspace-root uv.lock at {ws_lock}")
+            return ws_lock
+
+    logger.info("uv.lock not found in source project, generating...")
+    _generate_lock_file(pyproject_root)
+
+    # `uv lock` for a workspace member writes the lock at the workspace root,
+    # not the member directory. Re-check both locations.
+    if os.path.exists(member_lock):
+        return member_lock
+    if workspace_root and workspace_root != pyproject_root:
+        ws_lock = os.path.join(workspace_root, "uv.lock")
+        if os.path.exists(ws_lock):
+            logger.debug(f"Using workspace-root uv.lock at {ws_lock}")
+            return ws_lock
+
+    return member_lock
+
+
+def _find_uv_workspace_root(start_dir: str) -> str | None:
+    """Walk up from start_dir to find the nearest pyproject.toml with [tool.uv.workspace].
+
+    Returns the directory path, or None if no workspace root is found within the
+    parent chain (stops at filesystem root).
+    """
+    import toml
+
+    cur = os.path.abspath(start_dir)
+    while True:
+        candidate = os.path.join(cur, "pyproject.toml")
+        if os.path.exists(candidate):
+            try:
+                with open(candidate) as f:
+                    data = toml.load(f)
+                if data.get("tool", {}).get("uv", {}).get("workspace"):
+                    return cur
+            except Exception:
+                pass
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            return None
+        cur = parent
+
+
+def _find_workspace_member_for_package(workspace_root: str, pkg_name: str) -> str | None:
+    """Locate the workspace member directory whose pyproject's project.name matches pkg_name.
+
+    Comparison is PEP-503 normalised (lowercase, hyphens/underscores collapsed). Returns
+    the absolute member path, or None if no matching member is found.
+
+    Members may be listed as exact paths or glob patterns; we resolve each via
+    glob.glob (relative to the workspace root) and check pyproject.toml in each.
+    """
+    import glob
+
+    import toml
+
+    # Normalise the target package name (PEP 503)
+    target = pkg_name.lower().replace("_", "-")
+
+    workspace_pyproject = os.path.join(workspace_root, "pyproject.toml")
+    try:
+        with open(workspace_pyproject) as f:
+            data = toml.load(f)
+    except Exception:
+        return None
+
+    members = data.get("tool", {}).get("uv", {}).get("workspace", {}).get("members", [])
+    if not members:
+        return None
+
+    for member_pattern in members:
+        # Resolve glob (uv supports `packages/*` patterns)
+        for member_path in glob.glob(os.path.join(workspace_root, member_pattern)):
+            member_pyproject = os.path.join(member_path, "pyproject.toml")
+            if not os.path.isfile(member_pyproject):
+                continue
+            try:
+                with open(member_pyproject) as f:
+                    member_data = toml.load(f)
+                member_name = (member_data.get("project", {}) or {}).get("name", "")
+                if member_name.lower().replace("_", "-") == target:
+                    return os.path.abspath(member_path)
+            except Exception:
+                continue
+
+    return None
+
+
 def _bundle_source_overrides(
     pyproject_data: dict,
     pyproject_root: str,
@@ -1452,7 +1578,9 @@ def _bundle_source_overrides(
                     shutil.rmtree(checkout_dir, ignore_errors=True)
                     os.makedirs(checkout_dir, exist_ok=True)
                     subprocess.run(["git", "clone", git_url, checkout_dir], check=True, capture_output=True, text=True)
-                    subprocess.run(["git", "checkout", commit_sha], cwd=checkout_dir, check=True, capture_output=True, text=True)
+                    subprocess.run(
+                        ["git", "checkout", commit_sha], cwd=checkout_dir, check=True, capture_output=True, text=True
+                    )
 
             # Honor [tool.uv.sources] `subdirectory` for monorepo git sources
             subdir = source.get("subdirectory")
@@ -1482,6 +1610,53 @@ def _bundle_source_overrides(
             finally:
                 if cloned_locally and os.path.isdir(checkout_dir):
                     shutil.rmtree(checkout_dir, ignore_errors=True)
+
+        elif source.get("workspace") is True:
+            if not pkg_ver:
+                logger.warning(f"  {pkg_name} not found in uv.lock, skipping bundle")
+                continue
+
+            workspace_root = _find_uv_workspace_root(pyproject_root)
+            if workspace_root is None:
+                logger.warning(
+                    f"  {pkg_name}: declared as `workspace = true` but no workspace root "
+                    f"found above {pyproject_root}, skipping bundle"
+                )
+                continue
+
+            member_path = _find_workspace_member_for_package(workspace_root, pkg_name)
+            if member_path is None:
+                logger.warning(
+                    f"  {pkg_name}: declared as `workspace = true` but no workspace member "
+                    f"in {workspace_root} matches the package name, skipping bundle"
+                )
+                continue
+
+            if _version_exists_on_pypi(pkg_name, pkg_ver):
+                logger.info(f"  {pkg_name}=={pkg_ver} found on public PyPI, will resolve from registry")
+                continue
+
+            logger.info(f"  Bundling {pkg_name}=={pkg_ver} from workspace member {member_path} ...")
+            os.makedirs(wheels_dir, exist_ok=True)
+            try:
+                result = subprocess.run(
+                    ["uv", "build", "--wheel", ".", "--out-dir", wheels_dir],
+                    cwd=member_path,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                logger.debug(f"uv build stdout: {result.stdout}")
+                for whl in os.listdir(wheels_dir):
+                    if whl.lower().startswith(pkg_norm) and "none-any" not in whl:
+                        logger.warning(
+                            f"  {whl} is platform-specific. "
+                            "Ensure the container architecture matches the build machine."
+                        )
+                bundled.append(pkg_name.lower())
+                logger.info(f"  Bundled {pkg_name}")
+            except subprocess.CalledProcessError as e:
+                logger.opt(colors=False).warning(f"  Failed to build wheel for {pkg_name}: {e.stderr or e}")
 
     return bundled
 

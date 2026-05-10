@@ -24,16 +24,16 @@ from schemathesis.core.failures import AcceptedNegativeData
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
 from schemathesis.core.result import Ok
 from schemathesis.generation import GenerationMode
-from schemathesis.generation import coverage as coverage_generation
+from schemathesis.generation.drivers import CoverageGenerator
 from schemathesis.generation.hypothesis.builder import (
     HypothesisTestConfig,
     HypothesisTestMode,
-    _iter_coverage_cases,
     create_test,
-    generate_coverage_cases,
 )
 from schemathesis.generation.meta import CoverageScenario, TestPhase
 from schemathesis.specs.openapi.checks import negative_data_rejection
+from schemathesis.specs.openapi.coverage._operation import iter_coverage_cases
+from schemathesis.specs.openapi.coverage._schema import CoverageContext, _negative_format, cover_schema_iter
 from test.utils import assert_requests_call
 
 
@@ -203,7 +203,9 @@ ALL_MODES = list(GenerationMode)
 
 
 def run_test(operation, test, modes=ALL_MODES, generate_duplicate_query_parameters=None, unexpected_methods=None):
-    config = ProjectConfig()
+    # Mutate the operation's schema config directly: `iter_coverage_cases` reads phase
+    # settings off `self.config`, so a separate `ProjectConfig` would never reach it.
+    config = operation.schema.config
     config.generation.update(modes=modes)
     if generate_duplicate_query_parameters is not None:
         config.phases.coverage.generate_duplicate_query_parameters = generate_duplicate_query_parameters
@@ -286,7 +288,7 @@ def collect_coverage_cases(ctx, body_schema, positive=False, version="3.0.2"):
 
 def _iter_cases(operation, generation_mode, *, generation_config=None):
     return list(
-        _iter_coverage_cases(
+        iter_coverage_cases(
             operation=operation,
             generation_modes=[generation_mode],
             generate_duplicate_query_parameters=False,
@@ -297,22 +299,23 @@ def _iter_cases(operation, generation_mode, *, generation_config=None):
 
 
 def _generate_cases(operation, generation_mode, *, project_config=None, generation_config=None):
+    coverage_config = operation.schema.config.phases.coverage
     if project_config is not None:
-        generate_duplicate_query_parameters = project_config.phases.coverage.generate_duplicate_query_parameters
-        unexpected_methods = project_config.phases.coverage.unexpected_methods
+        coverage_config.generate_duplicate_query_parameters = (
+            project_config.phases.coverage.generate_duplicate_query_parameters
+        )
+        coverage_config.unexpected_methods = project_config.phases.coverage.unexpected_methods
         generation_config = generation_config or project_config.generation
     else:
-        generate_duplicate_query_parameters = False
-        unexpected_methods = set()
+        coverage_config.generate_duplicate_query_parameters = False
+        coverage_config.unexpected_methods = set()
         generation_config = generation_config or operation.schema.config.generation
     return list(
-        generate_coverage_cases(
+        CoverageGenerator(
             operation=operation,
             generation_modes=[generation_mode],
             auth_storage=None,
             as_strategy_kwargs={},
-            generate_duplicate_query_parameters=generate_duplicate_query_parameters,
-            unexpected_methods=unexpected_methods,
             generation_config=generation_config,
         )
     )
@@ -883,6 +886,167 @@ def test_mixed_type_keyword(ctx):
             },
         ],
     )
+
+
+def test_negative_type_violations_for_enum_property_under_allof(ctx):
+    # `allOf` canonicalisation drops `type` from `{type, enum}` properties; the engine must
+    # still emit type-violation negatives for those properties in mixed-mode coverage.
+    schema = build_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "allOf": [
+                            {"type": "object"},
+                            {
+                                "type": "object",
+                                "required": ["color"],
+                                "properties": {
+                                    "color": {"type": "string", "enum": ["red", "blue"]},
+                                },
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    )
+    assert_coverage(
+        schema,
+        [GenerationMode.POSITIVE, GenerationMode.NEGATIVE],
+        [
+            {"body": [None, None]},
+            {"body": ""},
+            {},
+            {"body": False},
+            {"body": 0},
+            {"body": {}},
+            {"body": {"color": {}}},
+            {"body": {"color": [None, None]}},
+            {"body": {"color": None}},
+            {"body": {"color": False}},
+            {"body": {"color": 0}},
+            {"body": {"color": "AAA"}},
+            {"body": {"color": "blue"}},
+            {"body": {"color": "red"}},
+        ],
+    )
+
+
+def test_positive_oneof_number_branch_covered_when_example_pins_string(ctx):
+    # Spec example "5xx" satisfies the string branch but not the number branch; without a
+    # baseline fallback the number branch yields no positive case and `/oneOf/0/type` ends
+    # up as `needs_valid` even though the schema is satisfiable.
+    schema = build_schema(
+        ctx,
+        [
+            {
+                "name": "statusCode",
+                "in": "query",
+                "required": False,
+                "schema": {
+                    "examples": ["5xx"],
+                    "oneOf": [{"type": "number"}, {"type": "string"}],
+                },
+            },
+        ],
+    )
+    assert_coverage(
+        schema,
+        [GenerationMode.POSITIVE],
+        [
+            {"query": {"statusCode": "5xx"}},
+            {"query": {"statusCode": "0"}},
+        ],
+    )
+
+
+def test_no_redundant_type_violations_for_enum_string_property_in_multipart(ctx):
+    # Multipart stringifies every value, so non-strings for a string-typed property
+    # collapse into the enum negation already emitted.
+    schema = build_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["color"],
+                        "properties": {
+                            "color": {"type": "string", "enum": ["red", "blue"]},
+                        },
+                    },
+                },
+            },
+        },
+    )
+    assert_coverage(
+        schema,
+        [GenerationMode.POSITIVE, GenerationMode.NEGATIVE],
+        [
+            {"body": {"color": "AAA"}},
+            {"body": {}},
+            {"body": {"color": "blue"}},
+            {"body": {"color": "red"}},
+        ],
+    )
+
+
+def test_below_min_items_negative_emitted_when_array_schema_carries_examples(ctx):
+    # Array schemas with `minItems > 0` and a sibling `examples` (or `example`/`default`)
+    # must still emit an empty-array negative — generation used to short-circuit on the
+    # spec-declared example and skip the constraint-violating shape.
+    raw = ctx.openapi.build_schema(
+        {
+            "/foo": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {"$ref": "#/components/schemas/Item"},
+                                            "minItems": 1,
+                                            "maxItems": 50,
+                                            "examples": [[{"id": "a"}]],
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                },
+            },
+        },
+        components={
+            "schemas": {
+                "Item": {"type": "object", "properties": {"id": {"type": "string"}}},
+            },
+        },
+    )
+    loaded = schemathesis.openapi.from_dict(raw)
+    operation = loaded["/foo"]["POST"]
+    cases = list(
+        iter_coverage_cases(
+            operation=operation,
+            generation_modes=[GenerationMode.NEGATIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=operation.schema.config.generation,
+        )
+    )
+    empty_array = [c for c in cases if isinstance(c.body, dict) and c.body.get("items") == []]
+    assert empty_array and all(
+        c.meta.phase.data.scenario == CoverageScenario.ARRAY_BELOW_MIN_ITEMS for c in empty_array
+    ), [c.body for c in cases]
 
 
 def test_negative_patterns(ctx):
@@ -2555,7 +2719,7 @@ def test_references(ctx, operation, components):
     schema = ctx.openapi.load_schema({"/test": {"post": operation}}, components=components)
     for operation in schema.get_all_operations():
         if isinstance(operation, Ok):
-            for _ in _iter_coverage_cases(
+            for _ in iter_coverage_cases(
                 operation=operation.ok(),
                 generation_modes=list(GenerationMode),
                 generate_duplicate_query_parameters=False,
@@ -3161,6 +3325,52 @@ def test_positive_body_generated_for_object_with_metadata_and_unsatisfiable_opti
     )
 
 
+def test_parameter_positive_coverage_when_body_fallback_negative(ctx):
+    # An unsatisfiable body must not suppress positive coverage of unrelated parameters.
+    schema = ctx.openapi.load_schema(
+        {
+            "/push": {
+                "post": {
+                    "parameters": [
+                        {
+                            "in": "query",
+                            "name": "format",
+                            "schema": {"type": "string", "enum": ["json", "jsonp", "msgpack", "html"]},
+                        }
+                    ],
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {"type": "object", "properties": {"channel": {"type": "string"}}},
+                                        {"type": "object", "properties": {"channel": {"type": "string"}}},
+                                    ]
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    operation = schema["/push"]["POST"]
+    assert {
+        case.query.get("format")
+        for case in iter_coverage_cases(
+            operation=operation,
+            generation_modes=[GenerationMode.POSITIVE, GenerationMode.NEGATIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=operation.schema.config.generation,
+        )
+        if case.query
+        and (query_component := case.meta.components.get(ParameterLocation.QUERY)) is not None
+        and query_component.mode == GenerationMode.POSITIVE
+    } == {"json", "jsonp", "msgpack", "html"}
+
+
 def test_parameter_mutation_cases_do_not_inherit_negative_body(ctx):
     # When positive body coverage yields nothing (the body schema combines `allOf` with
     # readOnly properties, so template inflation requires fields rewritten to `{"not": {}}`),
@@ -3413,6 +3623,344 @@ def test_min_properties_one_with_additional_properties(ctx):
     empty = [c for c in cases if c.meta.phase.data.scenario == CoverageScenario.OBJECT_BELOW_MIN_PROPERTIES]
     assert any(c.body == {} for c in empty), (
         f"Should generate empty object for minProperties: 1 alongside additionalProperties. Got: {[c.body for c in cases]}"
+    )
+
+
+def test_anyof_with_outer_properties_yields_branch_constrained_bodies(ctx):
+    # Outer property `status: string` is tightened by each anyOf branch via enum;
+    # positive bodies must satisfy at least one branch's enum.
+    schema = ctx.openapi.from_full_schema(
+        {
+            "openapi": "3.0.2",
+            "info": {"title": "t", "version": "1"},
+            "paths": {
+                "/x": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "additionalProperties": False,
+                                        "properties": {"status": {"type": "string"}},
+                                        "anyOf": [
+                                            {"properties": {"status": {"enum": ["succeeded"]}}},
+                                            {"properties": {"status": {"enum": ["failed", "rejected"]}}},
+                                        ],
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+    )
+    operation = schema["/x"]["POST"]
+    cases = _generate_cases(operation, GenerationMode.POSITIVE)
+    bad = [
+        c.body
+        for c in cases
+        if isinstance(c.body, dict)
+        and "status" in c.body
+        and c.body["status"] not in ("succeeded", "failed", "rejected")
+    ]
+    assert not bad, f"Positive body must satisfy at least one anyOf branch's enum. Got: {bad}"
+
+
+def test_oneof_no_required_disambiguator_does_not_yield_ambiguous_empty(ctx):
+    # Both oneOf branches accept `{}` (no required, only optional properties).
+    # `{}` matches both, violating oneOf's "exactly one" — must not be yielded as a positive case.
+    schema = ctx.openapi.from_full_schema(
+        {
+            "openapi": "3.0.2",
+            "info": {"title": "t", "version": "1"},
+            "paths": {
+                "/x": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "oneOf": [
+                                            {"properties": {"a": {"type": "integer"}}},
+                                            {"properties": {"b": {"type": "integer"}}},
+                                        ],
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+    )
+    operation = schema["/x"]["POST"]
+    cases = _generate_cases(operation, GenerationMode.POSITIVE)
+    assert not any(c.body == {} for c in cases), (
+        f"Empty `{{}}` matches both oneOf branches and must not be yielded. Got: {[c.body for c in cases]}"
+    )
+
+
+def test_anyof_discriminator_branch_required_propagated(ctx):
+    # anyOf branches discriminated by a `type` enum. The branch with type=A also requires
+    # `priority`. A positive body claiming type=A must include priority.
+    schema = ctx.openapi.from_full_schema(
+        {
+            "openapi": "3.0.2",
+            "info": {"title": "t", "version": "1"},
+            "paths": {
+                "/x": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "anyOf": [
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "type": {"enum": ["A"]},
+                                                    "value": {"type": "string"},
+                                                    "priority": {"type": "integer"},
+                                                },
+                                                "required": ["type", "value", "priority"],
+                                            },
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "type": {"enum": ["B"]},
+                                                    "value": {"type": "string"},
+                                                },
+                                                "required": ["type", "value"],
+                                            },
+                                        ],
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+    )
+    operation = schema["/x"]["POST"]
+    cases = _generate_cases(operation, GenerationMode.POSITIVE)
+    bad = [c.body for c in cases if isinstance(c.body, dict) and c.body.get("type") == "A" and "priority" not in c.body]
+    assert not bad, f"Positive body for branch type=A must include branch-required `priority`. Got: {bad}"
+
+
+def test_request_body_example_invalid_against_schema_not_yielded(ctx):
+    # Boolean `exclusiveMinimum` (Draft 4) defeats Draft-2020-12 auto-detection; the example
+    # missing `riskFreeRate` must still be filtered out as a positive case.
+    schema = ctx.openapi.from_full_schema(
+        {
+            "openapi": "3.0.2",
+            "info": {"title": "t", "version": "1"},
+            "paths": {
+                "/x": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "portfolios": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "values": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "number",
+                                                                "minimum": 0,
+                                                                "exclusiveMinimum": True,
+                                                            },
+                                                            "minItems": 2,
+                                                        },
+                                                    },
+                                                    "required": ["values"],
+                                                },
+                                                "minItems": 1,
+                                            },
+                                            "riskFreeRate": {"type": "number"},
+                                        },
+                                        "required": ["portfolios", "riskFreeRate"],
+                                    },
+                                    "examples": {
+                                        "missing-required": {
+                                            "value": {"portfolios": [{"values": [100, 95]}]},
+                                        },
+                                    },
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+    )
+    operation = schema["/x"]["POST"]
+    cases = _generate_cases(operation, GenerationMode.POSITIVE)
+    bad = [c.body for c in cases if isinstance(c.body, dict) and "riskFreeRate" not in c.body]
+    assert not bad, f"Spec example invalid against schema must not be yielded. Got: {bad}"
+
+
+def test_required_outside_allof_propagated_into_canonicalised_branches(ctx):
+    schema = ctx.openapi.from_full_schema(
+        {
+            "openapi": "3.0.2",
+            "info": {"title": "t", "version": "1"},
+            "components": {
+                "schemas": {
+                    "Interval": {"type": "string", "enum": ["WEEKLY", "MONTHLY"]},
+                    "Base": {
+                        "type": "object",
+                        "additionalProperties": True,
+                        "nullable": True,
+                        "properties": {
+                            "adjusted_start_date": {"type": "string", "format": "date", "nullable": True},
+                            "end_date": {"type": "string", "format": "date", "nullable": True},
+                            "start_date": {"type": "string", "format": "date"},
+                            "interval": {"$ref": "#/components/schemas/Interval"},
+                            "interval_execution_day": {"type": "integer"},
+                        },
+                    },
+                    "Wrapper": {
+                        "additionalProperties": True,
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Base"},
+                            {"type": "object"},
+                        ],
+                        "required": ["start_date", "interval", "interval_execution_day"],
+                    },
+                }
+            },
+            "paths": {
+                "/x": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "schedule": {"$ref": "#/components/schemas/Wrapper"},
+                                        },
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+    )
+    operation = schema["/x"]["POST"]
+    cases: list = []
+
+    def collect(case):
+        if case.meta.phase.name == TestPhase.COVERAGE:
+            cases.append(case)
+
+    run_positive_test(operation, collect)
+
+    required = ("start_date", "interval", "interval_execution_day")
+    bad = []
+    for c in cases:
+        if not isinstance(c.body, dict):
+            continue
+        sched = c.body.get("schedule")
+        if isinstance(sched, dict) and not all(k in sched for k in required):
+            bad.append(sched)
+    assert not bad, f"Generated nested object missing outer-required properties. Got: {bad}"
+
+
+def test_ref_with_type_sibling_dropped_in_openapi_3_0(ctx):
+    schema = ctx.openapi.from_full_schema(
+        {
+            "openapi": "3.0.2",
+            "info": {"title": "t", "version": "1"},
+            "components": {
+                "schemas": {
+                    "Inner": {
+                        "type": "object",
+                        "properties": {"foo": {"type": "string"}},
+                        "required": ["foo"],
+                    },
+                }
+            },
+            "paths": {
+                "/x": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "Field": {
+                                                "$ref": "#/components/schemas/Inner",
+                                                "type": "string",
+                                            },
+                                        },
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+    )
+    operation = schema["/x"]["POST"]
+    cases: list = []
+
+    def collect(case):
+        if case.meta.phase.name == TestPhase.COVERAGE:
+            cases.append(case)
+
+    run_positive_test(operation, collect)
+
+    field_strings = [c.body for c in cases if isinstance(c.body, dict) and isinstance(c.body.get("Field"), str)]
+    assert not field_strings, f"Field generated as string despite $ref to object. Got: {field_strings}"
+
+
+def test_additional_property_respects_max_properties(ctx):
+    cases = collect_coverage_cases(
+        ctx,
+        {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1,
+            "additionalProperties": {"type": "integer"},
+        },
+        positive=True,
+    )
+    exceeding = [
+        c
+        for c in cases
+        if c.meta.phase.data.scenario == CoverageScenario.OBJECT_ADDITIONAL_PROPERTY
+        and isinstance(c.body, dict)
+        and len(c.body) > 1
+    ]
+    assert not exceeding, (
+        f"OBJECT_ADDITIONAL_PROPERTY positive case must respect maxProperties. Got: {[c.body for c in exceeding]}"
     )
 
 
@@ -3682,8 +4230,10 @@ def test_duration_format_generates_required_query_positive_cases(ctx, version):
 )
 def test_hostname_negative_format_respects_validator_draft(monkeypatch, validator_cls, should_generate):
     # `XN--9krT00a` is valid in Draft 4 but invalid in Draft 2020-12.
-    monkeypatch.setattr(coverage_generation, "from_schema", lambda *_args, **_kwargs: st.just("XN--9krT00a"))
-    ctx = coverage_generation.CoverageContext(
+    monkeypatch.setattr(
+        "schemathesis.specs.openapi.coverage._schema.from_schema", lambda *_args, **_kwargs: st.just("XN--9krT00a")
+    )
+    ctx = CoverageContext(
         root_schema={"type": "string", "format": "hostname"},
         location=ParameterLocation.QUERY,
         media_type=None,
@@ -3693,7 +4243,7 @@ def test_hostname_negative_format_respects_validator_draft(monkeypatch, validato
         validator_cls=validator_cls,
     )
 
-    generator = coverage_generation._negative_format(ctx, {"type": "string", "format": "hostname"}, "hostname")
+    generator = _negative_format(ctx, {"type": "string", "format": "hostname"}, "hostname")
 
     if should_generate:
         value = next(generator)
@@ -3701,6 +4251,26 @@ def test_hostname_negative_format_respects_validator_draft(monkeypatch, validato
     else:
         with pytest.raises(Unsatisfiable):
             next(generator)
+
+
+@pytest.mark.parametrize(
+    ("types", "expected_kind"),
+    [(["string", "number", "null"], (int, float)), (["string", "integer", "null"], int)],
+    ids=["number", "integer"],
+)
+def test_multi_type_union_yields_numeric_branch(types, expected_kind):
+    # Numeric branch of a multi-type union must produce a numeric value, not a string drawn from a sibling branch.
+    ctx = CoverageContext(
+        root_schema={},
+        location=ParameterLocation.QUERY,
+        media_type=None,
+        generation_modes=[GenerationMode.POSITIVE],
+        is_required=False,
+        custom_formats={},
+        validator_cls=jsonschema_rs.validator_for({}).__class__,
+    )
+    values = [v.value for v in cover_schema_iter(ctx, {"type": types})]
+    assert any(isinstance(v, expected_kind) and not isinstance(v, bool) for v in values), values
 
 
 def test_missing_required_header_case_uses_invalid_template_body(ctx):
@@ -4294,6 +4864,167 @@ def test_coverage_positive_object_type_with_items(ctx):
     positive_cases = _iter_cases(operation, GenerationMode.POSITIVE, generation_config=loaded.config.generation)
     for case in positive_cases:
         assert validator.is_valid(case.body), f"POSITIVE body is schema-invalid per optimized_schema: {case.body!r}"
+
+
+def _positive_body_context():
+    return CoverageContext(
+        root_schema={},
+        location=ParameterLocation.BODY,
+        media_type=("application", "json"),
+        generation_modes=[GenerationMode.POSITIVE],
+        is_required=True,
+        custom_formats={},
+        validator_cls=jsonschema_rs.validator_for({}).__class__,
+    )
+
+
+@pytest.mark.parametrize(
+    "items_hint",
+    [{"example": {"id": "X"}}, {"examples": [{"id": "X"}]}, {"default": {"id": "X"}}],
+    ids=["example", "examples", "default"],
+)
+def test_array_items_spec_hint_seeds_generated_array(items_hint):
+    # Array elements draw from `items`-level spec hints.
+    items = {"type": "object", "properties": {"id": {"type": "string"}}, **items_hint}
+    assert _positive_body_context().generate_from_schema({"type": "array", "items": items, "minItems": 1}) == [
+        {"id": "X"}
+    ]
+
+
+@pytest.mark.parametrize(
+    "hint_extra",
+    [
+        {"example": {"id": "X", "ro": "v"}},
+        {"examples": [{"id": "X", "ro": "v"}]},
+        {"default": {"id": "X", "ro": "v"}},
+    ],
+    ids=["example", "examples", "default"],
+)
+def test_spec_hint_recovers_after_dropping_readonly_stripped_keys(hint_extra):
+    # Examples carrying `readOnly` keys (forbidden in request schemas) must still seed generation after dropping them.
+    schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "ro": {"not": {}}},
+        **hint_extra,
+    }
+    assert _positive_body_context().generate_from_schema(schema) == {"id": "X"}
+
+
+def test_oneof_ref_branches_with_discriminator_each_get_distinct_positive_coverage(ctx):
+    # A nested discriminator `oneOf` under an outer `oneOf`-discriminated body must
+    # yield at least one value uniquely satisfying each inner branch.
+    raw = ctx.openapi.build_schema(
+        {
+            "/r": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Rule"}}},
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                },
+            },
+        },
+        components={
+            "schemas": {
+                "Rule": {
+                    "discriminator": {
+                        "propertyName": "ruleType",
+                        "mapping": {
+                            "http": "#/components/schemas/HttpRule",
+                            "kinesis": "#/components/schemas/KinesisRule",
+                        },
+                    },
+                    "oneOf": [
+                        {"$ref": "#/components/schemas/HttpRule"},
+                        {"$ref": "#/components/schemas/KinesisRule"},
+                    ],
+                },
+                "HttpRule": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["ruleType", "url"],
+                    "properties": {
+                        "ruleType": {"type": "string", "enum": ["http"]},
+                        "url": {"type": "string"},
+                    },
+                },
+                "KinesisRule": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["ruleType", "target"],
+                    "properties": {
+                        "ruleType": {"type": "string", "enum": ["kinesis"]},
+                        "target": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["auth"],
+                            "properties": {
+                                "auth": {
+                                    "discriminator": {
+                                        "propertyName": "mode",
+                                        "mapping": {
+                                            "credentials": "#/components/schemas/Credentials",
+                                            "assumeRole": "#/components/schemas/AssumeRole",
+                                        },
+                                    },
+                                    "oneOf": [
+                                        {"$ref": "#/components/schemas/Credentials"},
+                                        {"$ref": "#/components/schemas/AssumeRole"},
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                },
+                "Credentials": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["accessKey", "secretKey"],
+                    "properties": {
+                        "mode": {"type": "string", "enum": ["credentials"]},
+                        "accessKey": {"type": "string"},
+                        "secretKey": {"type": "string"},
+                    },
+                },
+                "AssumeRole": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["roleArn"],
+                    "properties": {
+                        "mode": {"type": "string", "enum": ["assumeRole"]},
+                        "roleArn": {"type": "string"},
+                    },
+                },
+            },
+        },
+    )
+    loaded = schemathesis.openapi.from_dict(raw)
+    operation = loaded["/r"]["POST"]
+    creds_validator = jsonschema_rs.validator_for(raw["components"]["schemas"]["Credentials"])
+    assume_validator = jsonschema_rs.validator_for(raw["components"]["schemas"]["AssumeRole"])
+    creds_only = 0
+    assume_only = 0
+    for case in iter_coverage_cases(
+        operation=operation,
+        generation_modes=[GenerationMode.POSITIVE],
+        generate_duplicate_query_parameters=False,
+        unexpected_methods=set(),
+        generation_config=operation.schema.config.generation,
+    ):
+        body = case.body
+        if not isinstance(body, dict) or not isinstance(body.get("target"), dict):
+            continue
+        auth = body["target"].get("auth")
+        if not isinstance(auth, dict):
+            continue
+        ok_c = creds_validator.is_valid(auth)
+        ok_a = assume_validator.is_valid(auth)
+        if ok_c and not ok_a:
+            creds_only += 1
+        elif ok_a and not ok_c:
+            assume_only += 1
+    assert creds_only > 0 and assume_only > 0, f"creds_only={creds_only}, assume_only={assume_only}"
 
 
 def test_coverage_negative_string_length_with_enum(ctx):
@@ -5442,6 +6173,43 @@ def test_coverage_positive_object_with_min_properties_no_required(ctx):
     collect_coverage_cases(ctx, body_schema, positive=True)
 
 
+def test_coverage_positive_object_no_required_collapsed_template_emits_empty_once(ctx):
+    schema = ctx.openapi.from_full_schema(
+        {
+            "openapi": "3.0.2",
+            "info": {"title": "t", "version": "1"},
+            "paths": {
+                "/x": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "xml": {"name": "User"},
+                                        "properties": {
+                                            "a": {"type": "string"},
+                                            "b": {"type": "string"},
+                                            "c": {"type": "string"},
+                                            "d": {"type": "string"},
+                                        },
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "ok"}},
+                    }
+                }
+            },
+        }
+    )
+    operation = schema["/x"]["POST"]
+    cases = _generate_cases(operation, GenerationMode.POSITIVE)
+    empty_bodies = [c.body for c in cases if c.body == {}]
+    assert len(empty_bodies) == 1, f"Expected one empty-body case, got {len(empty_bodies)}: {[c.body for c in cases]}"
+
+
 def test_coverage_positive_oneof_branch_with_conflicting_root_type(ctx):
     # The root schema declares type:array but oneOf[0] declares type:object.
     # Positive coverage must never yield an object body — it can't satisfy both constraints.
@@ -6484,7 +7252,7 @@ def test_coverage_pool_overlay_dict_value_with_undeclared_keys(ctx):
             return None
 
     list(
-        _iter_coverage_cases(
+        iter_coverage_cases(
             operation=operation,
             generation_modes=[GenerationMode.POSITIVE],
             generate_duplicate_query_parameters=False,
@@ -6509,7 +7277,7 @@ def test_undeclared_method_probes_dedup_across_operations(ctx):
     seen: list[tuple[str, str]] = []
     seen_dedup: set[tuple[str, str]] = set()
     for declared in ("GET", "POST", "PUT", "DELETE"):
-        for case in _iter_coverage_cases(
+        for case in iter_coverage_cases(
             operation=schema["/items"][declared],
             generation_modes=[GenerationMode.NEGATIVE],
             generate_duplicate_query_parameters=False,

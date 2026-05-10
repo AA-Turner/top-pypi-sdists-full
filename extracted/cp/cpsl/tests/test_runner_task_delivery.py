@@ -6,9 +6,17 @@ import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 
+from aiohttp.test_utils import make_mocked_request
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from cpsl.clients.capsule import ClaimTaskResponse, TaskDelivery
+from cpsl.clients.capsule import ClaimTaskResponse, GetUserIntegrationsResponse, TaskDelivery
+from cpsl.constants import (
+    HEADER_AUTHENTICATED,
+    HEADER_EMAIL,
+    HEADER_ORG_ID,
+    HEADER_USER_ID,
+)
 from cpsl.runner import Runner
 
 
@@ -37,6 +45,38 @@ class RunnerTaskDeliveryTests(unittest.IsolatedAsyncioTestCase):
         r._track_end = track_end
         return r
 
+    async def test_request_context_fetches_integrations_with_owner_id(self):
+        r = self.runner()
+        calls = []
+
+        class StubSessionService:
+            def get_user_integrations(self, req):
+                calls.append(req)
+                return GetUserIntegrationsResponse()
+
+        r._session_stub = StubSessionService()
+        request = make_mocked_request(
+            "GET",
+            "/",
+            headers={
+                HEADER_AUTHENTICATED: "true",
+                HEADER_EMAIL: "viewer@example.com",
+                HEADER_USER_ID: "viewer-hash",
+                HEADER_ORG_ID: "org:org-1",
+            },
+        )
+
+        ctx = await r._build_request_context(request)
+        session = await r._build_request_session(request)
+
+        self.assertTrue(ctx.authenticated)
+        self.assertEqual(ctx.user.owner_id, "org:org-1")
+        self.assertEqual(session.user.owner_id, "org:org-1")
+        self.assertEqual(len(calls), 2)
+        for req in calls:
+            self.assertEqual(req.user_email, "viewer@example.com")
+            self.assertEqual(req.owner_id, "org:org-1")
+
     async def test_submit_result_is_dispatched_off_event_loop(self):
         r = self.runner()
         r._loop = None
@@ -54,9 +94,7 @@ class RunnerTaskDeliveryTests(unittest.IsolatedAsyncioTestCase):
         elapsed = time.perf_counter() - started
 
         self.assertLess(elapsed, 0.05)
-        self.assertTrue(
-            await asyncio.get_running_loop().run_in_executor(None, submitted.wait, 1)
-        )
+        self.assertTrue(await asyncio.get_running_loop().run_in_executor(None, submitted.wait, 1))
         r._submit_executor.shutdown(wait=True)
 
     async def test_task_session_stream_reply_notifies_with_fresh_request_ids(self):

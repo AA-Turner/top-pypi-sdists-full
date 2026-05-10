@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py_clob_client_v2
-Version: 1.0.0
+Version: 1.0.1
 Summary: Python client for the Polymarket CLOBV2
 Home-page: https://github.com/Polymarket/py-clob-client-v2
 Author: Polymarket Engineering
@@ -15,6 +15,7 @@ Requires-Python: >=3.9.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: eth-account>=0.13.0
+Requires-Dist: eth-abi>=5.0.0
 Requires-Dist: eth-utils>=4.1.1
 Requires-Dist: poly_eip712_structs>=0.0.1
 Requires-Dist: py-order-utils>=0.3.2

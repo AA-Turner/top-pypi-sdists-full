@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: labelme
-Version: 6.1.3
+Version: 6.2.0
 Summary: Image annotation with Python.
 Author-email: Kentaro Wada <www.kentaro.wada@gmail.com>
 License: GPL-3.0-only
@@ -16,20 +16,22 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: imgviz>=2.0.0
-Requires-Dist: loguru
-Requires-Dist: matplotlib
+Requires-Dist: loguru>=0.7
+Requires-Dist: matplotlib>=3.7
 Requires-Dist: natsort>=7.1.0
-Requires-Dist: numpy
+Requires-Dist: numpy>=1.24
 Requires-Dist: osam>=0.4.0
 Requires-Dist: pillow>=2.8
 Requires-Dist: pyqt5-qt5!=5.15.11,!=5.15.12,!=5.15.13,!=5.15.14,!=5.15.15,!=5.15.16; sys_platform == 'win32'
 Requires-Dist: pyqt5-qt5!=5.15.13; sys_platform == 'linux'
 Requires-Dist: pyqt5>=5.14.0
-Requires-Dist: pyyaml
-Requires-Dist: scikit-image
-Requires-Dist: tifffile
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: scikit-image>=0.21
+Requires-Dist: scipy>=1.8
+Requires-Dist: tifffile>=2024.1.30
 Description-Content-Type: text/markdown
 
 <h1 align="center">
@@ -43,7 +45,7 @@ Description-Content-Type: text/markdown
 <div align="center">
   <a href="https://pypi.python.org/pypi/labelme"><img src="https://img.shields.io/pypi/v/labelme.svg"></a>
   <!-- <a href="https://pypi.org/project/labelme"><img src="https://img.shields.io/pypi/pyversions/labelme.svg"></a> -->
-  <a href="https://github.com/wkentaro/labelme/actions"><img src="https://github.com/wkentaro/labelme/actions/workflows/ci.yml/badge.svg?branch=main&event=push"></a>
+  <a href="https://github.com/wkentaro/labelme/actions"><img src="https://github.com/wkentaro/labelme/actions/workflows/test.yml/badge.svg?branch=main&event=push"></a>
   <a href="https://discord.com/invite/uAjxGcJm83"><img src="https://dcbadge.limes.pink/api/server/uAjxGcJm83?style=flat"></a>
 </div>
 
@@ -116,9 +118,9 @@ you can download the standalone executable from ["Install Labelme as App"](https
 
 It's a one-time payment for lifetime access, and it helps us to maintain this project.
 
-### Option 3: Using a package manager in each Linux distribution
+### Option 3: Linux distribution packages
 
-In some Linux distributions, you can install labelme via their package managers (e.g., apt, pacman). The following systems are currently available:
+On some Linux distributions, labelme is also packaged in the system's native repository and can be installed with the distribution's standard package tooling. The badge below tracks which distributions currently ship labelme and which version each one provides:
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/labelme.svg)](https://repology.org/project/labelme/versions)
 

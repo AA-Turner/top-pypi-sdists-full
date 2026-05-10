@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cpsl
-Version: 0.3.119
+Version: 0.3.126
 Summary: Capsule SDK and CLI
 Requires-Python: >=3.10
 Requires-Dist: grpcio>=1.69.0
@@ -12,3 +12,5 @@ Requires-Dist: rich>=13.0.0
 Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: requests
 Requires-Dist: watchdog>=3.0.0
+Provides-Extra: dev
+Requires-Dist: ruff>=0.8.0; extra == "dev"

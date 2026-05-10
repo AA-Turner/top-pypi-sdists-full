@@ -98,7 +98,9 @@ class Workflow:
         description: str = "",
     ) -> None:
         if scope not in VALID_WORKFLOW_SCOPES:
-            raise ValueError(f"workflow scope must be one of {VALID_WORKFLOW_SCOPES}, got {scope!r}")
+            raise ValueError(
+                f"workflow scope must be one of {VALID_WORKFLOW_SCOPES}, got {scope!r}"
+            )
 
         self.name = name
         self.scope = scope
@@ -118,6 +120,7 @@ class Workflow:
         The decorated function must return a ``ui.WorkflowShell`` widget tree.
         It is evaluated once at registration time (like ``@app.page``).
         """
+
         def decorator(fn: F) -> F:
             tree = fn()
             if not hasattr(tree, "to_dict"):
@@ -127,6 +130,7 @@ class Workflow:
                 )
             self._ui_tree = tree.to_dict()
             return fn
+
         return decorator
 
     # -- decorator: start ----------------------------------------------------
@@ -136,9 +140,11 @@ class Workflow:
 
         Signature: ``async def handler(session: Session, input: WorkflowInput)``
         """
+
         def decorator(fn: F) -> F:
             self._start_handler = fn
             return fn
+
         return decorator
 
     # -- decorator: action ---------------------------------------------------
@@ -148,9 +154,11 @@ class Workflow:
 
         Signature: ``async def handler(session: Session, input: WorkflowInput)``
         """
+
         def decorator(fn: F) -> F:
             self._action_handlers[name] = fn
             return fn
+
         return decorator
 
     # -- decorator: message --------------------------------------------------
@@ -160,9 +168,11 @@ class Workflow:
 
         Signature: ``async def handler(session: Session, msg: Message)``
         """
+
         def decorator(fn: F) -> F:
             self._message_handler = fn
             return fn
+
         return decorator
 
     # -- serialization -------------------------------------------------------

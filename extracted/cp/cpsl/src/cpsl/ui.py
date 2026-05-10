@@ -235,6 +235,7 @@ class Table(_Widget):
         paginate: int = 0,
     ) -> None:
         from .db import CollectionRef as _Ref
+
         self._typed_columns: list[ColumnDef] | None = None
         if isinstance(collection, _Ref):
             decl = collection._decl
@@ -253,8 +254,7 @@ class Table(_Widget):
             self.collection = collection
         if columns and self._typed_columns is None:
             self._typed_columns = [
-                c if isinstance(c, ColumnDef) else ColumnDef(key=c)
-                for c in columns
+                c if isinstance(c, ColumnDef) else ColumnDef(key=c) for c in columns
             ]
             columns = [c.key if isinstance(c, ColumnDef) else c for c in columns]
         self.data = data
@@ -267,10 +267,7 @@ class Table(_Widget):
 
     def _serialize_columns(self) -> list:
         if self._typed_columns:
-            has_types = any(
-                c.type != "text" or c.label or c.format
-                for c in self._typed_columns
-            )
+            has_types = any(c.type != "text" or c.label or c.format for c in self._typed_columns)
             if has_types:
                 return [c.to_dict() for c in self._typed_columns]
         return self.columns if self.columns else []
@@ -278,7 +275,9 @@ class Table(_Widget):
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {"type": self._type}
         if self.collection is not None:
-            has_overrides = self.columns or self.scope or self.sortable or self.filterable or self.paginate
+            has_overrides = (
+                self.columns or self.scope or self.sortable or self.filterable or self.paginate
+            )
             if has_overrides:
                 d["collection"] = self.collection
                 if self.scope:
@@ -374,8 +373,14 @@ def _target_name(value: Any) -> str:
     return name
 
 
-def _action_target(prompt: Any | None, workflow: Any | None, page: Any | None) -> tuple[str, str] | None:
-    targets = [(k, v) for k, v in (("prompt", prompt), ("workflow", workflow), ("page", page)) if v is not None]
+def _action_target(
+    prompt: Any | None, workflow: Any | None, page: Any | None
+) -> tuple[str, str] | None:
+    targets = [
+        (k, v)
+        for k, v in (("prompt", prompt), ("workflow", workflow), ("page", page))
+        if v is not None
+    ]
     if len(targets) > 1:
         raise ValueError("action widgets must define at most one of prompt=, workflow=, or page=")
     if not targets:

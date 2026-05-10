@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import os.path as osp
+import os
 import shutil
 from pathlib import Path
 
@@ -20,6 +20,27 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="Pause after each GUI test until the window is closed manually.",
     )
+    parser.addoption(
+        "--headed",
+        action="store_true",
+        default=False,
+        help="Run GUI tests with a visible window (skip QT_QPA_PLATFORM=offscreen).",
+    )
+    parser.addoption(
+        "--update-snapshots",
+        action="store_true",
+        default=False,
+        help=(
+            "Regenerate snapshot files under tests/data/snapshots/ instead of "
+            "comparing against them. Run once to seed or update snapshots, then "
+            "commit the resulting files and re-run without this flag to verify."
+        ),
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    if not config.getoption("--headed"):
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 
 @pytest.fixture()
@@ -27,18 +48,29 @@ def pause(request: pytest.FixtureRequest) -> bool:
     return request.config.getoption("--pause", default=False)
 
 
-def assert_labelfile_sanity(filename: str) -> None:
-    assert osp.exists(filename)
+@pytest.fixture()
+def update_snapshots(request: pytest.FixtureRequest) -> bool:
+    return request.config.getoption("--update-snapshots")
 
-    with open(filename) as f:
+
+@pytest.fixture()
+def snapshot_dir() -> Path:
+    # ``--update-snapshots`` must write back to the real repo tree, not a tmp copy.
+    return Path(__file__).parent / "data" / "snapshots"
+
+
+def assert_labelfile_sanity(filename: str) -> None:
+    label_path = Path(filename)
+    assert label_path.exists()
+
+    with open(label_path) as f:
         data = json.load(f)
 
     assert "imagePath" in data
     image_data = data.get("imageData", None)
     if image_data is None:
-        parent_dir = osp.dirname(filename)
-        img_file = osp.join(parent_dir, data["imagePath"])
-        assert osp.exists(img_file)
+        img_file = label_path.parent / data["imagePath"]
+        assert img_file.exists()
         img = imgviz.io.imread(img_file)
     else:
         img = labelme.utils.img_b64_to_arr(image_data)

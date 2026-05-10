@@ -160,19 +160,18 @@ class Client:
 
     def _grpc_client(self):
         from .channel import ServiceClient
+
         return ServiceClient(self._ctx)
 
     def list_apps(self) -> list[dict[str, Any]]:
         """List all apps owned by the authenticated workspace."""
         with self._grpc_client() as c:
             from .clients.capsule import ListAppsRequest
+
             res = c.capsule.list_apps(ListAppsRequest())
             if not res.ok:
                 raise RuntimeError(f"list_apps failed: {res.err_msg}")
-            return [
-                {"id": a.id, "name": a.name, "hostname": a.hostname}
-                for a in res.apps
-            ]
+            return [{"id": a.id, "name": a.name, "hostname": a.hostname} for a in res.apps]
 
     def get_app(self, name_or_id: str) -> dict[str, Any]:
         """Get details for a single app by name or ID."""

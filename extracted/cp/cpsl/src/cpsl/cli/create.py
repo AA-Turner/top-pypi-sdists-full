@@ -121,9 +121,13 @@ def _read_manifest(template_dir: Path) -> dict[str, object]:
 
 def _copy_template(src: Path, dst: Path, *, force: bool) -> None:
     if dst.exists() and any(dst.iterdir()) and not force:
-        raise click.ClickException(f"{dst} already exists and is not empty. Use --force to overwrite.")
+        raise click.ClickException(
+            f"{dst} already exists and is not empty. Use --force to overwrite."
+        )
     dst.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(src, dst, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"))
+    shutil.copytree(
+        src, dst, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", ".DS_Store")
+    )
 
 
 def _copy_shared_files(examples_dir: Path, dst: Path) -> None:
@@ -158,12 +162,22 @@ def _secret_lines(secrets: list[str]) -> list[str]:
 
 @click.command("create")
 @click.argument("name")
-@click.option("--template", "template_name", default=DEFAULT_TEMPLATE, show_default=True, help="Template to use.")
+@click.option(
+    "--template",
+    "template_name",
+    default=DEFAULT_TEMPLATE,
+    show_default=True,
+    help="Template to use.",
+)
 @click.option("--force", is_flag=True, help="Overwrite an existing non-empty project directory.")
 def create(name: str, template_name: str, force: bool) -> None:
     """Create a production-shaped Capsule project from a template."""
     requested = Path(name).expanduser()
-    target = requested if requested.is_absolute() or requested.parent != Path(".") else Path.cwd() / requested
+    target = (
+        requested
+        if requested.is_absolute() or requested.parent != Path(".")
+        else Path.cwd() / requested
+    )
     slug = _project_slug(target.name)
     package = _package_name(slug)
 
@@ -172,7 +186,9 @@ def create(name: str, template_name: str, force: bool) -> None:
         available = _template_names(examples)
         if template_name not in available:
             valid = ", ".join(available) if available else "none found"
-            raise click.ClickException(f"Unknown template {template_name!r}. Choose one of: {valid}.")
+            raise click.ClickException(
+                f"Unknown template {template_name!r}. Choose one of: {valid}."
+            )
         source = examples / template_name
         manifest = _read_manifest(source)
         _copy_template(source, target, force=force)

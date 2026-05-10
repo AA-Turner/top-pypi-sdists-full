@@ -101,7 +101,10 @@ class ConfigValidationError(ValueError):
 class SageConfig:
     """Full configuration state."""
 
-    # Default: llama3.2-3b via llama_cpp (downloaded from GCS with sage pull)
+    # Default: llama3.2-3b via llama_cpp (downloaded from GCS with sage pull).
+    # On boot, sage.core.auto_model.auto_pick_default_model() upgrades this to
+    # the strongest installed coding-specialist model (qwen3-coder, deepseek-coder,
+    # codellama, etc.) when one is available — see core/auto_model.py.
     default_model: str = "llama_cpp:llama3.2-3b"
     temperature: float = 0.7
     max_tokens: int = 16384
@@ -109,6 +112,14 @@ class SageConfig:
     preferred_cloud: str = ""
     api_keys: dict[str, str] = field(default_factory=dict)
     models: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Wave 2: RAG settings
+    rag_enabled: bool = True
+    rag_embedder: str = "ollama:nomic-embed-text"  # local-only by default
+    rag_top_k: int = 6
+    # Wave 3: speculative decoding
+    speculative_draft_model: str = ""  # e.g. "llama_cpp:llama3.2-1b"
+    # Wave 4: GCS training corpus
+    gcs_corpus_bucket: str = "gs://sage-ai-models"
     version: int = CONFIG_VERSION
 
     # ── Validation ─────────────────────────────────────────────
@@ -163,6 +174,11 @@ class SageConfig:
             preferred_cloud=data.get("preferred_cloud", ""),
             api_keys=data.get("api_keys", {}),
             models=data.get("models", {}),
+            rag_enabled=data.get("rag_enabled", True),
+            rag_embedder=data.get("rag_embedder", "ollama:nomic-embed-text"),
+            rag_top_k=int(data.get("rag_top_k", 6)),
+            speculative_draft_model=data.get("speculative_draft_model", ""),
+            gcs_corpus_bucket=data.get("gcs_corpus_bucket", "gs://sage-ai-models"),
             version=CONFIG_VERSION,
         )
 

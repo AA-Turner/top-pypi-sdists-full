@@ -172,6 +172,26 @@
         <source>Click opposite corner to segment object</source>
         <translation>Κάντε κλικ στην απέναντι γωνία για τμηματοποίηση αντικειμένου</translation>
     </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click first corner for oriented rectangle</source>
+        <translation>Κάντε κλικ στην πρώτη γωνία για προσανατολισμένο ορθογώνιο</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click second corner to set orientation</source>
+        <translation>Κάντε κλικ στη δεύτερη γωνία για να ορίσετε τον προσανατολισμό</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click third corner to close oriented rectangle</source>
+        <translation>Κάντε κλικ στην τρίτη γωνία για να κλείσετε το προσανατολισμένο ορθογώνιο</translation>
+    </message>
+    <message>
+        <location filename="../widgets/canvas.py" line="0"/>
+        <source>Click &amp; drag to rotate the shape</source>
+        <translation>Κάντε κλικ και σύρετε για να περιστρέψετε το σχήμα</translation>
+    </message>
 </context>
 <context>
     <name>MainWindow</name>
@@ -420,16 +440,6 @@
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>&amp;Keep Previous Scale</source>
-        <translation>&amp;Διατήρηση προηγούμενης κλίμακας</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Keep previous zoom scale</source>
-        <translation>Διατήρηση προηγούμενης κλίμακας εστίασης</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>&amp;Fit Window</source>
         <translation>&amp;Προσαρμογή παραθύρου</translation>
     </message>
@@ -542,11 +552,6 @@ Shapes</source>
         <location filename="../app.py" line="0"/>
         <source>Zoom</source>
         <translation>Εστίαση</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Zoom in or out of the image. Also accessible with {} and {} from the canvas.</source>
-        <translation>Μεγέθυνση ή σμίκρυνση της εικόνας. Επίσης προσβάσιμο με {} και {} από τον καμβά.</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -685,26 +690,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid label file.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Βεβαιωθείτε ότι &lt;i&gt;%s&lt;/i&gt; είναι ένα έγκυρο αρχείο ετικέτας.&lt;/p&gt;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>Error reading %s</source>
-        <translation>Σφάλμα κατά την ανάγνωση %s</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Make sure &lt;i&gt;%s&lt;/i&gt; is a valid image file.&lt;/p&gt;</source>
-        <translation>&lt;p&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Βεβαιωθείτε ότι το &lt;i&gt;%s&lt;/i&gt; είναι έγκυρο αρχείο εικόνας.&lt;/p&gt;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>&lt;p&gt;Make sure &lt;i&gt;{0}&lt;/i&gt; is a valid image file.&lt;br/&gt;Supported image formats: {1}&lt;/p&gt;</source>
-        <translation>&lt;p&gt;Βεβαιωθείτε ότι το &lt;i&gt;{0}&lt;/i&gt; είναι έγκυρο αρχείο εικόνας.&lt;br/&gt;Υποστηριζόμενες μορφές εικόνας: {1}&lt;/p&gt;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Loaded %s</source>
         <translation>Φορτώθηκε %s</translation>
     </message>
@@ -745,11 +730,6 @@ Shapes</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>You are about to permanently delete this label file, proceed anyway?</source>
-        <translation>Πρόκειται να διαγράψετε οριστικά αυτό το αρχείο ετικετών. Θέλετε να συνεχίσετε;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Attention</source>
         <translation>Προσοχή</translation>
     </message>
@@ -778,11 +758,6 @@ To use the preferences editor, start Labelme with a config file:
         <location filename="../app.py" line="0"/>
         <source>Save annotations?</source>
         <translation>Αποθήκευση σχολιασμών;</translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
-        <source>You are about to permanently delete {} shapes, proceed anyway?</source>
-        <translation>Πρόκειται να διαγράψετε οριστικά {} σχήματα. Θέλετε να συνεχίσετε;</translation>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
@@ -855,6 +830,66 @@ Please select a different model or use AI-Box mode.</source>
         <location filename="../app.py" line="0"/>
         <source>File list is disabled when a label file is opened</source>
         <translation>Η λίστα αρχείων είναι απενεργοποιημένη όταν ανοίγεται ένα αρχείο ετικετών</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Add Point to Edge</source>
+        <translation>Προσθήκη σημείου στην ακμή</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Insert a new point at the hovered polygon edge</source>
+        <translation>Εισαγωγή νέου σημείου στην επιλεγμένη ακμή πολυγώνου</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>&amp;Keep Previous Zoom</source>
+        <translation>&amp;Διατήρηση προηγούμενου ζουμ</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Permanently delete this label file? This action cannot be undone.</source>
+        <translation>Οριστική διαγραφή αυτού του αρχείου ετικετών; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Permanently delete {} shapes? This action cannot be undone.</source>
+        <translation>Οριστική διαγραφή {} σχημάτων; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Zoom the image in or out. The shortcuts {} and {} also work on the canvas.</source>
+        <translation>Μεγέθυνση ή σμίκρυνση της εικόνας. Τα πλήκτρα {} και {} λειτουργούν επίσης πάνω στον καμβά.</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Allowed formats: {formats}</source>
+        <translation>Επιτρεπόμενες μορφές: {formats}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>The selected label file could not be opened: {path}</source>
+        <translation>Δεν ήταν δυνατό το άνοιγμα του επιλεγμένου αρχείου ετικετών: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>The selected image file could not be opened: {path}</source>
+        <translation>Δεν ήταν δυνατό το άνοιγμα του επιλεγμένου αρχείου εικόνας: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Failed to load: {path}</source>
+        <translation>Αποτυχία φόρτωσης: {path}</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Oriented Rectangle</source>
+        <translation>Προσανατολισμένο Ορθογώνιο</translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Start drawing oriented rectangles</source>
+        <translation>Ξεκινήστε να σχεδιάζετε προσανατολισμένα ορθογώνια</translation>
     </message>
 </context>
 </TS>
