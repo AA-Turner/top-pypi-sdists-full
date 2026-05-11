@@ -76,6 +76,166 @@ def _get_class_definition_location(class_ast: FeatureClassAST | None) -> tuple[i
     return None if class_ast is None else class_ast.class_definition_location
 
 
+def _resolve_part_of_namespace(part_of: str) -> str:
+    """Map a `part_of=` string (class name or namespace) to a target namespace."""
+    return build_namespaced_name(name=to_snake_case(part_of))
+
+
+def _resolve_class_source_info(
+    c: Type[Any], namespace: str
+) -> tuple[str | None, str | None, "FeatureClassAST | None", FeatureClassErrorBuilder]:
+    """Look up source filename, source text, AST, and an error builder for a class."""
+    try:
+        class_file_path = Path(inspect.getfile(c)).resolve()
+    except (OSError, TypeError):
+        class_file_path = None
+    ast_index = get_project_ast_context()
+    feature_class_ast = None
+    if class_file_path is not None:
+        feature_class_ast = ast_index.feature_class_ast_in_file(str(class_file_path), c.__name__)
+    if feature_class_ast is None:
+        feature_class_ast = ast_index.feature_class_ast(c.__module__, c.__name__)
+    class_source = None if feature_class_ast is None else feature_class_ast.source
+    class_filename = str(class_file_path) if class_file_path is not None else None
+    error_builder = FeatureClassErrorBuilder(
+        uri=class_filename or "__main__",
+        namespace=namespace,
+        range_node=feature_class_ast,
+    )
+    return class_filename, class_source, feature_class_ast, error_builder
+
+
+class _AuxiliaryFieldOrigin:
+    """Per-field provenance for fields contributed by an auxiliary class."""
+
+    __slots__ = ("aux_class", "namespace", "filename", "source", "feature_class_ast", "error_builder")
+
+    def __init__(
+        self,
+        aux_class: Type[Any],
+        namespace: str,
+        filename: str | None,
+        source: str | None,
+        feature_class_ast: "FeatureClassAST | None",
+        error_builder: FeatureClassErrorBuilder,
+    ):
+        super().__init__()
+        self.aux_class = aux_class
+        self.namespace = namespace
+        self.filename = filename
+        self.source = source
+        self.feature_class_ast = feature_class_ast
+        self.error_builder = error_builder
+
+
+def _register_auxiliary_class(c: Type[T], *, part_of: str) -> Type[T]:
+    """Stash an auxiliary class for later merging into its target.
+
+    Auxiliary classes declared with `@features(part_of=...)` aren't themselves
+    feature classes — their annotations and class-attribute defaults get folded
+    into the target class when it is decorated.
+    """
+    target_namespace = _resolve_part_of_namespace(part_of)
+    registry = CURRENT_FEATURE_REGISTRY.get()
+    if target_namespace in registry.get_feature_sets():
+        # Spike: only support the order where the auxiliary is defined *before*
+        # the target. Re-processing an already-built feature class is more work.
+        raise NotImplementedError(
+            f"Auxiliary feature class '{c.__name__}' (part_of='{part_of}') was defined after"
+            + f" its target '{target_namespace}'. Define auxiliary classes before the target."
+        )
+    _PENDING_AUXILIARY_CLASSES.setdefault(target_namespace, []).append(c)
+    return c
+
+
+def _merge_auxiliary_classes_into(
+    *, target: Type[Any], auxiliaries: List[Type[Any]]
+) -> Dict[str, _AuxiliaryFieldOrigin]:
+    """Copy annotations and class attributes from each auxiliary into target.
+
+    Returns a mapping `attr_name -> _AuxiliaryFieldOrigin` for every field
+    contributed by an auxiliary, so the caller can tag the resulting Feature
+    objects with provenance for LSP diagnostics.
+
+    This runs before `_process_class` so the target's normal pipeline picks up
+    the merged annotations as if they had been declared inline.
+    """
+    target_annotations = target.__dict__.get("__annotations__")
+    if target_annotations is None:
+        target_annotations = {}
+        target.__annotations__ = target_annotations
+
+    origins: Dict[str, _AuxiliaryFieldOrigin] = {}
+    for aux in auxiliaries:
+        aux_namespace = build_namespaced_name(name=to_snake_case(aux.__name__))
+        aux_filename, aux_source, aux_class_ast, aux_error_builder = _resolve_class_source_info(
+            aux, aux_namespace
+        )
+        origin = _AuxiliaryFieldOrigin(
+            aux_class=aux,
+            namespace=aux_namespace,
+            filename=aux_filename,
+            source=aux_source,
+            feature_class_ast=aux_class_ast,
+            error_builder=aux_error_builder,
+        )
+        aux_annotations = aux.__dict__.get("__annotations__", {})
+        for attr_name, annotation in aux_annotations.items():
+            if attr_name in target_annotations:
+                raise ValueError(
+                    f"Auxiliary class '{aux.__name__}' redefines feature '{attr_name}'"
+                    + f" already present on target '{target.__name__}'."
+                )
+            target_annotations[attr_name] = annotation
+            if attr_name in aux.__dict__:
+                setattr(target, attr_name, aux.__dict__[attr_name])
+            origins[attr_name] = origin
+    return origins
+
+
+def _apply_auxiliary_origins(
+    *, target: Type[Any], origins: Dict[str, _AuxiliaryFieldOrigin]
+) -> None:
+    """Tag each merged Feature with auxiliary provenance and mirror the
+    target's FeatureWrapper onto the auxiliary class so attribute access on
+    the auxiliary returns the same FeatureWrapper as the target."""
+    for f in target.__chalk_features_raw__:
+        attr_name = f.attribute_name
+        if attr_name is None:
+            continue
+        origin = origins.get(attr_name)
+        if origin is None:
+            origin = origins.get(f.unversioned_attribute_name) if f.unversioned_attribute_name else None
+        if origin is None:
+            continue
+        f.auxiliary_namespace = origin.namespace
+        f.auxiliary_filename = origin.filename
+        f.auxiliary_source = origin.source
+        f.auxiliary_feature_class_ast = origin.feature_class_ast
+        f.auxiliary_error_builder = origin.error_builder
+
+    seen_aux_classes: set[int] = set()
+    for attr_name, origin in origins.items():
+        if id(origin.aux_class) in seen_aux_classes:
+            wrapper = getattr(target, attr_name, None)
+            if wrapper is not None:
+                setattr(origin.aux_class, attr_name, wrapper)
+            continue
+        seen_aux_classes.add(id(origin.aux_class))
+        # For each unique auxiliary class, mirror every wrapper for *its* fields.
+        aux_fields = origin.aux_class.__dict__.get("__annotations__", {})
+        for aux_attr in aux_fields:
+            wrapper = getattr(target, aux_attr, None)
+            if wrapper is not None:
+                setattr(origin.aux_class, aux_attr, wrapper)
+
+
+# Auxiliary feature classes (declared with `@features(part_of="User")`) defined before
+# their target gets stashed here, keyed by the target's namespace, and merged when the
+# target class is decorated.
+_PENDING_AUXILIARY_CLASSES: Dict[str, List[Type[Any]]] = {}
+
+
 @overload
 def features(
     *,
@@ -87,6 +247,7 @@ def features(
     singleton: bool = False,
     cache_nulls: CacheNullsType = True,
     cache_defaults: CacheDefaultsType = True,
+    part_of: Optional[str] = None,
 ) -> Callable[[Type[T]], Type[T]]: ...
 
 
@@ -106,6 +267,7 @@ def features(
     online_store_config: Optional[OnlineStoreConfig] = None,
     cache_nulls: CacheNullsType = True,
     cache_defaults: CacheDefaultsType = True,
+    part_of: Optional[str] = None,
 ) -> Union[Callable[[Type[T]], Type[T]], Type[T]]:
     """Chalk lets you spell out your features directly in Python.
 
@@ -198,26 +360,18 @@ def features(
     """
 
     def wrap(c: Type[T]) -> Type[T]:
+        if part_of is not None:
+            return _register_auxiliary_class(c, part_of=part_of)
+
         namespace = name if name is not None else to_snake_case(c.__name__)
         namespace = build_namespaced_name(name=namespace)
 
-        try:
-            class_file_path = Path(inspect.getfile(c)).resolve()
-        except (OSError, TypeError):
-            class_file_path = None
-        ast_index = get_project_ast_context()
-        feature_class_ast = None
-        if class_file_path is not None:
-            feature_class_ast = ast_index.feature_class_ast_in_file(str(class_file_path), c.__name__)
-        if feature_class_ast is None:
-            feature_class_ast = ast_index.feature_class_ast(c.__module__, c.__name__)
-        class_source = None if feature_class_ast is None else feature_class_ast.source
-        class_filename = str(class_file_path) if class_file_path is not None else None
-        error_builder = FeatureClassErrorBuilder(
-            uri=class_filename or "__main__",
-            namespace=namespace,
-            range_node=feature_class_ast,
-        )
+        pending = _PENDING_AUXILIARY_CLASSES.pop(namespace, None)
+        aux_origins: Dict[str, _AuxiliaryFieldOrigin] = {}
+        if pending:
+            aux_origins = _merge_auxiliary_classes_into(target=c, auxiliaries=pending)
+
+        class_filename, class_source, feature_class_ast, error_builder = _resolve_class_source_info(c, namespace)
         nonlocal max_staleness
         if name is not None and re.sub(r"[^a-z_0-9]", "", namespace) != namespace:
             error_builder.add_diagnostic(
@@ -316,6 +470,9 @@ def features(
             online_store_config=online_store_config,
         )
         assert is_features_cls(updated_class)
+
+        if aux_origins:
+            _apply_auxiliary_origins(target=updated_class, origins=aux_origins)
 
         registry.add_feature_set(updated_class)
         return cast(Type[T], updated_class)

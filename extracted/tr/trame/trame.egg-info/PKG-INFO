@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trame
-Version: 3.12.0
+Version: 3.13.0
 Summary: Trame, a framework to build applications in plain Python
 Author: Kitware Inc.
 License: Apache License 2.0
@@ -13,13 +13,13 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: trame-server<4,>=3.4
-Requires-Dist: trame-client<4,>=3.10.1
-Requires-Dist: trame-common<2,>=1
-Requires-Dist: wslink>=2.3.3
+Requires-Dist: trame-server<4,>=3.12.0
+Requires-Dist: trame-client<4,>=3.12.1
+Requires-Dist: trame-common<2,>=1.2.3
+Requires-Dist: wslink>=2.5.6
 Requires-Dist: pyyaml
 Provides-Extra: app
 Requires-Dist: pywebview; extra == "app"
@@ -150,13 +150,16 @@ Life cycle callbacks
 Life cycle events are directly managed on the application controller
 and are prefixed with `on_*`.
 
+* **on_server_start**     : Executed at server.start() call while passing the server as argument.
+* **on_server_bind**      : WSLinkServer is getting bound to trame so you can attach your own routes. Its instance will be passed as argument to callback.
 * **on_server_ready**     : All protocols initialized and available for client to connect
 * **on_client_connected** : Connection established to server
 * **on_client_exited**    : Linked to browser "beforeunload" event
+* **on_server_start**     : Trame is starting its event loop
 * **on_server_exited**    : Trame is exiting its event loop
-
 * **on_server_reload**    : If callback registered it is used for reloading server side modules
-
+* **on_error**            : A JavaScript error has occurred in the client, can be used to do something on the server when this occurs
+* **on_exception**        : Server exception occurred when interacting with the UI. The exception instance is provided as arg.
 
 Reserved state entries
 --------------------------------------------------------------------------

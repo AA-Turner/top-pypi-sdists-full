@@ -119,7 +119,6 @@ pub(crate) use {
   camino::Utf8Path,
   clap::{CommandFactory, FromArgMatches, Parser as _, ValueEnum},
   clap_complete::{ArgValueCompleter, CompletionCandidate, PathCompleter, engine::ValueCompleter},
-  edit_distance::edit_distance,
   lexiclean::Lexiclean,
   libc::EXIT_FAILURE,
   rand::seq::IndexedRandom,
@@ -170,6 +169,10 @@ type ConfigResult<T> = Result<T, ConfigError>;
 type FunctionResult = Result<String, String>;
 type RunResult<'a, T = ()> = Result<T, Error<'a>>;
 type SearchResult<T> = Result<T, SearchError>;
+
+const JUST_DIRECTORY: &str = "just";
+const RECURSION_LIMIT: usize = if cfg!(windows) { 48 } else { 256 };
+const TEMPDIR_PREFIX: &str = "just-";
 
 #[cfg(test)]
 #[macro_use]

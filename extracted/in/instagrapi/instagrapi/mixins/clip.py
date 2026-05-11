@@ -31,6 +31,49 @@ def _make_tmp_path(suffix: str) -> str:
     return path
 
 
+class ClipMixin:
+    """
+    Helpers for CLIP/Reel actions
+    """
+
+    def clip_pin(self, media_pk: str, revert: bool = False) -> bool:
+        """
+        Pin Reel to the Reels tab/profile Reels grid
+
+        Parameters
+        ----------
+        media_pk: str
+        revert: bool, optional
+            Unpin when True
+
+        Returns
+        -------
+        bool
+        A boolean value
+        """
+        name = "unpin" if revert else "pin"
+        result = self.private_request(
+            f"users/{name}_timeline_media/",
+            data={"post_id": str(media_pk), "profile_grid": "clips"},
+        )
+        return result["status"] == "ok"
+
+    def clip_unpin(self, media_pk: str) -> bool:
+        """
+        Unpin Reel from the Reels tab/profile Reels grid
+
+        Parameters
+        ----------
+        media_pk: str
+
+        Returns
+        -------
+        bool
+        A boolean value
+        """
+        return self.clip_pin(media_pk, True)
+
+
 class DownloadClipMixin:
     """
     Helpers to download CLIP videos
@@ -55,9 +98,7 @@ class DownloadClipMixin:
         """
         return self.video_download(media_pk, folder)
 
-    def clip_download_by_url(
-        self, url: str, filename: str = "", folder: Path = ""
-    ) -> str:
+    def clip_download_by_url(self, url: str, filename: str = "", folder: Path = "") -> str:
         """
         Download CLIP video using URL
 
@@ -82,9 +123,7 @@ class UploadClipMixin:
     Helpers to upload CLIP videos
     """
 
-    def clip_share_to_fb_config(
-        self, device_status: Optional[Dict[str, object]] = None
-    ) -> Dict:
+    def clip_share_to_fb_config(self, device_status: Optional[Dict[str, object]] = None) -> Dict:
         """
         Get Reel Facebook sharing configuration for the current user.
 
@@ -125,7 +164,9 @@ class UploadClipMixin:
         location: Location = None,
         configure_timeout: int = 10,
         feed_show: str = "1",
-        extra_data: Dict[str, str] = {},
+        extra_data: Dict[str, object] = {},
+        trial: bool = False,
+        trial_graduation_strategy: str = "manual",
     ) -> Media:
         """
         Upload CLIP to Instagram
@@ -145,9 +186,16 @@ class UploadClipMixin:
             Location tag for this upload, default is none
         configure_timeout: int
             Timeout between attempt to configure media (set caption, etc), default is 10
-        extra_data: Dict[str, str], optional
+        feed_show: str
+            Show Reel preview in feed/profile grid, default is "1".
+            Forced to "0" for Trial Reels.
+        extra_data: Dict[str, object], optional
             Dict of extra data, if you need to add your params,
             like {"share_to_facebook": 1}.
+        trial: bool, optional
+            Upload as a Trial Reel for eligible accounts, default is False.
+        trial_graduation_strategy: str, optional
+            Trial Reel graduation strategy, default is "manual".
 
         Returns
         -------
@@ -162,6 +210,13 @@ class UploadClipMixin:
         with open(path, "rb") as fp:
             clip_data = fp.read()
             clip_len = str(len(clip_data))
+        configure_extra_data = dict(extra_data or {})
+        if trial:
+            feed_show = "0"
+            configure_extra_data.setdefault(
+                "trial_params",
+                {"graduation_strategy": trial_graduation_strategy},
+            )
         duration_ms = str(int(duration * 1000))
         composer_session_id = str(uuid4())
         asset_id = uuid4().hex[:12].upper()
@@ -270,9 +325,7 @@ class UploadClipMixin:
             "Segment-Type": "3",
         }
         response = self.private.get(
-            "https://{domain}/rupload_igvideo/{name}".format(
-                domain=config.API_DOMAIN, name=upload_name
-            ),
+            "https://{domain}/rupload_igvideo/{name}".format(domain=config.API_DOMAIN, name=upload_name),
             headers=headers,
         )
         self.request_log(response)
@@ -287,9 +340,7 @@ class UploadClipMixin:
             **headers,
         }
         response = self.private.post(
-            "https://{domain}/rupload_igvideo/{name}".format(
-                domain=config.API_DOMAIN, name=upload_name
-            ),
+            "https://{domain}/rupload_igvideo/{name}".format(domain=config.API_DOMAIN, name=upload_name),
             data=clip_data,
             headers=headers,
         )
@@ -312,7 +363,7 @@ class UploadClipMixin:
                     usertags,
                     location,
                     feed_show,
-                    extra_data=extra_data,
+                    extra_data=configure_extra_data,
                 )
             except ClientError as e:
                 if "Transcode not finished yet" in str(e):
@@ -338,7 +389,7 @@ class UploadClipMixin:
         path: Path,
         caption: str,
         track: Track,
-        extra_data: Dict[str, str] = {},
+        extra_data: Dict[str, object] = {},
     ) -> Media:
         """
         Upload CLIP as reel with music metadata.
@@ -358,7 +409,7 @@ class UploadClipMixin:
             The music track to be added to the video reel
             use cl.search_music(title)[0].dict()
 
-        extra_data: Dict[str, str], optional
+        extra_data: Dict[str, object], optional
             Dict of extra data, if you need to add your params, like {"share_to_facebook": 1}.
 
         Returns
@@ -421,9 +472,7 @@ class UploadClipMixin:
                 "alacorn_session_id": "null",
             }
             if getattr(track, "music_canonical_id", None):
-                data["clips_audio_metadata"]["song"][
-                    "music_canonical_id"
-                ] = track.music_canonical_id
+                data["clips_audio_metadata"]["song"]["music_canonical_id"] = track.music_canonical_id
                 data["music_params"]["music_canonical_id"] = track.music_canonical_id
             return self.clip_upload(tmpvideo, caption, extra_data=data)
         finally:
@@ -447,7 +496,7 @@ class UploadClipMixin:
         usertags: List[Usertag] = [],
         location: Location = None,
         feed_show: str = "1",
-        extra_data: Dict[str, str] = {},
+        extra_data: Dict[str, object] = {},
     ) -> Dict:
         """
         Post Configure CLIP (send caption, thumbnail and more to Instagram)
@@ -470,7 +519,7 @@ class UploadClipMixin:
             List of users to be tagged on this upload, default is empty list.
         location: Location, optional
             Location tag for this upload, default is None
-        extra_data: Dict[str, str], optional
+        extra_data: Dict[str, object], optional
             Dict of extra data, if you need to add your params, like {"share_to_facebook": 1}.
 
         Returns
@@ -479,9 +528,7 @@ class UploadClipMixin:
             A dictionary of response from the call
         """
         self.photo_rupload(Path(thumbnail), upload_id, for_story=True)
-        usertags = [
-            {"user_id": tag.user.pk, "position": [tag.x, tag.y]} for tag in usertags
-        ]
+        usertags = [{"user_id": tag.user.pk, "position": [tag.x, tag.y]} for tag in usertags]
         data = {
             # "igtv_ads_toggled_on": "0",
             "filter_type": "0",

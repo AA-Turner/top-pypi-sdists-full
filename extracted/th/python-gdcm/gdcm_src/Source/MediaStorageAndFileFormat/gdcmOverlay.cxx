@@ -248,7 +248,7 @@ void Overlay::Update(const DataElement & de)
 
 bool Overlay::GrabOverlayFromPixelData(DataSet const &ds)
 {
-  const unsigned int ovlength = Internal->Rows * Internal->Columns / 8;
+  const unsigned int ovlength = (Internal->Rows * Internal->Columns + 7) / 8;
   Internal->Data.resize( ovlength ); // set to 0
   if( Internal->BitsAllocated == 8 )
     {
@@ -266,6 +266,12 @@ bool Overlay::GrabOverlayFromPixelData(DataSet const &ds)
       }
     const char *array = bv->GetPointer();
     const unsigned int length = ovlength * 8 * 1; //bv->GetLength();
+    if( length > bv->GetLength() )
+      {
+      gdcmWarningMacro("Pixel data buffer too small for overlay extraction (need "
+        << length << " bytes, have " << bv->GetLength() << ").");
+      return false;
+      }
     const uint8_t *p = (const uint8_t*)(const void*)array;
     const uint8_t *end = (const uint8_t*)(const void*)(array + length);
     gdcm_assert( 8 * ovlength == (unsigned int)Internal->Rows * Internal->Columns );
@@ -281,7 +287,7 @@ bool Overlay::GrabOverlayFromPixelData(DataSet const &ds)
     while( p != end )
       {
       const uint8_t val = *p & pmask;
-      gdcm_assert( val == 0x0 || val == pmask );
+      //gdcm_assert( val == 0x0 || val == pmask );
       // 128 -> 0x80
       if( val )
         {
@@ -317,10 +323,16 @@ bool Overlay::GrabOverlayFromPixelData(DataSet const &ds)
     // SIEMENS_GBS_III-16-ACR_NEMA_1.acr is pain to support,
     // I cannot simply use the bv->GetLength I have to use the image dim:
     const unsigned int length = ovlength * 8 * 2; //bv->GetLength();
+    if( length > bv->GetLength() )
+      {
+      gdcmWarningMacro("Pixel data buffer too small for overlay extraction (need "
+        << length << " bytes, have " << bv->GetLength() << ").");
+      return false;
+      }
     const uint16_t *p = (const uint16_t*)(const void*)array;
     const uint16_t *end = (const uint16_t*)(const void*)(array + length);
     //const unsigned int ovlength = length / (8*2);
-    gdcm_assert( 8 * ovlength == (unsigned int)Internal->Rows * Internal->Columns );
+    gdcm_assert( 8 * ovlength >= (unsigned int)Internal->Rows * Internal->Columns );
     if( Internal->Data.empty() )
       {
       gdcmWarningMacro("Internal Data is empty." );
@@ -333,7 +345,7 @@ bool Overlay::GrabOverlayFromPixelData(DataSet const &ds)
     while( p != end )
       {
       const uint16_t val = *p & pmask;
-      gdcm_assert( val == 0x0 || val == pmask );
+      //gdcm_assert( val == 0x0 || val == pmask );
       // 128 -> 0x80
       if( val )
         {

@@ -18,8 +18,8 @@ from warnings import warn
 import numpy as np
 import pandas as pd
 import polars as pl
-from numpy import arange, signedinteger
-from xarray import DataArray, Dataset, apply_ufunc, broadcast
+from numpy import arange, nan, signedinteger
+from xarray import Coordinates, DataArray, Dataset, apply_ufunc, broadcast
 from xarray import align as xr_align
 from xarray.core import dtypes, indexing
 from xarray.core.types import JoinOptions, T_Alignable
@@ -161,26 +161,6 @@ def pandas_to_dataarray(
         axis.name or get_from_iterable(dims, i) or f"dim_{i}"
         for i, axis in enumerate(arr.axes)
     ]
-    if coords is not None:
-        pandas_coords = dict(zip(dims, arr.axes))
-        if isinstance(coords, Sequence):
-            coords = dict(zip(dims, coords))
-        shared_dims = set(pandas_coords.keys()) & set(coords.keys())
-        non_aligned = []
-        for dim in shared_dims:
-            coord = coords[dim]
-            if not isinstance(coord, pd.Index):
-                coord = pd.Index(coord)
-            if not pandas_coords[dim].equals(coord):
-                non_aligned.append(dim)
-        if any(non_aligned):
-            warn(
-                f"coords for dimension(s) {non_aligned} is not aligned with the pandas object. "
-                "Previously, the indexes of the pandas were ignored and overwritten in "
-                "these cases. Now, the pandas object's coordinates are taken considered"
-                " for alignment."
-            )
-
     return DataArray(arr, coords=None, dims=dims, **kwargs)
 
 
@@ -211,20 +191,23 @@ def numpy_to_dataarray(
     """
     # fallback case for zero dim arrays
     if arr.ndim == 0:
+        if dims is None and is_dict_like(coords):
+            dims = list(coords.keys())
         return DataArray(arr.item(), coords=coords, dims=dims, **kwargs)
 
-    ndim = max(arr.ndim, 0 if coords is None else len(coords))
     if isinstance(dims, Iterable | Sequence):
         dims = list(dims)
     elif dims is not None:
         dims = [dims]
 
     if dims is not None and len(dims):
-        # fill up dims with default names to match the number of dimensions
-        dims = [get_from_iterable(dims, i) or f"dim_{i}" for i in range(ndim)]
+        dims = [get_from_iterable(dims, i) or f"dim_{i}" for i in range(arr.ndim)]
 
-    if isinstance(coords, list) and dims is not None and len(dims):
-        coords = dict(zip(dims, coords))
+    if dims is not None and len(dims) and coords is not None:
+        if isinstance(coords, list):
+            coords = dict(zip(dims, coords[: arr.ndim]))
+        elif is_dict_like(coords):
+            coords = {k: v for k, v in coords.items() if k in dims}
 
     return DataArray(arr, coords=coords, dims=dims, **kwargs)
 
@@ -260,9 +243,14 @@ def as_dataarray(
         arr = numpy_to_dataarray(arr, coords=coords, dims=dims, **kwargs)
     elif isinstance(arr, pl.Series):
         arr = numpy_to_dataarray(arr.to_numpy(), coords=coords, dims=dims, **kwargs)
-    elif isinstance(arr, np.number):
-        arr = DataArray(float(arr), coords=coords, dims=dims, **kwargs)
-    elif isinstance(arr, int | float | str | bool | list):
+    elif isinstance(arr, np.number | int | float | str | bool | list):
+        if isinstance(arr, np.number):
+            arr = float(arr)
+        if dims is None:
+            if isinstance(coords, Coordinates):
+                dims = coords.dims
+            elif is_dict_like(coords) and np.ndim(arr) == 0:
+                dims = list(coords.keys())
         arr = DataArray(arr, coords=coords, dims=dims, **kwargs)
 
     elif not isinstance(arr, DataArray):
@@ -1005,7 +993,7 @@ def get_label_position(
         raise ValueError("Array's with more than two dimensions is not supported")
 
 
-def print_coord(coord: dict[str, Any] | Iterable[Any]) -> str:
+def format_coord(coord: dict[str, Any] | Iterable[Any]) -> str:
     """
     Format coordinates into a string representation.
 
@@ -1018,11 +1006,11 @@ def print_coord(coord: dict[str, Any] | Iterable[Any]) -> str:
         with nested coordinates grouped in parentheses.
 
     Examples:
-        >>> print_coord({"x": 1, "y": 2})
+        >>> format_coord({"x": 1, "y": 2})
         '[1, 2]'
-        >>> print_coord([1, 2, 3])
+        >>> format_coord([1, 2, 3])
         '[1, 2, 3]'
-        >>> print_coord([(1, 2), (3, 4)])
+        >>> format_coord([(1, 2), (3, 4)])
         '[(1, 2), (3, 4)]'
     """
     # Handle empty input
@@ -1043,7 +1031,7 @@ def print_coord(coord: dict[str, Any] | Iterable[Any]) -> str:
     return f"[{', '.join(formatted)}]"
 
 
-def print_single_variable(model: Any, label: int) -> str:
+def format_single_variable(model: Any, label: int) -> str:
     if label == -1:
         return "None"
 
@@ -1062,10 +1050,10 @@ def print_single_variable(model: Any, label: int) -> str:
     else:
         bounds = f" ∈ [{lower:.4g}, {upper:.4g}]"
 
-    return f"{name}{print_coord(coord)}{bounds}"
+    return f"{name}{format_coord(coord)}{bounds}"
 
 
-def print_single_expression(
+def format_single_expression(
     c: np.ndarray,
     v: np.ndarray,
     const: float,
@@ -1077,7 +1065,7 @@ def print_single_expression(
     c, v = np.atleast_1d(c), np.atleast_1d(v)
 
     # catch case that to many terms would be printed
-    def print_line(
+    def format_line(
         expr: list[tuple[float, tuple[str, Any] | list[tuple[str, Any]]]], const: float
     ) -> str:
         res = []
@@ -1091,11 +1079,11 @@ def print_single_expression(
                 var_string = ""
                 for name, coords in var:
                     if name is not None:
-                        coord_string = print_coord(coords)
+                        coord_string = format_coord(coords)
                         var_string += f" {name}{coord_string}"
             else:
                 name, coords = var
-                coord_string = print_coord(coords)
+                coord_string = format_coord(coords)
                 var_string = f" {name}{coord_string}"
 
             res.append(f"{coeff_string}{var_string}")
@@ -1122,7 +1110,7 @@ def print_single_expression(
         truncate = max_terms // 2
         positions = model.variables.get_label_position(v[..., :truncate])
         expr = list(zip(c[:truncate], positions))
-        res = print_line(expr, const)
+        res = format_line(expr, const)
         res += " ... "
         expr = list(
             zip(
@@ -1130,15 +1118,15 @@ def print_single_expression(
                 model.variables.get_label_position(v[-truncate:]),
             )
         )
-        residual = print_line(expr, const)
+        residual = format_line(expr, const)
         if residual != " None":
             res += residual
         return res
     expr = list(zip(c, model.variables.get_label_position(v)))
-    return print_line(expr, const)
+    return format_line(expr, const)
 
 
-def print_single_constraint(model: Any, label: int) -> str:
+def format_single_constraint(model: Any, label: int) -> str:
     constraints = model.constraints
     name, coord = constraints.get_label_position(label)
 
@@ -1147,10 +1135,10 @@ def print_single_constraint(model: Any, label: int) -> str:
     sign = model.constraints[name].sign.sel(coord).item()
     rhs = model.constraints[name].rhs.sel(coord).item()
 
-    expr = print_single_expression(coeffs, vars, 0, model)
+    expr = format_single_expression(coeffs, vars, 0, model)
     sign = SIGNS_pretty[sign]
 
-    return f"{name}{print_coord(coord)}: {expr} {sign} {rhs:.12g}"
+    return f"{name}{format_coord(coord)}: {expr} {sign} {rhs:.12g}"
 
 
 def has_optimized_model(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -1412,3 +1400,51 @@ def is_constant(x: SideLike) -> bool:
         "Expected a constant, variable, or expression on the constraint side, "
         f"got {type(x)}."
     )
+
+
+def series_to_lookup_array(s: pd.Series) -> np.ndarray:
+    """
+    Convert an integer-indexed Series to a dense numpy lookup array.
+
+    Non-negative indices are placed at their corresponding positions;
+    negative indices are ignored. Gaps are filled with NaN.
+
+    Parameters
+    ----------
+    s : pd.Series
+        Series with an integer index.
+
+    Returns
+    -------
+    np.ndarray
+        Dense array of length ``max(index) + 1``.
+    """
+    max_idx = max(int(s.index.max()), 0)
+    arr = np.full(max_idx + 1, nan)
+    mask = s.index >= 0
+    arr[s.index[mask]] = s.values[mask]
+    return arr
+
+
+def lookup_vals(arr: np.ndarray, idx: np.ndarray) -> np.ndarray:
+    """
+    Look up values from a dense array by integer labels.
+
+    Negative labels and labels beyond the array length map to NaN.
+
+    Parameters
+    ----------
+    arr : np.ndarray
+        Dense lookup array (e.g. from :func:`series_to_lookup_array`).
+    idx : np.ndarray
+        Integer label indices.
+
+    Returns
+    -------
+    np.ndarray
+        Array of looked-up values with the same shape as *idx*.
+    """
+    valid = (idx >= 0) & (idx < len(arr))
+    vals = np.full(idx.shape, nan)
+    vals[valid] = arr[idx[valid]]
+    return vals

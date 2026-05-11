@@ -1,5 +1,6 @@
 import contextlib
 import getpass
+import io
 import os
 import platform
 import signal
@@ -913,6 +914,49 @@ def test_callback_and_return_code(fp):
     assert process.returncode == 5
 
 
+def test_poll_reflects_returncode_after_callback(fp):
+    """
+    poll() must return the registered returncode once the callback thread has
+    finished, without requiring the caller to invoke wait() or communicate().
+
+    Before the fix, poll() always returned None when a callback was registered.
+    """
+
+    def slow_callback(process):
+        time.sleep(0.1)
+
+    fp.register(["my-tool"], returncode=1, callback=slow_callback)
+    proc = subprocess.Popen(["my-tool"])
+
+    # While the callback is still running, poll() must return None.
+    assert proc.poll() is None
+
+    # Wait for the callback thread to finish, then poll() must return the
+    # registered returncode.
+    proc.wait()
+    assert proc.poll() == 1
+
+
+def test_poll_reflects_returncode_after_callback_polling_loop(fp):
+    """
+    Callers that spin on proc.poll() is None (a common real-subprocess idiom)
+    must eventually observe a non-None returncode once the callback finishes.
+    """
+
+    def callback_with_delay(process):
+        time.sleep(0.05)
+
+    fp.register(["my-tool"], returncode=42, callback=callback_with_delay)
+    proc = subprocess.Popen(["my-tool"])
+
+    deadline = time.monotonic() + 5.0  # generous upper bound
+    while proc.poll() is None:
+        assert time.monotonic() < deadline, "poll() never reflected returncode"
+        time.sleep(0.01)
+
+    assert proc.returncode == 42
+
+
 @pytest.mark.skipif(
     sys.version_info <= (3, 6),
     reason="encoding and errors has been introduced in 3.6",
@@ -1351,6 +1395,62 @@ def test_stdin_pipe(fp):
         process.stdin.write(b"more data")
 
 
+def test_stdin_pipe_text_mode(fp):
+    """
+    Test that stdin is a StringIO (text) buffer when using
+    subprocess.PIPE with text=True.
+
+    From GitHub #204
+    """
+    fp.register(["my-command"], stdout="hello\n")
+
+    process = subprocess.Popen(
+        ["my-command"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    assert process.stdin is not None
+    assert isinstance(process.stdin, io.StringIO)
+    assert process.stdin.writable()
+
+    # Should accept str, not bytes, in text mode.
+    process.stdin.write("some input")
+    process.stdin.flush()
+
+    process.stdin.seek(0)
+    assert process.stdin.read() == "some input"
+
+    process.stdin.close()
+    with pytest.raises(ValueError):
+        process.stdin.write("more data")
+
+
+def test_stdin_pipe_encoding_mode(fp):
+    """
+    Test that stdin is a StringIO (text) buffer when
+    using subprocess.PIPE with encoding set.
+
+    From GitHub #204
+    """
+    fp.register(["my-command"])
+
+    process = subprocess.Popen(
+        ["my-command"],
+        stdin=subprocess.PIPE,
+        encoding="utf-8",
+    )
+
+    assert process.stdin is not None
+    assert isinstance(process.stdin, io.StringIO)
+    assert process.stdin.writable()
+
+    process.stdin.write("some input")
+    process.stdin.close()
+
+
 def test_stdout_stderr_as_file_bug(fp):
     """
     Test that no TypeError is raised when stdout/stderr is a file
@@ -1401,3 +1501,91 @@ def test_imported_popen_is_patched(fp):
 
     assert process.returncode == 0
     assert out == b"\x00"
+
+
+# ---------------------------------------------------------------------------
+# Regex command matching – issue #154
+# ---------------------------------------------------------------------------
+
+
+def test_regex_matches_varying_argument(fp):
+    """
+    fp.regex() must match a single command argument against a regex pattern,
+    allowing commands with variable argument values to be registered once.
+    """
+    fp.register(["cmake", fp.regex(r"-S.+"), fp.regex(r"-B.+")], occurrences=2)
+
+    # Both calls use the same registration; argument values differ.
+    proc1 = subprocess.run(["cmake", "-S/tmp/source1", "-B/tmp/build1"])
+    proc2 = subprocess.run(["cmake", "-S/other/source", "-B/other/build"])
+
+    assert proc1.returncode == 0
+    assert proc2.returncode == 0
+
+
+def test_regex_does_not_match_wrong_argument(fp):
+    """
+    Commands whose arguments do NOT match the registered regex pattern must
+    raise ProcessNotRegisteredError, not silently succeed.
+    """
+    fp.register(["cmake", fp.regex(r"-S.+"), fp.regex(r"-B.+")])
+
+    # Wrong subcommand — does not match the -S/-B pattern.
+    with pytest.raises(fp.exceptions.ProcessNotRegisteredError):
+        subprocess.run(["cmake", "--build", "/tmp/build"])
+
+
+def test_regex_case_insensitive_flag(fp):
+    """
+    fp.regex() must accept re module flags such as re.IGNORECASE.
+    """
+    import re
+
+    fp.register(["git", fp.regex(r"commit", re.IGNORECASE)], stdout="sha: abc123\n")
+
+    # Exact case
+    proc1 = subprocess.run(["git", "commit"], capture_output=True)
+    assert proc1.stdout == b"sha: abc123\n"
+
+    # Different case
+    fp.register(["git", fp.regex(r"commit", re.IGNORECASE)], stdout="sha: abc123\n")
+    proc2 = subprocess.run(["git", "COMMIT"], capture_output=True)
+    assert proc2.stdout == b"sha: abc123\n"
+
+
+def test_regex_fullmatch_semantics(fp):
+    """
+    fp.regex() uses fullmatch: the pattern must cover the *entire* argument
+    string.  A pattern that only matches a substring must NOT match.
+    """
+    # "-S" alone does not fullmatch "-S/some/path" (pattern too short)
+    fp.register(["cmake", fp.regex(r"-S"), fp.regex(r"-B")])
+    with pytest.raises(fp.exceptions.ProcessNotRegisteredError):
+        # "-S/tmp/source" does not fullmatch the pattern "-S" (no extra chars)
+        subprocess.run(["cmake", "-S/tmp/source", "-B/tmp/build"])
+
+
+def test_regex_repr(fp):
+    """
+    fp.regex() instances have a helpful repr for debugging.
+    """
+    r = fp.regex(r"-S.+")
+    assert "-S.+" in repr(r)
+
+
+def test_regex_combined_with_any(fp):
+    """
+    fp.regex() can be combined freely with fp.any() and exact strings in
+    the same command registration.
+    """
+    # Exact "cmake", then any number of arguments matching the -D prefix
+    fp.register(
+        ["cmake", fp.regex(r"-D.+=.+"), fp.any()],
+        stdout="configured\n",
+    )
+
+    proc = subprocess.run(
+        ["cmake", "-DCMAKE_BUILD_TYPE=Release", "-S/tmp/src", "-B/tmp/build"],
+        capture_output=True,
+    )
+    assert proc.stdout == b"configured\n"

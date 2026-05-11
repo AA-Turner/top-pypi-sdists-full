@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: approval_utilities
-Version: 18.0.1
+Version: 18.0.3
 Summary: Utilities for your production code that work well with approvaltests
 Home-page: https://github.com/approvals/ApprovalTests.Python
 Author: ApprovalTests Contributors

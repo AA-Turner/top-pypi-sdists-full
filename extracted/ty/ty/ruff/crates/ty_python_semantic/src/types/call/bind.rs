@@ -2101,10 +2101,7 @@ impl<'db> Bindings<'db> {
                                 order,
                                 unsafe_hash,
                                 frozen,
-                                match_args,
-                                kw_only,
-                                slots,
-                                weakref_slot,
+                                versioned_parameters @ ..,
                             ] = overload.parameter_types()
                             {
                                 let mut flags = DataclassFlags::empty();
@@ -2127,33 +2124,38 @@ impl<'db> Bindings<'db> {
                                 if to_bool(frozen, false) {
                                     flags |= DataclassFlags::FROZEN;
                                 }
-                                if to_bool(match_args, true) {
-                                    if Program::get(db).python_version(db) >= PythonVersion::PY310 {
-                                        flags |= DataclassFlags::MATCH_ARGS;
-                                    } else {
-                                        // TODO: emit diagnostic
+
+                                match versioned_parameters {
+                                    // Python < 3.10.
+                                    [] => {}
+                                    // Python 3.10.
+                                    [match_args, kw_only, slots] => {
+                                        if to_bool(match_args, true) {
+                                            flags |= DataclassFlags::MATCH_ARGS;
+                                        }
+                                        if to_bool(kw_only, false) {
+                                            flags |= DataclassFlags::KW_ONLY;
+                                        }
+                                        if to_bool(slots, false) {
+                                            flags |= DataclassFlags::SLOTS;
+                                        }
                                     }
-                                }
-                                if to_bool(kw_only, false) {
-                                    if Program::get(db).python_version(db) >= PythonVersion::PY310 {
-                                        flags |= DataclassFlags::KW_ONLY;
-                                    } else {
-                                        // TODO: emit diagnostic
+                                    // Python >= 3.11.
+                                    [match_args, kw_only, slots, weakref_slot] => {
+                                        if to_bool(match_args, true) {
+                                            flags |= DataclassFlags::MATCH_ARGS;
+                                        }
+                                        if to_bool(kw_only, false) {
+                                            flags |= DataclassFlags::KW_ONLY;
+                                        }
+                                        if to_bool(slots, false) {
+                                            flags |= DataclassFlags::SLOTS;
+                                        }
+                                        if to_bool(weakref_slot, false) {
+                                            flags |= DataclassFlags::WEAKREF_SLOT;
+                                        }
                                     }
-                                }
-                                if to_bool(slots, false) {
-                                    if Program::get(db).python_version(db) >= PythonVersion::PY310 {
-                                        flags |= DataclassFlags::SLOTS;
-                                    } else {
-                                        // TODO: emit diagnostic
-                                    }
-                                }
-                                if to_bool(weakref_slot, false) {
-                                    if Program::get(db).python_version(db) >= PythonVersion::PY311 {
-                                        flags |= DataclassFlags::WEAKREF_SLOT;
-                                    } else {
-                                        // TODO: emit diagnostic
-                                    }
+                                    _ => {}
                                 }
 
                                 let params = DataclassParams::from_flags(db, flags);
@@ -4898,6 +4900,16 @@ impl<'a, 'db> ArgumentTypeChecker<'a, 'db> {
         }
         // We still update the actual type of the parameter in this binding to match the argument,
         // even if the argument type is not assignable to the expected parameter type.
+        //
+        // For a broad variadic sink such as `*args: object` or `**kwargs: object`, preserving a
+        // union of every individual argument type does not improve call checking or special-case
+        // return inference. Keep the already-declared top type instead of repeatedly growing a
+        // large union.
+        if (parameter.is_variadic() || parameter.is_keyword_variadic()) && expected_ty.is_object() {
+            self.parameter_tys[parameter_index].get_or_insert(expected_ty);
+            return;
+        }
+
         if let Some(builder) = self
             .parameter_ty_builders
             .get_mut(parameter_index)

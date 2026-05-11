@@ -7,7 +7,7 @@
     ARGV[2]  lock duration in milliseconds
     ARGV[3]  jobid
   Output:
-    "1" if lock extented succesfully.
+    "1" if lock extended successfully.
 ]]
 local rcall = redis.call
 if rcall("GET", KEYS[1]) == ARGV[1] then

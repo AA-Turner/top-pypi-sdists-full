@@ -45,10 +45,6 @@ pub(crate) enum CompileErrorKind<'src> {
   DuplicateDefault {
     recipe: &'src str,
   },
-  DuplicateEnvAttribute {
-    variable: String,
-    first: usize,
-  },
   DuplicateOption {
     recipe: &'src str,
     option: Switch,
@@ -113,6 +109,11 @@ pub(crate) enum CompileErrorKind<'src> {
   },
   NoCdAndWorkingDirectoryAttribute {
     recipe: &'src str,
+  },
+  NoCdAndWorkingDirectorySetting {
+    first: Keyword,
+    first_line: usize,
+    second: Keyword,
   },
   OptionNameContainsEqualSign {
     parameter: String,

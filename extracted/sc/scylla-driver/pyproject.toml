@@ -21,7 +21,7 @@ classifiers = [
 ]
 dependencies = ['geomet>=1.1', 'pyyaml > 5.0']
 dynamic = ["version", "readme"]
-license = "Apache-2.0"
+license = {text = "Apache-2.0"}
 requires-python = ">=3.9"
 
 [project.urls]
@@ -121,6 +121,9 @@ log_level = "DEBUG"
 log_date_format = "%Y-%m-%d %H:%M:%S"
 xfail_strict = true
 addopts = "-rf"
+markers = [
+    "last: mark test to run last within its module group",
+]
 
 [tool.setuptools_scm]
 version_file = "cassandra/_version.py"

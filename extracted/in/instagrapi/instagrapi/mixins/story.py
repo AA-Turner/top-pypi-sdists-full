@@ -2,7 +2,7 @@ import json
 import shutil
 from copy import deepcopy
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 from urllib.parse import urlparse
 
 from instagrapi import config
@@ -13,12 +13,13 @@ from instagrapi.exceptions import (
     UserNotFound,
 )
 from instagrapi.extractors import (
+    extract_story_archive_day,
     extract_story_gql,
     extract_story_v1,
     extract_user_short,
     extract_viewer,
 )
-from instagrapi.types import Story, UserShort, Viewer
+from instagrapi.types import Story, StoryArchiveDay, UserShort, Viewer
 
 
 class StoryMixin:
@@ -111,9 +112,7 @@ class StoryMixin:
         self._stories_cache.pop(self.media_pk(media_id), None)
         return self.media_delete(media_id)
 
-    def users_stories_gql(
-        self, user_ids: List[int], amount: int = 0
-    ) -> List[UserShort]:
+    def users_stories_gql(self, user_ids: List[int], amount: int = 0) -> List[UserShort]:
         """
         Get a user's stories (Public API)
 
@@ -192,16 +191,9 @@ class StoryMixin:
         List[Story]
             A list of objects of Story
         """
-        params = {
-            "supported_capabilities_new": json.dumps(config.SUPPORTED_CAPABILITIES)
-        }
+        params = {"supported_capabilities_new": json.dumps(config.SUPPORTED_CAPABILITIES)}
         user_id = int(user_id)
-        reel = (
-            self.private_request(f"feed/user/{user_id}/story/", params=params).get(
-                "reel"
-            )
-            or {}
-        )
+        reel = self.private_request(f"feed/user/{user_id}/story/", params=params).get("reel") or {}
         stories = []
         for item in reel.get("items", []):
             stories.append(extract_story_v1(item))
@@ -239,6 +231,163 @@ class StoryMixin:
                 ) from e
             return self.user_stories_v1(user_id, amount)
 
+    def archive_story_days_paginated_v1(
+        self,
+        amount: int = 0,
+        end_cursor: str = "",
+        include_memories: bool = True,
+        reel_id: str = "",
+    ) -> Tuple[List[StoryArchiveDay], str]:
+        """
+        Get a page of your story archive days by Private Mobile API
+
+        Parameters
+        ----------
+        amount: int, optional
+            Maximum number of archive days to return, default is 0 (all days)
+        end_cursor: str, optional
+            Cursor value to start at, obtained from previous call to this method
+        include_memories: bool, optional
+            Whether to include memories metadata, default value is True
+        reel_id: str, optional
+            Archive reel identifier to filter by
+
+        Returns
+        -------
+        Tuple[List[StoryArchiveDay], str]
+            A tuple containing a list of archive days and the next end_cursor value
+        """
+        amount = int(amount)
+        params = {
+            "timezone_offset": self.timezone_offset,
+            "include_memories": "1" if include_memories else "0",
+        }
+        if end_cursor:
+            params["max_id"] = end_cursor
+        if reel_id:
+            params["reel_id"] = reel_id
+        result = self.private_request("archive/reel/day_shells_paginated/", params=params)
+        items = result.get("items", [])
+        if amount:
+            items = items[:amount]
+        return ([extract_story_archive_day(item) for item in items], result.get("max_id") or "")
+
+    def archive_story_days_v1(self, amount: int = 0, include_memories: bool = True) -> List[StoryArchiveDay]:
+        """
+        Get your story archive days by Private Mobile API
+
+        Parameters
+        ----------
+        amount: int, optional
+            Maximum number of archive days to return, default is 0 (all days)
+        include_memories: bool, optional
+            Whether to include memories metadata, default value is True
+
+        Returns
+        -------
+        List[StoryArchiveDay]
+            A list of objects of StoryArchiveDay
+        """
+        amount = int(amount)
+        days = []
+        next_max_id = ""
+        while True:
+            days_page, next_max_id = self.archive_story_days_paginated_v1(
+                amount=amount,
+                end_cursor=next_max_id,
+                include_memories=include_memories,
+            )
+            days.extend(days_page)
+            if not next_max_id:
+                break
+            if amount and len(days) >= amount:
+                break
+        if amount:
+            days = days[:amount]
+        return days
+
+    def archive_story_days(self, amount: int = 0, include_memories: bool = True) -> List[StoryArchiveDay]:
+        """
+        Get your story archive days
+
+        Parameters
+        ----------
+        amount: int, optional
+            Maximum number of archive days to return, default is 0 (all days)
+        include_memories: bool, optional
+            Whether to include memories metadata, default value is True
+
+        Returns
+        -------
+        List[StoryArchiveDay]
+            A list of objects of StoryArchiveDay
+        """
+        return self.archive_story_days_v1(amount, include_memories)
+
+    @staticmethod
+    def _archive_story_reels(response) -> List[dict]:
+        reels = response.get("reels") or response.get("reels_media") or []
+        if isinstance(reels, dict):
+            return list(reels.values())
+        if reels:
+            return reels
+        return [value for key, value in response.items() if str(key).startswith("archiveDay:")]
+
+    def archive_stories_v1(self, amount: int = 0) -> List[Story]:
+        """
+        Get your archived stories by Private Mobile API
+
+        Parameters
+        ----------
+        amount: int, optional
+            Maximum number of stories to return, default is 0 (all stories)
+
+        Returns
+        -------
+        List[Story]
+            A list of objects of Story
+        """
+        amount = int(amount)
+        days = self.archive_story_days_v1(amount=0)
+        stories = []
+        for start in range(0, len(days), 50):
+            day_ids = [day.id for day in days[start : start + 50]]
+            if not day_ids:
+                continue
+            data = self.with_default_data(
+                {
+                    "reel_ids": day_ids,
+                    "reason": "on_tap",
+                    "source": "archive",
+                    "batch_size": len(day_ids),
+                }
+            )
+            result = self.private_request("feed/reels_media_stream/", data=data)
+            for reel in self._archive_story_reels(result):
+                for item in reel.get("items", []):
+                    story = extract_story_v1(item)
+                    self._stories_cache[story.pk] = story
+                    stories.append(story)
+                    if amount and len(stories) >= amount:
+                        return stories
+        return stories
+
+    def archive_stories(self, amount: int = 0) -> List[Story]:
+        """
+        Get your archived stories
+
+        Parameters
+        ----------
+        amount: int, optional
+            Maximum number of stories to return, default is 0 (all stories)
+
+        Returns
+        -------
+        List[Story]
+            A list of objects of Story
+        """
+        return self.archive_stories_v1(amount)
+
     def story_seen(self, story_pks: List[int], skipped_story_pks: List[int] = []):
         """
         Mark stories as seen
@@ -258,9 +407,7 @@ class StoryMixin:
             [self.media_id(mid) for mid in skipped_story_pks],
         )
 
-    def story_download(
-        self, story_pk: str, filename: str = "", folder: Path = ""
-    ) -> Path:
+    def story_download(self, story_pk: str, filename: str = "", folder: Path = "") -> Path:
         """
         Download story media by media_type
 
@@ -277,9 +424,7 @@ class StoryMixin:
         url = str(story.thumbnail_url if story.media_type == 1 else story.video_url)
         return self.story_download_by_url(url, filename, folder)
 
-    def story_download_by_url(
-        self, url: str, filename: str = "", folder: Path = ""
-    ) -> Path:
+    def story_download_by_url(self, url: str, filename: str = "", folder: Path = "") -> Path:
         """
         Download story media using URL
 
@@ -307,9 +452,7 @@ class StoryMixin:
         filename = "%s.%s" % (filename, fname.rsplit(".", 1)[1]) if filename else fname
         path = Path(folder) / filename
 
-        response = self._send_public_request(
-            url, stream=True, timeout=self.request_timeout
-        )
+        response = self._send_public_request(url, stream=True, timeout=self.request_timeout)
         response.raise_for_status()
 
         with open(path, "wb") as f:
@@ -317,22 +460,16 @@ class StoryMixin:
             shutil.copyfileobj(response.raw, f)
         return path.resolve()
 
-    def story_viewers_chunk(
-        self, story_pk: int, max_amount: int = 0, max_id: str = ""
-    ) -> tuple[list[Viewer], str]:
+    def story_viewers_chunk(self, story_pk: int, max_amount: int = 0, max_id: str = "") -> tuple[list[Viewer], str]:
         unique_set: set[str] = set()
         viewers: list[Viewer] = []
         story_pk = self.media_pk(story_pk)
-        params = {
-            "supported_capabilities_new": json.dumps(config.SUPPORTED_CAPABILITIES)
-        }
+        params = {"supported_capabilities_new": json.dumps(config.SUPPORTED_CAPABILITIES)}
 
         while True:
             if max_id:
                 params["max_id"] = max_id
-            result = self.private_request(
-                f"media/{story_pk}/list_reel_media_viewer/", params=params
-            )
+            result = self.private_request(f"media/{story_pk}/list_reel_media_viewer/", params=params)
             for item in result["viewers"]:
                 viewer = extract_viewer(item)
                 if viewer.pk in unique_set:
@@ -392,9 +529,7 @@ class StoryMixin:
             "container_module": "reel_feed_timeline",
         }
         name = "unsend" if revert else "send"
-        result = self.private_request(
-            f"story_interactions/{name}_story_like", self.with_action_data(data)
-        )
+        result = self.private_request(f"story_interactions/{name}_story_like", self.with_action_data(data))
         return result["status"] == "ok"
 
     def story_unlike(self, story_id: str) -> bool:

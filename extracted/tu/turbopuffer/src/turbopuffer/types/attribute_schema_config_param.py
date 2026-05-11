@@ -8,8 +8,9 @@ from typing_extensions import Required, TypeAlias, TypedDict
 from .attribute_type import AttributeType
 from .distance_metric import DistanceMetric
 from .full_text_search_param import FullTextSearchParam
+from .sparse_distance_metric import SparseDistanceMetric
 
-__all__ = ["AttributeSchemaConfigParam", "Ann", "AnnAnnConfig"]
+__all__ = ["AttributeSchemaConfigParam", "Ann", "AnnAnnConfig", "SparseKnn"]
 
 
 class AnnAnnConfig(TypedDict, total=False):
@@ -22,6 +23,16 @@ class AnnAnnConfig(TypedDict, total=False):
 Ann: TypeAlias = Union[bool, AnnAnnConfig]
 
 
+class SparseKnn(TypedDict, total=False):
+    """Whether to create a sparse kNN index for the attribute.
+
+    Requires the `{}f16` type.
+    """
+
+    distance_metric: Required[SparseDistanceMetric]
+    """A function used to calculate sparse vector similarity."""
+
+
 class AttributeSchemaConfigParam(TypedDict, total=False):
     """Detailed configuration for an attribute attached to a document."""
 
@@ -29,7 +40,7 @@ class AttributeSchemaConfigParam(TypedDict, total=False):
     """The data type of the attribute.
 
     Valid values: string, int, uint, float, uuid, datetime, bool, []string, []int,
-    []uint, []float, []uuid, []datetime, []bool, [DIMS]f16, [DIMS]f32.
+    []uint, []float, []uuid, []datetime, []bool, [DIMS]f16, [DIMS]f32, {}f16.
     """
 
     ann: Ann
@@ -49,8 +60,17 @@ class AttributeSchemaConfigParam(TypedDict, total=False):
     `filterable: true`.
     """
 
+    fuzzy: bool
+    """Whether to enable Fuzzy filters on this attribute."""
+
     glob: bool
     """Whether to enable Glob filters on this attribute."""
 
     regex: bool
     """Whether to enable Regex filters on this attribute."""
+
+    sparse_knn: SparseKnn
+    """Whether to create a sparse kNN index for the attribute.
+
+    Requires the `{}f16` type.
+    """

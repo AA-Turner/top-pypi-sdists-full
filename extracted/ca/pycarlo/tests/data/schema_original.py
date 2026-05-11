@@ -83564,6 +83564,9 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
         "is_excluded",
         "created_time",
         "last_observed",
+        "waste_pattern",
+        "table_category",
+        "risk_tier",
     )
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """Monte Carlo object name — unique table identifier"""
@@ -83664,6 +83667,19 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
 
     last_observed = sgqlc.types.Field(DateTime, graphql_name="lastObserved")
     """When the table was last observed by Monte Carlo"""
+
+    waste_pattern = sgqlc.types.Field(String, graphql_name="wastePattern")
+    """Waste pattern classification: unread, write_only, dead_end,
+    static_waste, zombie, or other_stale
+    """
+
+    table_category = sgqlc.types.Field(String, graphql_name="tableCategory")
+    """Table category: temporary, ad_hoc, archive_snapshot, production,
+    or other
+    """
+
+    risk_tier = sgqlc.types.Field(Int, graphql_name="riskTier")
+    """Safety tier for removal (0 = safest to remove, 5 = highest risk)"""
 
 
 class StorageOptimizationCandidatesResult(sgqlc.types.Type):

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: textile
-Version: 4.0.3
+Version: 4.0.4
 Summary: Textile processing for python.
 Author-email: Dennis Burke <ikirudennis@gmail.com>
 Project-URL: Homepage, https://github.com/textile/python-textile
@@ -20,6 +20,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
@@ -31,6 +33,7 @@ Requires-Dist: pytest; extra == "develop"
 Requires-Dist: pytest-cov; extra == "develop"
 Provides-Extra: imagesize
 Requires-Dist: Pillow>=3.0.0; extra == "imagesize"
+Dynamic: license-file
 
 <p><a href="https://github.com/textile/python-textile/actions/workflows/lint_and_test.yml"><img alt="python-textile" src="https://github.com/textile/python-textile/actions/workflows/lint_and_test.yml/badge.svg" title="python-textile" /></a> <a href="https://codecov.io/github/textile/python-textile"><img alt="" src="https://codecov.io/github/textile/python-textile/coverage.svg" /></a> <img alt="" src="https://img.shields.io/pypi/pyversions/textile" /> <img alt="" src="https://img.shields.io/pypi/wheel/textile" /></p>
 

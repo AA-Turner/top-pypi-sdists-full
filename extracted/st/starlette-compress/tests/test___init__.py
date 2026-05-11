@@ -20,7 +20,7 @@ from starlette_compress import (
     add_compress_type,
     remove_compress_type,
 )
-from starlette_compress._utils import parse_accept_encoding
+from starlette_compress._utils import is_start_message_satisfied, parse_accept_encoding
 
 TestClientFactory = Callable[[ASGIApp], TestClient]
 
@@ -300,5 +300,77 @@ def test_compress_registered_content_type(test_client_factory: TestClientFactory
 
 def test_parse_accept_encoding():
     assert parse_accept_encoding('') == frozenset()
-    assert parse_accept_encoding('gzip, deflate') == {'gzip', 'deflate'}
-    assert parse_accept_encoding('br;q=1.0,gzip;q=0.8, *;q=0.1') == {'br', 'gzip'}
+    assert parse_accept_encoding('gzip, deflate') == {'gzip'}
+    assert parse_accept_encoding('br;q=1.0,gzip;q=0.8, *;q=0.1') == {
+        'br',
+        'gzip',
+        'zstd',
+    }
+    assert parse_accept_encoding('gzip;q=0, br;q=0.5') == {'br'}
+    assert parse_accept_encoding('gzip;q=0, *;q=0.1') == {'br', 'zstd'}
+
+
+def test_is_start_message_satisfied_reads_raw_headers():
+    assert is_start_message_satisfied(
+        {
+            'headers': [
+                (b'Content-Encoding', b'identity, identity'),
+                (b'Content-Type', b'text/html; charset=utf-8'),
+            ],
+        },
+    )
+    assert not is_start_message_satisfied(
+        {'headers': [(b'content-encoding', b'gzip'), (b'content-type', b'text/html')]},
+    )
+    assert not is_start_message_satisfied({
+        'headers': [(b'content-type', b'image/png')]
+    })
+
+
+@pytest.mark.parametrize('encoding', ['gzip', 'br', 'zstd', 'identity'])
+def test_pathsend_after_compressible_start_flushes_start_first(encoding: str):
+    """`http.response.pathsend` must not orphan a buffered start message.
+
+    Some ASGI servers (e.g. h2corn) implement the `http.response.pathsend`
+    extension, which Starlette's `FileResponse` uses to skip the body chunk
+    stream. The compress middleware buffers `http.response.start` for
+    compressible content types while it waits for `http.response.body`. When
+    pathsend follows instead, compression doesn't apply — but the buffered
+    start must still be forwarded, otherwise the downstream server never
+    sees the response start and produces a 500.
+    """
+    import asyncio
+
+    async def app(scope, receive, send):
+        await send({
+            'type': 'http.response.start',
+            'status': 200,
+            'headers': [(b'content-type', b'text/xml; charset=utf-8')],
+        })
+        await send({'type': 'http.response.pathsend', 'path': '/tmp/whatever'})
+
+    middleware = CompressMiddleware(app)
+    sent: list[dict] = []
+
+    async def fake_send(message: dict) -> None:
+        sent.append(message)
+
+    async def fake_receive() -> dict:
+        return {'type': 'http.disconnect'}
+
+    scope = {
+        'type': 'http',
+        'method': 'GET',
+        'path': '/',
+        'headers': [(b'accept-encoding', encoding.encode())],
+        'extensions': {'http.response.pathsend': {}},
+    }
+    asyncio.run(middleware(scope, fake_receive, fake_send))
+
+    types = [m['type'] for m in sent]
+    assert types == ['http.response.start', 'http.response.pathsend'], (
+        f'expected start before pathsend, got {types}'
+    )
+    # No Content-Encoding should be set — pathsend bypasses compression.
+    start_headers = dict(sent[0]['headers'])
+    assert b'content-encoding' not in start_headers

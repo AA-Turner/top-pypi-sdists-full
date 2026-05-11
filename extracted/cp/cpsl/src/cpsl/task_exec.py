@@ -94,7 +94,7 @@ def _subprocess_entry(
     try:
         from .app import App
         from .channel import Channel as _GrpcChannel
-        from .session import Session, SessionChannel, UserInfo
+        from .session import Session, SessionChannel, UserInfo, session_data_json
 
         gw = os.environ.get("CAPSULE_GATEWAY_HOST", "localhost:1980")
         token = os.environ.get("CAPSULE_RUNNER_TOKEN") or None
@@ -316,7 +316,7 @@ def _subprocess_entry(
                     session_stub.save_session_data(
                         SaveSessionDataRequest(
                             session_id=session_id,
-                            data_json=json.dumps(session.data),
+                            data_json=session_data_json(session.data),
                         )
                     )
                     rid = str(uuid.uuid4())
@@ -371,7 +371,7 @@ def _subprocess_entry(
                 session_stub.save_session_data(
                     SaveSessionDataRequest(
                         session_id=session.id,
-                        data_json=json.dumps(session.data),
+                        data_json=session_data_json(session.data),
                     )
                 )
 

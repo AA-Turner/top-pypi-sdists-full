@@ -112,17 +112,18 @@ class PhysTokensTest(CoverageTest):
         tokens = list(
             source_token_lines(
                 textwrap.dedent("""
-            x = \
-                1
-            a = ["aaa",\\
-                 "bbb \\
-                 ccc"]
-            """)
+                    x = \\
+                        1
+                    a = ["aaa",\\
+                         "bbb \\
+                         ccc"]
+                """)
             )
         )
         assert tokens == [
             [],
-            [("nam", "x"), ("ws", " "), ("op", "="), ("ws", "                 "), ("num", "1")],
+            [("nam", "x"), ("ws", " "), ("op", "="), ("ws", " "), ("xx", "\\")],
+            [("ws", "    "), ("num", "1")],
             [
                 ("nam", "a"),
                 ("ws", " "),
@@ -159,8 +160,8 @@ class PhysTokensTest(CoverageTest):
         tokens = list(
             source_token_lines(
                 textwrap.dedent("""\
-            f'Look: {x} {{x}}!'
-            """)
+                    f'Look: {x} {{x}}!'
+                """)
             )
         )
         if env.PYBEHAVIOR.fstring_syntax:
@@ -224,6 +225,20 @@ class SoftKeywordTest(CoverageTest):
         tokens = list(source_token_lines(source))
         assert tokens[0][0] == ("key", "type")
         assert tokens[1][0] == ("nam", "type")
+
+    @pytest.mark.skipif(sys.version_info < (3, 15), reason="lazy isn't a soft keyword until 3.15")
+    def test_soft_keyword_lazy(self) -> None:
+        source = textwrap.dedent("""\
+            lazy import foo
+            lazy from foo import bar
+            def lazy(f): pass
+            lazy(12)
+            """)
+        tokens = list(source_token_lines(source))
+        assert tokens[0][0] == ("key", "lazy")
+        assert tokens[1][0] == ("key", "lazy")
+        assert tokens[2][2] == ("nam", "lazy")
+        assert tokens[3][0] == ("nam", "lazy")
 
 
 # The default source file encoding.

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: scylla-driver
-Version: 3.29.9
+Version: 3.29.10
 Summary: Scylla Driver for Apache Cassandra
 Author: ScyllaDB
-License-Expression: Apache-2.0
+License: Apache-2.0
 Project-URL: Homepage, https://github.com/scylladb/python-driver
 Project-URL: Documentation, https://scylladb.github.io/python-driver/
 Project-URL: Source, https://github.com/scylladb/python-driver/

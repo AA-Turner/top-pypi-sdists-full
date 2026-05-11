@@ -425,15 +425,28 @@ def _inject_expectation_hint(
     content = task.get("content") or []
     if any(entry.get("content") == hint for entry in content if isinstance(entry, dict)):
         return task
-    new_content: list[dict[str, Any]] = []
-    inserted = False
-    for entry in content:
-        if not inserted and entry.get("role") != "system":
+    # The perceptron AI gateway only honors `<hint>...</hint>` when it
+    # arrives as a system-role message. Prepending it inside the user
+    # message (the previous behavior) was silently ignored, so flags like
+    # `reasoning=True` produced no `reasoning_content` in the response.
+    # Other providers (fal, nebius, modal) keep the original user-content
+    # behavior since their backends handled it correctly.
+    is_perceptron = isinstance(provider_cfg, dict) and provider_cfg.get("name") == "perceptron"
+    if is_perceptron:
+        new_content: list[dict[str, Any]] = [
+            {"type": "text", "role": "system", "content": hint},
+            *content,
+        ]
+    else:
+        new_content = []
+        inserted = False
+        for entry in content:
+            if not inserted and entry.get("role") != "system":
+                new_content.append({"type": "text", "role": "user", "content": hint})
+                inserted = True
+            new_content.append(entry)
+        if not inserted:
             new_content.append({"type": "text", "role": "user", "content": hint})
-            inserted = True
-        new_content.append(entry)
-    if not inserted:
-        new_content.append({"type": "text", "role": "user", "content": hint})
     new_task = dict(task)
     new_task["content"] = new_content
     return new_task
@@ -506,17 +519,17 @@ _PROVIDER_CONFIG = {
         "auth_prefix": "Bearer ",
         "env_keys": ["PERCEPTRON_API_KEY"],
         "default_model": "isaac-0.1",
-        "supported_models": ["isaac-0.1", "isaac-0.2-1b", "isaac-0.2-2b-preview", "qwen3-vl-235b-a22b-thinking"],
+        "supported_models": [
+            "isaac-0.1",
+            "isaac-0.2-1b",
+            "isaac-0.2-2b-preview",
+            "isaac-0.3-max",
+        ],
         "models": {
             "isaac-0.1": {"reasoning": False, "skip_structured_hints": False, "focus": False},
             "isaac-0.2-1b": {"reasoning": True, "skip_structured_hints": False, "focus": True},
             "isaac-0.2-2b-preview": {"reasoning": True, "skip_structured_hints": False, "focus": True},
-            "qwen3-vl-235b-a22b-thinking": {
-                "reasoning": True,
-                "only_reasoning": True,
-                "skip_structured_hints": True,
-                "focus": False,
-            },
+            "isaac-0.3-max": {"reasoning": True, "skip_structured_hints": False, "focus": True},
         },
         "stream": True,
     },
@@ -742,7 +755,13 @@ class _ClientCore:
         if presence_penalty is not None:
             body["presence_penalty"] = presence_penalty
         if reasoning_flag:
-            body["reasoning"] = True
+            # Reasoning + geometry expectations are signaled to the perceptron
+            # backend via the `<hint>...</hint>` system message that
+            # `_inject_expectation_hint` prepends. Non-perceptron providers
+            # keep the original top-level `reasoning` field until each
+            # backend's exact format is verified.
+            if provider_cfg.get("name") != "perceptron":
+                body["reasoning"] = True
         if stream:
             body["stream"] = True
 

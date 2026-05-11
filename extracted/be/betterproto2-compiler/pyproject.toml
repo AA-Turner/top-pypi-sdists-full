@@ -1,6 +1,6 @@
 [project]
 name = "betterproto2_compiler"
-version = "0.9.0"
+version = "0.10.0"
 description = "Compiler for betterproto2"
 authors = [
     { name = "Adrien Vannson", email = "adrien.vannson@protonmail.com" },
@@ -17,7 +17,7 @@ dependencies = [
     # TODO use the version from the current repo?
     "betterproto2>=0.9.0,<0.10",
     # "betterproto2",
-    "ruff~=0.9.3",
+    "ruff>=0.9.3",
     "jinja2>=3.0.3",
     "typing-extensions>=4.7.1,<5",
     "strenum>=0.4.15,<0.5 ; python_version == '3.10'",
@@ -37,12 +37,13 @@ protoc-gen-python_betterproto2 = "betterproto2_compiler.plugin:main"
 dev = [
     "pre-commit>=4.2.0,<5",
     "grpcio-tools>=1.54.2,<2",
-    "poethepoet>=0.32.2,<0.33",
+    "poethepoet>=0.32.2,<0.46",
     "pyright>=1.1.391,<2",
     "ipykernel>=6.29.5,<7",
+    "ruff==0.15.12",
 ]
 test = [
-    "pytest>=8.3.4,<9",
+    "pytest>=8.3.4,<10",
     "protobuf>=5.29.3,<6",
 ]
 
@@ -51,8 +52,8 @@ package = true
 default-groups = "all"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.9.7,<0.12"]
+build-backend = "uv_build"
 
 [tool.ruff]
 extend-exclude = ["tests/outputs", "src/betterproto2_compiler/lib"]

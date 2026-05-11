@@ -1,6 +1,6 @@
 [project]
 name = "tmuxp"
-version = "1.67.0"
+version = "1.68.0"
 description = "Session manager for tmux, which allows users to save and load tmux sessions through simple configuration files."
 requires-python = ">=3.10,<4.0"
 authors = [
@@ -39,7 +39,7 @@ include = [
   { path = "conftest.py", format = "sdist" },
 ]
 dependencies = [
-  "libtmux~=0.55.0",
+  "libtmux~=0.56.0",
   "PyYAML>=6.0"
 ]
 
@@ -55,19 +55,13 @@ tmuxp = 'tmuxp:cli.cli'
 [dependency-groups]
 dev = [
   # Docs
-  "aafigure",
-  "pillow",
-  "sphinx<9",
-  "furo",
-  "gp-libs",
-  "sphinx-autobuild",
-  "sphinx-autodoc-typehints",
-  "sphinx-inline-tabs",
-  "sphinxext-opengraph",
-  "sphinx-copybutton",
-  "sphinxext-rediraffe",
-  "myst-parser",
-  "linkify-it-py",
+  "aafigure",  # https://launchpad.net/aafigure
+  "pillow",  # https://pillow.readthedocs.io/
+  "gp-sphinx==0.0.1a17",  # https://gp-sphinx.git-pull.com/
+  "sphinx-autodoc-argparse==0.0.1a17",  # https://gp-sphinx.git-pull.com/
+  "sphinx-autodoc-api-style==0.0.1a17",
+  "gp-libs",  # https://gp-libs.git-pull.com/
+  "sphinx-autobuild",  # https://sphinx-extensions.readthedocs.io/en/latest/sphinx-autobuild.html
   # Testing
   "gp-libs",
   "pytest",
@@ -87,19 +81,13 @@ dev = [
 ]
 
 docs = [
-  "aafigure",
-  "pillow",
-  "sphinx<9",
-  "furo",
-  "gp-libs",
-  "sphinx-autobuild",
-  "sphinx-autodoc-typehints",
-  "sphinx-inline-tabs",
-  "sphinxext-opengraph",
-  "sphinx-copybutton",
-  "sphinxext-rediraffe",
-  "myst-parser",
-  "linkify-it-py",
+  "aafigure",  # https://launchpad.net/aafigure
+  "pillow",  # https://pillow.readthedocs.io/
+  "gp-sphinx==0.0.1a17",  # https://gp-sphinx.git-pull.com/
+  "sphinx-autodoc-argparse==0.0.1a17",  # https://gp-sphinx.git-pull.com/
+  "sphinx-autodoc-api-style==0.0.1a17",
+  "gp-libs",  # https://gp-libs.git-pull.com/
+  "sphinx-autobuild",  # https://sphinx-extensions.readthedocs.io/en/latest/sphinx-autobuild.html
 ]
 testing = [
   "gp-libs",
@@ -124,6 +112,31 @@ lint = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv.exclude-newer-package]
+# git-pull packages release in lockstep with their workspaces, so a
+# fresh release blocking on the 3-day cooldown blocks every
+# contributor's `uv sync` until it clears. `false` exempts each
+# from any `exclude-newer` constraint (global or per-user) without
+# committing a date that would age into the lockfile. Mirrors the
+# pattern at vcspull/pyproject.toml for libvcs.
+gp-libs = false
+gp-furo-theme = false
+gp-sphinx = false
+libtmux = false
+sphinx-autodoc-api-style = false
+sphinx-autodoc-argparse = false
+sphinx-autodoc-docutils = false
+sphinx-autodoc-fastmcp = false
+sphinx-autodoc-pytest-fixtures = false
+sphinx-autodoc-sphinx = false
+sphinx-autodoc-typehints-gp = false
+sphinx-fonts = false
+sphinx-gp-opengraph = false
+sphinx-gp-sitemap = false
+sphinx-gp-theme = false
+sphinx-ux-autodoc-layout = false
+sphinx-ux-badges = false
 
 [tool.coverage.run]
 branch = true
@@ -158,28 +171,16 @@ files = [
   "src/",
   "tests/",
 ]
-exclude = [
-  "tests/docs/",
-]
 enable_incomplete_feature = []
 
 [[tool.mypy.overrides]]
 module = [
   "shtab",
-  "aafigure",
   "IPython.*",
   "ptpython.*",
   "prompt_toolkit.*",
   "bpython",
-  "sphinx_argparse_neo",
-  "sphinx_argparse_neo.*",
-  "cli_usage_lexer",
-  "argparse_lexer",
-  "argparse_roles",
-  "docutils",
-  "docutils.*",
-  "pygments",
-  "pygments.*",
+  "aafigure",
 ]
 ignore_missing_imports = true
 
@@ -248,5 +249,5 @@ testpaths = [
 ]
 filterwarnings = [
   "ignore:The frontend.Option(Parser)? class.*:DeprecationWarning::",
-  "ignore:.*invalid escape sequence.*:SyntaxWarning:aafigure:",
+  "ignore:.*invalid escape sequence.*:SyntaxWarning:.*aafigure.*:",
 ]

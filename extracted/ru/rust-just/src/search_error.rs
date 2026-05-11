@@ -3,24 +3,22 @@ use super::*;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub(crate) enum SearchError {
-  #[snafu(display("Cannot initialize global justfile"))]
-  GlobalJustfileInit,
-  #[snafu(display("Global justfile not found"))]
-  GlobalJustfileNotFound,
   #[snafu(display(
-    "I/O error reading directory `{}`: {}",
-    directory.display(),
-    io_error
+    "I/O error at `{}`: {io_error}",
+    path.display(),
   ))]
-  Io {
-    directory: PathBuf,
-    io_error: io::Error,
-  },
-  #[snafu(display("Justfile path had no parent: {}", path.display()))]
+  FilesystemIo { io_error: io::Error, path: PathBuf },
+  #[snafu(display("cannot initialize global justfile"))]
+  GlobalJustfileInit,
+  #[snafu(display("global justfile not found"))]
+  GlobalJustfileNotFound,
+  #[snafu(display("cannot use justfile from standard input with `--init`"))]
+  InitWithJustfileFromStandardInput,
+  #[snafu(display("justfile path had no parent: {}", path.display()))]
   JustfileHadNoParent { path: PathBuf },
   #[snafu(display(
-    "Multiple candidate justfiles found in `{}`: {}",
-    candidates.iter().next().unwrap().parent().unwrap().display(),
+    "multiple candidate justfiles found in `{}`: {}",
+    candidates.first().unwrap().parent().unwrap().display(),
     List::and_ticked(
       candidates
         .iter()
@@ -28,8 +26,12 @@ pub(crate) enum SearchError {
     ),
   ))]
   MultipleCandidates { candidates: BTreeSet<PathBuf> },
-  #[snafu(display("No justfile found"))]
+  #[snafu(display("no justfile found"))]
   NotFound,
+  #[snafu(display("error reading from standard input: {io_error}"))]
+  StdinIo { io_error: io::Error },
+  #[snafu(display("I/O error creating temporary directory: {io_error}"))]
+  TempdirIo { io_error: io::Error },
 }
 
 #[cfg(test)]
@@ -47,7 +49,7 @@ mod tests {
 
     assert_eq!(
       error.to_string(),
-      "Multiple candidate justfiles found in `/foo`: `JUSTFILE` and `justfile`"
+      "multiple candidate justfiles found in `/foo`: `JUSTFILE` and `justfile`"
     );
   }
 }

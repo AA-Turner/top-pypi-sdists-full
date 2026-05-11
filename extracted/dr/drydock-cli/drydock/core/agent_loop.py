@@ -278,13 +278,16 @@ class AgentLoop:
             logger.debug("Admiral tuning apply failed: %s", _e)
 
         # Admiral Phase 3a: record session metrics on interpreter exit.
+        # Use the live `session_id` (set above and matching the on-disk
+        # session dir) — NOT a fresh uuid. Findings recorded against a
+        # phantom uuid never resolved to a session log, so M5's offline
+        # Deep Noir loop couldn't extract pairs from them.
         try:
-            import atexit, uuid as _uuid
+            import atexit
             from drydock.admiral import metrics as _admiral_metrics
-            self._admiral_session_id = str(_uuid.uuid4())
             atexit.register(
                 lambda al=self: _admiral_metrics.record(
-                    _admiral_metrics.collect(al, al._admiral_session_id, outcome="unknown")
+                    _admiral_metrics.collect(al, al.session_id, outcome="unknown")
                 )
             )
         except Exception as _e:
@@ -1081,7 +1084,7 @@ class AgentLoop:
                     prev_tool_name = assistant_msg.tool_calls[-1].function.name if assistant_msg.tool_calls[-1].function else None
             _readonly_tools = {"read_file", "grep", "glob", "ls", "pwd",
                                "ralph_repo_index", "ralph_file_summary",
-                               "retrieve", "search_files"}
+                               "retrieve", "search_files", "lsp"}
             _write_tools = {"write_file", "search_replace"}
             _prev_was_read = prev_tool_name in _readonly_tools
             _prev_was_write = prev_tool_name in _write_tools
@@ -1230,6 +1233,27 @@ class AgentLoop:
                         f"what you read — OR state in one sentence why you "
                         f"cannot proceed. Do NOT call {_tool_name_str} again."
                     )
+                elif _prev_was_write:
+                    _tool_name_str = prev_tool_name or "write_file"
+                    note = (
+                        f"You sent an empty response after {_tool_name_str}. "
+                        "Write the NEXT file in your plan NOW with write_file, "
+                        "or run bash to test what you have built. "
+                        "Do NOT send another empty response."
+                    )
+                elif _prev_bash_had_error:
+                    note = (
+                        "Second empty response after a bash error. "
+                        "Fix the error NOW with search_replace or write_file. "
+                        "Do NOT re-run the same failing command."
+                    )
+                elif _prev_bash_had_output:
+                    note = (
+                        "Second empty response after bash output. "
+                        "Use the output now — write code with write_file, "
+                        "fix issues with search_replace, or respond to the user. "
+                        "Do NOT re-run the same command."
+                    )
                 else:
                     note = (
                         "You sent an empty response. Call a tool now "
@@ -1237,12 +1261,50 @@ class AgentLoop:
                         "OR explicitly say you are done with this task."
                     )
             else:
-                note = (
-                    "You have sent 3 empty responses in a row for "
-                    "this user request. Respond with either (a) a "
-                    "tool call to make progress, or (b) one "
-                    "sentence explaining why you cannot proceed."
-                )
+                if prev_tool_name == "ralph_repo_index":
+                    note = (
+                        "THIRD empty response after ralph_repo_index. "
+                        "Stop — write a text reply to the user RIGHT NOW. "
+                        "If you cannot answer, say 'I was unable to find that information' "
+                        "and stop. Do NOT call ralph_repo_index or any other tool."
+                    )
+                elif prev_tool_name in _readonly_tools:
+                    _tool_name_str = prev_tool_name or "read_file"
+                    note = (
+                        f"THIRD empty response after {_tool_name_str}. "
+                        "Stop reading — call write_file or search_replace NOW to apply "
+                        "the change, or respond in text explaining why you cannot proceed. "
+                        f"Do NOT call {_tool_name_str} again."
+                    )
+                elif _prev_was_write:
+                    _tool_name_str = prev_tool_name or "write_file"
+                    note = (
+                        f"THIRD empty response after {_tool_name_str}. "
+                        "Call bash NOW to run the tests or verify what you built, "
+                        "or write the next required file. "
+                        "Do NOT send another empty response."
+                    )
+                elif _prev_bash_had_error:
+                    note = (
+                        "THIRD empty response after a bash error. "
+                        "Fix the error NOW — call search_replace or write_file to "
+                        "correct the broken code, or respond in text with what went wrong. "
+                        "Do NOT run the same failing command again."
+                    )
+                elif _prev_bash_had_output:
+                    note = (
+                        "THIRD empty response after bash output. "
+                        "Act on the output NOW — write or fix code with write_file "
+                        "or search_replace, or respond in one sentence. "
+                        "Do NOT re-run the same command."
+                    )
+                else:
+                    note = (
+                        "You have sent 3 empty responses in a row for "
+                        "this user request. Respond with either (a) a "
+                        "tool call to make progress, or (b) one "
+                        "sentence explaining why you cannot proceed."
+                    )
             self._inject_system_note(note)
             logger.info(
                 "Empty-response stall (inline retry %d/%d, prev=%s)",

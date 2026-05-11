@@ -12,6 +12,7 @@ import torch.nn.functional
 from e3nn import nn, o3
 from e3nn.util.jit import compile_mode
 
+from mace.modules.gate import GatedEquivariantBlock
 from mace.modules.wrapper_ops import (
     CuEquivarianceConfig,
     FullyConnectedTensorProduct,
@@ -19,7 +20,7 @@ from mace.modules.wrapper_ops import (
     OEQConfig,
     SymmetricContractionWrapper,
     TensorProduct,
-    TransposeIrrepsLayoutWrapper,
+    get_layout,
 )
 from mace.tools.compile import simplify_if_compile
 from mace.tools.scatter import scatter_sum
@@ -201,12 +202,13 @@ class NonLinearDipoleReadoutBlock(torch.nn.Module):
             [(mul, ir) for mul, ir in MLP_irreps if ir.l > 0 and ir in self.irreps_out]
         )
         irreps_gates = o3.Irreps([mul, "0e"] for mul, _ in irreps_gated)
-        self.equivariant_nonlin = nn.Gate(
+        self.equivariant_nonlin = GatedEquivariantBlock(
             irreps_scalars=irreps_scalars,
             act_scalars=[gate for _, ir in irreps_scalars],
             irreps_gates=irreps_gates,
             act_gates=[gate] * len(irreps_gates),
             irreps_gated=irreps_gated,
+            layout=get_layout(cueq_config),
         )
         self.irreps_nonlin = self.equivariant_nonlin.irreps_in.simplify()
         self.linear_1 = Linear(
@@ -281,12 +283,13 @@ class NonLinearDipolePolarReadoutBlock(torch.nn.Module):
             [(mul, ir) for mul, ir in MLP_irreps if ir.l > 0 and ir in self.irreps_out]
         )
         irreps_gates = o3.Irreps([mul, "0e"] for mul, _ in irreps_gated)
-        self.equivariant_nonlin = nn.Gate(
+        self.equivariant_nonlin = GatedEquivariantBlock(
             irreps_scalars=irreps_scalars,
             act_scalars=[gate for _, ir in irreps_scalars],
             irreps_gates=irreps_gates,
             act_gates=[gate] * len(irreps_gates),
             irreps_gated=irreps_gated,
+            layout=get_layout(cueq_config),
         )
         self.irreps_nonlin = self.equivariant_nonlin.irreps_in.simplify()
         self.linear_1 = Linear(
@@ -301,6 +304,55 @@ class NonLinearDipolePolarReadoutBlock(torch.nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # [n_nodes, irreps]  # [..., ]
         x = self.equivariant_nonlin(self.linear_1(x))
         return self.linear_2(x)  # [n_nodes, 1]
+
+
+class GeneralNonLinearBiasReadoutBlock(torch.nn.Module):
+    def __init__(
+        self,
+        irreps_in: o3.Irreps,
+        MLP_irreps: o3.Irreps,
+        gate: Optional[Callable],
+        irrep_out: o3.Irreps = o3.Irreps("0e"),
+        irreps_out: Optional[o3.Irreps] = None,
+        cueq_config: Optional[CuEquivarianceConfig] = None,
+    ):
+        super().__init__()
+        self.hidden_irreps = MLP_irreps
+        self.irreps_out = irrep_out
+        if irreps_out is not None:
+            self.irreps_out = irreps_out
+        irreps_scalars = o3.Irreps(
+            [(mul, ir) for mul, ir in MLP_irreps if ir.l == 0 and ir in self.irreps_out]
+        )
+        irreps_gated = o3.Irreps(
+            [(mul, ir) for mul, ir in MLP_irreps if ir.l > 0 and ir in self.irreps_out]
+        )
+        irreps_gates = o3.Irreps([mul, "0e"] for mul, _ in irreps_gated)
+        activation_fn = gate if gate is not None else torch.nn.functional.silu
+        act_gates_fn = torch.nn.functional.sigmoid
+        self.equivariant_nonlin = GatedEquivariantBlock(
+            irreps_scalars=irreps_scalars,
+            act_scalars=[activation_fn for _, ir in irreps_scalars],
+            irreps_gates=irreps_gates,
+            act_gates=[act_gates_fn] * len(irreps_gates),
+            irreps_gated=irreps_gated,
+            layout=get_layout(cueq_config),
+        )
+        self.irreps_nonlin = self.equivariant_nonlin.irreps_in.simplify()
+        self.linear_1 = Linear(
+            irreps_in=irreps_in, irreps_out=self.irreps_nonlin, cueq_config=cueq_config
+        )
+        self.linear_mid = o3.Linear(
+            irreps_in=self.hidden_irreps, irreps_out=self.irreps_nonlin, biases=True
+        )
+        self.linear_2 = o3.Linear(
+            irreps_in=self.hidden_irreps, irreps_out=self.irreps_out, biases=True
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.equivariant_nonlin(self.linear_1(x))
+        x = self.equivariant_nonlin(self.linear_mid(x))
+        return self.linear_2(x)
 
 
 @compile_mode("script")
@@ -319,7 +371,10 @@ class AtomicEnergiesBlock(torch.nn.Module):
     def forward(
         self, x: torch.Tensor  # one-hot of elements [..., n_elements]
     ) -> torch.Tensor:  # [..., ]
-        return torch.matmul(x, torch.atleast_2d(self.atomic_energies).T)
+        energies = torch.atleast_2d(self.atomic_energies).T.to(
+            dtype=x.dtype, device=x.device
+        )
+        return torch.matmul(x, energies)
 
     def __repr__(self):
         formatted_energies = ", ".join(
@@ -441,7 +496,7 @@ class EquivariantProductBasisBlock(torch.nn.Module):
         if use_cueq:
             if use_cueq_mul_ir:
                 node_feats = torch.transpose(node_feats, 1, 2)
-            index_attrs = torch.nonzero(node_attrs)[:, 1].int()
+            index_attrs = node_attrs.argmax(dim=-1).int()
             node_feats = self.symmetric_contractions(
                 node_feats.flatten(1),
                 index_attrs,
@@ -1167,6 +1222,7 @@ class RealAgnosticResidualNonLinearInteractionBlock(InteractionBlock):
             shared_weights=False,
             internal_weights=False,
             cueq_config=self.cueq_config,
+            oeq_config=self.oeq_config,
         )
 
         # Convolution weights
@@ -1194,12 +1250,13 @@ class RealAgnosticResidualNonLinearInteractionBlock(InteractionBlock):
         irreps_gates = o3.Irreps([mul, "0e"] for mul, _ in irreps_gated)
         activation_fn = torch.nn.functional.silu
         act_gates_fn = torch.nn.functional.sigmoid
-        self.equivariant_nonlin = nn.Gate(
+        self.equivariant_nonlin = GatedEquivariantBlock(
             irreps_scalars=irreps_scalars,
             act_scalars=[activation_fn for _ in irreps_scalars],
             irreps_gates=irreps_gates,
             act_gates=[act_gates_fn] * len(irreps_gates),
             irreps_gated=irreps_gated,
+            layout=get_layout(self.cueq_config),
         )
         self.irreps_nonlin = self.equivariant_nonlin.irreps_in.simplify()
 
@@ -1234,19 +1291,6 @@ class RealAgnosticResidualNonLinearInteractionBlock(InteractionBlock):
         )
         self.alpha = torch.nn.Parameter(torch.tensor(20.0), requires_grad=True)
         self.beta = torch.nn.Parameter(torch.tensor(0.0), requires_grad=True)
-
-        self.transpose_mul_ir = TransposeIrrepsLayoutWrapper(
-            irreps=self.irreps_nonlin,
-            source="ir_mul",
-            target="mul_ir",
-            cueq_config=self.cueq_config,
-        )
-        self.transpose_ir_mul = TransposeIrrepsLayoutWrapper(
-            irreps=self.irreps_out,
-            source="mul_ir",
-            target="ir_mul",
-            cueq_config=self.cueq_config,
-        )
 
     def forward(
         self,
@@ -1313,11 +1357,7 @@ class RealAgnosticResidualNonLinearInteractionBlock(InteractionBlock):
         node_feats_res = self.truncate_ghosts(node_feats_res, n_real)
         message = self.linear_1(message) / (density * self.beta + self.alpha)
         message = message + node_feats_res
-        if self.transpose_mul_ir is not None:
-            message = self.transpose_mul_ir(message)
         message = self.equivariant_nonlin(message)
-        if self.transpose_ir_mul is not None:
-            message = self.transpose_ir_mul(message)
         message = self.linear_2(message)
         return (
             self.reshape(message),

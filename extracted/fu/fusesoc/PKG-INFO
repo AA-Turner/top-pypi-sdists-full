@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fusesoc
-Version: 2.4.5
+Version: 2.4.6
 Summary: Award-winnning package manager and build abstraction tool for HDL code
 Author-email: Olof Kindgren <olof@award-winning.me>
 Maintainer-email: Olof Kindgren <olof@award-winning.me>
@@ -46,6 +46,7 @@ FuseSoC makes it easier to
 -   port designs to new targets
 -   let other projects use your code
 -   set up continuous integration
+-   generate FPGA SBOMs (through the spdxgen filter)
 
 To learn more about FuseSoC head over to the
 [User Guide](https://fusesoc.readthedocs.io/en/stable/user).

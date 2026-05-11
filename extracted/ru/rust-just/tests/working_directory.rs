@@ -236,6 +236,27 @@ fn no_cd_overrides_setting() {
 }
 
 #[test]
+fn working_directory_setting_conflicts_with_no_cd_setting() {
+  Test::new()
+    .justfile(
+      "
+      set working-directory := 'bar'
+      set no-cd := true
+    ",
+    )
+    .stderr(
+      "
+        error: `working-directory` set on line 1 is incompatible with `no-cd`
+         ——▶ justfile:2:5
+          │
+        2 │ set no-cd := true
+          │     ^^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
 fn working_dir_in_submodule_is_relative_to_module_path() {
   Test::new()
     .write(
@@ -343,7 +364,7 @@ fn attribute_duplicate() {
       ",
     )
     .stderr(
-      "error: Recipe attribute `working-directory` first used on line 1 is duplicated on line 2
+      "error: recipe attribute `working-directory` first used on line 1 is duplicated on line 2
  ——▶ justfile:2:2
   │
 2 │ [working-directory('baz')]
@@ -380,7 +401,7 @@ fn attribute_with_nocd_is_forbidden() {
     )
     .stderr(
       "
-        error: Recipe `bar` has both `[no-cd]` and `[working-directory]` attributes
+        error: recipe `bar` has both `[no-cd]` and `[working-directory]` attributes
          ——▶ justfile:3:1
           │
         3 │ bar:
@@ -405,4 +426,98 @@ fn setting_and_attribute() {
     .create_dir("foo/bar")
     .expect_file("foo/bar/fred", "bob\n")
     .success();
+}
+
+#[test]
+fn attribute_with_expression() {
+  Test::new()
+    .justfile(
+      "
+        dir := 'foo'
+
+        [working-directory(dir + '-bar')]
+        @baz:
+          echo bob > fred
+      ",
+    )
+    .create_dir("foo-bar")
+    .expect_file("foo-bar/fred", "bob\n")
+    .success();
+}
+
+#[test]
+fn attribute_with_recipe_parameter() {
+  Test::new()
+    .justfile(
+      "
+        [working-directory(target)]
+        @baz target:
+          echo bob > fred
+      ",
+    )
+    .create_dir("foo")
+    .args(["baz", "foo"])
+    .expect_file("foo/fred", "bob\n")
+    .success();
+}
+
+#[test]
+fn attribute_with_backtick() {
+  Test::new()
+    .justfile(
+      "
+        [working-directory(`echo foo`)]
+        @baz:
+          echo bob > fred
+      ",
+    )
+    .create_dir("foo")
+    .expect_file("foo/fred", "bob\n")
+    .success();
+}
+
+#[test]
+fn attribute_with_expression_dump() {
+  Test::new()
+    .justfile(
+      "
+        dir := 'foo'
+
+        [working-directory(dir + '-bar')]
+        baz:
+          echo bob
+      ",
+    )
+    .arg("--dump")
+    .stdout(
+      "
+        dir := 'foo'
+
+        [working-directory(dir + '-bar')]
+        baz:
+            echo bob
+      ",
+    )
+    .success();
+}
+
+#[test]
+fn attribute_undefined_variable() {
+  Test::new()
+    .justfile(
+      "
+        [working-directory(x)]
+        foo:
+      ",
+    )
+    .stderr(
+      "
+        error: variable `x` not defined
+         ——▶ justfile:1:20
+          │
+        1 │ [working-directory(x)]
+          │                    ^
+      ",
+    )
+    .failure();
 }

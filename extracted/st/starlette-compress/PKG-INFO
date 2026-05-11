@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: starlette-compress
-Version: 1.7.0
+Version: 1.7.1
 Summary: Compression middleware for Starlette - supporting ZStd, Brotli, and GZip
 Project-URL: Issues, https://github.com/Zaczero/pkgs/issues
 Project-URL: Repository, https://github.com/Zaczero/pkgs/tree/main/starlette-compress
@@ -35,7 +35,7 @@ Description-Content-Type: text/markdown
 
 # starlette-compress
 
-[![PyPI - Python Version](https://shields.monicz.dev/pypi/pyversions/starlette-compress)](https://pypi.org/project/starlette-compress)
+[![PyPI - Python Version](https://shields.monicz.dev/pypi/pyversions/starlette-compress)](https://pypi.org/p/starlette-compress)
 
 **starlette-compress** is a fast and simple middleware for compressing responses in [Starlette](https://www.starlette.io). It supports more compression algorithms than Starlette's built-in GZipMiddleware, and has more sensible defaults.
 

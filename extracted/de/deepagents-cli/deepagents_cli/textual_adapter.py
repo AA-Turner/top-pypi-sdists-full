@@ -77,6 +77,9 @@ _hitl_adapter_cache: TypeAdapter | None = None
 
 _ASK_USER_UNSUPPORTED_ERROR = "ask_user not supported by this UI"
 
+_TOOL_CALLS_KEEP_THINKING_SPINNER = frozenset({"edit_file"})
+"""Tool calls whose argument/approval phase can be long enough to need feedback."""
+
 
 def _get_hitl_request_adapter(hitl_request_type: type) -> TypeAdapter:
     """Return a cached `TypeAdapter(HITLRequest)`.
@@ -280,8 +283,8 @@ class TextualUIAdapter:
         self._on_tokens_update: _TokensUpdateCallback | None = None
         """Called with total context tokens after each LLM response."""
 
-        self._on_tokens_hide: Callable[[], None] | None = None
-        """Called to hide the token display during streaming."""
+        self._on_tokens_pending: Callable[[], None] | None = None
+        """Called to show an unknown token count during streaming."""
 
         self._on_tokens_show: _TokensShowCallback | None = None
         """Called to restore the token display with the cached value."""
@@ -478,21 +481,21 @@ async def execute_task_textual(
     # should be set together to avoid inconsistent status-bar behavior.
     token_cbs = (
         adapter._on_tokens_update,
-        adapter._on_tokens_hide,
+        adapter._on_tokens_pending,
         adapter._on_tokens_show,
     )
     if any(token_cbs) and not all(token_cbs):
         logger.warning(
-            "Token callbacks partially wired (update=%s, hide=%s, show=%s); "
+            "Token callbacks partially wired (update=%s, pending=%s, show=%s); "
             "token display may behave inconsistently",
             adapter._on_tokens_update is not None,
-            adapter._on_tokens_hide is not None,
+            adapter._on_tokens_pending is not None,
             adapter._on_tokens_show is not None,
         )
 
-    # Hide token display during streaming (will be shown with accurate count at end)
-    if adapter._on_tokens_hide:
-        adapter._on_tokens_hide()
+    # Show unknown token count during streaming; the accurate count arrives at turn end.
+    if adapter._on_tokens_pending:
+        adapter._on_tokens_pending()
 
     file_op_tracker = FileOpTracker(assistant_id=assistant_id, backend=backend)
     displayed_tool_ids: set[str] = set()
@@ -929,8 +932,16 @@ async def execute_task_textual(
                                     buffer_name, parsed_args, buffer_id
                                 )
 
-                                # Hide spinner before showing tool call
-                                if adapter._set_spinner:
+                                keep_thinking_spinner = (
+                                    buffer_name in _TOOL_CALLS_KEEP_THINKING_SPINNER
+                                )
+
+                                # Hide spinner before showing most tool calls.
+                                # `edit_file` can spend noticeable time between
+                                # argument streaming, HITL interrupt delivery, and
+                                # approval handling, so re-anchor Thinking below
+                                # the row instead of leaving the UI visually idle.
+                                if adapter._set_spinner and not keep_thinking_spinner:
                                     await adapter._set_spinner(None)
 
                                 # Mount tool call message
@@ -942,6 +953,8 @@ async def execute_task_textual(
                                 tool_msg = ToolCallMessage(buffer_name, parsed_args)
                                 await adapter._mount_message(tool_msg)
                                 adapter._current_tool_messages[buffer_id] = tool_msg
+                                if adapter._set_spinner and keep_thinking_spinner:
+                                    await adapter._set_spinner("Thinking")
 
                             tool_call_buffers.pop(buffer_key, None)
 
@@ -1252,6 +1265,14 @@ async def execute_task_textual(
                     )
                     await adapter._mount_message(AppMessage(message))
                     turn_stats.wall_time_seconds = time.monotonic() - start_time
+                    await _report_and_persist_tokens(
+                        adapter,
+                        agent,
+                        config,
+                        captured_input_tokens,
+                        captured_output_tokens,
+                        shield=True,
+                    )
                     return turn_stats
 
                 stream_input = Command(resume=resume_payload)

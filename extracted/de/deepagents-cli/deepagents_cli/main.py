@@ -81,6 +81,38 @@ def _resolve_agent_arg(args: argparse.Namespace) -> str:
     return DEFAULT_AGENT_NAME
 
 
+def _normalize_cwd_filter(cwd: str | None) -> str | None:
+    """Normalize the `threads list --cwd` filter for metadata matching.
+
+    Storage uses `str(Path.cwd())` (absolute, no symlink resolution — see
+    `build_run_metadata`). We mirror that here with lexical normalization
+    rather than `.resolve()` so a user invoking from a symlinked path doesn't
+    get an empty result set due to symlink normalization.
+
+    Args:
+        cwd: Parsed `--cwd` value. An empty string means the flag was passed
+            without a value and should use the current working directory.
+
+    Returns:
+        Absolute path string for filtering, or `None` when no filter was
+        requested. Returns `None` if the current working directory cannot
+        be determined (bare `--cwd` only).
+    """
+    if cwd is None:
+        return None
+    if cwd == "":  # noqa: PLC1901
+        try:
+            return str(Path.cwd())
+        except OSError:
+            logger.warning(
+                "Could not determine working directory for --cwd; "
+                "no cwd filter will be applied",
+                exc_info=True,
+            )
+            return None
+    return os.path.normpath(str(Path(cwd).expanduser().absolute()))
+
+
 def _recent_agent_is_valid(name: str) -> bool:
     """Return `True` when `~/.deepagents/<name>/` still exists on disk.
 
@@ -628,6 +660,16 @@ def parse_args() -> argparse.Namespace:
         help="Filter by git branch name",
     )
     threads_list.add_argument(
+        "--cwd",
+        nargs="?",
+        const="",
+        default=None,
+        help=(
+            "Filter by working directory. With no value, uses the current "
+            "directory; pass a path to filter by that directory instead."
+        ),
+    )
+    threads_list.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -994,15 +1036,23 @@ async def run_textual_cli_async(
         detect_provider,
         settings,
     )
-    from deepagents_cli.model_config import ModelConfigError, ModelSpec
+    from deepagents_cli.model_config import (
+        ModelConfigError,
+        ModelSpec,
+        NoCredentialsConfiguredError,
+    )
     from deepagents_cli.onboarding import should_run_onboarding
 
     # Resolve display-name cheaply (<1ms, no langchain) so the status
     # bar can show the model on first paint. The expensive create_model()
     # (~560ms) is deferred to a background worker.
 
+    defer_server_start = False
     try:
         resolved_spec = model_name or _get_default_model_spec()
+    except NoCredentialsConfiguredError:
+        resolved_spec = ""
+        defer_server_start = True
     except ModelConfigError as e:
         from rich.markup import escape
 
@@ -1011,19 +1061,25 @@ async def run_textual_cli_async(
         console.print(f"[bold red]Error:[/bold red] {escape(str(e))}", highlight=False)
         return AppResult(return_code=1, thread_id=None)
 
-    parsed = ModelSpec.try_parse(resolved_spec)
-    if parsed:
-        settings.model_provider = parsed.provider
-        settings.model_name = parsed.model
+    if resolved_spec:
+        parsed = ModelSpec.try_parse(resolved_spec)
+        if parsed:
+            settings.model_provider = parsed.provider
+            settings.model_name = parsed.model
+        else:
+            settings.model_name = resolved_spec
+            settings.model_provider = detect_provider(resolved_spec) or ""
     else:
-        settings.model_name = resolved_spec
-        settings.model_provider = detect_provider(resolved_spec) or ""
+        settings.model_provider = ""
+        settings.model_name = ""
 
-    model_kwargs: dict[str, Any] = {
-        "model_spec": model_name,
-        "extra_kwargs": model_params,
-        "profile_overrides": profile_override,
-    }
+    model_kwargs: dict[str, Any] | None = None
+    if not defer_server_start:
+        model_kwargs = {
+            "model_spec": model_name or resolved_spec,
+            "extra_kwargs": model_params,
+            "profile_overrides": profile_override,
+        }
 
     # Build kwargs for deferred server startup (runs inside the TUI).
     # Never pass auto_approve to the server — the interactive server must
@@ -1032,7 +1088,7 @@ async def run_textual_cli_async(
     # session_state.auto_approve in textual_adapter.py.
     server_kwargs: dict[str, Any] = {
         "assistant_id": assistant_id,
-        "model_name": model_name,
+        "model_name": model_name or resolved_spec or None,
         "model_params": model_params,
         "sandbox_type": sandbox_type,
         "sandbox_id": sandbox_id,
@@ -1068,6 +1124,7 @@ async def run_textual_cli_async(
             server_kwargs=server_kwargs,
             mcp_preload_kwargs=mcp_preload_kwargs,
             model_kwargs=model_kwargs,
+            defer_server_start=defer_server_start,
         )
     except Exception as e:
         logger.debug("App error", exc_info=True)
@@ -1682,10 +1739,14 @@ def cli_main() -> None:
             try:
                 from rich.markup import escape
 
+                from deepagents_cli._env_vars import DEBUG_UPDATE
                 from deepagents_cli._version import __version__ as cli_version
                 from deepagents_cli.config import _is_editable_install
                 from deepagents_cli.update_check import (
+                    create_update_log_path,
                     format_age_suffix,
+                    format_installed_age_suffix,
+                    format_release_age_parenthetical,
                     is_update_available,
                     perform_upgrade,
                     upgrade_command,
@@ -1716,12 +1777,24 @@ def cli_main() -> None:
                     )
                     sys.exit(0)
 
-                age_suffix = format_age_suffix(latest)
+                release_age = format_release_age_parenthetical(latest)
+                installed_age = format_installed_age_suffix(cli_version)
                 console.print(
-                    f"Update available: v{latest} "
-                    f"(current: v{cli_version}{age_suffix}). Upgrading..."
+                    f"Update available: v{latest}{release_age}. "
+                    f"Currently installed: {cli_version}{installed_age}. "
+                    "Upgrading..."
                 )
-                success, output = asyncio.run(perform_upgrade())
+                if os.environ.get(DEBUG_UPDATE):
+                    console.print("Skipped update install (debug mode).", style="dim")
+                    sys.exit(0)
+                log_path = create_update_log_path()
+                console.print(
+                    f"Update log: {log_path}\nTail progress: tail -f {log_path}",
+                    style="dim",
+                    highlight=False,
+                    markup=False,
+                )
+                success, output = asyncio.run(perform_upgrade(log_path=log_path))
                 if success:
                     console.print(f"[green]Updated to v{latest}.[/green]")
                 else:
@@ -1897,12 +1970,31 @@ def cli_main() -> None:
             # "ls" is an argparse alias for "list" — argparse stores the
             # alias as-is in the namespace, so we must match both values.
             if args.threads_command in {"list", "ls"}:
+                raw_cwd = getattr(args, "cwd", None)
+                cwd_filter = _normalize_cwd_filter(raw_cwd)
+                # Warn (but still query) when the user passed an explicit
+                # `--cwd <path>` that does not exist on disk — otherwise a
+                # typo would silently return "No threads found" with no hint.
+                # Skip the check for the bare-flag (empty string) form, where
+                # the path was generated from `Path.cwd()` and is known to
+                # exist.
+                if (
+                    raw_cwd not in {None, ""}
+                    and cwd_filter is not None
+                    and not Path(cwd_filter).exists()
+                ):
+                    print(  # noqa: T201
+                        f"Warning: --cwd path {cwd_filter!r} does not exist; "
+                        "filtering by stored metadata anyway.",
+                        file=sys.stderr,
+                    )
                 asyncio.run(
                     list_threads_command(
                         agent_name=getattr(args, "agent", None),
                         limit=getattr(args, "limit", None),
                         sort_by=getattr(args, "sort", None),
                         branch=getattr(args, "branch", None),
+                        cwd=cwd_filter,
                         verbose=getattr(args, "verbose", False),
                         relative=getattr(args, "relative", None),
                         output_format=output_format,
@@ -2085,7 +2177,8 @@ def cli_main() -> None:
                 if result.update_available[0]:
                     from deepagents_cli._version import __version__ as cli_version
                     from deepagents_cli.update_check import (
-                        format_age_suffix,
+                        format_installed_age_suffix,
+                        format_release_age_parenthetical,
                         is_auto_update_enabled,
                         mark_update_notified,
                         should_notify_update,
@@ -2095,11 +2188,14 @@ def cli_main() -> None:
                     latest = result.update_available[1]
                     if latest and should_notify_update(latest):
                         console.print()
-                        age_suffix = format_age_suffix(latest)
+                        release_age = format_release_age_parenthetical(latest)
+                        installed_age = format_installed_age_suffix(cli_version)
                         update_msg = Text("Update available: ", style="yellow bold")
                         update_msg.append(f"v{latest}", style="yellow")
+                        update_msg.append(release_age, style="dim")
                         update_msg.append(
-                            f" (current: v{cli_version}{age_suffix})", style="dim"
+                            f". Currently installed: {cli_version}{installed_age}.",
+                            style="dim",
                         )
                         console.print(update_msg)
                         cmd_hint = Text("Run: ", style="dim")

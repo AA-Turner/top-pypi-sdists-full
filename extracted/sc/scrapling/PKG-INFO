@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapling
-Version: 0.4.7
+Version: 0.4.8
 Summary: Scrapling is an undetectable, powerful, flexible, high-performance Python library that makes Web Scraping easy and effortless as it should be!
 Home-page: https://github.com/D4Vinci/Scrapling
 Author: Karim Shoair
@@ -68,7 +68,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: lxml>=6.0.3
+Requires-Dist: lxml>=6.1.0
 Requires-Dist: cssselect>=1.4.0
 Requires-Dist: orjson>=3.11.8
 Requires-Dist: tld>=0.13.2
@@ -77,10 +77,10 @@ Requires-Dist: typing_extensions
 Provides-Extra: fetchers
 Requires-Dist: click>=8.3.0; extra == "fetchers"
 Requires-Dist: curl_cffi>=0.15.0; extra == "fetchers"
-Requires-Dist: playwright==1.58.0; extra == "fetchers"
-Requires-Dist: patchright==1.58.2; extra == "fetchers"
+Requires-Dist: playwright==1.59.0; extra == "fetchers"
+Requires-Dist: patchright==1.59.1; extra == "fetchers"
 Requires-Dist: browserforge>=1.2.4; extra == "fetchers"
-Requires-Dist: apify-fingerprint-datapoints>=0.12.0; extra == "fetchers"
+Requires-Dist: apify-fingerprint-datapoints>=0.13.0; extra == "fetchers"
 Requires-Dist: msgspec>=0.21.1; extra == "fetchers"
 Requires-Dist: anyio>=4.13.0; extra == "fetchers"
 Requires-Dist: protego>=0.6.0; extra == "fetchers"
@@ -187,6 +187,15 @@ MySpider().start()
 <table>
   <tr>
     <td width="200">
+      <a href="https://coldproxy.com/" target="_blank" title="Residential, IPv6 & Datacenter Proxies for Web Scraping">
+        <img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/coldproxy.png">
+      </a>
+    </td>
+    <td> <a href="https://coldproxy.com/" target="_blank"><b>ColdProxy</b></a> provides residential and datacenter proxies for stable web scraping, public data collection, and geo-targeted testing across 195+ countries.
+    </td>
+  </tr>
+  <tr>
+    <td width="200">
       <a href="https://hypersolutions.co/?utm_source=github&utm_medium=readme&utm_campaign=scrapling" target="_blank" title="Bot Protection Bypass API for Akamai, DataDome, Incapsula & Kasada">
         <img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/HyperSolutions.png">
       </a>
@@ -194,6 +203,18 @@ MySpider().start()
     <td> Scrapling handles Cloudflare Turnstile. For enterprise-grade protection, <a href="https://hypersolutions.co?utm_source=github&utm_medium=readme&utm_campaign=scrapling">
         <b>Hyper Solutions</b>
       </a> provides API endpoints that generate valid antibot tokens for <b>Akamai</b>, <b>DataDome</b>, <b>Kasada</b>, and <b>Incapsula</b>. Simple API calls, no browser automation required. </td>
+  </tr>
+  <tr>
+    <td width="200">
+      <a href="https://birdproxies.com/t/scrapling" target="_blank" title="At Bird Proxies, we eliminate your pains such as banned IPs, geo restriction, and high costs so you can focus on your work.">
+        <img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/BirdProxies.jpg">
+      </a>
+    </td>
+    <td>Hey, we built <a href="https://birdproxies.com/t/scrapling">
+        <b>BirdProxies</b>
+      </a> because proxies shouldn't be complicated or overpriced. Fast residential and ISP proxies in 195+ locations, fair pricing, and real support. <br />
+      <b>Try our FlappyBird game on the landing page for free data!</b>
+    </td>
   </tr>
   <tr>
     <td width="200">
@@ -275,15 +296,17 @@ MySpider().start()
 # Sponsors 
 
 <!-- sponsors -->
-
+<a href="https://www.crawleo.dev/?utm_source=github&utm_medium=sponsor&utm_campaign=scrapling" target="_blank" title="Supercharge your AI with Real-Time Web Intelligence"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/crawleo.png"></a>
+<br/>
 
 <a href="https://serpapi.com/?utm_source=scrapling" target="_blank" title="Scrape Google and other search engines with SerpApi"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/SerpApi.png"></a>
 <a href="https://visit.decodo.com/Dy6W0b" target="_blank" title="Try the Most Efficient Residential Proxies for Free"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/decodo.png"></a>
 <a href="https://hasdata.com/?utm_source=github&utm_medium=banner&utm_campaign=D4Vinci" target="_blank" title="The web scraping service that actually beats anti-bot systems!"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/hasdata.png"></a>
 <a href="https://proxyempire.io/?ref=scrapling&utm_source=scrapling" target="_blank" title="Collect The Data Your Project Needs with the Best Residential Proxies"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/ProxyEmpire.png"></a>
 <a href="https://www.webshare.io/?referral_code=48r2m2cd5uz1" target="_blank" title="The Most Reliable Proxy with Unparalleled Performance"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/webshare.png"></a>
-<a href="https://www.crawleo.dev/?utm_source=github&utm_medium=sponsor&utm_campaign=scrapling" target="_blank" title="Supercharge your AI with Real-Time Web Intelligence"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/crawleo.png"></a>
-<a href="https://www.rapidproxy.io/?ref=d4v" target="_blank" title="Affordable Access to the Proxy World – bypass CAPTCHAs blocks, and avoid additional costs."><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/rapidproxy.jpg"></a>
+<a href="https://www.ipfoxy.com/?r=scrapling" target="_blank" title="Unlock the Full Potential of Global Business with IPFoxy's High-Quality Rotating and Dedicated Proxy Services."><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/IPFoxy.jpg"></a>
+<a href="https://www.ipcook.com/?ref=EAENO9&utm_source=github&utm_medium=referral&utm_campaign=d4vinci_scrapling" target="_blank" title="Fast Proxies. Smart Pricing. Premium Performance."><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/IPCook.png"></a>
+<a href="https://proxiware.com/?ref=scrapling" target="_blank" title="Collect Any Data. At Any Scale."><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/proxiware.png"></a>
 
 
 <!-- /sponsors -->

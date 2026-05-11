@@ -1,20 +1,4 @@
-"""Auto-pick the best installed local model for Sage.
-
-The default in config.py is `llama_cpp:llama3.2-3b` — fine as a fallback,
-but if the user has pulled a larger coding-specialist model (qwen3-coder,
-deepseek-coder, codestral, devstral, codellama, starcoder), we should
-prefer it for `sage run` instead of forcing them to remember `sage use`.
-
-Scoring rules:
-  +100  for a coding-specialist family
-  +size_gb  for raw capability (capped at 80, so a 405B doesn't dominate
-            unrealistically when RAM is tight)
-   −40  if the model won't fit in available RAM (heuristic: model_gb < ram_gb * 0.7)
-   −5   if the model is currently running on Ollama (slight tie-breaker)
-
-Returns a fully-qualified model id like "ollama:qwen3-coder-next" or
-"llama_cpp:qwen2.5-coder-3b" — same shape config.default_model expects.
-"""
+"""Auto-pick the best installed local model for Sage."""
 
 from __future__ import annotations
 
@@ -43,10 +27,9 @@ _CODER_FAMILIES = (
 
 @dataclass(frozen=True)
 class Candidate:
-    """A locally installed model we can route to."""
-    qualified_id: str       # "ollama:qwen3-coder-next" or "llama_cpp:qwen2.5-coder-3b"
-    backend: str            # "ollama" | "llama_cpp"
-    base_name: str          # "qwen3-coder-next"
+    qualified_id: str
+    backend: str
+    base_name: str
     size_gb: float
     is_coder: bool
 
@@ -64,17 +47,16 @@ def _is_coder(name: str) -> bool:
 
 
 def _available_ram_gb() -> float:
-    """Best-effort available RAM in GB; conservative fallback if probe fails."""
     try:
-        import psutil  # type: ignore
+        import psutil
         return float(psutil.virtual_memory().available) / (1024 ** 3)
     except Exception:
         pass
-    # Last-resort: parse uname/sysctl. If everything fails, assume 16 GB.
     try:
         if os.uname().sysname == "Darwin":
             out = subprocess.run(
-                ["sysctl", "-n", "hw.memsize"], capture_output=True, text=True, timeout=2,
+                ["sysctl", "-n", "hw.memsize"],
+                capture_output=True, text=True, timeout=2,
             )
             if out.returncode == 0:
                 return int(out.stdout.strip()) / (1024 ** 3)
@@ -84,7 +66,6 @@ def _available_ram_gb() -> float:
 
 
 def _ollama_models() -> list[Candidate]:
-    """Query Ollama for installed models. Returns [] if Ollama isn't running."""
     try:
         import httpx
         r = httpx.get("http://127.0.0.1:11434/api/tags", timeout=2.0)
@@ -115,7 +96,6 @@ def _ollama_models() -> list[Candidate]:
 
 
 def _llama_cpp_models(models_dir: Path) -> list[Candidate]:
-    """Scan ~/.sage/models/*.gguf."""
     if not models_dir.is_dir():
         return []
     out: list[Candidate] = []
@@ -124,7 +104,7 @@ def _llama_cpp_models(models_dir: Path) -> list[Candidate]:
             sz = p.stat().st_size / (1024 ** 3)
         except OSError:
             continue
-        if sz < 0.05:  # Skip empty/partial downloads
+        if sz < 0.05:
             continue
         name = p.stem
         out.append(Candidate(
@@ -138,7 +118,6 @@ def _llama_cpp_models(models_dir: Path) -> list[Candidate]:
 
 
 def list_installed_models(models_dir: Path | None = None) -> list[Candidate]:
-    """All locally installed models across both backends."""
     if models_dir is None:
         models_dir = Path.home() / ".sage" / "models"
     return _ollama_models() + _llama_cpp_models(models_dir)
@@ -148,13 +127,6 @@ def pick_best_coder(
     candidates: list[Candidate] | None = None,
     available_ram_gb: float | None = None,
 ) -> Candidate | None:
-    """Pick the best coder model that fits in RAM. Returns None if nothing usable.
-
-    Apple Silicon / Linux mmap behaviour: models 2-3x larger than free RAM
-    still run via OS paging. Ollama in particular handles oversize models
-    gracefully. We trust Ollama-served models regardless of size and only
-    apply the RAM filter to llama_cpp models (which load weights eagerly).
-    """
     if candidates is None:
         candidates = list_installed_models()
     if not candidates:
@@ -162,8 +134,6 @@ def pick_best_coder(
     if available_ram_gb is None:
         available_ram_gb = _available_ram_gb()
 
-    # Generous cap: total system RAM × 1.5. mmap + swap can absorb
-    # the rest. Models bigger than that genuinely won't load.
     cap = available_ram_gb * 1.5
     fits = [
         c for c in candidates
@@ -174,13 +144,6 @@ def pick_best_coder(
 
 
 def auto_pick_default_model(current_default: str = "") -> str:
-    """Return the qualified model id to use as default.
-
-    Honours the existing default if the user has explicitly set one to a
-    coder model — we don't want to override a deliberate choice. Otherwise,
-    we pick the strongest installed coder model.
-    """
-    # If user has already chosen a coder model, leave it alone.
     if current_default:
         bare = re.sub(r"^[a-z_]+:", "", current_default).split(":")[0].lower()
         if _is_coder(bare):

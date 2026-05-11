@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tomlkit
-Version: 0.14.0
+Version: 0.15.0
 Summary: Style preserving TOML library
 License: MIT
 License-File: LICENSE
@@ -15,8 +15,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Project-URL: Homepage, https://github.com/sdispater/tomlkit
-Project-URL: Repository, https://github.com/sdispater/tomlkit
+Project-URL: Homepage, https://github.com/python-poetry/tomlkit
+Project-URL: Repository, https://github.com/python-poetry/tomlkit
 Description-Content-Type: text/markdown
 
 [github_release]: https://img.shields.io/github/release/sdispater/tomlkit.svg?logo=github&logoColor=white
@@ -34,7 +34,7 @@ Description-Content-Type: text/markdown
 
 # TOML Kit - Style-preserving TOML library for Python
 
-TOML Kit is a **1.0.0-compliant** [TOML](https://toml.io/) library.
+TOML Kit is a **1.1.0-compliant** [TOML](https://toml.io/) library.
 
 It includes a parser that preserves all comments, indentations, whitespace and internal element ordering,
 and makes them accessible and editable via an intuitive API.
@@ -49,11 +49,17 @@ See the [documentation](https://tomlkit.readthedocs.io/) for more information.
 
 ## Installation
 
-If you are using [Poetry](https://poetry.eustace.io),
+If you are using [uv](https://docs.astral.sh/uv), you can
 add `tomlkit` to your `pyproject.toml` file by using:
 
 ```bash
-poetry add tomlkit
+uv add tomlkit
+```
+
+Or just:
+
+```bash
+uv pip install tomlkit
 ```
 
 If not, you can use `pip`:

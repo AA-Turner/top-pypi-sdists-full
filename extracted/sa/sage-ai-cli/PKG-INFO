@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: sage-ai-cli
-Version: 1.19.10
+Version: 1.19.12
 Summary: Sage — a local-first AI coding CLI (like Claude Code, using free/open models)
 Author: Layne Faler
 License: MIT
+Project-URL: Homepage, https://sageworksai.com
 Project-URL: Repository, https://github.com/laynef/claude-ai-clone
 Keywords: ai,cli,llm,coding,local,gemini,gguf,llama
 Classifier: Development Status :: 4 - Beta
@@ -40,248 +41,115 @@ Requires-Dist: pydantic-settings>=2.5.0; extra == "all"
 Requires-Dist: python-multipart>=0.0.6; extra == "all"
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
-Requires-Dist: pytest-cov>=4.1; extra == "dev"
-Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
-Requires-Dist: pytest-xdist>=3.5; extra == "dev"
-Requires-Dist: pytest-timeout>=2.2; extra == "dev"
-Requires-Dist: pytest-benchmark>=4.0; extra == "dev"
-Requires-Dist: httpx>=0.27.0; extra == "dev"
-Requires-Dist: respx>=0.20; extra == "dev"
-Requires-Dist: mypy>=1.8; extra == "dev"
-Requires-Dist: types-requests>=2.31; extra == "dev"
-Requires-Dist: types-PyYAML>=6.0; extra == "dev"
-Requires-Dist: ruff>=0.3.0; extra == "dev"
-Requires-Dist: black>=24.0; extra == "dev"
-Requires-Dist: isort>=5.13; extra == "dev"
-Requires-Dist: bandit>=1.7; extra == "dev"
-Requires-Dist: pip-audit>=2.7; extra == "dev"
-Requires-Dist: safety>=3.0; extra == "dev"
-Requires-Dist: pre-commit>=3.6; extra == "dev"
-Requires-Dist: pydocstyle>=6.3; extra == "dev"
+Requires-Dist: pytest-cov>=5.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: pytest-timeout>=2.3.0; extra == "dev"
+Requires-Dist: pytest-xdist>=3.5.0; extra == "dev"
+Requires-Dist: respx>=0.21.0; extra == "dev"
+Requires-Dist: anyio>=4.0; extra == "dev"
 
 # Sage AI CLI
 
-**A free, local-first AI coding agent for your terminal.** Like Claude Code, but using free and open models -- no API key required.
+**A free, local-first AI coding agent for your terminal.** Like Claude Code,
+but using free and open models — no API key required.
 
 [![PyPI](https://img.shields.io/pypi/v/sage-ai-cli)](https://pypi.org/project/sage-ai-cli/)
 [![Python](https://img.shields.io/pypi/pyversions/sage-ai-cli)](https://pypi.org/project/sage-ai-cli/)
-[![License](https://img.shields.io/pypi/l/sage-ai-cli)](https://github.com/laynef/claude-ai-clone)
 
 ```
 pip install sage-ai-cli
-sage run
+sage install   # auto-pulls models, sets best coder, builds RAG, prewarms
+sage run       # start coding with the full Tier 1-3 safety harness
 ```
 
 ## What Sage Does
 
 Sage is an autonomous coding agent that runs in your terminal. It:
 
-- **Plans** your task, breaking it into concrete steps
-- **Reads** your codebase to understand the project structure
-- **Writes** code using TDD -- tests first, then implementation
+- **Plans** your task and breaks it into concrete steps
+- **Reads** your codebase (with project-aware RAG) to ground itself in real symbols
+- **Writes** code using TDD — tests first, then implementation
 - **Runs** tests automatically and fixes failures
 - **Iterates** until the task is complete
+- **Routes** to the best-fit model per request (small for trivial, strong for hard)
+- **Searches the web** for docs when its training data is too old
+- **Fine-tunes** local LoRA adapters on your codebase
+- **Refuses to run** with a model too small to follow the protocol (T1)
+- **Stages all writes** through a tmpdir so broken output never reaches your repo (T5)
+- **Blocks `npm install`** after rejecting a poison `package.json` (T6)
 
-All using free AI models -- no API keys, no subscriptions, no cloud dependency.
+All using free AI models — no API keys, no subscriptions, no cloud dependency.
 
 ## Quick Start
 
 ```bash
-# Install
+# Install everything (Ollama, models, RAG, optional deps) — disk-aware
 pip install sage-ai-cli
+sage install
 
-# Start the interactive agent
+# Coding agent with full safety harness
 sage run
 
-# Or use a specific model
-sage run --model openai          # Free GPT-4o Mini via Pollinations
-sage run --model qwen            # Qwen model via Pollinations
+# Try the new features:
+sage rag index                          # build per-project semantic index
+sage ext search "react hooks"           # web search (no API key)
+sage ext route "design a new system"    # see which model the router picks
+sage ext detect                         # see auto-detected project context
+sage ext bootstrap --finetune           # kick off project-aware fine-tune
 ```
 
-## Download Local Models (Optional)
+**Documentation:**
+- [`docs/SAGE_FEATURES.md`](docs/SAGE_FEATURES.md) — full feature catalog
+- [`docs/SAGE_COMMANDS.md`](docs/SAGE_COMMANDS.md) — every CLI + slash command
+- [`docs/SAGE_ARCHITECTURE.md`](docs/SAGE_ARCHITECTURE.md) — module map + data flow
 
-Run AI completely offline with local GGUF models:
+## What's New
 
-```bash
-# See available models
-sage pull --list
+### Waves 1–5 + Tiers A–C (Capability)
 
-# Download recommended models
-sage pull --recommended
+| Capability | Command |
+|------------|---------|
+| Auto-pick strongest installed coder | `sage ext auto-pick` |
+| Project context detection | `sage ext detect` |
+| Local RAG over your codebase | `sage rag index` / `sage rag query "..."` |
+| Web search (DuckDuckGo, no key) | `sage ext search "..."` |
+| Hybrid difficulty-based routing | `sage ext route "..."` |
+| LoRA fine-tune with adapter cache | `sage ext finetune <model>` |
+| GCS-mirrored public datasets | `sage ext datasets mirror --name all` |
+| One-shot disk-aware bootstrap | `sage ext bootstrap [--finetune] [--full-datasets]` |
 
-# Download a specific model
-sage pull qwen2.5-coder-3b
-sage pull deepseek-r1-7b
+### Tiers 1–3 Hardening (Safety + Quality)
 
-# Run with a local model
-sage run --model llama_cpp:qwen2.5-coder-3b
-```
+These prevent the "silent quality collapse" failure mode where a small
+fallback model produces broken output. Wired into every `sage run` session.
 
-Requires the `local` extra: `pip install sage-ai-cli[local]`
+| Tier | Feature | Impact |
+|------|---------|--------|
+| T1 | Hard model-capability floor | Refuses agentic tasks below 7B params |
+| T2 | Diff-preview before batch FILE: writes | User confirms before disk hit |
+| T3 | Bounded regenerate context | Stops feedback bombs in retry loops |
+| T4+T12 | GBNF on tool turns + project-aware imports | Hallucinated imports impossible |
+| T5 | Tmpdir staging | All writes pass through isolated workspace |
+| T6 | Run guard | `npm install` blocked after rejected `package.json` |
+| T7+T9 | Project-skeleton bootstrapper | React+Vite, Node+Express, FastAPI, fullstack |
+| T8 | RAG before first turn | Project context ready on turn 1 |
+| T10 | Telemetry with secret redaction | Per-session JSONL log |
+| T11 | Two-model planner/coder default | Cheap planner + strong coder, automatic |
+| T13 | Readiness self-test | 30s "write hello.js" probe at session start |
+| T14 | Disk-aware install + safe pip | Picks model tier that fits free disk |
 
-## Features
+## Architecture
 
-### Autonomous Agent Loop
-Sage doesn't just generate code -- it executes a full agent loop:
-1. Understands your request
-2. Explores your codebase (READ/SEARCH tools)
-3. Writes tests first (TDD)
-4. Implements the solution
-5. Runs tests and auto-fixes failures
-6. Repeats until everything passes
+`core/run_hooks.py` is the single orchestrator. `sage run` calls:
 
-### Smart Context
-- Scans your project directory on startup
-- Understands your tech stack, dependencies, and code patterns
-- Uses relative paths from your project root
+1. `on_session_start` — capability check (T1), readiness probe (T13),
+   skeleton match (T7+T9), RAG indexing (T8)
+2. `on_pre_turn` — grammar selection (T4+T12), planner/coder pair (T11),
+   top-K RAG retrieval (T8)
+3. `on_post_turn` — telemetry log (T10) with secret redaction
 
-### Interactive Commands
-| Command | Description |
-|---------|-------------|
-| `/help` | Show all commands |
-| `/models` | List available AI models |
-| `/model <id>` | Switch to a different model |
-| `/think <task>` | Force step-by-step planning |
-| `/read <file>` | Read a file into context |
-| `/test [cmd]` | Run tests (default: pytest) |
-| `/prompts` | Browse and reuse previous prompts |
-| `/files` | Show all files written this session |
-| `/undo` | Delete last written files |
-| `/compact` | Trim conversation to free context |
-| `/clear` | Clear conversation history |
-| `!<command>` | Run a shell command |
-| `"""..."""` | Multi-line input |
+Every `FileWriteTool.write()` is wrapped by `content_validator` and arms
+the `run_guard` on rejection. Every `RUN:` shell call is gated by
+`run_guard.allow()`.
 
-### Prompt History
-Sage remembers your prompts across sessions. Use arrow keys (up/down) to cycle through previous prompts, or `/prompts` to browse and reuse them.
-
-### Model Persistence
-Sage remembers your last-used model per project directory. Next time you run `sage run`, it automatically loads the same model.
-
-### Auto-Fix with Intelligence
-When tests fail, Sage doesn't just blindly retry. It:
-- Detects when it's stuck in a loop (repetition detection)
-- Discovers available project modules to fix import errors
-- Trims context to avoid overflow on retries
-- Cleans up broken files it created
-
-## Start Chatting
-
-```bash
-# Start the interactive agent
-sage run
-
-# Or use a specific model
-sage run --model openai
-
-# Show/change config
-sage config show
-sage config set default_model openai
-```
-
-## Available Models
-
-### Remote API models (optional API keys)
-Use `sage models` and configure providers under **Configuration** below (Groq, OpenRouter, Gemini, DeepSeek, etc.). Sage focuses on **local** Ollama and GGUF by default.
-
-### Ollama Models (190+ models, install once)
-Install [Ollama](https://ollama.com), then:
-
-```bash
-# Browse all available models
-sage models --ollama
-
-# Filter by category
-sage models --ollama -c coding
-sage models --ollama -c reasoning
-
-# Pull a model
-sage pull qwen3
-sage pull deepseek-r1
-sage pull devstral
-
-# Run with it
-sage run --model ollama:qwen3
-```
-
-**Top picks:**
-| Model | Params | Best For |
-|-------|--------|----------|
-| `qwen2.5-coder` | 0.5b-32b | Code generation |
-| `qwen3` | 0.6b-235b | General + coding |
-| `deepseek-r1` | 1.5b-671b | Reasoning + code |
-| `devstral` | 24b | Coding agents |
-| `gemma4` | e2b-31b | Frontier performance |
-| `mistral-small` | 22b-24b | Fast, balanced |
-
-### GGUF Models (download once, run offline without Ollama)
-| Model | Size | Best For |
-|-------|------|----------|
-| `qwen2.5-coder-3b` | ~2 GB | Code generation |
-| `deepseek-r1-7b` | ~4.5 GB | Reasoning + code |
-| `llama3.2-3b` | ~2 GB | General tasks |
-| `mistral-7b` | ~4.5 GB | General + code |
-
-Run `sage pull --list` for the full catalog of 207 models.
-
-## Configuration
-
-Config is stored in `~/.sage/config.json`:
-
-```bash
-# View config
-sage config show
-
-# Set values
-sage config set default_model openai
-sage config set temperature 0.7          # 0.0-2.0
-sage config set max_tokens 16384
-
-# Set API keys for premium providers
-sage config set api_keys.gemini YOUR_KEY
-sage config set api_keys.groq YOUR_KEY
-sage config set api_keys.openrouter YOUR_KEY
-```
-
-### Environment Variables
-
-All settings can be overridden via environment variables:
-
-| Variable | Description |
-|----------|-------------|
-| `SAGE_DEFAULT_MODEL` | Override default model (e.g. "gemini:gemini-2.0-flash") |
-| `SAGE_TEMPERATURE` | Default temperature (0.0-2.0) |
-| `SAGE_MAX_TOKENS` | Default max output tokens |
-| `SAGE_GEMINI_API_KEY` | Google Gemini API key |
-| `SAGE_GROQ_API_KEY` | Groq API key (free: console.groq.com) |
-| `SAGE_OPENROUTER_API_KEY` | OpenRouter API key (free models available) |
-| `SAGE_CEREBRAS_API_KEY` | Cerebras API key (free: cloud.cerebras.ai) |
-| `SAGE_SAMBANOVA_API_KEY` | SambaNova API key (free: cloud.sambanova.ai) |
-| `SAGE_TOGETHER_API_KEY` | Together AI API key (free tier) |
-| `SAGE_MISTRAL_API_KEY` | Mistral API key (free: console.mistral.ai) |
-| `SAGE_COHERE_API_KEY` | Cohere API key (free: dashboard.cohere.com) |
-| `SAGE_DEEPSEEK_API_KEY` | DeepSeek API key (cheap: platform.deepseek.com) |
-| `GITHUB_TOKEN` | GitHub token for GitHub Models (free) |
-
-Project-specific state (last model, prompt history) is stored in `.sage/` in your project directory.
-
-## Requirements
-
-- Python 3.11+
-- For local models: `pip install sage-ai-cli[local]` (adds llama-cpp-python)
-
-## Privacy
-
-- No telemetry or data collection
-- Free API models use Pollinations.ai (no API key needed)
-- Local models run 100% offline after download
-- Prompt history is stored locally in your project's `.sage/` directory
-
-## License
-
-MIT
-
-## Links
-
-- [PyPI Package](https://pypi.org/project/sage-ai-cli/)
-- [GitHub Repository](https://github.com/laynef/claude-ai-clone)
+See `docs/SAGE_ARCHITECTURE.md` for the full data-flow diagram.

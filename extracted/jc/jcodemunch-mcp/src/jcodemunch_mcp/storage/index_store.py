@@ -21,13 +21,30 @@ from .sqlite_store import SQLiteIndexStore, _VERIFIED_PATHS
 logger = logging.getLogger(__name__)
 
 # Bump this when the index schema changes in an incompatible way.
-# v11 (1.94.0): re-export edges now carry `re_export_kind` ("wildcard" |
-# "selective") and selective edges include `re_export_origins` mapping
-# exposed names to their underlying name in the leaf file. Old v10 indexes
-# lack the kind field and degrade to wildcard semantics — correct for
-# `export *` but over-credits on `export { X } from`. A fresh re-extract
-# is required for symbol-aware Ca attribution.
-INDEX_VERSION = 11
+# v16 (1.98.0): adds `runtime_stack_events(symbol_id, source, severity,
+# count, first_seen, last_seen)` table for Phase 5 stack-frame ingest.
+# Severity ∈ {error, warn, info} per stack frame; lets agents distinguish
+# "this symbol fired in 17 error stacks" from "fired once in INFO logging."
+# Tables 15-vintage upgrade in place via _migrate_v15_to_v16.
+# v15 (1.98.0): adds `runtime_columns(model_name, column_name, source,
+# count, last_seen, first_seen)` table for Phase 4 SQL-log ingest.
+# Tracks which dbt/SQLMesh model columns are actually read in production
+# queries vs. merely declared in the manifest. Tables 14-vintage upgrade
+# in place via _migrate_v14_to_v15; existing runtime_calls/edges/imports
+# rows are preserved.
+# v14 (1.97.0): adds runtime_calls/runtime_edges/runtime_imports/
+# runtime_unmapped/runtime_redaction_log tables for Phase 0+ trace
+# ingestion. Empty until import_runtime_signal runs.
+# v13 (1.96.0): manifest gains `source_roots: list[str]` — the list of
+# git-root-relative subdir prefixes that have been walked into this
+# index. With v1.96 subdir merging, `index ./packages` then `index
+# ./scripts` from one clone coalesce into a single `elastic/kibana`
+# index whose `source_roots` is `["packages", "scripts"]` and whose
+# file paths are git-root-relative.  v12 indexes had file paths
+# relative to the indexed subdir (not the git root); they are
+# detected as old-format on first v1.96 indexing run and discarded
+# in favour of a fresh git-root-rooted walk.
+INDEX_VERSION = 16
 
 
 @functools.lru_cache(maxsize=16)
@@ -113,6 +130,8 @@ class CodeIndex:
     git_head: str = ""           # HEAD commit hash at index time (for git repos)
     file_summaries: dict[str, str] = field(default_factory=dict)  # file_path -> summary
     source_root: str = ""        # Absolute source root for local indexes, empty for remote
+    git_root: str = ""           # Absolute git working tree root when detected (v1.95+); anchor for v1.96 subdir merging
+    source_roots: list[str] = field(default_factory=list)  # v1.96+: git-root-relative subdir prefixes walked into this index ([""] = full git-root walk)
     file_languages: dict[str, str] = field(default_factory=dict)  # file_path -> language
     display_name: str = ""       # User-facing name (for local hashed repo IDs)
     imports: Optional[dict[str, list[dict]]] = None  # file_path -> [{specifier, names}]; None = not indexed yet (pre-v1.3.0)
@@ -525,6 +544,8 @@ class IndexStore:
         file_blob_shas: Optional[dict[str, str]] = None,
         file_mtimes: Optional[dict[str, int]] = None,
         package_names: Optional[list[str]] = None,
+        git_root: str = "",
+        source_roots: Optional[list[str]] = None,
     ) -> "CodeIndex":
         """Save index via SQLite backend."""
         # Validate owner/name for path separators (before any slug computation)
@@ -554,7 +575,8 @@ class IndexStore:
             file_languages=merged_file_languages, display_name=display_name,
             imports=imports, context_metadata=context_metadata,
             file_blob_shas=file_blob_shas, file_mtimes=file_mtimes,
-            package_names=package_names,
+            package_names=package_names, git_root=git_root,
+            source_roots=source_roots,
         )
 
         # Clean up any legacy JSON now that data is safely in SQLite.

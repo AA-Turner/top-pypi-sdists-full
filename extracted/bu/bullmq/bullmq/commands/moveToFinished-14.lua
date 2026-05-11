@@ -1,5 +1,5 @@
 --[[
-  Move job from active to a finished status (completed o failed)
+  Move job from active to a finished status (completed or failed)
   A job can only be moved to completed if it was active.
   The job must be locked before it can be moved to a finished status,
   and the lock must be released in this script.
@@ -53,7 +53,7 @@ local rcall = redis.call
 --- Includes
 --[[
   Functions to collect metrics based on a current and previous count of jobs.
-  Granualarity is fixed at 1 minute.
+  Granularity is fixed at 1 minute.
 ]]
 --[[
   Function to loop in batches.
@@ -933,7 +933,7 @@ if rcall("EXISTS", jobIdKey) == 1 then -- Make sure job exists
     end
     local eventStreamKey = KEYS[4]
     local metaKey = KEYS[9]
-    -- Trim events before emiting them to avoid trimming events emitted in this script
+    -- Trim events before emitting them to avoid trimming events emitted in this script
     trimEvents(metaKey, eventStreamKey)
     local prefix = ARGV[7]
     removeDeduplicationKeyIfNeededOnFinalization(prefix, jobAttributes[3], jobId)

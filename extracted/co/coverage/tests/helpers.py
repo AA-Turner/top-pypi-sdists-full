@@ -265,15 +265,15 @@ def arcz_to_arcs(arcz: str) -> list[TArc]:
     for pair in arcz.split():
         asgn = bsgn = 1
         if len(pair) == 2:
-            a, b = pair  # type: ignore[misc]
+            a, b = pair  # type: ignore[str-unpack]
         else:
             assert len(pair) == 3
             if pair[0] == "-":
-                _, a, b = pair  # type: ignore[misc]
+                _, a, b = pair  # type: ignore[str-unpack]
                 asgn = -1
             else:
                 assert pair[1] == "-"
-                a, _, b = pair  # type: ignore[misc]
+                a, _, b = pair  # type: ignore[str-unpack]
                 bsgn = -1
         arcs.append((asgn * _arcz_map[a], bsgn * _arcz_map[b]))
     return sorted(arcs)

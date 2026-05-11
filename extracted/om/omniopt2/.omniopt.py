@@ -279,7 +279,9 @@ try:
 
     with spinner("Importing notifier..."):
         try:
-            from plyer import notification as _plyer_notification
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=UserWarning, module="plyer")
+                from plyer import notification as _plyer_notification
             _NOTIFICATIONS_AVAILABLE = True
         except ImportError:
             _NOTIFICATIONS_AVAILABLE = False

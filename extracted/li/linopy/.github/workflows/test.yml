@@ -64,7 +64,7 @@ jobs:
 
     - name: Set up windows package manager
       if: matrix.os == 'windows-latest'
-      uses: crazy-max/ghaction-chocolatey@v3
+      uses: crazy-max/ghaction-chocolatey@v4
       with:
           args: -h
 
@@ -74,7 +74,7 @@ jobs:
         choco install glpk
 
     - name: Download package
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: Packages
         path: dist
@@ -92,7 +92,7 @@ jobs:
 
     - name: Upload code coverage report
       if: matrix.os == 'ubuntu-latest'
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -112,7 +112,7 @@ jobs:
         python-version: 3.12
 
     - name: Download package
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: Packages
         path: dist

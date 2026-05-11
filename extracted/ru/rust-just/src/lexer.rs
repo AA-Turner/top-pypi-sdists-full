@@ -326,11 +326,8 @@ impl<'src> Lexer<'src> {
 
     let nonblank_index = self
       .rest()
-      .char_indices()
-      .skip_while(|&(_, c)| c == ' ' || c == '\t')
-      .map(|(i, _)| i)
-      .next()
-      .unwrap_or_else(|| self.rest().len());
+      .find(|c| !matches!(c, ' ' | '\t'))
+      .unwrap_or(self.rest().len());
 
     let rest = &self.rest()[nonblank_index..];
 
@@ -2549,7 +2546,7 @@ mod tests {
       Error::Compile { compile_error }
         .color_display(Color::never())
         .to_string(),
-      "error: Internal error, this may indicate a bug in just: Lexer presumed character `-`
+      "error: internal error, this may indicate a bug in just: Lexer presumed character `-`
 consider filing an issue: https://github.com/casey/just/issues/new
  ——▶ justfile:1:1
   │

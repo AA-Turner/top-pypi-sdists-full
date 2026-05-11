@@ -12,7 +12,7 @@ fn unused_assignments_are_evaluated_without_lazy() {
     )
     .stderr(
       "
-        error: Backtick failed with exit code 1
+        error: backtick failed with exit code 1
          ——▶ justfile:1:6
           │
         1 │ x := `exit 1`
@@ -54,7 +54,7 @@ fn used_assignment_evaluated() {
     )
     .stderr(
       "
-        error: Backtick failed with exit code 1
+        error: backtick failed with exit code 1
          ——▶ justfile:3:6
           │
         3 │ x := `exit 1`
@@ -80,7 +80,7 @@ fn transitively_used_assignment_evaluated() {
     )
     .stderr(
       "
-        error: Backtick failed with exit code 1
+        error: backtick failed with exit code 1
          ——▶ justfile:3:6
           │
         3 │ x := `exit 1`
@@ -104,7 +104,7 @@ fn assignment_used_in_parameter_default_evaluated() {
     )
     .stderr(
       "
-        error: Backtick failed with exit code 1
+        error: backtick failed with exit code 1
          ——▶ justfile:3:6
           │
         3 │ x := `exit 1`
@@ -130,7 +130,7 @@ fn assignment_used_in_dependency_argument_evaluated() {
     )
     .stderr(
       "
-        error: Backtick failed with exit code 1
+        error: backtick failed with exit code 1
          ——▶ justfile:3:6
           │
         3 │ x := `exit 1`
@@ -155,7 +155,7 @@ fn assignment_in_body_interpolation_evaluated() {
     )
     .stderr(
       "
-        error: Backtick failed with exit code 1
+        error: backtick failed with exit code 1
          ——▶ justfile:3:6
           │
         3 │ x := `exit 1`
@@ -205,7 +205,7 @@ fn assignment_used_in_dependency_evaluated() {
     )
     .stderr(
       "
-        error: Backtick failed with exit code 1
+        error: backtick failed with exit code 1
          ——▶ justfile:3:6
           │
         3 │ x := `exit 1`
@@ -234,7 +234,7 @@ fn assignment_used_in_transitive_dependency_evaluated() {
     )
     .stderr(
       "
-        error: Backtick failed with exit code 1
+        error: backtick failed with exit code 1
          ——▶ justfile:3:6
           │
         3 │ x := `exit 1`
@@ -280,6 +280,40 @@ fn assignment_with_set_export_is_evaluated() {
 }
 
 #[test]
+fn submodule_lazy_is_respected() {
+  Test::new()
+    .justfile(
+      "
+        mod sub
+      ",
+    )
+    .write(
+      "sub.just",
+      "set lazy\nunused := `exit 1`\nbar:\n  @echo bar\n",
+    )
+    .args(["sub", "bar"])
+    .stdout("bar\n")
+    .success();
+}
+
+#[test]
+fn unused_assert_not_evaluated() {
+  Test::new()
+    .justfile(
+      "
+        set lazy
+
+        x := assert('foo' == 'bar', 'fail')
+
+        foo:
+          @echo foo
+      ",
+    )
+    .stdout("foo\n")
+    .success();
+}
+
+#[test]
 fn eager_assignments_are_evaluated() {
   Test::new()
     .justfile(
@@ -293,7 +327,7 @@ fn eager_assignments_are_evaluated() {
     )
     .stderr(
       "
-        error: Backtick failed with exit code 1
+        error: backtick failed with exit code 1
          ——▶ justfile:3:12
           │
         3 │ eager x := `exit 1`

@@ -36,7 +36,7 @@ fn duplicate_attributes_are_disallowed() {
     )
     .stderr(
       "
-        error: Recipe attribute `no-exit-message` first used on line 1 is duplicated on line 2
+        error: recipe attribute `no-exit-message` first used on line 1 is duplicated on line 2
          ——▶ justfile:2:2
           │
         2 │ [no-exit-message]
@@ -74,7 +74,7 @@ fn multiple_attributes_one_line_error_message() {
     )
     .stderr(
       "
-        error: Expected ']', ':', ',', or '(', but found identifier
+        error: expected ']', ':', ',', or '(', but found identifier
          ——▶ justfile:1:16
           │
         1 │ [macos,windows linux,openbsd,freebsd,dragonfly,netbsd,android]
@@ -97,7 +97,7 @@ fn multiple_attributes_one_line_duplicate_check() {
     )
     .stderr(
       "
-        error: Recipe attribute `linux` first used on line 1 is duplicated on line 2
+        error: recipe attribute `linux` first used on line 1 is duplicated on line 2
          ——▶ justfile:2:2
           │
         2 │ [linux]
@@ -119,7 +119,7 @@ fn unexpected_attribute_argument() {
     )
     .stderr(
       "
-        error: Attribute `private` got 1 argument but takes 0 arguments
+        error: attribute `private` got 1 argument but takes 0 arguments
          ——▶ justfile:1:2
           │
         1 │ [private('foo')]
@@ -173,7 +173,7 @@ fn expected_metadata_attribute_argument() {
     )
     .stderr(
       "
-        error: Attribute `metadata` got 0 arguments but takes at least 1 argument
+        error: attribute `metadata` got 0 arguments but takes at least 1 argument
          ——▶ justfile:1:2
           │
         1 │ [metadata]
@@ -273,7 +273,7 @@ fn extension_on_linewise_error() {
     )
     .stderr(
       "
-        error: Recipe `baz` has invalid attribute `extension`
+        error: recipe `baz` has invalid attribute `extension`
          ——▶ justfile:2:1
           │
         2 │ baz:
@@ -295,7 +295,7 @@ fn duplicate_non_repeatable_attributes_are_forbidden() {
     )
     .stderr(
       "
-        error: Recipe attribute `confirm` first used on line 1 is duplicated on line 2
+        error: recipe attribute `confirm` first used on line 1 is duplicated on line 2
          ——▶ justfile:2:2
           │
         2 │ [confirm: 'no']
@@ -347,6 +347,55 @@ fn env_attribute_multiple() {
 }
 
 #[test]
+fn env_attribute_with_expression() {
+  Test::new()
+    .justfile(
+      "
+        suffix := 'world'
+
+        [env('GREETING', 'hello ' + suffix)]
+        foo:
+          @echo $GREETING
+      ",
+    )
+    .stdout("hello world\n")
+    .success();
+}
+
+#[test]
+fn env_attribute_name_with_expression() {
+  Test::new()
+    .justfile(
+      "
+        prefix := 'MY_'
+
+        [env(prefix + 'VAR', 'value')]
+        foo:
+          @echo $MY_VAR
+      ",
+    )
+    .stdout("value\n")
+    .success();
+}
+
+#[test]
+fn env_attribute_with_expression_in_script() {
+  Test::new()
+    .justfile(
+      "
+        suffix := 'world'
+
+        [env('GREETING', 'hello ' + suffix)]
+        foo:
+          #!/bin/sh
+          echo $GREETING
+      ",
+    )
+    .stdout("hello world\n")
+    .success();
+}
+
+#[test]
 fn env_attribute_in_recipe_params() {
   Test::new()
     .justfile(
@@ -357,6 +406,73 @@ fn env_attribute_in_recipe_params() {
       ",
     )
     .stdout("bar.txt\n")
+    .success();
+}
+
+#[test]
+fn env_attribute_value_cannot_reference_parameter() {
+  Test::new()
+    .justfile(
+      "
+        [env('TARGET', target)]
+        deploy target:
+      ",
+    )
+    .stderr(
+      "
+        error: variable `target` not defined
+         ——▶ justfile:1:16
+          │
+        1 │ [env('TARGET', target)]
+          │                ^^^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn env_attribute_name_cannot_reference_parameter() {
+  Test::new()
+    .justfile(
+      "
+        [env(name, 'value')]
+        foo name:
+      ",
+    )
+    .stderr(
+      "
+        error: variable `name` not defined
+         ——▶ justfile:1:6
+          │
+        1 │ [env(name, 'value')]
+          │      ^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn env_attribute_expression_dump() {
+  Test::new()
+    .justfile(
+      "
+        suffix := 'world'
+
+        [env('GREETING', 'hello ' + suffix)]
+        foo:
+          echo $GREETING
+      ",
+    )
+    .arg("--dump")
+    .stdout(
+      "
+        suffix := 'world'
+
+        [env('GREETING', 'hello ' + suffix)]
+        foo:
+            echo $GREETING
+      ",
+    )
     .success();
 }
 
@@ -374,7 +490,7 @@ fn env_attribute_not_in_env_function() {
     )
     .stderr(
       "
-        error: Call to function `env` failed: environment variable `foo` not present
+        error: call to function `env` failed: environment variable `foo` not present
          ——▶ justfile:4:12
           │
         4 │   @echo {{ env('foo') }}.txt
@@ -396,7 +512,7 @@ fn env_attribute_too_few_arguments() {
     )
     .stderr(
       "
-        error: Attribute `env` got 1 argument but takes 2 arguments
+        error: attribute `env` got 1 argument but takes 2 arguments
          ——▶ justfile:1:2
           │
         1 │ [env('MY_VAR')]
@@ -418,7 +534,7 @@ fn env_attribute_too_many_arguments() {
     )
     .stderr(
       "
-        error: Attribute `env` got 3 arguments but takes 2 arguments
+        error: attribute `env` got 3 arguments but takes 2 arguments
          ——▶ justfile:1:2
           │
         1 │ [env('A', 'B', 'C')]
@@ -429,7 +545,40 @@ fn env_attribute_too_many_arguments() {
 }
 
 #[test]
-fn env_attribute_duplicate_error() {
+fn env_attribute_overrides_export() {
+  Test::new()
+    .justfile(
+      "
+        export FOO := 'export'
+
+        [env('FOO', 'attribute')]
+        bar:
+          @echo $FOO
+      ",
+    )
+    .stdout("attribute\n")
+    .success();
+}
+
+#[test]
+fn env_attribute_overrides_export_in_script() {
+  Test::new()
+    .justfile(
+      "
+        export FOO := 'export'
+
+        [env('FOO', 'attribute')]
+        bar:
+          #!/bin/sh
+          echo $FOO
+      ",
+    )
+    .stdout("attribute\n")
+    .success();
+}
+
+#[test]
+fn env_attribute_duplicate_last_wins() {
   Test::new()
     .justfile(
       "
@@ -439,14 +588,6 @@ fn env_attribute_duplicate_error() {
           @echo $VAR1
       ",
     )
-    .stderr(
-      "
-        error: Environment variable `VAR1` first set on line 1 is set again on line 2
-         ——▶ justfile:2:2
-          │
-        2 │ [env('VAR1', 'value 2')]
-          │  ^^^
-      ",
-    )
-    .failure();
+    .stdout("value 2\n")
+    .success();
 }

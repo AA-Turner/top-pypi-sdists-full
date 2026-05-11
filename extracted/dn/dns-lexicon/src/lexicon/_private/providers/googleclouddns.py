@@ -70,11 +70,19 @@ class Provider(BaseProvider):
         or the base64 encoded content of this file prefixed by 'base64::'
         (eg. base64::eyJhbGciOyJ...)""",
         )
+        parser.add_argument(
+            "--private-zone",
+            action="store_true",
+            help="""
+        indicates what kind of hosted zone to use: if set, use
+        only private zones, otherwise use only public zones.""",
+        )
 
     def __init__(self, config):
         super(Provider, self).__init__(config)
         self.domain_id = None
         self._token = None
+        self._private_zone = self._get_provider_option("private_zone")
 
         if self._get_provider_option("auth_service_account_info").startswith("file::"):
             with open(
@@ -117,10 +125,12 @@ class Provider(BaseProvider):
     # of matched zone ids as we go.
     def _get_managed_zone_ids(self, zone_ids, page_token=None):
         results = self._get("/managedZones", {"pageToken": page_token})
+        target_visibility = "private" if self._private_zone else "public"
         zone_ids += [
             managedZone["id"]
             for managedZone in results["managedZones"]
             if managedZone["dnsName"] == f"{self.domain}."
+            and managedZone.get("visibility", "public") == target_visibility
         ]
 
         if "nextPageToken" in results:

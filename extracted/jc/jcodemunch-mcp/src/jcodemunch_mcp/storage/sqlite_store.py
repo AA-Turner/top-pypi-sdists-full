@@ -96,6 +96,84 @@ CREATE TABLE IF NOT EXISTS branch_meta (
     indexed_at TEXT,
     base_head  TEXT
 );
+
+CREATE TABLE IF NOT EXISTS runtime_calls (
+    symbol_id   TEXT NOT NULL,
+    source      TEXT NOT NULL,
+    count       INTEGER NOT NULL DEFAULT 0,
+    p50_ms      REAL,
+    p95_ms      REAL,
+    first_seen  TEXT,
+    last_seen   TEXT,
+    PRIMARY KEY (symbol_id, source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_runtime_calls_last_seen ON runtime_calls(last_seen);
+
+CREATE TABLE IF NOT EXISTS runtime_edges (
+    caller_id   TEXT NOT NULL,
+    callee_id   TEXT NOT NULL,
+    source      TEXT NOT NULL,
+    count       INTEGER NOT NULL DEFAULT 0,
+    first_seen  TEXT,
+    last_seen   TEXT,
+    PRIMARY KEY (caller_id, callee_id, source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_runtime_edges_callee ON runtime_edges(callee_id);
+
+CREATE TABLE IF NOT EXISTS runtime_imports (
+    import_id   TEXT NOT NULL,
+    source      TEXT NOT NULL,
+    count       INTEGER NOT NULL DEFAULT 0,
+    first_seen  TEXT,
+    last_seen   TEXT,
+    PRIMARY KEY (import_id, source)
+);
+
+CREATE TABLE IF NOT EXISTS runtime_unmapped (
+    file_path     TEXT,
+    line_no       INTEGER,
+    function_name TEXT,
+    source        TEXT NOT NULL,
+    count         INTEGER NOT NULL DEFAULT 0,
+    last_seen     TEXT,
+    PRIMARY KEY (file_path, line_no, function_name, source)
+);
+
+CREATE TABLE IF NOT EXISTS runtime_redaction_log (
+    source           TEXT NOT NULL,
+    pattern          TEXT NOT NULL,
+    redaction_count  INTEGER NOT NULL DEFAULT 0,
+    last_redacted    TEXT,
+    PRIMARY KEY (source, pattern)
+);
+
+CREATE TABLE IF NOT EXISTS runtime_columns (
+    model_name   TEXT NOT NULL,
+    column_name  TEXT NOT NULL,
+    source       TEXT NOT NULL,
+    count        INTEGER NOT NULL DEFAULT 0,
+    first_seen   TEXT,
+    last_seen    TEXT,
+    PRIMARY KEY (model_name, column_name, source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_runtime_columns_model ON runtime_columns(model_name);
+CREATE INDEX IF NOT EXISTS idx_runtime_columns_last_seen ON runtime_columns(last_seen);
+
+CREATE TABLE IF NOT EXISTS runtime_stack_events (
+    symbol_id   TEXT NOT NULL,
+    source      TEXT NOT NULL,
+    severity    TEXT NOT NULL,
+    count       INTEGER NOT NULL DEFAULT 0,
+    first_seen  TEXT,
+    last_seen   TEXT,
+    PRIMARY KEY (symbol_id, source, severity)
+);
+
+CREATE INDEX IF NOT EXISTS idx_runtime_stack_events_severity ON runtime_stack_events(severity, last_seen);
+CREATE INDEX IF NOT EXISTS idx_runtime_stack_events_symbol ON runtime_stack_events(symbol_id);
 """
 
 # Pragmas set on every connection open
@@ -121,7 +199,7 @@ _NON_REPO_DB_FILES = frozenset({"telemetry.db"})
 # Keys stored in the meta table
 _META_KEYS = [
     "repo", "owner", "name", "indexed_at", "index_version",
-    "git_head", "source_root", "display_name",
+    "git_head", "source_root", "git_root", "source_roots", "display_name",
     "languages", "context_metadata",
 ]
 
@@ -138,6 +216,23 @@ def _ensure_index_store_deps() -> None:
         from .index_store import INDEX_VERSION, _file_hash as _fh
         _INDEX_VERSION = INDEX_VERSION
         _file_hash = _fh
+
+
+def _safe_json_load_list(raw: str) -> list[str]:
+    """Decode a JSON-encoded list[str] from meta, returning [] on any error.
+
+    Old indexes (v12 and earlier) wrote no `source_roots` row, so the meta
+    read returns the default "[]" we hand it. New indexes write a real
+    JSON array. Anything malformed (truncated/corrupted) degrades to []
+    rather than crashing the load path.
+    """
+    try:
+        value = json.loads(raw or "[]")
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(value, list):
+        return []
+    return [v for v in value if isinstance(v, str)]
 
 
 # ── In-memory CodeIndex cache ──────────────────────────────────────
@@ -327,6 +422,131 @@ def _migrate_v8_to_v9(conn: sqlite3.Connection) -> None:
     logger.info("Migrated v8→v9: added branch_deltas and branch_meta tables")
 
 
+def _migrate_v13_to_v14(conn: sqlite3.Connection) -> None:
+    """Migrate a v13 database to v14: add runtime_* tables for trace ingestion (Phase 0).
+
+    Tables are created empty; no existing rows are touched. Until a runtime
+    signal is ingested (Phase 1+), the tables stay empty and are zero-cost.
+    """
+    conn.executescript("""\
+        CREATE TABLE IF NOT EXISTS runtime_calls (
+            symbol_id   TEXT NOT NULL,
+            source      TEXT NOT NULL,
+            count       INTEGER NOT NULL DEFAULT 0,
+            p50_ms      REAL,
+            p95_ms      REAL,
+            first_seen  TEXT,
+            last_seen   TEXT,
+            PRIMARY KEY (symbol_id, source)
+        );
+        CREATE INDEX IF NOT EXISTS idx_runtime_calls_last_seen ON runtime_calls(last_seen);
+
+        CREATE TABLE IF NOT EXISTS runtime_edges (
+            caller_id   TEXT NOT NULL,
+            callee_id   TEXT NOT NULL,
+            source      TEXT NOT NULL,
+            count       INTEGER NOT NULL DEFAULT 0,
+            first_seen  TEXT,
+            last_seen   TEXT,
+            PRIMARY KEY (caller_id, callee_id, source)
+        );
+        CREATE INDEX IF NOT EXISTS idx_runtime_edges_callee ON runtime_edges(callee_id);
+
+        CREATE TABLE IF NOT EXISTS runtime_imports (
+            import_id   TEXT NOT NULL,
+            source      TEXT NOT NULL,
+            count       INTEGER NOT NULL DEFAULT 0,
+            first_seen  TEXT,
+            last_seen   TEXT,
+            PRIMARY KEY (import_id, source)
+        );
+
+        CREATE TABLE IF NOT EXISTS runtime_unmapped (
+            file_path     TEXT,
+            line_no       INTEGER,
+            function_name TEXT,
+            source        TEXT NOT NULL,
+            count         INTEGER NOT NULL DEFAULT 0,
+            last_seen     TEXT,
+            PRIMARY KEY (file_path, line_no, function_name, source)
+        );
+
+        CREATE TABLE IF NOT EXISTS runtime_redaction_log (
+            source           TEXT NOT NULL,
+            pattern          TEXT NOT NULL,
+            redaction_count  INTEGER NOT NULL DEFAULT 0,
+            last_redacted    TEXT,
+            PRIMARY KEY (source, pattern)
+        );
+    """)
+    conn.execute(
+        "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+        ("index_version", "14"),
+    )
+    logger.info("Migrated v13→v14: added runtime_* tables for trace ingestion")
+
+
+def _migrate_v14_to_v15(conn: sqlite3.Connection) -> None:
+    """Migrate a v14 database to v15: add runtime_columns for SQL-log ingest (Phase 4).
+
+    Existing runtime_calls / runtime_edges / runtime_imports / runtime_unmapped /
+    runtime_redaction_log rows are preserved verbatim — the new table is purely
+    additive. Stays empty until ``import_runtime_signal({source: 'sql_log'})``
+    runs against a dbt-style repo whose index already has dbt_columns metadata.
+    """
+    conn.executescript("""\
+        CREATE TABLE IF NOT EXISTS runtime_columns (
+            model_name   TEXT NOT NULL,
+            column_name  TEXT NOT NULL,
+            source       TEXT NOT NULL,
+            count        INTEGER NOT NULL DEFAULT 0,
+            first_seen   TEXT,
+            last_seen    TEXT,
+            PRIMARY KEY (model_name, column_name, source)
+        );
+        CREATE INDEX IF NOT EXISTS idx_runtime_columns_model ON runtime_columns(model_name);
+        CREATE INDEX IF NOT EXISTS idx_runtime_columns_last_seen ON runtime_columns(last_seen);
+    """)
+    conn.execute(
+        "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+        ("index_version", "15"),
+    )
+    logger.info("Migrated v14→v15: added runtime_columns table for SQL-log ingest")
+
+
+def _migrate_v15_to_v16(conn: sqlite3.Connection) -> None:
+    """Migrate a v15 database to v16: add runtime_stack_events for Phase 5.
+
+    Existing runtime_calls / runtime_columns / etc. rows are preserved
+    verbatim. ``runtime_stack_events`` stays empty until
+    ``import_runtime_signal({source: 'stack_log'})`` runs against an
+    application log containing parseable Python / JVM / Node.js stacks.
+
+    The (symbol_id, source, severity) PK lets a single symbol carry a
+    distinct row per severity level; the symbol's runtime_calls row
+    gets a separate (severity-agnostic) rollup so confidence-stamping
+    on existing tools still works.
+    """
+    conn.executescript("""\
+        CREATE TABLE IF NOT EXISTS runtime_stack_events (
+            symbol_id   TEXT NOT NULL,
+            source      TEXT NOT NULL,
+            severity    TEXT NOT NULL,
+            count       INTEGER NOT NULL DEFAULT 0,
+            first_seen  TEXT,
+            last_seen   TEXT,
+            PRIMARY KEY (symbol_id, source, severity)
+        );
+        CREATE INDEX IF NOT EXISTS idx_runtime_stack_events_severity ON runtime_stack_events(severity, last_seen);
+        CREATE INDEX IF NOT EXISTS idx_runtime_stack_events_symbol ON runtime_stack_events(symbol_id);
+    """)
+    conn.execute(
+        "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+        ("index_version", "16"),
+    )
+    logger.info("Migrated v15→v16: added runtime_stack_events table for stack-log ingest")
+
+
 def _unlink_retry(path: Path, retries: int = 3, delay: float = 0.1) -> bool:
     """Delete a file with retry logic for Windows file-locking (PermissionError).
 
@@ -416,6 +636,12 @@ class SQLiteIndexStore:
                     _migrate_v7_to_v8(conn)
                 if stored_version < 9:
                     _migrate_v8_to_v9(conn)
+                if stored_version < 14:
+                    _migrate_v13_to_v14(conn)
+                if stored_version < 15:
+                    _migrate_v14_to_v15(conn)
+                if stored_version < 16:
+                    _migrate_v15_to_v16(conn)
 
             SQLiteIndexStore._initialized_dbs.add(db_key)
 
@@ -792,6 +1018,8 @@ class SQLiteIndexStore:
             git_head=delta.get("git_head", base_index.git_head),
             file_summaries=composed_summaries,
             source_root=base_index.source_root,
+            git_root=getattr(base_index, "git_root", "") or "",
+            source_roots=list(getattr(base_index, "source_roots", []) or []),
             file_languages=composed_languages,
             display_name=base_index.display_name,
             imports=composed_imports,
@@ -845,10 +1073,20 @@ class SQLiteIndexStore:
         file_blob_shas: Optional[dict[str, str]] = None,
         file_mtimes: Optional[dict[str, int]] = None,
         package_names: Optional[list[str]] = None,
+        git_root: str = "",
+        source_roots: Optional[list[str]] = None,
     ) -> "CodeIndex":
-        """Save a full index to SQLite. Replaces all existing data."""
+        """Save a full index to SQLite. Replaces all existing data.
+
+        v1.106.0: serialises against concurrent save_index calls from other
+        MCP processes via the ``indexwrite`` lock. SQLite WAL alone makes
+        single-process writes safe, but two processes both rebuilding the
+        same .db can interleave DELETE/INSERT batches and corrupt the index.
+        Waits up to 60s for a parallel writer to finish; raises if longer.
+        """
         _ensure_index_store_deps()
         from .index_store import CodeIndex
+        from . import process_locks
 
         normalized_source_files = sorted(dict.fromkeys(source_files or list(raw_files.keys())))
 
@@ -891,6 +1129,8 @@ class SQLiteIndexStore:
             git_head=git_head,
             file_summaries=file_summaries or {},
             source_root=source_root,
+            git_root=git_root,
+            source_roots=source_roots or [],
             file_languages=file_languages,
             display_name=display_name or name,
             imports=imports if imports is not None else {},
@@ -902,6 +1142,44 @@ class SQLiteIndexStore:
         )
 
         db_path = self._db_path(owner, name)
+        lock_target = f"{owner}/{name}"
+        storage_root = str(self.base_path)
+        with process_locks.held(
+            "indexwrite", lock_target, storage_root, wait_seconds=60.0
+        ) as got_lock:
+            if not got_lock:
+                detail = process_locks.current_holder_diagnostic(
+                    "indexwrite", lock_target, storage_root,
+                )
+                raise RuntimeError(
+                    f"Could not acquire index-write lock for {lock_target} "
+                    f"after 60s{detail}"
+                )
+            return self._save_index_locked(
+                owner, name, db_path, index, symbols,
+                normalized_source_files, raw_files,
+                file_hashes, file_languages, file_mtimes,
+                file_blob_shas, file_summaries, file_sizes, imports,
+            )
+
+    def _save_index_locked(
+        self,
+        owner: str,
+        name: str,
+        db_path,
+        index,
+        symbols,
+        normalized_source_files,
+        raw_files,
+        file_hashes,
+        file_languages,
+        file_mtimes,
+        file_blob_shas,
+        file_summaries,
+        file_sizes,
+        imports,
+    ):
+        """Inner body of save_index; runs under the indexwrite lock."""
         conn = self._connect(db_path)
         try:
             conn.execute("BEGIN")
@@ -1851,6 +2129,8 @@ class SQLiteIndexStore:
             git_head=meta.get("git_head", old.git_head),
             file_summaries=new_file_summaries,
             source_root=old.source_root,
+            git_root=getattr(old, "git_root", "") or "",
+            source_roots=list(getattr(old, "source_roots", []) or []),
             file_languages=new_file_languages,
             display_name=old.display_name,
             imports=new_imports,
@@ -1937,6 +2217,8 @@ class SQLiteIndexStore:
             git_head=meta.get("git_head", ""),
             file_summaries=file_summaries,
             source_root=meta.get("source_root", ""),
+            git_root=meta.get("git_root", ""),
+            source_roots=_safe_json_load_list(meta.get("source_roots", "[]")),
             file_languages=file_languages,
             display_name=meta.get("display_name", name),
             imports=imports,
@@ -1958,6 +2240,8 @@ class SQLiteIndexStore:
             "index_version": str(index.index_version),
             "git_head": index.git_head,
             "source_root": index.source_root,
+            "git_root": getattr(index, "git_root", "") or "",
+            "source_roots": json.dumps(getattr(index, "source_roots", []) or []),
             "display_name": index.display_name,
             "languages": json.dumps(index.languages),
             "context_metadata": json.dumps(index.context_metadata or {}),
@@ -2051,8 +2335,14 @@ class SQLiteIndexStore:
     # ── Migration ───────────────────────────────────────────────────
 
     def migrate_from_json(self, json_path: Path, owner: str, name: str) -> Optional["CodeIndex"]:
-        """Read a JSON index file and populate the SQLite database."""
+        """Read a JSON index file and populate the SQLite database.
+
+        v1.106.0: serialises against concurrent save_index / migrate_from_json
+        for the same repo via the ``indexwrite`` lock.
+        """
         _ensure_index_store_deps()
+        from . import process_locks
+
         if not json_path.exists():
             return None
 
@@ -2092,7 +2382,40 @@ class SQLiteIndexStore:
         has_imports_key = "imports" in data
         stored_imports = data.get("imports") if has_imports_key else None
 
-        # Populate SQLite from JSON data
+        # Populate SQLite from JSON data — serialised via indexwrite lock so
+        # we don't race a concurrent save_index from another process.
+        lock_target = f"{owner}/{name}"
+        storage_root = str(self.base_path)
+        with process_locks.held(
+            "indexwrite", lock_target, storage_root, wait_seconds=60.0,
+        ) as got_lock:
+            if not got_lock:
+                detail = process_locks.current_holder_diagnostic(
+                    "indexwrite", lock_target, storage_root,
+                )
+                raise RuntimeError(
+                    f"Could not acquire index-write lock to migrate {lock_target} "
+                    f"after 60s{detail}"
+                )
+            return self._migrate_from_json_locked(
+                json_path, owner, name, data, source_files, symbols,
+                merged_fl, computed_languages, has_imports_key, stored_imports,
+            )
+
+    def _migrate_from_json_locked(
+        self,
+        json_path: "Path",
+        owner: str,
+        name: str,
+        data: dict,
+        source_files: list,
+        symbols: list,
+        merged_fl: dict,
+        computed_languages: dict,
+        has_imports_key: bool,
+        stored_imports,
+    ) -> Optional["CodeIndex"]:
+        """Inner body of migrate_from_json; runs under the indexwrite lock."""
         db_path = self._db_path(owner, name)
         conn = self._connect(db_path)
         try:
@@ -2106,6 +2429,8 @@ class SQLiteIndexStore:
                 "index_version": str(data.get("index_version", _INDEX_VERSION)),
                 "git_head": data.get("git_head", ""),
                 "source_root": data.get("source_root", ""),
+                "git_root": data.get("git_root", ""),
+                "source_roots": json.dumps(data.get("source_roots", []) or []),
                 "display_name": data.get("display_name", name),
                 "languages": json.dumps(computed_languages),
                 "context_metadata": json.dumps(data.get("context_metadata", {})),

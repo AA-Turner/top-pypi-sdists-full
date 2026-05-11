@@ -695,7 +695,7 @@ class PipelineListingInfo:
     def __repr__(self):
         return (
             f"PipelineListingInfo("
-            f"pipelineSummary={self.pipelineSummary.name}, "
+            f"pipelineSummary={self.pipelineSummary!r}, "
             f"assetNodesCount={self.assetNodesCount}, "
             f"functionalNodesCount={self.functionalNodesCount}, "
             f"latestRunResult={self.latestRunResult}, "
@@ -704,13 +704,14 @@ class PipelineListingInfo:
 
 
 class PipelineSummary:
-    def __init__(self, id: int, name: str, meta: 'PipelineSummaryMeta', *args, **kwargs):
+    def __init__(self, id: int, name: str, meta: 'PipelineSummaryMeta',uid,  *args, **kwargs):
         self.id = id
         self.name = name
         self.meta = meta
+        self.uid = uid
 
     def __repr__(self):
-        return f"PipelineSummary(id={self.id}, name={self.name}, meta={self.meta})"
+        return f"PipelineSummary(id={self.id}, name={self.name}, meta={self.meta}, uid={self.uid})"
 
 
 class PipelineSummaryMeta:

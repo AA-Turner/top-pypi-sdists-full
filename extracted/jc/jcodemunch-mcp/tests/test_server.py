@@ -21,7 +21,7 @@ async def test_server_lists_all_tools():
     try:
         tools = await list_tools()
 
-        assert len(tools) == 69  # 66 + set_tool_tier + announce_model + jcodemunch_guide  (get_file_risk in v1.89.0, diff_health_radar v1.87.0, digest v1.86.0)
+        assert len(tools) == 80  # +1: assemble_task_context (task-aware orchestrator, v1.105.0)
 
         names = {t.name for t in tools}
         expected = {
@@ -32,12 +32,13 @@ async def test_server_lists_all_tools():
             "get_session_stats", "get_session_context", "get_session_snapshot", "plan_turn", "register_edit",
             "get_dependency_graph", "get_blast_radius",
             "get_symbol_diff", "get_class_hierarchy", "get_related_symbols", "suggest_queries",
-            "get_symbol_importance", "find_dead_code",
-            "get_changed_symbols", "get_ranked_context", "embed_repo",
-            "get_cross_repo_map",
+            "get_symbol_importance", "get_repo_map", "find_similar_symbols", "find_dead_code",
+            "get_changed_symbols", "get_ranked_context", "assemble_task_context", "embed_repo",
+            "get_cross_repo_map", "get_group_contracts",
             "get_call_hierarchy", "get_impact_preview",
             "get_dependency_cycles", "get_coupling_metrics", "get_layer_violations",
-            "check_rename_safe", "get_dead_code_v2", "get_extraction_candidates",
+            "check_rename_safe", "check_delete_safe", "find_implementations",
+            "get_dead_code_v2", "get_extraction_candidates",
             "plan_refactoring",
             "get_symbol_complexity", "get_churn_rate", "get_hotspots", "get_repo_health",
             "audit_agent_config", "get_untested_symbols", "search_ast",
@@ -48,6 +49,8 @@ async def test_server_lists_all_tools():
             "check_embedding_drift",
             "set_tool_tier", "announce_model", "jcodemunch_guide",
             "digest", "diff_health_radar", "get_file_risk",
+            "import_runtime_signal", "get_runtime_coverage", "find_hot_paths", "find_unused_paths",
+            "get_redaction_log",
         }
         assert names == expected
         assert "test_summarizer" not in names  # disabled by default in DEFAULTS
@@ -667,9 +670,9 @@ async def test_disabled_tools_filtered_from_schema(monkeypatch):
         assert "index_repo" not in tool_names
         assert "search_columns" not in tool_names
         assert "get_file_tree" in tool_names  # Not disabled
-        # 69 default tools (66 + 3 force-included) + test_summarizer (config cleared) - 2 disabled = 68
-        # But set_tool_tier + announce_model + jcodemunch_guide are force-included even when disabled
-        assert len(tools) == 68
+        # 80 default tools + test_summarizer (config cleared) - 2 disabled = 79
+        # set_tool_tier + announce_model + jcodemunch_guide are force-included even when disabled
+        assert len(tools) == 79
     finally:
         config_module._GLOBAL_CONFIG.clear()
         config_module._GLOBAL_CONFIG.update(orig_config)
@@ -677,7 +680,7 @@ async def test_disabled_tools_filtered_from_schema(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_disabled_tools_empty_all_tools_present(monkeypatch):
-    """When disabled_tools is empty, all 67 tools are present."""
+    """When disabled_tools is empty, all 81 tools are present (80 + test_summarizer)."""
     from jcodemunch_mcp import config as config_module
 
     orig_config = config_module._GLOBAL_CONFIG.copy()
@@ -687,7 +690,7 @@ async def test_disabled_tools_empty_all_tools_present(monkeypatch):
         config_module._GLOBAL_CONFIG["disabled_tools"] = []
 
         tools = await list_tools()
-        assert len(tools) == 70  # 67 + set_tool_tier + announce_model + jcodemunch_guide  (get_file_risk v1.89.0, diff_health_radar v1.87.0, digest v1.86.0)
+        assert len(tools) == 81  # 80 + test_summarizer (config cleared, so disabled gate off)
     finally:
         config_module._GLOBAL_CONFIG.clear()
         config_module._GLOBAL_CONFIG.update(orig_config)

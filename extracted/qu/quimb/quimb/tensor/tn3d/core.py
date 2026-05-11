@@ -599,6 +599,23 @@ class TensorNetwork3D(TensorNetworkGen):
                 pass
         return coo
 
+    def has_site(self, site):
+        """Whether ``site`` is a valid ``(i, j, k)`` coordinate of this 3D
+        tensor network, with ``0 <= i < Lx``, ``0 <= j < Ly`` and
+        ``0 <= k < Lz``.
+        """
+        if not isinstance(site, tuple) or len(site) != 3:
+            return False
+        i, j, k = site
+        return (
+            isinstance(i, Integral)
+            and isinstance(j, Integral)
+            and isinstance(k, Integral)
+            and (0 <= i < self.Lx)
+            and (0 <= j < self.Ly)
+            and (0 <= k < self.Lz)
+        )
+
     def _get_tids_from_tags(self, tags, which="all"):
         """This is the function that lets coordinates such as ``(i, j, k)`` be
         used for many 'tag' based functions.
@@ -2179,6 +2196,7 @@ class TensorNetwork3D(TensorNetworkGen):
         cutoff=1e-10,
         canonize=False,
         canonize_opts=None,
+        gauge_power=1.0,
         lazy=False,
         strip_exponent=False,
         equalize_norms="auto",
@@ -2205,6 +2223,9 @@ class TensorNetwork3D(TensorNetworkGen):
             via :meth:`gauge_all_simple_`.
         canonize_opts : None or dict, optional
             Additional options to pass to :meth:`gauge_all_simple_`.
+        gauge_power : float, optional
+            If `canonize=True`, the power to which to raise the computed bond
+            gauge weights when before computing the compressed projectors.
         lazy : bool, optional
             Whether to contract the coarse graining projectors or leave them
             in the tensor network lazily. Default is to contract them.
@@ -2322,6 +2343,7 @@ class TensorNetwork3D(TensorNetworkGen):
                             contract_opts=contract_opts,
                             reduce_opts=reduce_opts,
                             compress_opts=compress_opts,
+                            gauge_power=gauge_power,
                         )
 
             retag_map[r.x_tag(i)] = r.x_tag(i // 2)
@@ -2361,6 +2383,7 @@ class TensorNetwork3D(TensorNetworkGen):
         cutoff=1e-10,
         canonize=False,
         canonize_opts=None,
+        gauge_power=1.0,
         sequence=("x", "y", "z"),
         max_separation=1,
         max_unfinished=1,
@@ -2393,11 +2416,13 @@ class TensorNetwork3D(TensorNetworkGen):
         cutoff : float, optional
             The cutoff for the singular values of the projector pairs.
         canonize : bool, optional
-            Whether to canonize all tensors before each contraction,
+            Whether to canonize all tensors before computing projectors,
             via :meth:`gauge_all_simple_`.
         canonize_opts : None or dict, optional
-            Additional options to pass to
-            :meth:`gauge_all_simple_`.
+            Additional options to pass to :meth:`gauge_all_simple_`.
+        gauge_power : float, optional
+            If `canonize=True`, the power to which to raise the computed bond
+            gauge weights when before computing the compressed projectors.
         sequence : tuple of str, optional
             The directions to contract in.  Default is to contract in all
             directions.
@@ -2508,6 +2533,7 @@ class TensorNetwork3D(TensorNetworkGen):
                 max_bond=max_bond,
                 canonize=canonize,
                 canonize_opts=canonize_opts,
+                gauge_power=gauge_power,
                 cutoff=cutoff,
                 lazy=lazy,
                 equalize_norms=equalize_norms,
@@ -2540,11 +2566,8 @@ class TensorNetwork3D(TensorNetworkGen):
             else:
                 final_contract_opts = ensure_dict(final_contract_opts)
                 final_contract_opts.setdefault("optimize", optimize)
-            return tn.contract(
-                strip_exponent=strip_exponent,
-                inplace=inplace,
-                **final_contract_opts,
-            )
+            final_contract_opts.setdefault("strip_exponent", strip_exponent)
+            return tn.contract(inplace=inplace, **final_contract_opts)
 
         return tn
 
@@ -2699,7 +2722,7 @@ class TensorNetwork3DVector(TensorNetwork3D, TensorNetworkGenVector):
         """Apply a gate ``G`` to sites ``where``, preserving the outer site
         inds.
         """
-        if is_lone_coo(where):
+        if self.has_site(where):
             where = (where,)
         else:
             where = tuple(where)
@@ -3144,7 +3167,7 @@ class PEPS3D(TensorNetwork3DVector, TensorNetwork3DFlat):
         get=None,
         **contract_boundary_opts,
     ):
-        if is_lone_coo(keep):
+        if self.has_site(keep):
             keep = (keep,)
 
         tags = [self.site_tag(i, j, k) for i, j, k in keep]
@@ -3239,7 +3262,7 @@ class PEPS3D(TensorNetwork3DVector, TensorNetwork3DFlat):
             symmetrized = not flatten
 
         # get minimal covering cell, allow single coordinate
-        if is_lone_coo(keep):
+        if self.has_site(keep):
             keep = (keep,)
         cell = sites_to_cell(keep)
 

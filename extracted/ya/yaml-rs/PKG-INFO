@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yaml-rs
-Version: 0.1.0
+Version: 0.1.1
 Classifier: Typing :: Typed
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python
@@ -17,7 +17,6 @@ Classifier: License :: OSI Approved :: The Unlicense (Unlicense)
 License-File: UNLICENSE
 Summary: A High-Performance YAML Parser for Python written in Rust
 Author-email: chirizxc <chirizxc@proton.me>
-Maintainer-email: chirizxc <chirizxc@proton.me>
 License-Expression: Unlicense
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
@@ -47,13 +46,15 @@ Project-URL: Source, https://github.com/lava-sh/yaml-rs
 
 ## Installation
 
+Using pip:
+
 ```bash
-# Using pip
 pip install yaml-rs
 ```
 
+Using uv:
+
 ```bash
-# Using uv
 uv pip install yaml-rs
 ```
 

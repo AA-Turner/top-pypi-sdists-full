@@ -2,6 +2,8 @@ import os
 import sys
 import unittest
 import json
+from dataclasses import dataclass
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -21,6 +23,7 @@ from cpsl.session import (
     SessionChannel,
     UserInfo,
     current_session,
+    session_data_json,
 )
 from cpsl.task_types import TaskDescriptor
 from cpsl.image import Image
@@ -91,6 +94,33 @@ class RuntimeSessionTests(unittest.TestCase):
 
         self.assertIn(ref, app._cpsl_config["collection_refs"])
 
+    def test_session_data_json_handles_common_python_values(self):
+        @dataclass
+        class Payload:
+            value: int
+
+        class Opaque:
+            def __reduce_ex__(self, protocol):
+                raise AssertionError("__reduce__ should not be called")
+
+            def __str__(self):
+                return "opaque"
+
+        encoded = session_data_json(
+            {
+                "dt": datetime(2026, 5, 10, tzinfo=timezone.utc),
+                "payload": Payload(3),
+                "bytes": b"hello",
+                "opaque": Opaque(),
+            }
+        )
+
+        decoded = json.loads(encoded)
+        self.assertEqual(decoded["dt"], "2026-05-10T00:00:00+00:00")
+        self.assertEqual(decoded["payload"], {"value": 3})
+        self.assertEqual(decoded["bytes"], "hello")
+        self.assertEqual(decoded["opaque"], "opaque")
+
 
 class SessionPromptTests(unittest.IsolatedAsyncioTestCase):
     def new_session(self) -> Session:
@@ -152,6 +182,26 @@ class SessionPromptTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(calls, 2)
         self.assertEqual(session.data["generated_media"][0]["src"], "https://example.com/a.png")
+
+    async def test_session_data_set_works_with_preloaded_state(self):
+        session = Session(
+            id="sess-preloaded",
+            user=UserInfo(id="user-1"),
+            channel=SessionChannel(type="chat"),
+            history=[],
+            data={"existing": {"value": 1}},
+        )
+        calls = 0
+
+        async def changed():
+            nonlocal calls
+            calls += 1
+
+        session._data_change_callback = changed
+        await session.data.set("next", {"ok": True})
+
+        self.assertEqual(calls, 1)
+        self.assertEqual(session.data["next"]["ok"], True)
 
     async def test_session_media_helpers_return_gallery_items(self):
         session = self.new_session()

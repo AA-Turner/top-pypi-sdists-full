@@ -188,6 +188,169 @@ def _local_repo_name(folder_path: Path) -> str:
     return f"{folder_path.name}-{digest}"
 
 
+class _CarriedSymbol:
+    """Attribute-access wrapper around a serialized symbol dict.
+
+    The save path expects ``Symbol``-like attribute access (`.id`, `.file`,
+    `.line`, etc.); carried-over symbols arrive as dicts pulled from a
+    loaded ``CodeIndex``.  This wrapper preserves the dict's values
+    without re-parsing source.
+    """
+
+    __slots__ = ("_d",)
+
+    def __init__(self, d: dict) -> None:
+        self._d = d
+
+    def __getattr__(self, name: str):
+        try:
+            return self._d[name]
+        except KeyError:
+            # Defaults that match Symbol dataclass field types.
+            if name in ("decorators", "keywords", "call_references"):
+                return []
+            if name in ("line", "end_line", "byte_offset", "byte_length",
+                         "cyclomatic", "max_nesting", "param_count"):
+                return 0
+            return ""
+
+
+def _file_outside_walk_prefix(file_path: str, walk_prefix: str) -> bool:
+    """Return True when ``file_path`` is *not* under ``walk_prefix``.
+
+    ``walk_prefix`` is git-root-relative (e.g. ``"packages"``).  An empty
+    prefix means the walk covered the entire git root, in which case
+    nothing is outside it.
+    """
+    if not walk_prefix:
+        return False
+    if file_path == walk_prefix:
+        return False
+    return not file_path.startswith(walk_prefix + "/")
+
+
+def _merge_subdir_into_existing(
+    existing,  # CodeIndex
+    walk_prefix: str,
+    new_source_files: list[str],
+    new_symbols,  # list[Symbol]
+    new_file_hashes: dict,
+    new_file_summaries: dict,
+    new_file_languages: dict,
+    new_file_mtimes: dict,
+    new_file_imports: dict,
+    new_context_metadata: dict,
+    new_pkg_names: list[str],
+) -> dict:
+    """Merge a fresh subdir walk into an existing v1.96 index.
+
+    Files in ``existing`` outside ``walk_prefix`` carry over unchanged;
+    everything else is replaced by the fresh walk.  Returns a dict with
+    the merged state, suitable for splat into ``save_index`` keyword args.
+    """
+    carry_files = [
+        f for f in existing.source_files
+        if _file_outside_walk_prefix(f, walk_prefix)
+    ]
+    carry_set = set(carry_files)
+
+    merged_source_files = sorted(set(carry_files) | set(new_source_files))
+
+    new_file_set = set(s.file for s in new_symbols)
+    carried_symbols = [
+        _CarriedSymbol(s) for s in existing.symbols
+        if s.get("file") in carry_set and s.get("file") not in new_file_set
+    ]
+
+    def _carry_dict(d: dict) -> dict:
+        return {k: v for k, v in (d or {}).items() if k in carry_set}
+
+    merged_file_hashes = {**_carry_dict(existing.file_hashes), **new_file_hashes}
+    merged_file_summaries = {**_carry_dict(existing.file_summaries), **new_file_summaries}
+    merged_file_languages = {**_carry_dict(existing.file_languages), **new_file_languages}
+    merged_file_mtimes = {**_carry_dict(existing.file_mtimes), **new_file_mtimes}
+    merged_imports = {**_carry_dict(existing.imports or {}), **(new_file_imports or {})}
+
+    # Recompute language counts from the merged file_languages map.
+    merged_languages: dict[str, int] = {}
+    for lang in merged_file_languages.values():
+        merged_languages[lang] = merged_languages.get(lang, 0) + 1
+
+    # Context metadata: shallow overlay (new keys win).  Provider-specific
+    # data that's per-file inside walk_prefix may be lost on overlap; an
+    # acceptable trade for v1.96 MVP.  Revisit if specific providers
+    # surface bugs.
+    merged_context_metadata = {**(existing.context_metadata or {}), **(new_context_metadata or {})}
+
+    # Package names: union (manifest files in either subdir contribute).
+    merged_pkg_names = sorted(set((existing.package_names or []) + (new_pkg_names or [])))
+
+    # source_roots: a full-root walk (walk_prefix == "") supersedes every
+    # earlier subdir slice — the new walk covers everything, so subdir
+    # markers are no longer meaningful.  Any other prefix is appended to
+    # the existing list, deduped, sorted.
+    if walk_prefix == "":
+        merged_source_roots: list[str] = [""]
+    else:
+        existing_roots = list(existing.source_roots or [])
+        if walk_prefix not in existing_roots:
+            existing_roots.append(walk_prefix)
+        merged_source_roots = sorted(set(existing_roots))
+
+    return {
+        "source_files": merged_source_files,
+        "symbols": carried_symbols,  # caller appends new symbols to this
+        "file_hashes": merged_file_hashes,
+        "file_summaries": merged_file_summaries,
+        "file_languages": merged_file_languages,
+        "file_mtimes": merged_file_mtimes,
+        "imports": merged_imports,
+        "languages": merged_languages,
+        "context_metadata": merged_context_metadata,
+        "package_names": merged_pkg_names,
+        "source_roots": merged_source_roots,
+    }
+
+
+def _resolve_repo_identity(folder_path: Path) -> tuple[str, str, str]:
+    """Resolve the storage identity for an indexing run.
+
+    Returns ``(owner, repo_name, git_root)``.  ``git_root`` is the
+    absolute path of the enclosing git working tree when one was detected
+    and used for the identity, else the empty string.
+
+    v1.95.0 (#288): when the path resolves into a git working tree and
+    the ``git_root_identity`` config knob is on (default), the identity
+    comes from ``git remote get-url origin`` so a clone of
+    ``elastic/kibana`` indexes as ``elastic/kibana`` regardless of the
+    local folder name — matching what ``index_repo elastic/kibana``
+    would produce.  Falls back to ``("local", git-root-basename)`` for
+    git roots with no configured remote, and to today's
+    basename-plus-hash form when no ``.git`` is found anywhere up the
+    tree or when the knob is off.
+    """
+    if _config.get("git_root_identity", True, repo=str(folder_path)):
+        try:
+            from ..storage.git_root import detect_git_root
+            ident = detect_git_root(str(folder_path))
+        except Exception:
+            logger.debug("git-root detection failed", exc_info=True)
+            ident = None
+        if ident is not None:
+            if ident.owner == "local":
+                # Git working tree without a usable `origin` remote.
+                # Preserve today's basename-plus-hash identity so unrelated
+                # local projects that share a folder basename never
+                # collide.  We still record the git_root on the manifest
+                # for v1.96 merge logic to use.
+                return "local", _local_repo_name(folder_path), ident.git_root
+            # Configured remote — use `<owner>/<name>` identity (matches
+            # what `index_repo <owner>/<name>` produces for the same repo).
+            return ident.owner, ident.name, ident.git_root
+    # No git working tree, or knob disabled: pre-v1.95 basename-plus-hash.
+    return "local", _local_repo_name(folder_path), ""
+
+
 from ._indexing_pipeline import (
     file_languages_for_paths as _file_languages_for_paths,
     language_counts as _language_counts,
@@ -611,6 +774,45 @@ def index_folder(
     _redact = _config.get("redact_source_root", False)
     _folder_display = folder_path.name if _redact else str(folder_path)
 
+    # ── v1.96 git-root retarget ──
+    # If git_root_identity is on (default) and `folder_path` resolves into a
+    # git working tree, anchor path resolution at the git root and walk
+    # only the user-requested subdir.  All file paths in the resulting
+    # index are git-root-relative, so multiple `index <subdir>` calls
+    # against the same clone coalesce into a single repo index.
+    walk_root = folder_path
+    _git_root_for_walk = ""
+    try:
+        from ..storage.git_root import detect_git_root as _detect_git_root_for_walk
+        _gr = _detect_git_root_for_walk(str(folder_path))
+    except Exception:
+        logger.debug("git-root detection failed during retarget", exc_info=True)
+        _gr = None
+    if _gr is not None and _config.get("git_root_identity", True, repo=str(folder_path)):
+        _gr_path = Path(_gr.git_root).resolve()
+        try:
+            _is_subdir = folder_path != _gr_path and folder_path.is_relative_to(_gr_path)
+        except AttributeError:
+            # Python < 3.9 fallback (shouldn't trigger; project requires 3.10+)
+            try:
+                folder_path.relative_to(_gr_path)
+                _is_subdir = folder_path != _gr_path
+            except ValueError:
+                _is_subdir = False
+        if folder_path == _gr_path or _is_subdir:
+            walk_root = folder_path
+            _git_root_for_walk = str(_gr_path)
+            folder_path = _gr_path
+
+    # walk_prefix is what `walk_root` looks like relative to `folder_path`
+    # (= the git root when we retargeted, else folder_path itself so the
+    # prefix is "").  Used by the merge logic to decide which existing
+    # files to carry over.
+    if walk_root == folder_path:
+        walk_prefix = ""
+    else:
+        walk_prefix = walk_root.relative_to(folder_path).as_posix()
+
     max_files = get_max_folder_files()
 
     try:
@@ -676,8 +878,9 @@ def index_folder(
         # discovery (~3s on Windows) and only process the affected files.
         if changed_paths and incremental:
             _pairs = parse_path_map()
-            repo_name = _local_repo_name(Path(remap(str(folder_path), _pairs, reverse=True)))
-            owner = "local"
+            owner, repo_name, _git_root = _resolve_repo_identity(
+                Path(remap(str(folder_path), _pairs, reverse=True))
+            )
             store = IndexStore(base_path=storage_path)
 
             # Branch detection for watcher fast-path
@@ -971,9 +1174,13 @@ def index_folder(
 
         _merged_ignore = list(extra_ignore_patterns or []) + _profile_ignore
 
-        # Discover source files (with security filtering)
+        # Discover source files (with security filtering).  When v1.96 has
+        # retargeted folder_path to the git root and walk_root is a strict
+        # subdir, we walk only the subdir but resolve paths relative to
+        # folder_path (= git root) downstream so file_paths are
+        # git-root-relative.
         source_files, discover_warnings, skip_counts = discover_local_files(
-            folder_path,
+            walk_root,
             max_files=max_files,
             extra_ignore_patterns=_merged_ignore or None,
             follow_symlinks=follow_symlinks,
@@ -1022,9 +1229,84 @@ def index_folder(
 
         # Create repo identifier from folder path
         _pairs = parse_path_map()
-        repo_name = _local_repo_name(Path(remap(str(folder_path), _pairs, reverse=True)))
-        owner = "local"
+        owner, repo_name, _git_root = _resolve_repo_identity(
+            Path(remap(str(folder_path), _pairs, reverse=True))
+        )
         store = IndexStore(base_path=storage_path)
+
+        # v1.95.0/1.96: collision guard + subdir-merge resolution.
+        #
+        # The guard only operates when the new identity came from git-root
+        # detection (`_git_root` is non-empty) and an existing index at the
+        # same identity also recorded a `git_root`.
+        #
+        # Three cases:
+        #
+        # 1. Different working trees of the same repo (`_git_root` mismatch):
+        #    refuse rather than silently overwriting.  Two clones of
+        #    `elastic/kibana` at different paths would otherwise collapse.
+        #
+        # 2. Same git_root, existing source_root == git_root (v1.96+ format,
+        #    file paths git-root-relative): set `_merge_with_existing` so
+        #    the save path carries over files outside `walk_prefix` from
+        #    the existing index and unions them with the fresh walk.
+        #
+        # 3. Same git_root, existing source_root != git_root (v1.95-style
+        #    where source_root was the user's subdir and file paths were
+        #    subdir-relative): not safely mergeable into the new
+        #    git-root-relative scheme.  Discard the v1.95 index and rebuild
+        #    fresh from the current walk.  Logged as a warning so users
+        #    upgrading see what happened.
+        _merge_with_existing: Optional["CodeIndex"] = None  # noqa: F821
+        _v195_legacy_rebuild = False
+        _existing_for_collision = store.load_index(owner, repo_name)
+        if (
+            _git_root
+            and _existing_for_collision is not None
+            and getattr(_existing_for_collision, "git_root", "")
+        ):
+            _existing_git_root = _existing_for_collision.git_root
+            _existing_source_root = getattr(_existing_for_collision, "source_root", "") or ""
+            if _existing_git_root != _git_root:
+                return {
+                    "success": False,
+                    "error": (
+                        f"Index '{owner}/{repo_name}' already exists at "
+                        f"'{_existing_git_root}'. Indexing a second working "
+                        f"tree at '{_git_root}' would overwrite it. Set "
+                        "`git_root_identity: false` in config (or "
+                        "JCODEMUNCH_GIT_ROOT_IDENTITY=0) to keep per-path "
+                        "indexes, or delete the existing index first."
+                    ),
+                }
+            # Same git_root.  Decide between merge (v1.96 format) and
+            # rebuild (v1.95 legacy format).
+            if _existing_source_root == _git_root:
+                _merge_with_existing = _existing_for_collision
+            elif _existing_source_root:
+                _v195_legacy_rebuild = True
+                # Drop the legacy index so the full-save path below
+                # creates a clean v1.96-format replacement.  Without this,
+                # `incremental_save` would try to layer the new walk on
+                # top of the legacy file set, leaving subdir-relative
+                # paths from v1.95 mixed with git-root-relative paths
+                # from v1.96.
+                try:
+                    store.delete_index(owner, repo_name)
+                except Exception:
+                    logger.debug("legacy v1.95 index delete failed", exc_info=True)
+                logger.warning(
+                    "Existing index for %s/%s was created by v1.95 with "
+                    "subdir-relative paths (source_root=%s); rebuilding "
+                    "fresh under v1.96 git-root-relative format.",
+                    owner, repo_name, _existing_source_root,
+                )
+                warnings.append(
+                    "Existing v1.95 index detected with subdir-relative file "
+                    "paths; rebuilding under the v1.96 git-root-relative "
+                    "scheme.  Re-run any prior subdir indexes against the "
+                    "same clone so they re-merge into this index."
+                )
 
         # ── Branch-aware indexing ──
         # Detect current git branch. If a base index exists and we're on a
@@ -1123,8 +1405,13 @@ def index_folder(
         except ImportError:
             pass
 
-        # Incremental path: detect changes using mtime fast-path
-        if incremental and existing_index is not None:
+        # Incremental path: detect changes using mtime fast-path.  Disabled
+        # when v1.96 subdir-merge mode is active (`_merge_with_existing`)
+        # because the new walk only covers `walk_prefix` while the existing
+        # index covers other subdirs — incremental's "changed/new/deleted"
+        # accounting against the full existing file set would mis-attribute
+        # carryover files as deleted.
+        if incremental and existing_index is not None and _merge_with_existing is None:
             changed, new, deleted, computed_hashes, updated_mtimes = (
                 store.detect_changes_with_mtimes(
                     owner, repo_name, file_mtimes, _hash_file
@@ -1476,26 +1763,83 @@ def index_folder(
                     source_root=str(folder_path), file_languages=file_languages,
                     display_name=folder_path.name, imports=file_imports,
                     context_metadata=full_context_metadata, file_mtimes=file_mtimes,
-                    package_names=_pkg_names,
+                    package_names=_pkg_names, git_root=_git_root,
                 )
         else:
+            # v1.96: when an existing v1.96-format index covers the same
+            # git_root, carry over files outside `walk_prefix` and union
+            # them with the freshly walked subdir.  The collision-guard
+            # block above sets `_merge_with_existing` only in this case.
+            _save_source_files = source_file_list
+            _save_symbols = all_symbols
+            _save_file_hashes = file_hashes
+            _save_file_summaries = file_summaries
+            _save_file_languages = file_languages
+            _save_file_mtimes = file_mtimes
+            _save_imports = file_imports
+            _save_languages = languages
+            _save_context_metadata = full_context_metadata
+            _save_pkg_names = _pkg_names
+            _save_source_roots = [walk_prefix] if walk_prefix else [""]
+
+            if _merge_with_existing is not None:
+                merged = _merge_subdir_into_existing(
+                    existing=_merge_with_existing,
+                    walk_prefix=walk_prefix,
+                    new_source_files=source_file_list,
+                    new_symbols=all_symbols,
+                    new_file_hashes=file_hashes,
+                    new_file_summaries=file_summaries,
+                    new_file_languages=file_languages,
+                    new_file_mtimes=file_mtimes,
+                    new_file_imports=file_imports,
+                    new_context_metadata=full_context_metadata or {},
+                    new_pkg_names=_pkg_names or [],
+                )
+                _save_source_files = merged["source_files"]
+                # Carried symbols (dicts) + freshly parsed Symbols.
+                # save_index serializes Symbols itself; we pre-serialize
+                # the carryover dicts by leaving them as dicts (save_index
+                # path tolerates pre-serialized via _symbol_to_dict no-op).
+                _save_symbols = merged["symbols"] + list(all_symbols)
+                _save_file_hashes = merged["file_hashes"]
+                _save_file_summaries = merged["file_summaries"]
+                _save_file_languages = merged["file_languages"]
+                _save_file_mtimes = merged["file_mtimes"]
+                _save_imports = merged["imports"]
+                _save_languages = merged["languages"]
+                _save_context_metadata = merged["context_metadata"]
+                _save_pkg_names = merged["package_names"]
+                _save_source_roots = merged["source_roots"]
+                logger.info(
+                    "v1.96 subdir merge: %d carried + %d new = %d files "
+                    "(%d source_roots: %s)",
+                    len(_save_source_files) - len(source_file_list),
+                    len(source_file_list),
+                    len(_save_source_files),
+                    len(_save_source_roots),
+                    _save_source_roots,
+                )
+
             index = store.save_index(
                 owner=owner,
                 name=repo_name,
-                source_files=source_file_list,
-                symbols=all_symbols,
+                source_files=_save_source_files,
+                symbols=_save_symbols,
                 raw_files={},
-                languages=languages,
-                file_hashes=file_hashes,
-                file_summaries=file_summaries,
+                languages=_save_languages,
+                file_hashes=_save_file_hashes,
+                file_summaries=_save_file_summaries,
                 git_head=git_head,
                 source_root=str(folder_path),
-                file_languages=file_languages,
+                file_languages=_save_file_languages,
                 display_name=folder_path.name,
-                imports=file_imports,
-                context_metadata=full_context_metadata,
-                file_mtimes=file_mtimes,
-                package_names=_pkg_names,
+                imports=_save_imports,
+                context_metadata=_save_context_metadata,
+                file_mtimes=_save_file_mtimes,
+                package_names=_save_pkg_names,
+                git_root=_git_root,
+                source_roots=_save_source_roots,
             )
 
         # Identify languages that were indexed (symbols found) but have no import extractor

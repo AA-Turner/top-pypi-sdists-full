@@ -63,6 +63,7 @@ from chalk.utils.pydanticutil.pydantic_compat import (
 from chalk.utils.string import oxford_comma_list, to_snake_case
 
 if TYPE_CHECKING:
+    from chalk_rs import FeatureClassAST
     from google.protobuf.message import Message as ProtobufMessage
 
     from chalk.features.feature_set import Features
@@ -221,6 +222,12 @@ class Feature(Generic[_TPrim, _TRich]):
 
     @property
     def lsp_error_builder(self) -> FeatureClassErrorBuilder:
+        # When this feature was contributed by an auxiliary class via
+        # `@features(part_of=...)`, prefer the auxiliary's error builder so
+        # diagnostics point at the file/line where the user actually wrote it.
+        if getattr(self, "auxiliary_error_builder", None) is not None:
+            assert self.auxiliary_error_builder is not None
+            return self.auxiliary_error_builder
         assert self.features_cls is not None
         return self.features_cls.__chalk_error_builder__
 
@@ -280,6 +287,11 @@ class Feature(Generic[_TPrim, _TRich]):
         "window_materialization",
         "window_materialization_parsed",
         "unversioned_attribute_name",
+        "auxiliary_namespace",
+        "auxiliary_filename",
+        "auxiliary_source",
+        "auxiliary_feature_class_ast",
+        "auxiliary_error_builder",
     )
 
     def __init__(
@@ -330,6 +342,7 @@ class Feature(Generic[_TPrim, _TRich]):
         store_online: bool = True,
         store_offline: bool = True,
         version_mapping: Mapping[int, _TRich] | None = None,
+        auxiliary_namespace: str | None = None,
     ):
         super().__init__()
         self.is_deprecated = is_deprecated
@@ -463,6 +476,11 @@ class Feature(Generic[_TPrim, _TRich]):
         self._join_type: Literal["has_one", "has_many"] | None = join_type
         self.store_online = store_online
         self.store_offline = store_offline
+        self.auxiliary_namespace: str | None = auxiliary_namespace
+        self.auxiliary_filename: str | None = None
+        self.auxiliary_source: str | None = None
+        self.auxiliary_feature_class_ast: "FeatureClassAST | None" = None
+        self.auxiliary_error_builder: "FeatureClassErrorBuilder | None" = None
 
     @property
     def all_validations(self):

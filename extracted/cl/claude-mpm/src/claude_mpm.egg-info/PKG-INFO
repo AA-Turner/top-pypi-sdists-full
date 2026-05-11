@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: claude-mpm
-Version: 6.2.67
+Version: 6.2.73
 Summary: Claude Code workflow and agent management framework - Multi-agent orchestration, skills system, MCP integration, session management, and semantic code search for AI-powered development
 Author-email: Bob Matsuoka <bob@matsuoka.com>
 Maintainer: Claude MPM Team
@@ -19,8 +19,6 @@ Classifier: License :: Other/Proprietary License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Build Tools
@@ -30,7 +28,7 @@ Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Software Distribution
 Classifier: Typing :: Typed
-Requires-Python: >=3.12
+Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE-FAQ.md

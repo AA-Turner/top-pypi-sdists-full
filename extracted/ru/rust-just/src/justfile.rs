@@ -44,7 +44,7 @@ impl<'src> Justfile<'src> {
     candidates: impl Iterator<Item = Suggestion<'src>>,
   ) -> Option<Suggestion<'src>> {
     candidates
-      .map(|suggestion| (edit_distance(input, suggestion.name), suggestion))
+      .map(|suggestion| (strsim::levenshtein(input, suggestion.name), suggestion))
       .filter(|(distance, _suggestion)| *distance < 3)
       .min_by_key(|(distance, _suggestion)| *distance)
       .map(|(_distance, suggestion)| suggestion)
@@ -101,11 +101,12 @@ impl<'src> Justfile<'src> {
     dotenv_arena: &'run Arena<BTreeMap<String, String>>,
     overrides: &'run HashMap<Number, String>,
     parent_dotenv: Option<&'run BTreeMap<String, String>>,
+    lazy: bool,
     root: &'run Scope<'src, 'run>,
     scope_arena: &'run Arena<Scope<'src, 'run>>,
     scopes: &mut Scopes<'src, 'run>,
     search: &'run Search,
-    variable_references: Option<&HashSet<Number>>,
+    variable_references: &HashSet<Number>,
   ) -> RunResult<'src> {
     let dotenv = if config.load_dotenv {
       let working_directory = if self.is_submodule() {
@@ -130,6 +131,8 @@ impl<'src> Justfile<'src> {
 
     let dotenv = dotenv_arena.alloc(dotenv);
 
+    let lazy = lazy || self.settings.lazy;
+
     let scope = Evaluator::evaluate_assignments(
       config,
       dotenv,
@@ -137,7 +140,7 @@ impl<'src> Justfile<'src> {
       overrides,
       root,
       search,
-      variable_references,
+      lazy.then_some(variable_references),
     )?;
 
     let scope = scope_arena.alloc(scope);
@@ -149,6 +152,7 @@ impl<'src> Justfile<'src> {
         dotenv_arena,
         overrides,
         Some(dotenv),
+        lazy,
         scope,
         scope_arena,
         scopes,
@@ -184,37 +188,32 @@ impl<'src> Justfile<'src> {
           });
         }
 
-        let variable_references = if self.settings.lazy {
-          let mut variable_references = HashSet::new();
+        let mut variable_references = HashSet::new();
 
-          let mut stack = Vec::new();
+        let mut stack = Vec::new();
 
-          for invocation in &invocations {
-            stack.push(invocation.recipe);
+        for invocation in &invocations {
+          stack.push(invocation.recipe);
+        }
+
+        while let Some(recipe) = stack.pop() {
+          variable_references.extend(&recipe.variable_references);
+          for dependency in &recipe.dependencies {
+            stack.push(&dependency.recipe);
           }
-
-          while let Some(recipe) = stack.pop() {
-            variable_references.extend(&recipe.variable_references);
-            for dependency in &recipe.dependencies {
-              stack.push(&dependency.recipe);
-            }
-          }
-
-          Some(variable_references)
-        } else {
-          None
-        };
+        }
 
         self.evaluate_scopes(
           config,
           &dotenv_arena,
           overrides,
           None,
+          false,
           &root,
           &scope_arena,
           &mut scopes,
           search,
-          variable_references.as_ref(),
+          &variable_references,
         )?;
 
         let ran = Ran::default();
@@ -223,6 +222,7 @@ impl<'src> Justfile<'src> {
             &invocation.arguments,
             config,
             false,
+            overrides,
             &ran,
             invocation.recipe,
             &scopes,
@@ -252,11 +252,12 @@ impl<'src> Justfile<'src> {
           &dotenv_arena,
           overrides,
           None,
+          true,
           &root,
           &scope_arena,
           &mut scopes,
           search,
-          Some(HashSet::new()).as_ref(),
+          &HashSet::new(),
         )?;
 
         let (_module, scope, dotenv) = scopes.get(&self.module_path).unwrap();
@@ -294,11 +295,12 @@ impl<'src> Justfile<'src> {
           &dotenv_arena,
           overrides,
           None,
+          true,
           &root,
           &scope_arena,
           &mut scopes,
           search,
-          Some(&variable_references),
+          &variable_references,
         )?;
 
         let scope = scopes.get(&module.module_path).unwrap().1;
@@ -384,7 +386,7 @@ impl<'src> Justfile<'src> {
   }
 
   pub(crate) fn check_unstable(&self, config: &Config) -> RunResult<'src> {
-    if let Some(&unstable_feature) = self.unstable_features.iter().next() {
+    if let Some(&unstable_feature) = self.unstable_features.first() {
       config.require_unstable(self, unstable_feature)?;
     }
 
@@ -419,6 +421,7 @@ impl<'src> Justfile<'src> {
     arguments: &[Vec<String>],
     config: &Config,
     is_dependency: bool,
+    overrides: &HashMap<Number, String>,
     ran: &Ran,
     recipe: &Recipe<'src>,
     scopes: &Scopes<'src, '_>,
@@ -440,10 +443,11 @@ impl<'src> Justfile<'src> {
       config,
       dotenv,
       module,
+      overrides,
       search,
     };
 
-    let (outer, positional) = Evaluator::evaluate_parameters(
+    let (outer, positional, env) = Evaluator::evaluate_parameters(
       arguments,
       &context,
       is_dependency,
@@ -467,19 +471,21 @@ impl<'src> Justfile<'src> {
       &context,
       recipe.priors(),
       &mut evaluator,
+      overrides,
       ran,
       recipe,
       scopes,
       search,
     )?;
 
-    recipe.run(&context, &scope, &positional, is_dependency)?;
+    recipe.run(&context, &env, is_dependency, &positional, &scope)?;
 
     Self::run_dependencies(
       config,
       &context,
       recipe.subsequents(),
       &mut evaluator,
+      overrides,
       &Ran::default(),
       recipe,
       scopes,
@@ -496,6 +502,7 @@ impl<'src> Justfile<'src> {
     context: &ExecutionContext<'src, 'run>,
     dependencies: &[Dependency<'src>],
     evaluator: &mut Evaluator<'src, 'run>,
+    overrides: &HashMap<Number, String>,
     ran: &Ran,
     recipe: &Recipe<'src>,
     scopes: &Scopes<'src, 'run>,
@@ -523,7 +530,9 @@ impl<'src> Justfile<'src> {
         let mut handles = Vec::new();
         for (recipe, arguments) in evaluated {
           handles.push(thread_scope.spawn(move || {
-            Self::run_recipe(&arguments, config, true, ran, recipe, scopes, search)
+            Self::run_recipe(
+              &arguments, config, true, overrides, ran, recipe, scopes, search,
+            )
           }));
         }
         for handle in handles {
@@ -535,7 +544,9 @@ impl<'src> Justfile<'src> {
       })?;
     } else {
       for (recipe, arguments) in evaluated {
-        Self::run_recipe(&arguments, config, true, ran, recipe, scopes, search)?;
+        Self::run_recipe(
+          &arguments, config, true, overrides, ran, recipe, scopes, search,
+        )?;
       }
     }
 

@@ -133,7 +133,7 @@ class Core:
                 _abs_f = os.path.join(root, f)
                 _rel_f = os.path.normpath(os.path.relpath(_abs_f, dst_dir))
 
-                if not _rel_f in [os.path.normpath(x) for x in src_files]:
+                if _rel_f not in [os.path.normpath(x) for x in src_files]:
                     os.remove(_abs_f)
 
     def _get_script_names(self, flags):
@@ -148,7 +148,7 @@ class Core:
                 if scripts:
                     hooks[hook] = []
                     for script in scripts:
-                        if not script in cd_scripts:
+                        if script not in cd_scripts:
                             raise SyntaxError(
                                 "Script '{}', requested by target '{}', was not found".format(
                                     script, target_name
@@ -276,10 +276,10 @@ class Core:
                 attributes = {
                     k: v
                     for k, v in attributes.items()
-                    if (type(v) == bool and v == True)
-                    or (type(v) == str and len(v)) > 0
-                    or (type(v) == list and len(v)) > 0
-                    or (type(v) == dict and len(v)) > 0
+                    if (isinstance(v, bool) and v is True)
+                    or (isinstance(v, str) and len(v) > 0)
+                    or (isinstance(v, list) and len(v) > 0)
+                    or (isinstance(v, dict) and len(v) > 0)
                 }
 
                 _src_files.append(attributes)
@@ -302,7 +302,7 @@ class Core:
     def get_parameters(self, flags={}, ext_parameters={}):
         def _parse_param_value(name, datatype, default):
             if datatype == "bool":
-                if type(default) == str:
+                if isinstance(default, str):
                     if default.lower() == "true":
                         return True
                     elif default.lower() == "false":
@@ -312,12 +312,12 @@ class Core:
                         raise SyntaxError(_s.format(self.name, default, p))
                 return default
             elif datatype == "int":
-                if type(default) == int:
+                if isinstance(default, int):
                     return default
                 else:
                     return int(default, 0)
             elif datatype == "real":
-                if type(default) == float:
+                if isinstance(default, float):
                     return default
                 else:
                     return float(default)
@@ -332,11 +332,11 @@ class Core:
                 core_param["description"] if "description" in core_param else ""
             )
 
-            if not datatype in ["bool", "file", "int", "real", "str"]:
+            if datatype not in ["bool", "file", "int", "real", "str"]:
                 _s = "{} : Invalid datatype '{}' for parameter {}"
                 raise SyntaxError(_s.format(self.name, datatype, p))
 
-            if not paramtype in [
+            if paramtype not in [
                 "cmdlinearg",
                 "generic",
                 "plusarg",
@@ -384,7 +384,6 @@ class Core:
                 # ...or in any of its dependencies
                 elif p in ext_parameters:
                     parameters[p] = ext_parameters[p]
-                    datatype = parameters[p]["datatype"]
 
                 else:
                     raise SyntaxError(
@@ -402,7 +401,7 @@ class Core:
                 # If default is a string and it is empty it should be deleted
                 if (
                     "default" in parameters[p]
-                    and type(parameters[p]["default"]) == str
+                    and isinstance(parameters[p]["default"], str)
                     and len(parameters[p]["default"]) == 0
                 ):
                     del parameters[p]["default"]
@@ -420,7 +419,7 @@ class Core:
         if "toplevel" in target:
             toplevel = target["toplevel"]
             self._debug(f"Matched toplevel {toplevel}")
-            return " ".join(toplevel) if type(toplevel) == list else toplevel
+            return " ".join(toplevel) if isinstance(toplevel, list) else toplevel
         else:
             s = "{} : Target '{}' has no toplevel"
             raise SyntaxError(s.format(self.name, target_name))
@@ -436,9 +435,9 @@ class Core:
         _ttptttg = []
         if "generate" in target:
             for f in target["generate"]:
-                if type(f) == str:
+                if isinstance(f, str):
                     _ttptttg.append({"name": f, "params": {}})
-                elif type(f) == dict:
+                elif isinstance(f, dict):
                     for k, v in f.items():
                         _ttptttg.append({"name": k, "params": v})
 
@@ -447,7 +446,7 @@ class Core:
         for gen in _ttptttg:
             gen_name = gen["name"]
             cd_generate = self._coredata.get_generate(flags)
-            if not gen_name in cd_generate:
+            if gen_name not in cd_generate:
                 raise SyntaxError(
                     "Generator instance '{}', requested by target '{}', was not found".format(
                         gen_name, target_name
@@ -500,7 +499,7 @@ class Core:
             vpi[vpi_name] = {
                 "src_files": files,
                 "inc_files": incfiles,
-                "libs": [l for l in libs],
+                "libs": [lib for lib in libs],
             }
         return vpi
 
@@ -535,12 +534,12 @@ Targets:
         cd_target = self._coredata.get_targets({})
 
         if cd_target:
-            l = max(len(x) for x in cd_target)
+            maxlen = max(len(x) for x in cd_target)
             targets = ""
 
             for t in sorted(cd_target):
                 targets += "{} : {}\n".format(
-                    t.ljust(l),
+                    t.ljust(maxlen),
                     cd_target[t]["description"]
                     if "description" in cd_target[t]
                     else "<No description>",
@@ -620,7 +619,7 @@ Targets:
         cd_filesets = self._coredata.get_filesets(flags)
 
         for fs in target.get("filesets", []):
-            if not fs in cd_filesets:
+            if fs not in cd_filesets:
                 raise SyntaxError(
                     "{} : Fileset '{}', requested by target '{}', was not found".format(
                         self.name, fs, target_name
@@ -686,7 +685,7 @@ Targets:
                     ok = True
         except RuntimeError:
             return "*"  # Signature is not for this core (should not happen)
-        except:
+        except Exception:
             return "!"  # Other signature checking error
         if ok:
             return "good"

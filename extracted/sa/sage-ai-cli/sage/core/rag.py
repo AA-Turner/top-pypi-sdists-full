@@ -1,20 +1,4 @@
-"""Local RAG over the user's codebase.
-
-Why this exists: small models hallucinate file paths and import names
-because they have no idea what's in the project. RAG fixes that by
-retrieving the top-K most-relevant code chunks at prompt time and
-injecting them as ground truth.
-
-Stack:
-  - SQLite for storage (no extra service to run)
-  - sqlite-vec extension for ANN search if available; cosine fallback otherwise
-  - Embeddings via Ollama's /api/embeddings endpoint (nomic-embed-text by default)
-  - All local; no cloud dependency
-
-The index lives at ~/.sage/rag/<project_hash>.db so multiple projects
-don't collide. Re-indexing is incremental: files are skipped if their
-mtime hasn't changed since last indexing.
-"""
+"""Local RAG over the user's codebase."""
 
 from __future__ import annotations
 
@@ -22,6 +6,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import struct
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,10 +17,14 @@ __all__ = [
     "OllamaEmbedder",
     "RAGIndex",
     "format_chunks_for_prompt",
+    "_walk_indexable",
+    "_chunk_file",
+    "_vec_to_blob",
+    "_blob_to_vec",
+    "_cosine",
 ]
 
 
-# Files we never index (binary, generated, or noise).
 _SKIP_DIRS = {
     "node_modules", ".git", "__pycache__", ".venv", "venv", "env",
     "dist", "build", "target", ".next", ".nuxt", ".cache",
@@ -62,7 +51,7 @@ _INDEX_EXTS = {
     ".json", ".yaml", ".yml", ".toml",
     ".html", ".css", ".scss",
 }
-_MAX_FILE_BYTES = 256 * 1024  # Skip huge files (likely generated)
+_MAX_FILE_BYTES = 256 * 1024
 _CHUNK_LINES = 80
 _CHUNK_OVERLAP = 12
 
@@ -77,20 +66,15 @@ class Chunk:
 
 
 class Embedder:
-    """Abstract embedder. Implementations return a list[float] per text."""
     dim: int = 768
-
     def embed(self, texts: list[str]) -> list[list[float]]:
         raise NotImplementedError
 
 
 class OllamaEmbedder(Embedder):
-    """Local embeddings via Ollama. Requires `ollama pull nomic-embed-text`."""
-
     def __init__(self, model: str = "nomic-embed-text", host: str = "http://127.0.0.1:11434"):
         self.model = model
         self.host = host
-        # nomic-embed-text returns 768-dim vectors. Other models override on first call.
         self.dim = 768
 
     def embed(self, texts: list[str]) -> list[list[float]]:
@@ -117,14 +101,11 @@ class OllamaEmbedder(Embedder):
         return out
 
 
-# ── Index ──────────────────────────────────────────────────────────────
-
 def _project_hash(cwd: Path) -> str:
     return hashlib.sha1(str(cwd.resolve()).encode("utf-8")).hexdigest()[:12]
 
 
 def _walk_indexable(root: Path):
-    """Yield paths of files worth indexing. Honours .gitignore-ish skip set."""
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS and not d.startswith(".")]
         for name in filenames:
@@ -191,9 +172,16 @@ def _cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb)
 
 
-class RAGIndex:
-    """Per-project SQLite index. Use .reindex() to refresh, .query() to retrieve."""
+def _vec_to_blob(vec: list[float]) -> bytes:
+    return struct.pack(f"<{len(vec)}f", *vec)
 
+
+def _blob_to_vec(blob: bytes) -> list[float]:
+    n = len(blob) // 4
+    return list(struct.unpack(f"<{n}f", blob))
+
+
+class RAGIndex:
     def __init__(self, cwd: Path, embedder: Embedder | None = None):
         self.cwd = cwd.resolve()
         self.embedder = embedder or OllamaEmbedder()
@@ -235,10 +223,7 @@ class RAGIndex:
                 self._has_vec = False
         self._conn.commit()
 
-    # ── Indexing ────────────────────────────────────────────────────
-
     def reindex(self, *, force: bool = False, progress=None) -> dict:
-        """Walk cwd, embed any new/changed files. Returns stats dict."""
         cur = self._conn.cursor()
 
         existing_mtimes: dict[str, float] = {}
@@ -247,7 +232,6 @@ class RAGIndex:
                 existing_mtimes[row[0]] = row[1]
 
         new_chunks: list[Chunk] = []
-        chunk_ids: list[int] = []
         files_seen: set[str] = set()
         for path in _walk_indexable(self.cwd):
             rel = str(path.relative_to(self.cwd))
@@ -266,7 +250,6 @@ class RAGIndex:
                 (rel, mtime),
             )
 
-        # Drop chunks for files that vanished from disk.
         if not force:
             for stale in set(existing_mtimes) - files_seen:
                 cur.execute("DELETE FROM chunks WHERE path = ?", (stale,))
@@ -303,8 +286,6 @@ class RAGIndex:
             "vec_backend": "sqlite-vec" if self._has_vec else "cosine-fallback",
         }
 
-    # ── Query ───────────────────────────────────────────────────────
-
     def query(self, text: str, top_k: int = 6) -> list[Chunk]:
         if not text.strip():
             return []
@@ -325,9 +306,8 @@ class RAGIndex:
                 ).fetchall()
                 return [Chunk(r[0], r[1], r[2], r[3], r[4]) for r in rows]
             except Exception:
-                self._has_vec = False  # Fall through to cosine
+                self._has_vec = False
 
-        # Pure-Python cosine fallback. Slower, but works without sqlite-vec.
         scored: list[Chunk] = []
         for row in cur.execute(
             "SELECT path, start_line, end_line, text, embedding FROM chunks"
@@ -339,19 +319,7 @@ class RAGIndex:
         return scored[:top_k]
 
 
-def _vec_to_blob(vec: list[float]) -> bytes:
-    import struct
-    return struct.pack(f"<{len(vec)}f", *vec)
-
-
-def _blob_to_vec(blob: bytes) -> list[float]:
-    import struct
-    n = len(blob) // 4
-    return list(struct.unpack(f"<{n}f", blob))
-
-
 def format_chunks_for_prompt(chunks: list[Chunk], max_chars: int = 6000) -> str:
-    """Render retrieved chunks as a system-prompt section."""
     if not chunks:
         return ""
     parts: list[str] = ["", "## RETRIEVED CONTEXT (top results from this project)"]

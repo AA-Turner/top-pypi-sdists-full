@@ -12149,6 +12149,61 @@ fn pep_751_install_directory() -> Result<()> {
 }
 
 #[test]
+fn pep_751_install_require_hashes_directory() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("foo").child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "foo"
+        version = "1.0.0"
+
+        [build-system]
+        requires = ["hatchling"]
+        build-backend = "hatchling.build"
+        "#,
+    )?;
+    context
+        .temp_dir
+        .child("foo")
+        .child("src")
+        .child("foo")
+        .child("__init__.py")
+        .touch()?;
+
+    let pylock_toml = context.temp_dir.child("pylock.toml");
+    pylock_toml.write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+        requires-python = ">=3.12"
+
+        [[packages]]
+        name = "foo"
+        version = "1.0.0"
+        directory = { path = "foo" }
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("-r")
+        .arg("pylock.toml")
+        .arg("--require-hashes"), @"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: In `--require-hashes` mode, all requirements must have a hash, but none were provided for: foo
+    "
+    );
+
+    Ok(())
+}
+
+#[test]
 #[cfg(feature = "test-git")]
 fn pep_751_install_git() -> Result<()> {
     let context = uv_test::test_context!("3.12");
@@ -14713,6 +14768,107 @@ fn build_backend_wrong_wheel_platform() -> Result<()> {
       ├─▶ Failed to build `py313 @ file://[TEMP_DIR]/child`
       ╰─▶ The built wheel `py313-0.1.0-py313-none-any.whl` is not compatible with the current Python 3.12 on [ARCH] [OS]
     ");
+
+    Ok(())
+}
+
+/// Test that `tool.uv.build-backend.data` files are installed for editable builds.
+///
+/// See <https://github.com/astral-sh/uv/issues/19258>.
+#[test]
+fn install_editable_uv_build_data() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+
+        [tool.uv.build-backend.data]
+        purelib = "purelib"
+        platlib = "platlib"
+        scripts = "scripts"
+        headers = "headers"
+        data = "data"
+    "#})?;
+
+    context.temp_dir.child("src/project/__init__.py").touch()?;
+    context
+        .temp_dir
+        .child("purelib/project-data.txt")
+        .write_str("project data")?;
+    context
+        .temp_dir
+        .child("platlib/project-platform-data.txt")
+        .write_str("project platform data")?;
+    context
+        .temp_dir
+        .child("scripts/project-script")
+        .write_str(indoc! {r#"
+            #!python
+            print("Hello from project script")
+        "#})?;
+    context
+        .temp_dir
+        .child("headers/project.h")
+        .write_str("#include <stdio.h>")?;
+    context
+        .temp_dir
+        .child("data/project-config.txt")
+        .write_str("project config")?;
+    uv_snapshot!(context.filters(), context.pip_install().arg("-e").arg("."), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + project==0.1.0 (from file://[TEMP_DIR]/)
+    ");
+
+    assert_snapshot!(
+        fs::read_to_string(context.site_packages().join("project-data.txt"))?,
+        @"project data"
+    );
+    assert_snapshot!(
+        fs::read_to_string(context.site_packages().join("project-platform-data.txt"))?,
+        @"project platform data"
+    );
+
+    let project_script = fs::read_to_string(venv_bin_path(&context.venv).join("project-script"))?;
+    let normalized_project_script = if let Some(index) = project_script.find('\n') {
+        format!("#![PYTHON]{}", &project_script[index..])
+    } else {
+        project_script
+    };
+    assert_snapshot!(
+        normalized_project_script,
+        @r#"
+        #![PYTHON]
+        print("Hello from project script")
+        "#
+    );
+
+    let record = fs::read_to_string(
+        context
+            .site_packages()
+            .join("project-0.1.0.dist-info")
+            .join("RECORD"),
+    )?;
+    assert!(record.lines().any(|line| line.contains("/project-script")));
+    assert!(record.lines().any(|line| line.contains("/project.h")));
+    assert!(
+        record
+            .lines()
+            .any(|line| line.contains("/project-config.txt"))
+    );
 
     Ok(())
 }

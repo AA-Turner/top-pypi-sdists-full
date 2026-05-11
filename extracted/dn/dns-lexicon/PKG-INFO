@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dns-lexicon
-Version: 3.25.1
+Version: 3.25.2
 Summary: Manipulate DNS records on various DNS providers in a standardized/agnostic way
 Project-URL: Homepage, https://dns-lexicon.github.io/dns-lexicon/introduction.html
 Project-URL: Documentation, https://dns-lexicon.github.io/dns-lexicon/user_guide.html

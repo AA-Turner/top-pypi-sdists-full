@@ -1,28 +1,11 @@
-"""Prompt prefix caching.
-
-Sage's system prompt is huge (the SAGE_TRAIN_SYSTEM_PROMPT alone is several
-thousand tokens, plus project context, plus RAG, plus few-shot). Re-encoding
-the same prefix on every call wastes tokens AND time, especially on local
-models where prefill latency dominates response latency.
-
-Strategy:
-  1. Hash (system_prompt + first_few_user_turns) → prefix_id
-  2. For llama-cpp: persist KV cache to disk via Llama.save_state()/load_state()
-  3. For Ollama: use the keep_alive option to preserve in-memory state across
-     calls; tag it with a prefix_id and reuse when the prefix matches
-  4. For cloud providers: pass `cache_control: {"type": "ephemeral"}` for
-     Anthropic-style; OpenAI auto-caches >1024 tokens since 2024-Q4
-
-This module is a thin facade — providers opt in by checking the cache before
-encoding. Cache lives at ~/.sage/kv_cache/<prefix_hash>.bin.
-"""
+"""Prompt prefix caching."""
 
 from __future__ import annotations
 
 import hashlib
 import json
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +18,6 @@ __all__ = [
 
 
 def prefix_id_for(system_prompt: str, model: str, prelude_messages: list[dict] | None = None) -> str:
-    """Deterministic id for a prompt prefix. Same inputs → same id."""
     h = hashlib.sha256()
     h.update(model.encode("utf-8"))
     h.update(b"\x1e")
@@ -52,29 +34,12 @@ class PrefixCacheKey:
     prefix_id: str
 
     def filename(self) -> str:
-        # Slash-safe model id
         safe = self.model.replace("/", "_").replace(":", "_")
         return f"{safe}__{self.prefix_id}.bin"
 
 
-@dataclass
-class PrefixCacheEntry:
-    key: PrefixCacheKey
-    path: Path
-    bytes: int
-    created_ts: float
-    last_used_ts: float
-
-
 class PrefixCache:
-    """On-disk KV-cache store for llama_cpp prefixes.
-
-    The cache is bounded by total bytes (default 4 GiB) — when exceeded,
-    least-recently-used entries are evicted. KV caches for big models can
-    be hundreds of MB each, so this matters.
-    """
-
-    DEFAULT_MAX_BYTES = 4 * 1024 * 1024 * 1024  # 4 GiB
+    DEFAULT_MAX_BYTES = 4 * 1024 * 1024 * 1024
 
     def __init__(self, root: Path | None = None, max_bytes: int = DEFAULT_MAX_BYTES):
         self.root = root or (Path.home() / ".sage" / "kv_cache")
@@ -98,7 +63,6 @@ class PrefixCache:
             pass
 
     def get(self, key: PrefixCacheKey) -> Path | None:
-        """Return path to cached state file, or None if missing."""
         entry = self._index.get(key.filename())
         if not entry:
             return None
@@ -107,13 +71,11 @@ class PrefixCache:
             self._index.pop(key.filename(), None)
             self._save_index()
             return None
-        # Touch
         entry["last_used_ts"] = time.time()
         self._save_index()
         return path
 
     def put(self, key: PrefixCacheKey, payload: bytes) -> Path:
-        """Persist KV-cache bytes; evicts LRU entries if over budget."""
         path = self.root / key.filename()
         path.write_bytes(payload)
         self._index[key.filename()] = {
@@ -131,7 +93,6 @@ class PrefixCache:
         total = sum(int(e.get("bytes", 0)) for e in self._index.values())
         if total <= self.max_bytes:
             return
-        # LRU: sort by last_used_ts ascending and drop until under budget
         sorted_entries = sorted(
             self._index.items(), key=lambda kv: kv[1].get("last_used_ts", 0),
         )
@@ -158,7 +119,6 @@ class PrefixCache:
 
 
 def anthropic_cache_control_block(text: str) -> dict[str, Any]:
-    """Wrap a text block so the Anthropic API caches it (>=1024 tokens)."""
     return {
         "type": "text",
         "text": text,

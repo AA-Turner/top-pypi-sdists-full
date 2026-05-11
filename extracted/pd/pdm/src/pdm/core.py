@@ -34,7 +34,7 @@ from pdm.installers import InstallManager
 from pdm.models.repositories import BaseRepository, PyPIRepository
 from pdm.project import Project
 from pdm.project.config import Config
-from pdm.utils import is_in_zipapp
+from pdm.utils import convert_to_datetime, is_in_zipapp
 
 if TYPE_CHECKING:
     from typing import Any, Iterable
@@ -134,7 +134,6 @@ class Core:
                 is_global=global_project,
                 global_config=options.config or os.getenv("PDM_CONFIG_FILE"),
             )
-        self.state.build_isolation = project.config["build_isolation"]
         return project
 
     def create_project(
@@ -159,7 +158,6 @@ class Core:
         """Called before command invocation"""
         from pdm.cli.commands.fix import Command as FixCommand
         from pdm.cli.hooks import HookManager
-        from pdm.cli.utils import use_venv
 
         self.ui.set_verbosity(options.verbose)
         self.ui.set_theme(project.global_config.load_theme())
@@ -177,14 +175,13 @@ class Core:
         if not isinstance(command, FixCommand):
             FixCommand.check_problems(project)
 
+        self.state.build_isolation = project.config["build_isolation"]
+
+        if exclude_newer := project.pyproject.resolution.get("exclude-newer"):
+            self.state.exclude_newer = convert_to_datetime(exclude_newer)
+
         for callback in getattr(options, "callbacks", []):
             callback(project, options)
-
-        if lockfile := getattr(options, "lockfile", None):
-            project.set_lockfile(cast(str, lockfile))
-
-        if getattr(options, "use_venv", None):
-            use_venv(project, cast(str, options.use_venv))
 
         if overrides := getattr(options, "override", None):
             self.state.overrides = overrides

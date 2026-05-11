@@ -232,7 +232,7 @@ class ConfigResolver(object):
         """
         for config_source in self._config_sources:
             value = config_source.resolve(config_key)
-            if value:
+            if value is not None:
                 return value
 
         return None

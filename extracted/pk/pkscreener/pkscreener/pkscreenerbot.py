@@ -55,6 +55,7 @@ from time import sleep, time
 import threading
 import pytz
 import telegram
+import requests
 
 # =============================================================================
 # MOCK PKG_RESOURCES FOR APSCHEDULER COMPATIBILITY
@@ -269,7 +270,7 @@ from PKDevTools.classes.GmailReader import PKGmailReader
 from pkscreener.classes.MenuOptions import MenuRenderStyle, menu, menus,MAX_MENU_OPTION
 from pkscreener.classes.WorkflowManager import run_workflow
 import pkscreener.classes.ConfigManager as ConfigManager
-from pkscreener.classes.PKAnalytics import PKAnalyticsService
+from pkscreener.classes.PKAnalytics import PKAnalyticsService, AnalyticsCategory, AnalyticsAction, AnalyticsLabel
 from PKDevTools.classes.FunctionTimeouts import ping
 from PKDevTools.classes.log import default_logger
 try:
@@ -306,6 +307,7 @@ from telegram.ext import (
     CallbackContext
 )
 from PKDevTools.classes.Singleton import SingletonType, SingletonMixin
+from PKDevTools.classes.Utils import random_user_agent
 
 class PKLocalCache(SingletonMixin, metaclass=SingletonType):
     def __init__(self):
@@ -418,7 +420,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
-def registerUser(user, forceFetch=False):
+def registerUser(user, forceFetch=False, query=None):
     """
     Register a user in the system and retrieve their OTP and subscription information.
     
@@ -440,15 +442,67 @@ def registerUser(user, forceFetch=False):
             user.id, user.username, f"{user.first_name} {user.last_name}",
             validityIntervalInSeconds=configManager.otpInterval
         )
+        if query is not None:
+            try:
+                query.answer(text="Working. Please wait...", show_alert=False)
+            except:
+                pass
         if str(otpValue).strip() != '0' and user.id not in PKLocalCache().registeredIDs:
             PKLocalCache().registeredIDs.append(user.id)
     is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
     if not is_subscription_enabled:
         from PKDevTools.classes.DBManager import LocalOTPCache
         otpValue, _ = LocalOTPCache().generate_emergency_otp_with_pdf(userid=user.id, username=user.username)
+        # Let's try and download the PDF ourselves for upto 30 seconds
+        trial_attempt = 0
+        max_trial = 3
+        while trial_attempt <= max_trial and int(str(otpValue)) > 0:
+            if query is not None:
+                try:
+                    query.answer(text="Still working. Please wait...", show_alert=False)
+                except:
+                    pass
+                resp = tryFetchFromServer(cache_file=f"{user.id}.pdf",directory="results/Data",hideOutput=False, branchName="SubData", no_cache=True)
+                if resp is None or resp.status_code != 200:
+                    trial_attempt = trial_attempt + 1
+                    sleep(10)
+                else:
+                    break
+            else:
+                break
     return otpValue, subsModel, subsValidity, alertUser
 
-
+def tryFetchFromServer(cache_file,repoOwner="pkjmesra",repoName="PKScreener",directory="results/Data",hideOutput=False,branchName="refs/heads/actions-data-download"):
+    resp = None
+    try:
+        cache_buster = f"?t={int(time.time())}"
+        cache_url = f"https://raw.githubusercontent.com/{repoOwner}/{repoName}/{branchName}/{directory}/{cache_file}{cache_buster}"
+        headers = {
+                    'authority': 'raw.githubusercontent.com',
+                    'accept': '*/*',
+                    'accept-language': 'en-US,en;q=0.9',
+                    'dnt': '1',
+                    'sec-ch-ua-mobile': '?0',
+                    # 'sec-ch-ua-platform': '"macOS"',
+                    'sec-fetch-dest': 'empty',
+                    'sec-fetch-mode': 'cors',
+                    'sec-fetch-site': 'cross-site',                  
+                    'origin': 'https://github.com',
+                    'referer': f'https://github.com/{repoOwner}/{repoName}/blob/{branchName}/{directory}/{cache_file}',
+                    'user-agent': f'{random_user_agent()}' 
+                    #'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36
+            }
+        default_logger().debug(f"Fetching cache file: {cache_file}")
+        # Use direct requests without cache for no_cache=True
+        headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        headers['Pragma']= 'no-cache'
+        resp = requests.get(cache_url, headers=headers, timeout=30)
+        default_logger().debug(f"Fetching cache file: {cache_file} with no_cache=True, status code: {resp.status_code}")
+    except:
+        pass
+    return resp
+    
+        
 def loadRegisteredUsers():
     """Load all registered user IDs from the database into the local cache."""
     dbManager = DBManager()
@@ -583,6 +637,7 @@ def matchUTR(update: Update, context: CallbackContext) -> str:
             return
     # Get user that sent /start and log his name
     user = updateCarrier.from_user
+    sendAnalytics("check",user.id)
     logger.info("User %s started the conversation.", user.first_name)
     if not bot_available:
         # Sometimes, either the payment does not go through or 
@@ -603,6 +658,7 @@ def matchUTR(update: Update, context: CallbackContext) -> str:
             pass
             return start(update,context)
         if len(args) > 0: # UTR
+            sendAnalytics(f"check_{args[0]}",user.id)
             matchedTran = PKGmailReader.matchUTR(utr=args[0])
             if matchedTran is not None:
                 updatedResults = f"We have found the following transaction for the provided UTR:\n{matchedTran}\nYour subscription is being enabled soon!\nPlease check with /OTP in the next couple of minutes!\nThank you for trusting PKScreener!"
@@ -649,6 +705,20 @@ def otp(update: Update, context: CallbackContext) -> str:
     Returns:
         str: START_ROUTES conversation state
     """
+    updateCarrier = None
+    if update is None:
+        return
+    else:
+        if update.callback_query is not None:
+            updateCarrier = update.callback_query
+        if update.message is not None:
+            updateCarrier = update.message
+            updateCarrier.reply_chat_action(telegram.ChatAction.TYPING)
+        if updateCarrier is None:
+            return
+    # Get user that sent /start and log his name
+    user = updateCarrier.from_user
+    sendAnalytics("OTP", user.id)
     if update.message is not None:
         update.message.reply_chat_action(telegram.ChatAction.TYPING)
     viewSubscriptionOptions(update, context, sendOTP=True)
@@ -684,6 +754,11 @@ def start(update: Update, context: CallbackContext, updatedResults=None, monitor
     # Get user that sent /start and log his name
     user = updateCarrier.from_user
     logger.info("User %s started the conversation.", user.first_name)
+    try:
+        preSelection = (str(updateCarrier.data).upper())
+        sendAnalytics(preSelection,user.id)
+    except:
+        pass
     if not bot_available:
         # Sometimes, either the payment does not go through or 
         # it takes time to process the last month's payment if
@@ -842,6 +917,19 @@ def XDevModeHandler(update: Update, context: CallbackContext) -> str:
     Returns:
         str: START_ROUTES conversation state
     """
+    updateCarrier = None
+    if update is None:
+        return
+    else:
+        if update.callback_query is not None:
+            updateCarrier = update.callback_query
+        if update.message is not None:
+            updateCarrier = update.message
+            updateCarrier.reply_chat_action(telegram.ChatAction.TYPING)
+        if updateCarrier is None:
+            return
+    # Get user that sent /start and log his name
+    user = updateCarrier.from_user
     query = update.callback_query
     if query is not None:
         try:
@@ -849,6 +937,7 @@ def XDevModeHandler(update: Update, context: CallbackContext) -> str:
         except Exception as e:
             logger.error(f"Error answering callback query: {e}")
     data = str(query.data).upper().replace("CX", "X").replace("CB", "B").replace("CG", "G").replace("CMI", "MI").replace("CDV","DV")
+    sendAnalytics(str(query.data).upper(), user.id)
     if data[0:2] not in TOP_LEVEL_SCANNER_MENUS:
         return start(update, context)
     if data.startswith("DV"):
@@ -914,6 +1003,7 @@ def PScanners(update: Update, context: CallbackContext) -> str:
         except Exception as e:
             logger.error(f"Error answering callback query: {e}")
     data = str(query.data).upper().replace("C", "")
+    sendAnalytics(str(query.data).upper(),user.id)
     if data[0:2] not in TOP_LEVEL_SCANNER_MENUS:
         # Someone is trying to send commands we do not support
         return start(update, context)
@@ -1025,6 +1115,8 @@ def cancelAlertSubscription(update: Update, context: CallbackContext):
     user = updateCarrier.from_user
     query = update.callback_query if update.callback_query is not None else None
     if query is not None:
+        preSelection = (str(query.data).upper())
+        sendAnalytics(preSelection,user.id)
         try:
             query.answer(text="Processing your request...", show_alert=False)
         except Exception as e:
@@ -1083,13 +1175,15 @@ def viewSubscriptionOptions(update: Update, context: CallbackContext, sendOTP=Fa
         if updateCarrier is None:
             return
     query = update.callback_query if update.callback_query is not None else None
+    # Get user that sent /start and log his name
+    user = updateCarrier.from_user
     if query is not None:
+        preSelection = (str(query.data).upper())
+        sendAnalytics(preSelection,user.id)
         try:
             query.answer(text="Processing your request...", show_alert=False)
         except Exception as e:
             logger.error(f"Error answering callback query: {e}")
-    # Get user that sent /start and log his name
-    user = updateCarrier.from_user
     logger.info("User %s started the conversation.", user.first_name)
     if not bot_available:
         # Sometimes, either the payment does not go through or 
@@ -1112,7 +1206,7 @@ def viewSubscriptionOptions(update: Update, context: CallbackContext, sendOTP=Fa
             otpValue = 0
             alertUser = None
             dbManager = DBManager()
-            otpValue, subsModel, subsValidity, alertUser = registerUser(user, forceFetch=True)
+            otpValue, subsModel, subsValidity, alertUser = registerUser(user, forceFetch=True, query=query)
             if is_subscription_enabled:
                 if alertUser is not None and len(alertUser.scannerJobs) > 0:
                     scannerJobsSubscribed = ", ".join(alertUser.scannerJobs)
@@ -1203,6 +1297,7 @@ def subscribeToScannerAlerts(update: Update, context: CallbackContext) -> str:
         except Exception as e:
             logger.error(f"Error answering callback query: {e}")
     scanId = str(query.data).upper().replace("SUB_", "").strip()
+    sendAnalytics(str(query.data).upper(),user.id)
     global bot_available
     if not bot_available:
         # Bot is running but is running in unavailable mode.
@@ -1494,6 +1589,15 @@ def stop_trigger(update: Update, context: CallbackContext) -> None:
     stop_scheduled_workflow()
     update.message.reply_text("🛑 Scheduled workflow trigger stopped.")
 
+def sendAnalytics(data, userId=""):
+    try:
+        PKAnalyticsService().send_event(category=AnalyticsCategory.BOT_CMD,
+                                        action=AnalyticsAction.REQUEST,
+                                        label=AnalyticsLabel.INFO,
+                                        custom_dimensions={"menu_path":f"/{data}", 
+                                                           "user_id":userId})
+    except:
+        pass
 
 def XScanners(update: Update, context: CallbackContext) -> str:
     """
@@ -1529,6 +1633,7 @@ def XScanners(update: Update, context: CallbackContext) -> str:
         except Exception as e:
             logger.error(f"Error answering callback query: {e}")
     data = str(query.data).upper().replace("C", "")
+    sendAnalytics(str(query.data).upper(),user.id)
     if data[0:2] not in TOP_LEVEL_SCANNER_MENUS:
         # Someone is trying to send commands we do not support
         return start(update, context)
@@ -1670,6 +1775,7 @@ def Level2(update: Update, context: CallbackContext) -> str:
     preSelection = (
         str(query.data).upper().replace("C", "")
     )
+    sendAnalytics(str(query.data).upper(),user.id)
     selection = preSelection.split("_")
     preSelection = f"{selection[0]}_{selection[1]}"
     if (str(selection[0]).upper() not in TOP_LEVEL_SCANNER_MENUS):
@@ -2091,6 +2197,8 @@ def handleHousekeeping(update: Update, context: CallbackContext) -> str:
     user = updateCarrier.from_user
     query = update.callback_query
     if query is not None:
+        preSelection = (str(query.data).upper())
+        sendAnalytics(preSelection,user.id)
         try:
             query.answer(text="Processing your request...", show_alert=False)
         except Exception as e:
@@ -2991,7 +3099,7 @@ def help_command(update: Update, context: CallbackContext) -> None:
             return
     # Get user that sent /start and log his name
     user = updateCarrier.from_user
-
+    sendAnalytics("help",user.id)
     if user.id in user_states and user.username.lower() == OWNER_USER.lower():
         if "_awaiting_input_1" in user_states[user.id]:
             hskCmd = user_states[user.id].split("_")[0]

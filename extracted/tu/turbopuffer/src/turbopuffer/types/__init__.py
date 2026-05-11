@@ -10,8 +10,8 @@ from .id_param import IDParam as IDParam
 from .language import Language as Language
 from .row_param import RowParam as RowParam
 from .tokenizer import Tokenizer as Tokenizer
+from .encryption import Encryption as Encryption
 from .limit_param import LimitParam as LimitParam
-from .query_param import QueryParam as QueryParam
 from .decay_params import DecayParams as DecayParams
 from .vector_param import VectorParam as VectorParam
 from .columns_param import ColumnsParam as ColumnsParam
@@ -22,6 +22,7 @@ from .pinning_config import PinningConfig as PinningConfig
 from .distance_metric import DistanceMetric as DistanceMetric
 from .saturate_params import SaturateParams as SaturateParams
 from .vector_encoding import VectorEncoding as VectorEncoding
+from .encryption_param import EncryptionParam as EncryptionParam
 from .full_text_search import FullTextSearch as FullTextSearch
 from .aggregation_group import AggregationGroup as AggregationGroup
 from .namespace_summary import NamespaceSummary as NamespaceSummary
@@ -34,6 +35,7 @@ from .attribute_schema_param import AttributeSchemaParam as AttributeSchemaParam
 from .full_text_search_param import FullTextSearchParam as FullTextSearchParam
 from .namespace_query_params import NamespaceQueryParams as NamespaceQueryParams
 from .namespace_write_params import NamespaceWriteParams as NamespaceWriteParams
+from .sparse_distance_metric import SparseDistanceMetric as SparseDistanceMetric
 from .attribute_schema_config import AttributeSchemaConfig as AttributeSchemaConfig
 from .full_text_search_config import FullTextSearchConfig as FullTextSearchConfig
 from .namespace_recall_params import NamespaceRecallParams as NamespaceRecallParams
@@ -44,11 +46,15 @@ from .namespace_write_response import NamespaceWriteResponse as NamespaceWriteRe
 from .namespace_recall_response import NamespaceRecallResponse as NamespaceRecallResponse
 from .namespace_schema_response import NamespaceSchemaResponse as NamespaceSchemaResponse
 from .copy_from_namespace_params import CopyFromNamespaceParams as CopyFromNamespaceParams
+from .namespace_copy_from_params import NamespaceCopyFromParams as NamespaceCopyFromParams
 from .branch_from_namespace_params import BranchFromNamespaceParams as BranchFromNamespaceParams
+from .namespace_branch_from_params import NamespaceBranchFromParams as NamespaceBranchFromParams
+from .namespace_copy_from_response import NamespaceCopyFromResponse as NamespaceCopyFromResponse
 from .namespace_multi_query_params import NamespaceMultiQueryParams as NamespaceMultiQueryParams
 from .attribute_schema_config_param import AttributeSchemaConfigParam as AttributeSchemaConfigParam
 from .full_text_search_config_param import FullTextSearchConfigParam as FullTextSearchConfigParam
 from .namespace_delete_all_response import NamespaceDeleteAllResponse as NamespaceDeleteAllResponse
+from .namespace_branch_from_response import NamespaceBranchFromResponse as NamespaceBranchFromResponse
 from .namespace_explain_query_params import NamespaceExplainQueryParams as NamespaceExplainQueryParams
 from .namespace_multi_query_response import NamespaceMultiQueryResponse as NamespaceMultiQueryResponse
 from .namespace_update_schema_params import NamespaceUpdateSchemaParams as NamespaceUpdateSchemaParams

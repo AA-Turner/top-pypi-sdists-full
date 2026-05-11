@@ -544,10 +544,12 @@ class ScreeningStatistics:
                 return df, {}
             
             # Check if ATRTrailingStop column exists
+            # Ensure ATRTrailingStop column exists (fallback calculation if missing)
             if 'ATRTrailingStop' not in df.columns:
                 if self.default_logger:
-                    self.default_logger.error("computeBuySellSignals: 'ATRTrailingStop' column not found")
-                return df, {}
+                    self.default_logger.warning(f"ATRTrailingStop column missing, calculating fallback for {stock_name}")
+                # Fallback: simple trailing stop based on close price
+                df['ATRTrailingStop'] = df['close'] * 0.95  # 5% below close as simple stop
             
             # Initialize all signal columns with default values
             df["Above"] = False
@@ -738,50 +740,64 @@ class ScreeningStatistics:
 
                         # ============ ADDITIONAL SELL SIGNALS FOR BEARISH MARKET ============
                         # These provide sell signals even when ATR conditions aren't met
-                        if not df["Sell"].any() and confirmation_bars <= 2:
+                        if confirmation_bars <= 2:
                             
                             # 1. Death Cross (50 SMA crosses below 200 SMA) - Strong sell signal
                             if "SMA" in df.columns and "LMA" in df.columns and len(df) > 2:
                                 death_cross = (df["SMA"] < df["LMA"]) & (df["SMA"].shift(1) > df["LMA"].shift(1))
-                                if death_cross.any():
-                                    df.loc[death_cross, "Sell"] = True
-                                    df.loc[death_cross, "Signal_Strength"] = 4  # Strong signal
-                                    df.loc[death_cross, "Sell_Confidence"] = 85
-                                    if self.default_logger:
-                                        self.default_logger.debug("Added death cross sell signals")
+                                df.loc[death_cross & ~df["Sell"], "Sell"] = True
+                                df.loc[death_cross & ~df["Sell"], "Signal_Strength"] = 4
+                                df.loc[death_cross & ~df["Sell"], "Sell_Confidence"] = 85
+                                if self.default_logger and (death_cross & ~df["Sell"]).any():
+                                    self.default_logger.debug("Added death cross sell signals")
                             
                             # 2. Close below 200 SMA (major breakdown) - Moderate sell signal
-                            if "LMA" in df.columns and not df["Sell"].any():
+                            if "LMA" in df.columns:
                                 below_200 = (df["close"] < df["LMA"]) & (df["close"].shift(1) > df["LMA"].shift(1))
-                                if below_200.any():
-                                    df.loc[below_200, "Sell"] = True
-                                    df.loc[below_200, "Signal_Strength"] = 3
-                                    df.loc[below_200, "Sell_Confidence"] = 70
-                                    if self.default_logger:
-                                        self.default_logger.debug("Added below 200MA sell signals")
+                                df.loc[below_200 & ~df["Sell"], "Sell"] = True
+                                df.loc[below_200 & ~df["Sell"], "Signal_Strength"] = 3
+                                df.loc[below_200 & ~df["Sell"], "Sell_Confidence"] = 75
+                                if self.default_logger and (below_200 & ~df["Sell"]).any():
+                                    self.default_logger.debug("Added below 200MA sell signals")
                             
                             # 3. 5-day EMA crossing below 20-day EMA (short-term bearish)
                             if len(df) > 20:
                                 ema5 = df["close"].ewm(span=5, adjust=False).mean()
                                 ema20 = df["close"].ewm(span=20, adjust=False).mean()
                                 ema_cross_below = (ema5 < ema20) & (ema5.shift(1) > ema20.shift(1))
-                                if ema_cross_below.any() and not df["Sell"].any():
-                                    df.loc[ema_cross_below, "Sell"] = True
-                                    df.loc[ema_cross_below, "Signal_Strength"] = 2
-                                    df.loc[ema_cross_below, "Sell_Confidence"] = 55
-                                    if self.default_logger:
-                                        self.default_logger.debug("Added EMA5/20 cross sell signals")
+                                df.loc[ema_cross_below & ~df["Sell"], "Sell"] = True
+                                df.loc[ema_cross_below & ~df["Sell"], "Signal_Strength"] = 2
+                                df.loc[ema_cross_below & ~df["Sell"], "Sell_Confidence"] = 55
+                                if self.default_logger and (ema_cross_below & ~df["Sell"]).any():
+                                    self.default_logger.debug("Added EMA5/20 cross sell signals")
                             
-                            # 4. RSI downtrend with bearish divergence
-                            if "RSI" in df.columns and len(df) > 5:
+                            # 4. RSI overbought (bearish signal)
+                            if "RSI" in df.columns:
+                                rsi_overbought = df["RSI"] > 70
+                                df.loc[rsi_overbought & ~df["Sell"], "Sell"] = True
+                                df.loc[rsi_overbought & ~df["Sell"], "Signal_Strength"] = 2
+                                df.loc[rsi_overbought & ~df["Sell"], "Sell_Confidence"] = 60
+                                if self.default_logger and (rsi_overbought & ~df["Sell"]).any():
+                                    self.default_logger.debug("Added RSI overbought sell signals")
+                            
+                            # 5. Price below 20 SMA (bearish)
+                            if "SMA" in df.columns:
+                                price_below_sma = df["close"] < df["SMA"]
+                                df.loc[price_below_sma & ~df["Sell"], "Sell"] = True
+                                df.loc[price_below_sma & ~df["Sell"], "Signal_Strength"] = 3
+                                df.loc[price_below_sma & ~df["Sell"], "Sell_Confidence"] = 65
+                                if self.default_logger and (price_below_sma & ~df["Sell"]).any():
+                                    self.default_logger.debug("Added price below SMA sell signals")
+                            
+                            # 6. RSI downtrend with bearish divergence
+                            if "RSI" in df.columns and len(df) > 5 and not df["Sell"].any():
                                 # RSI falling from overbought (>70) to below 50
                                 rsi_falling = (df["RSI"] < 50) & (df["RSI"].shift(1) >= 70)
-                                if rsi_falling.any() and not df["Sell"].any():
-                                    df.loc[rsi_falling, "Sell"] = True
-                                    df.loc[rsi_falling, "Signal_Strength"] = 3
-                                    df.loc[rsi_falling, "Sell_Confidence"] = 65
-                                    if self.default_logger:
-                                        self.default_logger.debug("Added RSI falling from overbought sell signals")
+                                df.loc[rsi_falling & ~df["Sell"], "Sell"] = True
+                                df.loc[rsi_falling & ~df["Sell"], "Signal_Strength"] = 3
+                                df.loc[rsi_falling & ~df["Sell"], "Sell_Confidence"] = 70
+                                if self.default_logger and (rsi_falling & ~df["Sell"]).any():
+                                    self.default_logger.debug("Added RSI falling from overbought sell signals")
 
                         # ============ CONFIDENCE SCORES (0-100) ============
                         # Buy confidence calculation
@@ -1003,7 +1019,7 @@ class ScreeningStatistics:
     # COMPUTE SIGNALS WITH SCORES
     # =============================================================================
 
-    def computeBuySellSignalsWithScores(self, df, ema_period=200, retry=True):
+    def computeBuySellSignalsWithScores(self, df, ema_period=200, retry=True,stock_name="Unknown"):
         """
         Enhanced version that returns detailed signal scores for ranking and filtering.
         
@@ -1058,7 +1074,7 @@ class ScreeningStatistics:
         try:
             # First compute base signals
             df, _ = self.computeBuySellSignals(df, ema_period=ema_period, retry=retry, 
-                                            confirmation_bars=1, volume_confirmation=True)
+                                            confirmation_bars=1, volume_confirmation=True, stock_name=stock_name)
             
             if df is None or len(df) == 0:
                 return df
@@ -2160,7 +2176,7 @@ class ScreeningStatistics:
         - Threshold comparisons
         
         Args:
-            df_src: OHLCV DataFrame
+            df_src: OHLCV DataFrame (newest first)
             sensitivity: ATR multiplier
             atr_period: Period for ATR calculation
             ema_period: Period for EMA trend filter
@@ -2223,13 +2239,18 @@ class ScreeningStatistics:
         data = data.replace([np.inf, -np.inf], 0)
         data = data[::-1]  # Reverse to oldest first (required for ATR)
         
-        if len(data) > 100:
-            data = data.tail(100)
+        if len(data) > 150:
+            data = data.tail(150)
         
         try:
             # Calculate ATR
             data["xATR"] = pktalib.ATR(data["high"], data["low"], data["close"], timeperiod=atr_period)
             data["nLoss"] = sensitivity * data["xATR"]
+            
+            # Calculate additional indicators needed for sell signals
+            data["SMA"] = data["close"].rolling(window=20, min_periods=10).mean()
+            data["LMA"] = data["close"].rolling(window=50, min_periods=20).mean()
+            data["RSI"] = pktalib.RSI(data["close"], timeperiod=14)
             
             data = data.dropna()
             if len(data) < atr_period + 5:
@@ -2319,7 +2340,8 @@ class ScreeningStatistics:
             try:
                 scored_data = self.computeBuySellSignalsWithScores(
                     data.tail(50),
-                    ema_period=ema_period
+                    ema_period=ema_period,
+                    stock_name=stock_name
                 )
                 
                 if scored_data is not None and not scored_data.empty:
@@ -2344,8 +2366,8 @@ class ScreeningStatistics:
         # =========================================================================
         # LEVEL 5: APPLY BALANCED FILTERS (Optional)
         # =========================================================================
-        # Only apply balanced filter if we're looking for specific signals
-        if buySellAll != 3 and (buy_signal or sell_signal):
+        # Only apply balanced filter if we're looking for sell signals only
+        if buySellAll == 2 and sell_signal:
             try:
                 balanced_data = self.computeBalancedSignals(
                     data.tail(50),
@@ -2362,13 +2384,8 @@ class ScreeningStatistics:
                 
                 if balanced_data is not None and not balanced_data.empty:
                     recent_balanced = balanced_data.tail(1)
-                    if buySellAll == 1:  # Only apply filter for buy-only mode
-                        if "Buy_Signal" in recent_balanced.columns:
-                            buy_signal = buy_signal and recent_balanced["Buy_Signal"].iloc[0]
-                    elif buySellAll == 2:  # Only apply filter for sell-only mode
-                        if "Sell_Signal" in recent_balanced.columns:
-                            sell_signal = sell_signal and recent_balanced["Sell_Signal"].iloc[0]
-                    # For buySellAll == 3, skip balanced filtering entirely
+                    if "Sell_Signal" in recent_balanced.columns:
+                        sell_signal = sell_signal and recent_balanced["Sell_Signal"].iloc[0]
                     # self.default_logger.debug(f"computeBalancedSignals for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}")
             except Exception as e:
                 if self.default_logger:
@@ -2392,9 +2409,11 @@ class ScreeningStatistics:
         if buySellAll == 1:  # Buy signals only
             result = buy_signal
             signal_type = "Buy" if buy_signal else "NA"
+            sell_signal = False  # Ensure sell signal is False when looking for buy signals only
         elif buySellAll == 2:  # Sell signals only
             result = sell_signal
             signal_type = "Sell" if sell_signal else "NA"
+            buy_signal = False  # Ensure buy signal is False when looking for sell signals only
         else:  # Any signal (buySellAll == 3)
             result = buy_signal or sell_signal
             if buy_signal:
@@ -2402,13 +2421,8 @@ class ScreeningStatistics:
             if sell_signal:
                 signal_type = "Sell"
             if buy_signal and sell_signal:
-                if buy_confidence >= sell_confidence:
-                    signal_type = "Buy"
-                    buy_signal = True
-                    sell_signal = False
-                else:
                     signal_type = "Sell"
-                    buy_signal = False
+                    buy_signal = False  # Prioritize sell signal if both are present
                     sell_signal = True
         # self.default_logger.debug(f"Level 7 for {stock_name}: Returned result=Buy:{buy_signal}, Sell:{sell_signal}, Buy_Conf:{buy_confidence}, signal_type:{signal_type}, Sell_Conf:{sell_confidence}")
         # =========================================================================
@@ -2420,7 +2434,13 @@ class ScreeningStatistics:
             saveDict["Confidence"] = buy_confidence if buy_signal else sell_confidence if sell_signal else 0
             screenDict["Confidence"] = buy_confidence if buy_signal else sell_confidence if sell_signal else 0
             if result:
-                if buy_signal and buy_confidence > 0:
+                if buy_signal and sell_signal:
+                    saveDict["B/S"] = signal_type
+                    saveDict["Signal_Strength"] = signal_strength
+                    saveDict["Confidence"] = buy_confidence if buy_confidence >= sell_confidence else sell_confidence
+                    screenDict["Confidence"] = buy_confidence if buy_confidence >= sell_confidence else sell_confidence
+                    screenDict["B/S[%]"] = colorText.GREEN + f"{signal_type}[{int(buy_confidence)}]" + colorText.END
+                elif buy_signal and buy_confidence > 0:
                     screenDict["B/S[%]"] = colorText.GREEN + f"{signal_type}[{int(buy_confidence)}]" + colorText.END
                 elif sell_signal and sell_confidence > 0:
                     screenDict["B/S[%]"] = colorText.FAIL + f"{signal_type}[{int(sell_confidence)}]" + colorText.END
@@ -3659,6 +3679,23 @@ class ScreeningStatistics:
     def find_cup_and_handle(self, df_src, saveDict=None, screenDict=None, order=0):
         """
         Detect Cup and Handle pattern with integrated validation methods.
+        
+        Enhanced with 20 EMA retest and momentum confirmation for better signal quality.
+        
+        When configManager.cupAndHandle_20EMARetestOrMomentum is True:
+        1. After cup formation, the algorithm checks if price is retesting the 20 EMA
+        for handle formation (ideal entry point)
+        2. OR checks for momentum confirmation (volume surge + price action)
+        3. Returns True if either condition is met
+        
+        Args:
+            df_src: DataFrame with OHLCV data (newest first)
+            saveDict: Dictionary for saving results
+            screenDict: Dictionary for screen display
+            order: Order for extremum detection (auto-calculated if 0)
+        
+        Returns:
+            tuple: (is_valid, pattern_details) where pattern_details contains indices
         """
         try:
             from scipy.signal import argrelextrema
@@ -3673,6 +3710,10 @@ class ScreeningStatistics:
         if df_src is None or len(df_src) < 90:
             return False, None
         
+        # Get configuration for EMA retest/momentum check
+        check_ema_retest = getattr(self.configManager, 'cupAndHandle_20EMARetestOrMomentum', False)
+        ema_period = 20  # Standard 20 EMA for retest confirmation
+        
         # Make a copy and handle timezone
         df = df_src.copy()
         if df.index.tz is not None:
@@ -3683,6 +3724,10 @@ class ScreeningStatistics:
         
         # Ensure data is sorted with oldest first for pattern detection
         df_oldest_first = df[::-1].reset_index(drop=True)
+        
+        # Calculate 20 EMA for retest confirmation
+        if check_ema_retest:
+            df_oldest_first['EMA20'] = pktalib.EMA(df_oldest_first["close"], timeperiod=ema_period)
         
         close_prices = df_oldest_first["close"].values
         n = len(close_prices)
@@ -3735,6 +3780,10 @@ class ScreeningStatistics:
         best_pattern = None
         best_score = 0
         
+        # Store retest and momentum status for reporting
+        has_ema_retest = False
+        has_momentum = False
+        
         for cup_start, cup_bottom, cup_end, cup_rim_price in valid_cups:
             # Search for handle after cup end
             handle_search_end = min(cup_end + 35, n - 5)
@@ -3768,6 +3817,80 @@ class ScreeningStatistics:
             volume_valid = self.validate_volume_for_cup(df_oldest_first, cup_start, cup_end, handle_bottom_idx)
             if not volume_valid:
                 continue
+            
+            # =========================================================================
+            # STEP 3.5: 20 EMA RETEST AND MOMENTUM CHECK (if enabled)
+            # =========================================================================
+            ema_retest_valid = True  # Default to True if check is disabled
+            momentum_valid = True     # Default to True if check is disabled
+            
+            if check_ema_retest:
+                ema_retest_valid = False
+                momentum_valid = False
+                
+                # Get recent price and EMA data around the handle
+                recent_start = max(0, cup_end - 10)
+                recent_end = min(n, handle_bottom_idx + 10)
+                
+                if 'EMA20' in df_oldest_first.columns:
+                    ema_values = df_oldest_first['EMA20'].iloc[recent_start:recent_end].values
+                    price_values = close_prices[recent_start:recent_end]
+                    
+                    # Check if price is retesting 20 EMA (touching or very close to EMA)
+                    for i in range(len(price_values)):
+                        if len(ema_values) > i and ema_values[i] > 0:
+                            distance_to_ema = abs(price_values[i] - ema_values[i]) / ema_values[i] * 100
+                            if distance_to_ema < 1.5:  # Within 1.5% of 20 EMA
+                                ema_retest_valid = True
+                                break
+                    
+                    # Alternative: Check if price is bouncing off 20 EMA from below
+                    for i in range(1, len(price_values)):
+                        if len(ema_values) > i:
+                            # Price was below EMA, now above EMA (bounce)
+                            if (price_values[i-1] < ema_values[i-1] and 
+                                price_values[i] > ema_values[i]):
+                                distance_to_ema = abs(price_values[i] - ema_values[i]) / ema_values[i] * 100
+                                if distance_to_ema < 2.0:  # Within 2% after bounce
+                                    ema_retest_valid = True
+                                    break
+                
+                # Check for momentum confirmation
+                # Momentum conditions:
+                # 1. Volume surge in recent days
+                # 2. Price making higher highs after handle
+                # 3. RSI showing bullish momentum if available
+                
+                if 'volume' in df_oldest_first.columns:
+                    # Volume surge check
+                    volume_data = df_oldest_first['volume'].iloc[handle_bottom_idx:min(n, handle_bottom_idx + 10)].values
+                    if len(volume_data) >= 5:
+                        recent_volume = np.mean(volume_data[:5])
+                        prior_volume = np.mean(df_oldest_first['volume'].iloc[max(0, cup_end-20):cup_end].values)
+                        
+                        if prior_volume > 0 and recent_volume > prior_volume * 1.3:
+                            momentum_valid = True
+                
+                # Price momentum check
+                if not momentum_valid:
+                    # Check for higher highs after handle
+                    post_handle_prices = close_prices[handle_bottom_idx:min(n, handle_bottom_idx + 15)]
+                    if len(post_handle_prices) >= 3:
+                        if (post_handle_prices[1] > post_handle_prices[0] and 
+                            post_handle_prices[2] > post_handle_prices[1]):
+                            momentum_valid = True
+                
+                # RSI momentum check if available
+                if not momentum_valid and 'RSI' in df_oldest_first.columns:
+                    rsi_values = df_oldest_first['RSI'].iloc[handle_bottom_idx:min(n, handle_bottom_idx + 10)].values
+                    if len(rsi_values) >= 2:
+                        # RSI rising from oversold/neutral levels
+                        if rsi_values[-1] > rsi_values[0] and rsi_values[-1] > 55:
+                            momentum_valid = True
+                
+                # # For pattern to be valid, either EMA retest OR momentum must be true
+                # if not (ema_retest_valid or momentum_valid):
+                #     continue  # Skip this cup if neither condition is met
             
             # =========================================================================
             # STEP 4: CHECK FOR BREAKOUT
@@ -3811,6 +3934,15 @@ class ScreeningStatistics:
                 elif days_since_breakout <= 20:
                     score += 5
             
+            # Boost score if EMA retest or momentum confirmed
+            if check_ema_retest:
+                if ema_retest_valid:
+                    score += 10
+                    self.has_ema_retest = True
+                if momentum_valid:
+                    score += 10
+                    self.has_momentum = True
+            
             if score > best_score:
                 best_score = score
                 best_pattern = {
@@ -3822,13 +3954,15 @@ class ScreeningStatistics:
                     'cup_rim_price': cup_rim_price,
                     'cup_depth_pct': cup_depth_pct,
                     'handle_decline_pct': handle_decline_pct,
-                    'score': score
+                    'score': score,
+                    'ema_retest': ema_retest_valid if check_ema_retest else None,
+                    'momentum': momentum_valid if check_ema_retest else None
                 }
         
         # =========================================================================
         # STEP 5: RETURN RESULTS
         # =========================================================================
-        if best_pattern is None or best_score < 50:
+        if best_pattern is None or best_score < 30:
             return False, None
         
         pattern_details = (
@@ -3841,17 +3975,67 @@ class ScreeningStatistics:
         
         if saveDict is not None and screenDict is not None:
             saved = self.findCurrentSavedValue(screenDict, saveDict, "Pattern")
-            pattern_display = f"Cup&Handle (D:{best_pattern['cup_depth_pct']:.0f}%, H:{best_pattern['handle_decline_pct']:.0f}%)"
+            
+            # Build pattern display with additional info if retest/momentum enabled
+            if check_ema_retest and (best_pattern.get('ema_retest') or best_pattern.get('momentum')):
+                confirmation_tags = []
+                if best_pattern.get('ema_retest'):
+                    confirmation_tags.append("20EMA-Retest")
+                if best_pattern.get('momentum'):
+                    confirmation_tags.append("Momentum")
+                confirmation_str = f" [{'+'.join(confirmation_tags)}]"
+            else:
+                confirmation_str = ""
+
+            tier_quality = ""
+            if "cup_depth_pct" in best_pattern and "handle_decline_pct" in best_pattern:
+                # calculate quality tiers:
+                tier_quality = f"[WEAK]({best_score:.0f}) "
+                ideal_cup_depth_min = 15
+                ideal_cup_depth_max = 30
+                perfect_cup_depth_min = 20
+                perfect_cup_depth_max = 25
+
+                ideal_handle_decline_min = 5
+                ideal_handle_decline_max = 15
+                perfect_handle_decline_min = 8
+                perfect_handle_decline_max = 12
+
+                perfect_cup_depth = ideal_cup_depth_min <= best_pattern['cup_depth_pct'] <= ideal_cup_depth_max and perfect_cup_depth_min <= best_pattern['cup_depth_pct'] <= perfect_cup_depth_max
+                ideal_cup_depth = ideal_cup_depth_min <= best_pattern['cup_depth_pct'] and best_pattern['cup_depth_pct'] <= ideal_cup_depth_max
+                acceptable_cup_depth = 10 <= best_pattern['cup_depth_pct'] <= 40
+                
+                perfect_handle_decline = ideal_handle_decline_min <= best_pattern['handle_decline_pct'] <= ideal_handle_decline_max and perfect_handle_decline_min <= best_pattern['handle_decline_pct'] <= perfect_handle_decline_max
+                ideal_handle_decline = ideal_handle_decline_min <= best_pattern['handle_decline_pct'] and best_pattern['handle_decline_pct'] <= ideal_handle_decline_max
+                acceptable_handle_decline = 10 <= best_pattern['handle_decline_pct'] <= 50
+                
+                if perfect_cup_depth and perfect_handle_decline:
+                    tier_quality = f"[PERFECT]({best_score:.0f}) "
+                elif ideal_cup_depth and ideal_handle_decline:
+                    tier_quality = f"[IDEAL]({best_score:.0f}) "
+                elif acceptable_cup_depth and acceptable_handle_decline:
+                    tier_quality = f"[ACCEPTABLE]({best_score:.0f}) "
+            
+            pattern_display = f"{tier_quality}Cup&Handle{confirmation_str} (D:{best_pattern['cup_depth_pct']:.0f}%, H:{best_pattern['handle_decline_pct']:.0f}%)"
             
             screenDict["Pattern"] = saved[0] + colorText.GREEN + pattern_display + colorText.END
             saveDict["Pattern"] = saved[1] + pattern_display
             saveDict["Pattern_Score"] = best_score
+            screenDict["Pattern_Score"] = best_score
+            
+            # Store additional tracking info
+            if check_ema_retest:
+                saveDict["Cup_EMA_Retest"] = best_pattern.get('ema_retest', False)
+                saveDict["Cup_Momentum"] = best_pattern.get('momentum', False)
         
-        if self.default_logger and best_score >= 60:
-            self.default_logger.debug(
+        if self.default_logger and best_score >= 40:
+            logger_msg = (
                 f"Cup&Handle found: depth={best_pattern['cup_depth_pct']:.1f}%, "
                 f"handle={best_pattern['handle_decline_pct']:.1f}%, score={best_score:.0f}"
             )
+            if check_ema_retest:
+                logger_msg += f", EMA_Retest={best_pattern.get('ema_retest', False)}, Momentum={best_pattern.get('momentum', False)}"
+            self.default_logger.debug(logger_msg)
         
         return True, pattern_details
 

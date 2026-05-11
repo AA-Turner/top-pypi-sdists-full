@@ -11,7 +11,7 @@ from instagrapi.mixins.album import DownloadAlbumMixin, UploadAlbumMixin
 from instagrapi.mixins.auth import LoginMixin
 from instagrapi.mixins.bloks import BloksMixin
 from instagrapi.mixins.challenge import ChallengeResolveMixin
-from instagrapi.mixins.clip import DownloadClipMixin, UploadClipMixin
+from instagrapi.mixins.clip import ClipMixin, DownloadClipMixin, UploadClipMixin
 from instagrapi.mixins.collection import CollectionMixin
 from instagrapi.mixins.comment import CommentMixin
 from instagrapi.mixins.direct import DirectMixin
@@ -84,6 +84,7 @@ class Client(
     StoryMixin,
     PasswordMixin,
     SignUpMixin,
+    ClipMixin,
     DownloadClipMixin,
     UploadClipMixin,
     ReelsMixin,
@@ -105,19 +106,11 @@ class Client(
         **kwargs,
     ):
         self.request_timeout = kwargs.pop("request_timeout", 1)
-        self.public_request_retries_count = kwargs.pop(
-            "public_request_retries_count", 3
-        )
-        self.public_request_retries_timeout = kwargs.pop(
-            "public_request_retries_timeout", 2
-        )
+        self.public_request_retries_count = kwargs.pop("public_request_retries_count", 3)
+        self.public_request_retries_timeout = kwargs.pop("public_request_retries_timeout", 2)
         self.session_retry_total = kwargs.pop("session_retry_total", 3)
-        self.session_retry_backoff_factor = kwargs.pop(
-            "session_retry_backoff_factor", 2
-        )
-        self.session_retry_statuses = list(
-            kwargs.pop("session_retry_statuses", [429, 500, 502, 503, 504])
-        )
+        self.session_retry_backoff_factor = kwargs.pop("session_retry_backoff_factor", 2)
+        self.session_retry_statuses = list(kwargs.pop("session_retry_statuses", [429, 500, 502, 503, 504]))
 
         super().__init__(**kwargs)
 
@@ -131,9 +124,7 @@ class Client(
 
     def set_proxy(self, dsn: Optional[str]):
         if dsn:
-            assert isinstance(
-                dsn, str
-            ), f'Proxy must been string (URL), but now "{dsn}" ({type(dsn)})'
+            assert isinstance(dsn, str), f'Proxy must been string (URL), but now "{dsn}" ({type(dsn)})'
             self.proxy = dsn
             proxy_href = "{scheme}{href}".format(
                 scheme="http://" if not urlparse(self.proxy).scheme else "",

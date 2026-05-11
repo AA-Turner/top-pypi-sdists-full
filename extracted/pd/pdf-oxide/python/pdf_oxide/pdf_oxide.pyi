@@ -339,6 +339,26 @@ class PdfDocument:
         Returns: bytes of the rendered image. Issue #441 / #448.
         """
 
+    def render_pixmap(self, page: int, dpi: int | None = None) -> t.Any:
+        """
+        Render a page as raw premultiplied RGBA8888 pixels.
+
+        Returns a ``RenderedPixmap`` namedtuple with fields ``data`` (bytes),
+        ``width`` (int), and ``height`` (int).
+        ``len(data) == width * height * 4``.
+
+        Alpha is premultiplied (PDF spec §11 transparency model).
+        Use this instead of :meth:`render_page` when you want to hand pixel
+        data directly to PIL (``Image.frombuffer("RGBa", ...)``) or numpy
+        without a PNG/JPEG encode/decode roundtrip.
+        Note: PIL mode ``"RGBa"`` (lower-case a) is for premultiplied RGBA;
+        use ``"RGBA"`` only after un-premultiplying the data.
+
+        Args:
+        page (int): Zero-based page index.
+        dpi (int, optional): Resolution (default 150).
+        """
+
     def extract_chars(
         self, page: int, region: tuple[float, float, float, float] | None = None
     ) -> list[TextChar]:
@@ -1180,6 +1200,13 @@ class Page:
         render_annotations: bool | None = None,
         jpeg_quality: int | None = None,
     ) -> bytes: ...
+    def render_pixmap(self, dpi: int | None = None) -> t.Any:
+        """
+        Render this page as raw premultiplied RGBA8888 pixels.
+        Delegates to :meth:`PdfDocument.render_pixmap`. See that method for
+        full documentation.
+        """
+
     def search(
         self,
         pattern: str,

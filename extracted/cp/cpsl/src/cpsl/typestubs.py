@@ -386,7 +386,7 @@ declare module "@capsule/page" {
   export const FieldInspector: FC<{ fields?: (string | CollectionColumn | Record<string, unknown>)[]; style?: CSSProperties }>;
   export const MessageList: FC<{ messages?: ChatMessage[]; style?: CSSProperties }>;
   export const Composer: FC<{ value?: string; onChange?: (value: string) => void; onSend?: (text: string) => void; placeholder?: string; disabled?: boolean; style?: CSSProperties }>;
-  export const ChatPanel: FC<{ messages?: ChatMessage[]; onSend?: (text: string) => void; status?: string; style?: CSSProperties }>;
+  export const ChatPanel: FC<{ messages?: ChatMessage[]; onSend?: (text: string) => void; status?: string; statusText?: string; style?: CSSProperties }>;
   export const ConversationList: FC<{ items?: Record<string, unknown>[]; activeId?: string; onSelect?: (item: Record<string, unknown>) => void; style?: CSSProperties }>;
 
   // -----------------------------------------------------------------------

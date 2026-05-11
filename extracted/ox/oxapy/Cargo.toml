@@ -1,6 +1,6 @@
 [package]
 name = "oxapy"
-version = "0.8.1"
+version = "0.8.2"
 edition = "2024"
 authors = ["FITAHIANA Nomeniavo Joe <24nomeniavo@gmail.com>"]
 repository = "https://github.com/j03-dev/oxapy"
@@ -16,7 +16,7 @@ crate-type = ["cdylib", "rlib"]
 # Python bindings
 pyo3 = ">=0.28.0"
 pyo3-async-runtimes = { version = "0.28.0", features = ["tokio-runtime"] }
-pyo3-stub-gen = { git = "https://github.com/j03-dev/pyo3-stub-gen", rev = "2bec9c3"}
+pyo3-stub-gen = { git = "https://github.com/j03-dev/pyo3-stub-gen", branch = "fix/pypy-graalpy-initialization-error" }
 
 # Async / Futures
 futures-util = "0.3.31"
@@ -48,7 +48,3 @@ rand = "0.10.0-rc.5"
 url = "2.5.7"
 
 jsonwebtoken = { version = "10.2.0", features = ["rust_crypto"] }
-
-[features]
-default = []
-stub-gen = ["pyo3-stub-gen/manual-python-init"]

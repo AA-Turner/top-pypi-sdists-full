@@ -38,6 +38,7 @@ __all__ = [
     "PhaseOutcome",
     "BootstrapResult",
     "run_bootstrap",
+    "pick_models_for_disk",
     # Individual phase functions (exposed for testability)
     "phase_pull_ollama_models",
     "phase_set_default_model",
@@ -48,6 +49,50 @@ __all__ = [
     "phase_mirror_datasets",
     "phase_finetune_background",
 ]
+
+
+def _free_gb_at(path: Path) -> float:
+    """Best-effort free-disk probe in GB. 0.0 on failure (forces minimal tier)."""
+    try:
+        usage = shutil.disk_usage(str(path) if path.exists() else str(path.parent))
+        return usage.free / (1024 ** 3)
+    except OSError:
+        return 0.0
+
+
+def pick_models_for_disk(free_gb: float) -> tuple[str, ...]:
+    """Pick the strongest model set that fits in `free_gb` of free disk.
+
+    Each model has approximate Ollama download size:
+        qwen3-coder-next   ~48 GB
+        llama3.3           ~42 GB (alternative)
+        qwen2.5-coder-7b   ~4.7 GB
+        llama3.2           ~2.0 GB
+        nomic-embed-text   ~0.3 GB
+    Total budget includes 30% safety margin for OS overhead + model files.
+    """
+    if free_gb >= 80.0:
+        return (
+            "qwen3-coder-next",   # strong coder
+            "qwen2.5-coder-7b",   # mid-tier coder fallback
+            "llama3.2",           # speculative draft
+            "nomic-embed-text",   # RAG embedder
+        )
+    if free_gb >= 30.0:
+        return (
+            "qwen2.5-coder-7b",
+            "llama3.2",
+            "nomic-embed-text",
+        )
+    if free_gb >= 8.0:
+        return (
+            "llama3.2",
+            "nomic-embed-text",
+        )
+    if free_gb >= 1.0:
+        return ("nomic-embed-text",)
+    # No disk → caller will see "skipped" on every phase
+    return ()
 
 
 # ── Dataclasses ────────────────────────────────────────────────────────
@@ -67,16 +112,25 @@ class BootstrapOptions:
     cwd: Path = field(default_factory=Path.cwd)
     quiet: bool = False                  # suppress per-phase output
 
-    # Lists of models to pull. Override to slim down the bootstrap.
-    ollama_models: tuple[str, ...] = (
-        "qwen3-coder-next",   # strong local coder (default)
-        "llama3.2",           # speculative draft model
-        "nomic-embed-text",   # RAG embedder
-    )
+    # Disk-space-aware tiered model lists. The bootstrap probes free disk
+    # at start and picks the most aggressive tier that fits.
+    #   ≥80 GB free  → tier "large":  qwen3-coder-next (48GB) + 7b coder + draft + embed
+    #   ≥30 GB free  → tier "medium": qwen2.5-coder-7b (4.7GB) + draft + embed
+    #   ≥8  GB free  → tier "small":  llama3.2 (2GB) + embed
+    #   else         → tier "minimal": just nomic-embed-text
+    # Override `ollama_models` directly to bypass the tier picker.
+    ollama_models: tuple[str, ...] = ()  # filled in __post_init__ if empty
 
     # Datasets to mirror in standard mode (small ones only).
     # Use --full-datasets to also mirror the large CodeSearchNet/Magicoder.
     mirror_dataset_names: tuple[str, ...] = ("codealpaca-20k", "mbpp")
+
+    # Floor model: always pulled if disk allows it (T14)
+    floor_model: str = "qwen2.5-coder-7b"
+
+    def __post_init__(self) -> None:
+        if not self.ollama_models:
+            self.ollama_models = pick_models_for_disk(_free_gb_at(self.cwd))
 
 
 @dataclass
@@ -270,7 +324,11 @@ def phase_install_optional_deps(opts: BootstrapOptions) -> tuple[str, str]:
             missing.append(pip_name)
     if not missing:
         return ("skipped", "all optional deps already present")
-    cmd = [sys.executable, "-m", "pip", "install", "--upgrade", *missing]
+    # IMPORTANT: --upgrade-strategy=only-if-needed prevents transitive-dep
+    # upgrades from breaking core packages (rich, pip itself, pytest, etc.).
+    # The previous bootstrap run without this flag bricked the user's venv.
+    cmd = [sys.executable, "-m", "pip", "install",
+           "--upgrade", "--upgrade-strategy", "only-if-needed", *missing]
     _say(opts, f"  …  installing: {', '.join(missing)}")
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
@@ -363,6 +421,18 @@ def run_bootstrap(opts: BootstrapOptions | None = None) -> BootstrapResult:
     opts = opts or BootstrapOptions()
     result = BootstrapResult()
     t0 = time.time()
+
+    # Disk-space banner (helpful diagnostic, never fatal)
+    free = _free_gb_at(opts.cwd)
+    if not opts.quiet:
+        tier = ("large"  if free >= 80
+                else "medium" if free >= 30
+                else "small"  if free >= 8
+                else "minimal" if free >= 1
+                else "empty")
+        _say(opts, f"\nDisk: {free:.1f} GB free → tier '{tier}' "
+                   f"({len(opts.ollama_models)} model(s) selected)")
+
     for name, fn, flag in PHASES:
         if not getattr(opts, flag):
             outcome = PhaseOutcome(name=name, status="skipped", duration_s=0.0,

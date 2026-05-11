@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: python-gdcm
-Version: 3.2.2
+Version: 3.2.6
 Summary: Grassroots DICOM runtime libraries
 Project-URL: Homepage, https://github.com/tfmoraes/python-gdcm/
 Project-URL: issues, https://github.com/tfmoraes/python-gdcm/issues
 Author-email: Thiago Franco de Moraes <totonixsame@gmail.com>
+License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -19,13 +20,12 @@ Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.7

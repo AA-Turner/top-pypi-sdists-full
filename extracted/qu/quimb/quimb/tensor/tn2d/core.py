@@ -32,7 +32,6 @@ from ..tnag.core import (
     TensorNetworkGenOperator,
     TensorNetworkGenVector,
     tensor_network_ag_sum,
-    tensor_network_apply_op_vec,
 )
 
 
@@ -500,6 +499,20 @@ class TensorNetwork2D(TensorNetworkGen):
             except (ValueError, TypeError):
                 pass
         return x
+
+    def has_site(self, site):
+        """Whether ``site`` is a valid ``(i, j)`` coordinate of this 2D
+        tensor network, with ``0 <= i < Lx`` and ``0 <= j < Ly``.
+        """
+        if not isinstance(site, tuple) or len(site) != 2:
+            return False
+        i, j = site
+        return (
+            isinstance(i, Integral)
+            and isinstance(j, Integral)
+            and (0 <= i < self.Lx)
+            and (0 <= j < self.Ly)
+        )
 
     def _get_tids_from_tags(self, tags, which="all"):
         """This is the function that lets coordinates such as ``(i, j)`` be
@@ -1315,7 +1328,10 @@ class TensorNetwork2D(TensorNetworkGen):
                     if layer_tag is None:
                         # tag and compress any inner tensors
                         self.add_tag(
-                            st, where=(tag1, tag2), which="any", record=record
+                            st,
+                            where=(tag1, tag2),
+                            which="any",
+                            record=record,
                         )
                     else:
                         # only tag and compress one inner layer
@@ -3422,6 +3438,7 @@ class TensorNetwork2D(TensorNetworkGen):
         cutoff=1e-10,
         canonize=False,
         canonize_opts=None,
+        gauge_power=1.0,
         lazy=False,
         strip_exponent=False,
         equalize_norms="auto",
@@ -3443,6 +3460,14 @@ class TensorNetwork2D(TensorNetworkGen):
             The maximum bond dimension of the projector pairs inserted.
         cutoff : float, optional
             The cutoff for the singular values of the projector pairs.
+        canonize : bool, optional
+            Whether to canonize all tensors before computing projectors,
+            via :meth:`gauge_all_simple_`.
+        canonize_opts : None or dict, optional
+            Additional options to pass to :meth:`gauge_all_simple_`.
+        gauge_power : float, optional
+            If `canonize=True`, the power to which to raise the computed bond
+            gauge weights when before computing the compressed projectors.
         lazy : bool, optional
             Whether to contract the coarse graining projectors or leave them
             in the tensor network lazily. Default is to contract them.
@@ -3553,6 +3578,7 @@ class TensorNetwork2D(TensorNetworkGen):
                         contract_opts=contract_opts,
                         reduce_opts=reduce_opts,
                         compress_opts=compress_opts,
+                        gauge_power=gauge_power,
                     )
 
             retag_map[r.x_tag(i)] = r.x_tag(i // 2)
@@ -3590,6 +3616,7 @@ class TensorNetwork2D(TensorNetworkGen):
         cutoff=1e-10,
         canonize=False,
         canonize_opts=None,
+        gauge_power=1.0,
         sequence=("x", "y"),
         max_separation=1,
         max_unfinished=1,
@@ -3622,11 +3649,13 @@ class TensorNetwork2D(TensorNetworkGen):
         cutoff : float, optional
             The cutoff for the singular values of the projector pairs.
         canonize : bool, optional
-            Whether to canonize all tensors before each contraction,
-            via :meth:`gauge_all`.
+            Whether to canonize all tensors before computing projectors,
+            via :meth:`gauge_all_simple_`.
         canonize_opts : None or dict, optional
-            Additional options to pass to
-            :meth:`gauge_all`.
+            Additional options to pass to :meth:`gauge_all_simple_`.
+        gauge_power : float, optional
+            If `canonize=True`, the power to which to raise the computed bond
+            gauge weights when before computing the compressed projectors.
         sequence : tuple of str, optional
             The directions to contract in.  Default is to contract in all
             directions.
@@ -3736,6 +3765,7 @@ class TensorNetwork2D(TensorNetworkGen):
                 max_bond=max_bond,
                 canonize=canonize,
                 canonize_opts=canonize_opts,
+                gauge_power=gauge_power,
                 cutoff=cutoff,
                 lazy=lazy,
                 equalize_norms=equalize_norms,
@@ -3762,11 +3792,8 @@ class TensorNetwork2D(TensorNetworkGen):
             else:
                 final_contract_opts = ensure_dict(final_contract_opts)
                 final_contract_opts.setdefault("optimize", optimize)
-            return tn.contract(
-                strip_exponent=strip_exponent,
-                inplace=inplace,
-                **final_contract_opts,
-            )
+            final_contract_opts.setdefault("strip_exponent", strip_exponent)
+            return tn.contract(inplace=inplace, **final_contract_opts)
 
         return tn
 
@@ -4102,7 +4129,7 @@ class TensorNetwork2DVector(TensorNetwork2D, TensorNetworkGenVector):
         For one site gates when one of the 'split' methods is supplied
         ``contract=True`` is assumed.
         """
-        if is_lone_coo(where):
+        if self.has_site(where):
             where = (where,)
         else:
             where = tuple(where)
@@ -5078,6 +5105,13 @@ class PEPO(TensorNetwork2DOperator, TensorNetwork2DFlat):
         String specifier for naming convention of row ('x') tags.
     y_tag_id : str, optional
         String specifier for naming convention of column ('y') tags.
+    cyclic : None, bool, or tuple[bool, bool], optional
+        Whether the lattice is cyclic in the x and y directions. If
+        ``None`` (default), infer from the array shapes (requires any
+        non-singleton bond dimension). Pass an explicit ``bool`` or
+        ``(cyclic_x, cyclic_y)`` to override inference; this is needed
+        when bond dimensions are 1 (shape inference then cannot detect
+        cyclic boundaries).
     """
 
     _EXTRA_PROPS = (
@@ -5101,6 +5135,7 @@ class PEPO(TensorNetwork2DOperator, TensorNetwork2DFlat):
         site_tag_id="I{},{}",
         x_tag_id="X{}",
         y_tag_id="Y{}",
+        cyclic=None,
         **tn_opts,
     ):
         if isinstance(arrays, PEPO):
@@ -5122,8 +5157,15 @@ class PEPO(TensorNetwork2DOperator, TensorNetwork2DFlat):
         ix = defaultdict(rand_uuid)
         tensors = []
 
-        cyclicx = sum(d > 1 for d in ar.shape(arrays[0][1])) == 6
-        cyclicy = sum(d > 1 for d in ar.shape(arrays[1][0])) == 6
+        if cyclic is None:
+            # infer boundary conditions from array shapes
+            cyclicx = sum(d > 1 for d in ar.shape(arrays[0][1])) == 6
+            cyclicy = sum(d > 1 for d in ar.shape(arrays[1][0])) == 6
+        else:
+            try:
+                cyclicx, cyclicy = cyclic
+            except (TypeError, ValueError):
+                cyclicx = cyclicy = cyclic
 
         for i, j in product(range(self.Lx), range(self.Ly)):
             array = arrays[i][j]
@@ -5355,40 +5397,6 @@ class PEPO(TensorNetwork2DOperator, TensorNetwork2DFlat):
         return tensor_network_ag_sum(self, other, inplace=inplace)
 
     add_PEPO_ = functools.partialmethod(add_PEPO, inplace=True)
-
-    def _apply_peps(
-        self, other, compress=False, contract=True, **compress_opts
-    ):
-        return tensor_network_apply_op_vec(
-            A=self,
-            x=other,
-            compress=compress,
-            contract=contract,
-            **compress_opts,
-        )
-
-    def apply(self, other, compress=False, **compress_opts):
-        """Act with this PEPO on ``other``, returning a new TN like ``other``
-        with the same outer indices.
-
-        Parameters
-        ----------
-        other : PEPS
-            The TN to act on.
-        compress : bool, optional
-            Whether to compress the resulting TN.
-        compress_opts
-            Supplied to
-            :meth:`~quimb.tensor.tn2d.core.TensorNetwork2DFlat.compress`.
-
-        Returns
-        -------
-        TensorNetwork2DFlat
-        """
-        if isinstance(other, PEPS):
-            return self._apply_peps(other, compress=compress, **compress_opts)
-
-        raise TypeError("Can only apply PEPO to PEPS.")
 
     def show(self):
         """Print a unicode schematic of this PEPO and its bond dimensions."""

@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Filter changed file paths to outputs
-        uses: dorny/paths-filter@v3.0.2
+        uses: dorny/paths-filter@v4.0.1
         id: changes
         with:
           filters: |
@@ -54,13 +54,22 @@ jobs:
 
       - name: Install just
         if: env.PUBLISH == 'true'
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@v4
 
       - name: Print python versions
         if: env.PUBLISH == 'true'
         run: |
           python -V
           uv run python -V
+
+      - name: Cache sphinx fonts
+        if: env.PUBLISH == 'true'
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/sphinx-fonts
+          key: sphinx-fonts-${{ hashFiles('docs/conf.py') }}
+          restore-keys: |
+            sphinx-fonts-
 
       - name: Build documentation
         if: env.PUBLISH == 'true'
@@ -69,7 +78,7 @@ jobs:
 
       - name: Configure AWS Credentials
         if: env.PUBLISH == 'true'
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.TMUXP_DOCS_ROLE_ARN }}
           aws-region: us-east-1

@@ -41,7 +41,14 @@ from ..decorators import (
 from ..home import HomeContext
 from ..integration import IntegrationCredentials
 from ..msg import Event, Message
-from ..session import RequestContext, Session, SessionChannel, UserInfo, _track_data_value
+from ..session import (
+    RequestContext,
+    Session,
+    SessionChannel,
+    UserInfo,
+    _track_data_value,
+    session_data_json,
+)
 from ..workflow import WorkflowInput
 from .shared import (
     _HEARTBEAT_INTERVAL,
@@ -354,7 +361,7 @@ class RunnerSessionMixin:
                 self._session_stub.save_session_data,
                 SaveSessionDataRequest(
                     session_id=session.id,
-                    data_json=json.dumps(session.data),
+                    data_json=session_data_json(session.data),
                 ),
             )
         except Exception as exc:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Qubx
-Version: 1.4.3
+Version: 1.4.5
 Summary: Qubx - Quantitative Trading Framework
 Project-URL: homepage, https://xlydian.com
 Project-URL: repository, https://github.com/xLydianSoftware/Qubx
@@ -24,7 +24,7 @@ Requires-Dist: loguru<1,>=0.7.2
 Requires-Dist: msgspec<1,>=0.18.6
 Requires-Dist: ntplib<1,>=0.4.0
 Requires-Dist: numba<1,>=0.59.1
-Requires-Dist: numpy>=1.26.3
+Requires-Dist: numpy>=2.0.0
 Requires-Dist: orjson<4,>=3.10.15
 Requires-Dist: pandas<3,>=2.2.2
 Requires-Dist: prometheus-client<1,>=0.21.1

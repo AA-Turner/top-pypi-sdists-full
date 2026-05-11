@@ -1,6 +1,6 @@
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 from instagrapi.exceptions import (
@@ -8,7 +8,7 @@ from instagrapi.exceptions import (
     AlbumNotDownload,
     AlbumUnknownFormat,
 )
-from instagrapi.types import Location, Media, Usertag
+from instagrapi.types import Location, Media, Track, Usertag
 from instagrapi.utils import date_time_original, dumps
 
 
@@ -17,9 +17,7 @@ class DownloadAlbumMixin:
     Helper class to download album
     """
 
-    def album_download(
-        self, media_pk: int, folder: Path = "", overwrite: bool = True
-    ) -> List[Path]:
+    def album_download(self, media_pk: int, folder: Path = "", overwrite: bool = True) -> List[Path]:
         """
         Download your album
 
@@ -62,14 +60,10 @@ class DownloadAlbumMixin:
                     )
                 )
             else:
-                raise AlbumNotDownload(
-                    'Media type "{resource.media_type}" unknown for album (resource={resource.pk})'
-                )
+                raise AlbumNotDownload('Media type "{resource.media_type}" unknown for album (resource={resource.pk})')
         return paths
 
-    def album_download_by_urls(
-        self, urls: List[str], folder: Path = "", overwrite: bool = True
-    ) -> List[Path]:
+    def album_download_by_urls(self, urls: List[str], folder: Path = "", overwrite: bool = True) -> List[Path]:
         """
         Download your album using specified URLs
 
@@ -92,17 +86,9 @@ class DownloadAlbumMixin:
         for url in urls:
             file_name = urlparse(url).path.rsplit("/", 1)[1]
             if file_name.lower().endswith((".jpg", ".jpeg")):
-                paths.append(
-                    self.photo_download_by_url(
-                        url, file_name, folder, overwrite=overwrite
-                    )
-                )
+                paths.append(self.photo_download_by_url(url, file_name, folder, overwrite=overwrite))
             elif file_name.lower().endswith(".mp4"):
-                paths.append(
-                    self.video_download_by_url(
-                        url, file_name, folder, overwrite=overwrite
-                    )
-                )
+                paths.append(self.video_download_by_url(url, file_name, folder, overwrite=overwrite))
             else:
                 raise AlbumUnknownFormat()
         return paths
@@ -129,9 +115,7 @@ class DownloadAlbumMixin:
             elif resource.media_type == 2:
                 files.append(self.video_download_by_url_origin(resource.video_url))
             else:
-                raise AlbumNotDownload(
-                    'Media type "{resource.media_type}" unknown for album (resource={resource.pk})'
-                )
+                raise AlbumNotDownload('Media type "{resource.media_type}" unknown for album (resource={resource.pk})')
         return files
 
 
@@ -194,24 +178,18 @@ class UploadAlbumMixin:
                                 "crop_zoom": 1.0,
                             }
                         ),
-                        "extra": dumps(
-                            {"source_width": width, "source_height": height}
-                        ),
+                        "extra": dumps({"source_width": width, "source_height": height}),
                         "scene_capture_type": "",
                         "scene_type": None,
                     }
                 )
             elif path.suffix.lower() == ".mp4":
-                upload_id, width, height, duration, thumbnail = self.video_rupload(
-                    path, to_album=True
-                )
+                upload_id, width, height, duration, thumbnail = self.video_rupload(path, to_album=True)
                 children.append(
                     {
                         "upload_id": upload_id,
                         "clips": dumps([{"length": duration, "source_type": "4"}]),
-                        "extra": dumps(
-                            {"source_width": width, "source_height": height}
-                        ),
+                        "extra": dumps({"source_width": width, "source_height": height}),
                         "length": duration,
                         "poster_frame_index": "0",
                         "filter_type": "0",
@@ -222,9 +200,7 @@ class UploadAlbumMixin:
                 )
                 self.photo_rupload(thumbnail, upload_id)
             else:
-                raise AlbumUnknownFormat(
-                    f'Unsupported album media format "{path.suffix}" for "{path.name}".'
-                )
+                raise AlbumUnknownFormat(f'Unsupported album media format "{path.suffix}" for "{path.name}".')
 
         for attempt in range(50):
             self.logger.debug(f"Attempt #{attempt} to configure Album: {paths}")
@@ -250,8 +226,84 @@ class UploadAlbumMixin:
                         configure_exception or AlbumConfigureError,
                         "Album upload",
                     )
-        raise (configure_exception or AlbumConfigureError)(
-            response=self.last_response, **self.last_json
+        raise (configure_exception or AlbumConfigureError)(response=self.last_response, **self.last_json)
+
+    def album_upload_with_music(
+        self,
+        paths: List[Path],
+        caption: str,
+        track: Union[Track, Dict],
+        usertags: List[Usertag] = [],
+        location: Location = None,
+        configure_timeout: int = 3,
+        configure_handler=None,
+        configure_exception=None,
+        to_story=False,
+        extra_data: Dict[str, str] = {},
+        audio_asset_start_time: Optional[int] = None,
+        overlap_duration: int = 30000,
+        browse_session_id: Optional[str] = None,
+        alacorn_session_id: Optional[str] = None,
+    ) -> Media:
+        """
+        Upload a feed album/carousel with attached music.
+
+        Parameters
+        ----------
+        paths: List[Path]
+            List of paths for media to upload.
+        caption: str
+            Media caption.
+        track: Track or dict
+            Track from music search/browser response or a compatible dict.
+        usertags: List[Usertag], optional
+            List of users to be tagged on this upload.
+        location: Location, optional
+            Location tag for this upload.
+        configure_timeout: int
+            Timeout between configure attempts.
+        configure_handler
+            Configure handler method, default is None.
+        configure_exception
+            Configure exception class, default is None.
+        to_story: bool
+            Currently not used, default is False.
+        extra_data: Dict[str, str], optional
+            Additional configure params.
+        audio_asset_start_time: int, optional
+            Audio start time in milliseconds. Defaults to the first highlighted
+            start time from the track, or 0.
+        overlap_duration: int, optional
+            Audio duration in milliseconds, default 30000.
+        browse_session_id: str, optional
+            Music browser session id.
+        alacorn_session_id: str, optional
+            Music browser session id returned by ``music_in_feed_audio_browser``.
+            Fetched automatically when omitted.
+
+        Returns
+        -------
+        Media
+            A Media response from the call.
+        """
+        data = dict(extra_data or {})
+        data["music_params"] = self._feed_music_params(
+            track,
+            audio_asset_start_time=audio_asset_start_time,
+            overlap_duration=overlap_duration,
+            browse_session_id=browse_session_id,
+            alacorn_session_id=alacorn_session_id,
+        )
+        return self.album_upload(
+            paths,
+            caption,
+            usertags=usertags,
+            location=location,
+            configure_timeout=configure_timeout,
+            configure_handler=configure_handler,
+            configure_exception=configure_exception,
+            to_story=to_story,
+            extra_data=data,
         )
 
     def album_configure(
@@ -285,9 +337,7 @@ class UploadAlbumMixin:
         """
         upload_id = str(int(time.time() * 1000))
         if usertags:
-            usertags = [
-                {"user_id": tag.user.pk, "position": [tag.x, tag.y]} for tag in usertags
-            ]
+            usertags = [{"user_id": tag.user.pk, "position": [tag.x, tag.y]} for tag in usertags]
             childs[0]["usertags"] = dumps({"in": usertags})
         data = {
             "timezone_offset": str(self.timezone_offset),
@@ -312,6 +362,4 @@ class UploadAlbumMixin:
             ],
             **extra_data,
         }
-        return self.private_request(
-            "media/configure_sidecar/", self.with_default_data(data)
-        )
+        return self.private_request("media/configure_sidecar/", self.with_default_data(data))

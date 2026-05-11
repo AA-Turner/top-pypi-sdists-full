@@ -7,6 +7,7 @@ pub(crate) struct Evaluator<'src: 'run, 'run> {
   is_dependency: bool,
   non_const_assignments: Table<'src, Name<'src>>,
   overrides: &'run HashMap<Number, String>,
+  recursion_depth: usize,
   scope: Scope<'src, 'run>,
 }
 
@@ -26,6 +27,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
   ) -> RunResult<'src, Settings> {
     let mut evaluator = Self {
       assignments: Some(assignments),
+      recursion_depth: 0,
       context: None,
       env: BTreeMap::new(),
       is_dependency: false,
@@ -34,11 +36,26 @@ impl<'src, 'run> Evaluator<'src, 'run> {
       scope: scope.child(),
     };
 
+    let variable_references = sets
+      .values()
+      .flat_map(|set| set.value.expressions())
+      .flat_map(|expression| expression.references())
+      .filter_map(|reference| {
+        if let Reference::Variable(variable) = reference {
+          Some(variable.lexeme())
+        } else {
+          None
+        }
+      })
+      .collect::<BTreeSet<&str>>();
+
     for assignment in assignments.values() {
-      match evaluator.evaluate_assignment(assignment) {
-        Err(Error::Const { .. }) => evaluator.non_const_assignments.insert(assignment.name),
-        Err(err) => return Err(err),
-        Ok(_) => {}
+      if variable_references.contains(assignment.name.lexeme()) {
+        match evaluator.evaluate_assignment(assignment) {
+          Err(Error::Const { .. }) => evaluator.non_const_assignments.insert(assignment.name),
+          Err(err) => return Err(err),
+          Ok(_) => {}
+        }
       }
     }
 
@@ -85,6 +102,9 @@ impl<'src, 'run> Evaluator<'src, 'run> {
         }
         Setting::Lazy(value) => {
           settings.lazy = value;
+        }
+        Setting::NoCd(value) => {
+          settings.no_cd = value;
         }
         Setting::NoExitMessage(value) => {
           settings.no_exit_message = value;
@@ -152,11 +172,13 @@ impl<'src, 'run> Evaluator<'src, 'run> {
       config,
       dotenv,
       module,
+      overrides,
       search,
     };
 
     let mut evaluator = Self {
       assignments: Some(&module.assignments),
+      recursion_depth: 0,
       context: Some(context),
       env: BTreeMap::new(),
       is_dependency: false,
@@ -221,6 +243,14 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     function: &FunctionDefinition<'src>,
     arguments: &[Expression<'src>],
   ) -> RunResult<'src, String> {
+    let recursion_depth = self.recursion_depth + 1;
+
+    if recursion_depth == RECURSION_LIMIT {
+      return Err(Error::RecursionLimit {
+        last: function.name,
+      });
+    }
+
     let context = *self.context.as_ref().unwrap();
 
     let mut scope = Scope::root();
@@ -238,14 +268,14 @@ impl<'src, 'run> Evaluator<'src, 'run> {
       });
     }
 
-    let overrides = HashMap::new();
     let mut evaluator = Evaluator {
       assignments: Some(&context.module.assignments),
       context: Some(context),
       env: BTreeMap::new(),
       is_dependency: false,
       non_const_assignments: Table::new(),
-      overrides: &overrides,
+      overrides: self.overrides,
+      recursion_depth,
       scope,
     };
 
@@ -518,20 +548,16 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     parameters: &[Parameter<'src>],
     recipe: &Recipe<'src>,
     scope: &'run Scope<'src, 'run>,
-  ) -> RunResult<'src, (Scope<'src, 'run>, Vec<String>)> {
-    let env = recipe
-      .attributes
-      .iter()
-      .filter_map(|attribute| {
-        if let Attribute::Env(key, value) = attribute {
-          Some((key.cooked.clone(), value.cooked.clone()))
-        } else {
-          None
-        }
-      })
-      .collect();
+  ) -> RunResult<'src, (Scope<'src, 'run>, Vec<String>, BTreeMap<String, String>)> {
+    let mut evaluator = Self::new(context, BTreeMap::new(), is_dependency, scope);
 
-    let mut evaluator = Self::new(context, env, is_dependency, scope);
+    for attribute in &recipe.attributes {
+      if let Attribute::Env(key, value) = attribute {
+        let key = evaluator.evaluate_expression(key)?;
+        let value = evaluator.evaluate_expression(value)?;
+        evaluator.env.insert(key, value);
+      }
+    }
 
     let mut positional = Vec::new();
 
@@ -580,7 +606,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
       });
     }
 
-    Ok((evaluator.scope, positional))
+    Ok((evaluator.scope, positional, evaluator.env))
   }
 
   pub(crate) fn new(
@@ -589,14 +615,14 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     is_dependency: bool,
     scope: &'run Scope<'src, 'run>,
   ) -> Self {
-    static OVERRIDES: LazyLock<HashMap<Number, String>> = LazyLock::new(HashMap::new);
     Self {
       assignments: None,
       context: Some(*context),
       env,
       is_dependency,
       non_const_assignments: Table::new(),
-      overrides: &OVERRIDES,
+      overrides: context.overrides,
+      recursion_depth: 0,
       scope: scope.child(),
     }
   }

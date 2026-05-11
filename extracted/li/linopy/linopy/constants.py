@@ -6,7 +6,7 @@ Linopy module for defining constant values used within the package.
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Union
+from typing import Any, Literal, TypeAlias, Union, get_args
 
 import numpy as np
 import pandas as pd
@@ -33,8 +33,35 @@ sign_replace_dict: dict[str, str] = {
     short_LESS_EQUAL: LESS_EQUAL,
 }
 
+FIX_CONSTRAINT_PREFIX = "__fix__"
+
 TERM_DIM = "_term"
 STACKED_TERM_DIM = "_stacked_term"
+
+PWL_LAMBDA_SUFFIX = "_lambda"
+PWL_CONVEX_SUFFIX = "_convex"
+PWL_LINK_SUFFIX = "_link"
+PWL_DELTA_SUFFIX = "_delta"
+PWL_FILL_ORDER_SUFFIX = "_fill_order"
+PWL_SEGMENT_BINARY_SUFFIX = "_segment_binary"
+PWL_SELECT_SUFFIX = "_select"
+PWL_ORDER_BINARY_SUFFIX = "_order_binary"
+PWL_DELTA_BOUND_SUFFIX = "_delta_bound"
+PWL_BINARY_ORDER_SUFFIX = "_binary_order"
+PWL_ACTIVE_BOUND_SUFFIX = "_active_bound"
+PWL_OUTPUT_LINK_SUFFIX = "_output_link"
+PWL_CHORD_SUFFIX = "_chord"
+PWL_DOMAIN_LO_SUFFIX = "_domain_lo"
+PWL_DOMAIN_HI_SUFFIX = "_domain_hi"
+
+PWL_METHOD: TypeAlias = Literal["sos2", "lp", "incremental", "auto"]
+PWL_METHODS: frozenset[str] = frozenset(get_args(PWL_METHOD))
+PWL_CONVEXITY: TypeAlias = Literal["convex", "concave", "linear", "mixed"]
+PWL_CONVEXITIES: frozenset[str] = frozenset(get_args(PWL_CONVEXITY))
+BREAKPOINT_DIM = "_breakpoint"
+SEGMENT_DIM = "_segment"
+LP_PIECE_DIM = f"{BREAKPOINT_DIM}_piece"
+PWL_LINK_DIM = "_pwl_var"
 GROUPED_TERM_DIM = "_grouped_term"
 GROUP_DIM = "_group"
 FACTOR_DIM = "_factor"
@@ -48,6 +75,37 @@ HELPER_DIMS: list[str] = [
     CONCAT_DIM,
     CV_DIM,
 ]
+
+# SOS constraint attribute keys
+SOS_TYPE_ATTR = "sos_type"
+SOS_DIM_ATTR = "sos_dim"
+SOS_BIG_M_ATTR = "big_m_upper"
+
+
+class EvolvingAPIWarning(FutureWarning):
+    """
+    Signals a newly-added API whose details may evolve in minor releases.
+
+    Subclasses :class:`FutureWarning` so it is visible by default.  Each
+    emit prefixes its message with the affected feature (e.g.
+    ``"piecewise: ..."``) so message-regex filters can target a single
+    feature without hiding warnings from other features.
+
+    Silence globally with::
+
+        import warnings
+        import linopy
+
+        warnings.filterwarnings("ignore", category=linopy.EvolvingAPIWarning)
+
+    Or only one feature::
+
+        warnings.filterwarnings(
+            "ignore",
+            category=linopy.EvolvingAPIWarning,
+            message=r"^piecewise:",
+        )
+    """
 
 
 class ModelStatus(Enum):

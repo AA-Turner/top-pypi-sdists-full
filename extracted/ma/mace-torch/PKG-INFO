@@ -1,11 +1,16 @@
 Metadata-Version: 2.4
 Name: mace-torch
-Version: 0.3.15
+Version: 0.3.16
 Home-page: https://github.com/ACEsuit/mace
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: torch>=1.12
@@ -41,6 +46,8 @@ Requires-Dist: pytest-benchmark; extra == "dev"
 Requires-Dist: pylint; extra == "dev"
 Provides-Extra: schedulefree
 Requires-Dist: schedulefree; extra == "schedulefree"
+Provides-Extra: torchsim
+Requires-Dist: torch-sim-atomistic; python_version >= "3.12" and extra == "torchsim"
 Provides-Extra: cueq
 Requires-Dist: cuequivariance-torch>=0.2.0; extra == "cueq"
 Provides-Extra: cueq-cuda-11
@@ -78,6 +85,7 @@ Dynamic: license-file
       - [Example usage in ASE](#example-usage-in-ase)
     - [MACE-OFF: Transferable Organic Force Fields](#mace-off-transferable-organic-force-fields)
       - [Example usage in ASE](#example-usage-in-ase-1)
+    - [MACE-Polar: Electrostatics foundation models](#mace-polar-electrostatics-foundation-models)
     - [Finetuning foundation models](#finetuning-foundation-models)
     - [Latest recommended foundation models](#latest-recommended-foundation-models)
   - [Caching](#caching)
@@ -106,7 +114,7 @@ A partial documentation is available at: https://mace-docs.readthedocs.io
 
 ### 1. Requirements
 
-- Python >= 3.8  (for openMM, use Python = 3.9)
+- Python >= 3.9
 - [PyTorch](https://pytorch.org/) >= 1.12 **(training with float64 is not supported with PyTorch 2.1 but is supported with 2.2 and later, Pytorch 2.4.1 is not supported)**
 
 **Make sure to install PyTorch.** Please refer to the [official PyTorch installation](https://pytorch.org/get-started/locally/) for the installation instructions. Select the appropriate options for your system.
@@ -348,6 +356,13 @@ calc = mace_off(model="medium", device='cuda')
 atoms.calc = calc
 print(atoms.get_potential_energy())
 ```
+
+### MACE-Polar: Electrostatics foundation models
+
+PolarMACE checkpoints are electrostatics foundation models for molecular chemistry, trained on the OMol25 dataset.
+For usage, outputs, and training/finetuning details, see the PolarMACE guide:
+
+- https://mace-docs.readthedocs.io/en/latest/guide/polar_mace.html
 
 ### Finetuning foundation models
 

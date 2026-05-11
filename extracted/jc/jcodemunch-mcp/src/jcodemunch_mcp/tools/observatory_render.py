@@ -317,10 +317,21 @@ def render_index_page(output_dir: Path, summaries: list[dict]) -> None:
                 history = []
         composites = [float(r["composite"]) for r in history]
         spark = render_sparkline(composites, width=120, height=24)
+        # Phase 7: presence of runtime evidence is rare in OSS observatory
+        # checkouts (most repos haven't had OTel traces ingested), so the
+        # badge is a small aspirational nudge rather than a leaderboard
+        # column. Hidden when False to keep the tile uncluttered.
+        runtime_badge = (
+            '<span class="runtime-badge" '
+            'title="This repo has ingested runtime evidence (Phase 7)" '
+            'style="font-size:0.7rem;padding:0.1rem 0.4rem;border-radius:3px;'
+            'background:#1f6feb;color:#fff;margin-left:0.4rem">live</span>'
+            if s.get("runtime_evidence") else ""
+        )
         tiles.append(
             f'<a class="tile" href="{_esc(slug)}/index.html">'
             f'<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem">'
-            f'<h3>{_esc(label)}</h3>'
+            f'<h3>{_esc(label)}{runtime_badge}</h3>'
             f'<span class="grade" style="background:{_grade_color(grade)};color:#fff">{_esc(grade)}</span>'
             f'</div>'
             f'<div style="display:flex;align-items:center;gap:0.75rem;margin-top:0.5rem">'
@@ -352,7 +363,9 @@ def render_index_page(output_dir: Path, summaries: list[dict]) -> None:
 </head>
 <body>
 <h1>jCodeMunch — OSS Health Observatory</h1>
-<p class="muted">Six-axis code-health radar over a curated list of OSS repos.
+<p class="muted">Six-axis code-health radar over a curated list of OSS repos
+(plus an optional seventh axis when runtime evidence is available — repos
+with the <span style="font-size:0.75rem;padding:0.05rem 0.3rem;border-radius:3px;background:#1f6feb;color:#fff">live</span> badge have ingested OTel / SQL / stack traces).
 Re-audited periodically. Grades are heuristic — read the
 <a href="https://github.com/jgravelle/jcodemunch-mcp/blob/main/src/jcodemunch_mcp/tools/health_radar.py">methodology</a>
 before using as anything more than a directional signal.
@@ -371,9 +384,27 @@ Each tile links to the repo's full radar + history. RSS feeds available per-repo
 </html>
 """
     (output_dir / "index.html").write_text(page, encoding="utf-8")
-    # Mirror as JSON for downstream tooling.
+    # Mirror as JSON for downstream tooling.  Top-level metadata makes the
+    # artifact self-describing — verifiers can confirm which jcm version +
+    # INDEX_VERSION produced the run from the file alone, no workflow log
+    # cross-reference required.
+    try:
+        from .. import __version__ as _gen_version
+    except ImportError:
+        _gen_version = ""
+    try:
+        from ..storage.index_store import INDEX_VERSION as _gen_index_version
+    except ImportError:
+        _gen_index_version = 0
+    payload = {
+        "generator_version": _gen_version,
+        "index_version": _gen_index_version,
+        "built_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "summaries": ok_summaries,
+        "skipped": failed,
+    }
     (output_dir / "index.json").write_text(
-        json.dumps({"summaries": ok_summaries, "skipped": failed}, indent=2) + "\n",
+        json.dumps(payload, indent=2) + "\n",
         encoding="utf-8",
     )
 

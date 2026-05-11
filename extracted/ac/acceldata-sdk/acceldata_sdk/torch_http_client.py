@@ -186,7 +186,8 @@ class TorchHttpClient(TorchClientInterFace, ABC):
             pipeline_summary = PipelineSummary(
                 id=obj['pipelineSummary']['id'],
                 name=obj['pipelineSummary']['name'],
-                meta=pipeline_summary_meta
+                meta=pipeline_summary_meta,
+                uid = obj['pipelineSummary']['uid']
             )
             pipelines_infos.append(
                 PipelineListingInfo(

@@ -9,6 +9,7 @@ is dead code retained only as a reference until removed in a follow-up cleanup.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 from pathlib import Path
@@ -25,6 +26,7 @@ from .helpers import _make_tee_log, _log_subprocess, _run_streaming, _patch_uv_p
 
 
 _PYTORCH_PACKAGES = {"torch", "torchvision", "torchaudio"}
+_INSTALL_HASH_FILE = "install.hash"
 
 
 # ---------------------------------------------------------------------------
@@ -109,26 +111,86 @@ def _resolve_workspace_torch(
     return torch_index, cuda_version, cuda_major, python_version, torch_version
 
 
-def _discover_node_configs(comfyui_dir: Path) -> List[Tuple[str, Path, Path, ComfyEnvConfig]]:
-    """Find every comfy-env.toml under custom_nodes/ and pair with (env_name, plugin_dir, config_path, cfg)."""
+def _discover_node_configs(
+    comfyui_dir: Path,
+    log: Callable[[str], None] = print,
+) -> List[Tuple[str, Path, Path, ComfyEnvConfig]]:
+    """Find every comfy-env.toml under custom_nodes/ and pair with (env_name, plugin_dir, config_path, cfg).
+
+    Logs the scan loudly so failed parses don't silently produce an empty result.
+    """
     custom_nodes = comfyui_dir / "custom_nodes"
     if not custom_nodes.is_dir():
+        log(f"[comfy-env] _discover: {custom_nodes} is not a directory")
         return []
 
+    log(f"[comfy-env] _discover: scanning {custom_nodes}")
     out: List[Tuple[str, Path, Path, ComfyEnvConfig]] = []
     for plugin_dir in sorted(custom_nodes.iterdir()):
-        if not plugin_dir.is_dir() or plugin_dir.name.startswith((".", "_")):
+        if not plugin_dir.is_dir():
             continue
-        for cf in sorted(plugin_dir.rglob(CONFIG_FILE_NAME)):
-            if cf.name == ROOT_CONFIG_FILE_NAME:
-                continue
+        if plugin_dir.name.startswith((".", "_")):
+            log(f"[comfy-env] _discover: skip {plugin_dir.name} (dot/underscore prefix)")
+            continue
+        toml_files = [cf for cf in sorted(plugin_dir.rglob(CONFIG_FILE_NAME))
+                      if cf.name != ROOT_CONFIG_FILE_NAME]
+        if not toml_files:
+            log(f"[comfy-env] _discover: {plugin_dir.name}: no {CONFIG_FILE_NAME} found")
+            continue
+        for cf in toml_files:
             try:
                 cfg = load_config(cf)
-            except Exception:
+            except Exception as e:
+                log(
+                    f"[comfy-env] _discover: FAILED to load {cf}: "
+                    f"{type(e).__name__}: {e}"
+                )
                 continue
             env_name = get_env_name(plugin_dir, cf)
+            log(f"[comfy-env] _discover: {plugin_dir.name} -> {env_name} ({cf.relative_to(comfyui_dir)})")
             out.append((env_name, plugin_dir, cf, cfg))
     return out
+
+
+def _compute_workspace_hash(
+    comfyui_dir: Path,
+    discovered: List[Tuple[str, "Path", "Path", "ComfyEnvConfig"]],
+) -> str:
+    """SHA-256 over the inputs that determine the generated pixi.toml.
+
+    Used by `install_workspace` to short-circuit when nothing relevant has
+    changed since the last successful install. Inputs:
+      - comfy-env package version (version bumps invalidate)
+      - bytes of every per-node `comfy-env.toml` discovered
+
+    `comfy-env-root.toml` is intentionally excluded: it drives `node_reqs`
+    (which plugins get cloned) but does not affect any pixi env's solve, so
+    editing it shouldn't force a workspace reinstall. Bootstrap python/torch
+    are also excluded: rare to change; user can force a reinstall by deleting
+    `<workspace>/install.hash`.
+    """
+    from .. import __version__ as ce_version
+
+    h = hashlib.sha256()
+    h.update(b"comfy-env-version:")
+    h.update(ce_version.encode())
+    h.update(b"\n")
+
+    for _env_name, _plugin_dir, cf, _cfg in sorted(discovered, key=lambda x: str(x[2])):
+        try:
+            rel = cf.relative_to(comfyui_dir)
+        except ValueError:
+            rel = cf
+        h.update(b"toml:")
+        h.update(str(rel).encode())
+        h.update(b"\n")
+        try:
+            h.update(cf.read_bytes())
+        except OSError:
+            pass
+        h.update(b"\n")
+
+    return h.hexdigest()
 
 
 def _collect_root_conda_deps(
@@ -429,17 +491,41 @@ def install_workspace(
     """
     from ..packages.pixi import ensure_pixi, PIXI
     ensure_pixi()
-    from ..environment.cache import CE_WORKSPACE_DIR
+    from ..environment.cache import CE_WORKSPACE_DIR, get_workspace_dir
     from ..packages.toml_generator import write_workspace_pixi_toml
 
     comfyui_dir = Path(comfyui_dir).resolve()
-    discovered = _discover_node_configs(comfyui_dir)
+    discovered = _discover_node_configs(comfyui_dir, log=log)
     if not discovered:
         log("[comfy-env] No custom-node comfy-env.toml files found -- skipping workspace install")
         return None
 
-    workspace_dir = comfyui_dir / CE_WORKSPACE_DIR
-    workspace_dir.mkdir(parents=True, exist_ok=True)
+    workspace_dir = get_workspace_dir(comfyui_dir)
+
+    legacy_workspace = comfyui_dir / CE_WORKSPACE_DIR
+    if (legacy_workspace / ".pixi").is_dir():
+        log(
+            f"[comfy-env] Old workspace at {legacy_workspace} -- safe to delete, "
+            f"no longer used"
+        )
+
+    # Hash-and-skip: bypass the entire install when nothing relevant has
+    # changed since the last successful run (every per-plugin `install.py`
+    # ends up here, so the same workspace gets reinstalled N times per CI
+    # run otherwise). See `_compute_workspace_hash` for inputs.
+    inputs_hash = _compute_workspace_hash(comfyui_dir, discovered)
+    hash_path = workspace_dir / _INSTALL_HASH_FILE
+    if not dry_run and hash_path.is_file():
+        try:
+            prev = hash_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            prev = ""
+        if prev == inputs_hash:
+            log(
+                f"[comfy-env] Workspace inputs unchanged (hash {inputs_hash[:12]}) "
+                f"-- skipping install. Delete {hash_path} to force."
+            )
+            return workspace_dir
 
     log_path = workspace_dir / "install.log"
     tee_log = _make_tee_log(log, log_path)
@@ -536,15 +622,21 @@ def install_workspace(
             if cuda:
                 parts.append(f"{len(cuda)} cuda wheels")
             log(f"  - {env_name} ({', '.join(parts)})")
-        log("[comfy-env] Running `pixi install --all`...")
+        # Install only this run's envs. Envs from other ComfyUI installs that
+        # share this global workspace stay materialized; we don't touch them.
+        install_envs: List[str] = [env_name for env_name, _, _, _ in discovered]
+        env_flags: List[str] = []
+        for n in install_envs:
+            env_flags += ["-e", n]
+        log(f"[comfy-env] Running `pixi install {' '.join(env_flags)}`...")
         result = _run_streaming(
-            [PIXI, "install", "--all"],
+            [PIXI, "install", *env_flags],
             log=log, cwd=workspace_dir, env=pixi_env,
         )
-        _log_subprocess(log, result, "pixi install --all")
+        _log_subprocess(log, result, f"pixi install {' '.join(env_flags)}")
         if result.returncode != 0:
             raise RuntimeError(
-                f"pixi install --all failed:\nstderr: {result.stderr}\nstdout: {result.stdout}"
+                f"pixi install failed:\nstderr: {result.stderr}\nstdout: {result.stdout}"
             )
 
         # Report envs that aren't in the current manifest, but DO NOT prune.
@@ -554,7 +646,6 @@ def install_workspace(
         envs_dir = workspace_dir / ".pixi" / "envs"
         if envs_dir.is_dir():
             current_names = {env_name for env_name, _, _, _ in discovered}
-            current_names.add("comfyui")  # template env always present
             for d in envs_dir.iterdir():
                 if not d.is_dir() or d.name in current_names:
                     continue
@@ -600,6 +691,15 @@ def install_workspace(
 
         # Dedupe libomp.dylib copies in each env's site-packages (macOS only).
         _dedupe_envs_libomp(workspace_dir, discovered, log)
+
+        # Record the inputs hash so subsequent runs with the same inputs
+        # short-circuit. Only written after pixi install + post-steps all
+        # succeed -- a failed install leaves no hash and forces a retry.
+        try:
+            hash_path.write_text(inputs_hash + "\n", encoding="utf-8")
+            log(f"[comfy-env] Recorded install hash {inputs_hash[:12]} -> {hash_path}")
+        except OSError as e:
+            log(f"[comfy-env] WARNING: could not write {hash_path}: {e}")
 
         log(f"[comfy-env] Install log: {log_path}")
         return workspace_dir

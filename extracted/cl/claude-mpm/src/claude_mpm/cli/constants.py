@@ -43,6 +43,9 @@ class SetupService(StrEnum):
     BRAVE_SEARCH = "brave-search"
     TAVILY = "tavily"
     FIRECRAWL = "firecrawl"
+    TRUSTY_SEARCH = "trusty-search"
+    TRUSTY_MEMORY = "trusty-memory"
+    TRUSTY_ANALYZE = "trusty-analyze"
 
     def __str__(self) -> str:
         return self.value
@@ -79,6 +82,9 @@ class MCPBinary(StrEnum):
     MCP_TICKETER = "mcp-ticketer"
     MCP_VECTOR_SEARCH = "mcp-vector-search"
     MCP_SKILLSET = "mcp-skillset"
+    TRUSTY_SEARCH = "trusty-search"
+    TRUSTY_MEMORY = "trusty-memory"
+    TRUSTY_ANALYZER = "trusty-analyzer"
 
     def __str__(self) -> str:
         return self.value

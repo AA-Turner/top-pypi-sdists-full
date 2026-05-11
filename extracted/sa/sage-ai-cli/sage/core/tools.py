@@ -420,6 +420,42 @@ class ToolContext:
             return False
 
 
+# Process-wide RunGuard singleton. The Novellia bug class is "we rejected
+# package.json but then ran npm install on it anyway" — the guard tracks
+# pending rejections across tool invocations within one Sage session.
+_RUN_GUARD = None
+
+
+def get_run_guard():
+    """Return the process-wide RunGuard, lazily constructed."""
+    global _RUN_GUARD
+    if _RUN_GUARD is None:
+        try:
+            from sage.core.run_guard import RunGuard
+            _RUN_GUARD = RunGuard()
+        except Exception:
+            return None
+    return _RUN_GUARD
+
+
+def _notify_run_guard_rejection(filepath: str, signal: str | None) -> None:
+    g = get_run_guard()
+    if g is not None and signal:
+        try:
+            g.record_rejection(filepath, signal)
+        except Exception:
+            pass
+
+
+def _notify_run_guard_clean(filepath: str) -> None:
+    g = get_run_guard()
+    if g is not None:
+        try:
+            g.record_clean_write(filepath)
+        except Exception:
+            pass
+
+
 class FileWriteTool:
     """Tool for writing files safely."""
 
@@ -463,6 +499,30 @@ class FileWriteTool:
                 status=ToolStatus.ERROR,
                 error=f"Content too large: {len(content)} bytes",
             )
+
+        # Content sanity — reject prose-as-code, SAGE protocol leaks,
+        # English-word package names, prompt echoes (the Novellia bug class).
+        try:
+            from sage.core.content_validator import validate_content
+            check = validate_content(filepath, content)
+            if not check.ok:
+                # Notify the run guard so subsequent install commands on this
+                # rejected manifest get blocked too (Novellia regression).
+                _notify_run_guard_rejection(filepath, check.signal)
+                return ToolResult(
+                    tool_type=ToolType.FILE_WRITE,
+                    status=ToolStatus.ERROR,
+                    error=f"REJECTED ({check.signal}): {check.reason}",
+                    metadata={"validator_signal": check.signal,
+                              "validator_reason": check.reason},
+                )
+            else:
+                # Clean write — clear any prior rejection block on this file
+                _notify_run_guard_clean(filepath)
+        except Exception:
+            # If the validator itself is broken, fail-open rather than fail-closed
+            # (better to write maybe-bad content than block the agent entirely).
+            pass
 
         if self.context.dry_run:
             return ToolResult(
@@ -1402,6 +1462,22 @@ def validate_tool_syntax(text: str) -> ToolValidationResult:
     return ToolParser.validate_tool_syntax(text)
 
 
+_NESTED_COMMAND_RE = re.compile(
+    r"^\s*(READ|SEARCH|SEARCH_WEB|RUN|BASH|WEB_FETCH|FILE|WRITE|EDIT)\s*:",
+    re.IGNORECASE,
+)
+
+
+def _argument_starts_with_command(arg: str) -> bool:
+    """Detect 'READ: SEARCH: *.py' — argument is itself another command.
+
+    This is a small-model failure mode: instead of emitting two separate
+    tool lines, it crams them on one line. Executing it as-is reads a
+    non-existent file named "SEARCH: *.py".
+    """
+    return bool(_NESTED_COMMAND_RE.match(arg or ""))
+
+
 def parse_tool_command(text: str) -> ToolCall | None:
     """Parse a tool command and return a ToolCall.
 
@@ -1418,6 +1494,9 @@ def parse_tool_command(text: str) -> ToolCall | None:
         lines = text.split("\n")
         first_line = lines[0].strip()
         path = first_line[5:].strip()  # Extract path after "FILE:"
+        # Reject FILE: <COMMAND>: foo (nested command in path)
+        if _argument_starts_with_command(path):
+            return None
         content = "\n".join(lines[1:]) if len(lines) > 1 else ""
         if path:
             return ToolCall(
@@ -1439,6 +1518,11 @@ def parse_tool_command(text: str) -> ToolCall | None:
     # Parse the command
     result = ToolParser.parse_tool_command(line)
     if not result.valid:
+        return None
+
+    # Reject nested commands: "READ: SEARCH: *.py"
+    target_arg = result.arguments.get("target", "")
+    if _argument_starts_with_command(target_arg):
         return None
 
     # Convert to ToolCall

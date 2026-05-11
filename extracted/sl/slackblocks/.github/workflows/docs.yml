@@ -1,0 +1,31 @@
+name: Publish Docs On Release
+on:
+    release:
+      types: [published]
+    workflow_dispatch:
+permissions:
+    contents: write
+jobs:
+    deploy:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Check Out Source Repository
+          uses: actions/checkout@v5
+          with:
+            fetch-depth: 0
+
+        - name: Install uv
+          uses: astral-sh/setup-uv@v4
+          with:
+            enable-cache: true
+
+        - name: Configure Git
+          run: |
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+        - name: Install Docs Dependencies
+          run: uv sync --group docs
+
+        - name: Build and Deploy Docs
+          run: uv run mike deploy --push --update-aliases ${{ github.ref_name }} latest

@@ -335,7 +335,7 @@ $(SCRIV_SOURCE): $(CHANGES_MD)
 	sed -r -e 's@]\(([a-zA-Z0-9_]+)\.rst#([^)]+)\)@](https://coverage.readthedocs.io/en/latest/\1.html#\2)@g' < tmp/trimmed.md > $(SCRIV_SOURCE)
 
 github_releases: $(SCRIV_SOURCE)	#- Update GitHub releases.
-	$(DOCBIN)/python -m scriv github-release --all
+	$(DOCBIN)/python -m scriv github-release --all --repo=coveragepy/coveragepy
 
 comment_on_fixes: $(SCRIV_SOURCE)	#- Add a comment to issues that were fixed.
 	python ci/comment_on_fixes.py $(REPO_OWNER)

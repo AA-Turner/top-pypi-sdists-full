@@ -24,34 +24,36 @@ def compute_gae(
     *,
     rewards: torch.Tensor,
     terminated: torch.Tensor,
+    truncated: torch.Tensor,
     values: torch.Tensor,
-    next_values: torch.Tensor,
+    last_values: torch.Tensor,
     discount_factor: float = 0.99,
     lambda_coefficient: float = 0.95,
+    time_limit_bootstrap: bool = False,
 ) -> torch.Tensor:
     """Compute the Generalized Advantage Estimator (GAE).
 
     :param rewards: Rewards obtained by the agent.
     :param terminated: Signals to indicate that episodes have ended.
+    :param truncated: Signals to indicate that episodes have been truncated.
     :param values: Values obtained by the agent.
-    :param next_values: Next values obtained by the agent.
+    :param last_values: Last values obtained by the agent.
     :param discount_factor: Discount factor.
     :param lambda_coefficient: Lambda coefficient.
+    :param time_limit_bootstrap: Whether to use time-limit (truncation) bootstrapping.
 
     :return: Generalized Advantage Estimator.
     """
     advantage = 0
     advantages = torch.zeros_like(rewards)
-    not_terminated = terminated.logical_not()
+    not_done = ((terminated | truncated) if time_limit_bootstrap else terminated).logical_not()
     memory_size = rewards.shape[0]
 
     # advantages computation
     for i in reversed(range(memory_size)):
-        next_values = values[i + 1] if i < memory_size - 1 else next_values
+        next_values = values[i + 1] if i < memory_size - 1 else last_values
         advantage = (
-            rewards[i]
-            - values[i]
-            + discount_factor * not_terminated[i] * (next_values + lambda_coefficient * advantage)
+            rewards[i] - values[i] + discount_factor * not_done[i] * (next_values + lambda_coefficient * advantage)
         )
         advantages[i] = advantage
     # returns computation
@@ -176,6 +178,7 @@ class PPO(Agent):
             self.memory.create_tensor(name="actions", size=self.action_space, dtype=torch.float32)
             self.memory.create_tensor(name="rewards", size=1, dtype=torch.float32)
             self.memory.create_tensor(name="terminated", size=1, dtype=torch.bool)
+            self.memory.create_tensor(name="truncated", size=1, dtype=torch.bool)
             self.memory.create_tensor(name="log_prob", size=1, dtype=torch.float32)
             self.memory.create_tensor(name="values", size=1, dtype=torch.float32)
             self.memory.create_tensor(name="returns", size=1, dtype=torch.float32)
@@ -276,8 +279,16 @@ class PPO(Agent):
                 rewards = self.cfg.rewards_shaper(rewards, timestep, timesteps)
 
             # time-limit (truncation) bootstrapping
-            if self.cfg.time_limit_bootstrap:
-                rewards += self.cfg.discount_factor * self._current_values * truncated
+            if self.cfg.time_limit_bootstrap and truncated.any():
+                with torch.no_grad():
+                    inputs = {
+                        "observations": self._observation_preprocessor(next_observations),
+                        "states": self._state_preprocessor(next_states),
+                    }
+                    next_values, _ = self.value.act(inputs, role="value")
+                    next_values = self._value_preprocessor(next_values, inverse=True)
+
+                rewards += self.cfg.discount_factor * next_values * truncated
 
             # storage transition in memory
             self.memory.add_samples(
@@ -286,6 +297,7 @@ class PPO(Agent):
                 actions=actions,
                 rewards=rewards,
                 terminated=terminated,
+                truncated=truncated,
                 log_prob=self._current_log_prob,
                 values=self._current_values,
             )
@@ -337,18 +349,17 @@ class PPO(Agent):
         returns, advantages = compute_gae(
             rewards=self.memory.get_tensor_by_name("rewards"),
             terminated=self.memory.get_tensor_by_name("terminated"),
+            truncated=self.memory.get_tensor_by_name("truncated"),
             values=values,
-            next_values=last_values,
+            last_values=last_values,
             discount_factor=self.cfg.discount_factor,
             lambda_coefficient=self.cfg.gae_lambda,
+            time_limit_bootstrap=self.cfg.time_limit_bootstrap,
         )
 
         self.memory.set_tensor_by_name("values", self._value_preprocessor(values, train=True))
         self.memory.set_tensor_by_name("returns", self._value_preprocessor(returns, train=True))
         self.memory.set_tensor_by_name("advantages", advantages)
-
-        # sample mini-batches from memory
-        sampled_batches = self.memory.sample_all(names=self._tensors_names, mini_batches=self.cfg.mini_batches)
 
         cumulative_policy_loss = 0
         cumulative_entropy_loss = 0
@@ -367,7 +378,9 @@ class PPO(Agent):
                 sampled_values,
                 sampled_returns,
                 sampled_advantages,
-            ) in sampled_batches:
+            ) in self.memory.sample(
+                names=self._tensors_names, batch_size=len(self.memory), mini_batches=self.cfg.mini_batches
+            ):
 
                 with torch.autocast(device_type=self._device_type, enabled=self.cfg.mixed_precision):
                     inputs = {

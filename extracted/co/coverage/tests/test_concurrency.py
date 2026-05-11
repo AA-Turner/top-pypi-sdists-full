@@ -35,11 +35,6 @@ from tests.coveragetest import CoverageTest
 # These libraries aren't always available, we'll skip tests if they aren't.
 
 try:
-    import eventlet
-except ImportError:
-    eventlet = None
-
-try:
     import gevent
 except ImportError:
     gevent = None
@@ -151,12 +146,6 @@ THREAD = """
     import queue
     """
 
-# Import the things to use eventlet.
-EVENTLET = """
-    import eventlet.green.threading as threading
-    import eventlet.queue as queue
-    """
-
 # Import the things to use gevent.
 GEVENT = """
     from gevent import monkey
@@ -177,11 +166,8 @@ SIMPLE = """
 
 def cant_trace_msg(concurrency: str, the_module: ModuleType | None) -> str | None:
     """What might coverage.py say about a concurrency setting and imported module?"""
-    # In the concurrency choices, "multiprocessing" doesn't count, so remove it.
-    if "multiprocessing" in concurrency:
-        parts = concurrency.split(",")
-        parts.remove("multiprocessing")
-        concurrency = ",".join(parts)
+    # In the concurrency choices, "multiprocessing" doesn't count.
+    assert "multiprocessing" not in concurrency
 
     if testenv.SYS_MON and concurrency:
         expected_out = f"Can't use core=sysmon: it doesn't support concurrency={concurrency}"
@@ -266,14 +252,6 @@ class ConcurrencyTest(CoverageTest):
         code = SIMPLE.format(QLIMIT=self.QLIMIT)
         self.try_some_code(code, "thread", threading)
 
-    def test_eventlet(self) -> None:
-        code = (EVENTLET + SUM_RANGE_Q + PRINT_SUM_RANGE).format(QLIMIT=self.QLIMIT)
-        self.try_some_code(code, "eventlet", eventlet)
-
-    def test_eventlet_simple_code(self) -> None:
-        code = SIMPLE.format(QLIMIT=self.QLIMIT)
-        self.try_some_code(code, "eventlet", eventlet)
-
     # https://github.com/coveragepy/coveragepy/issues/663
     @pytest.mark.skipif(env.WINDOWS, reason="gevent has problems on Windows: #663")
     def test_gevent(self) -> None:
@@ -306,6 +284,10 @@ class ConcurrencyTest(CoverageTest):
         code = SIMPLE.format(QLIMIT=self.QLIMIT)
         self.try_some_code(code, "greenlet", greenlet)
 
+    # The code in tracer.c that went with this test doesn't seem particular to
+    # eventlet. I don't want to remove this test, but I don't know how to
+    # rewrite it to demonstrate the original problem without eventlet.
+    @pytest.mark.skip(reason="We don't test eventlet; don't know how to rewrite this test.")
     def test_bug_330(self) -> None:
         BUG_330 = """\
             from weakref import WeakKeyDictionary
@@ -322,6 +304,7 @@ class ConcurrencyTest(CoverageTest):
             eventlet.sleep(.1)
             print(len(gts))
             """
+        eventlet = glob  # quiet linters on the next line.
         self.try_some_code(BUG_330, "eventlet", eventlet, "0\n")
 
     # Sometimes a test fails due to inherent randomness. Try more times.
@@ -382,12 +365,12 @@ class ConcurrencyTest(CoverageTest):
             self.command_line("run prog.py")
 
     def test_no_multiple_light_concurrency(self) -> None:
-        with pytest.raises(ConfigError, match="Conflicting concurrency settings: eventlet, gevent"):
-            self.command_line("run --concurrency=gevent,eventlet prog.py")
+        with pytest.raises(ConfigError, match="Conflicting concurrency settings: gevent, greenlet"):
+            self.command_line("run --concurrency=gevent,greenlet prog.py")
 
     def test_no_multiple_light_concurrency_in_config(self) -> None:
-        self.make_file(".coveragerc", "[run]\nconcurrency = gevent, eventlet\n")
-        with pytest.raises(ConfigError, match="Conflicting concurrency settings: eventlet, gevent"):
+        self.make_file(".coveragerc", "[run]\nconcurrency = gevent, greenlet\n")
+        with pytest.raises(ConfigError, match="Conflicting concurrency settings: gevent, greenlet"):
             self.command_line("run prog.py")
 
     def test_multiprocessing_needs_config_file(self) -> None:
@@ -398,7 +381,7 @@ class ConcurrencyTest(CoverageTest):
 class WithoutConcurrencyModuleTest(CoverageTest):
     """Tests of what happens if the requested concurrency isn't installed."""
 
-    @pytest.mark.parametrize("module", ["eventlet", "gevent", "greenlet"])
+    @pytest.mark.parametrize("module", ["gevent", "greenlet"])
     def test_missing_module(self, module: str) -> None:
         self.make_file("prog.py", "a = 1")
         sys.modules[module] = None  # type: ignore[assignment]
@@ -473,7 +456,6 @@ class MultiprocessingTest(CoverageTest):
         self,
         code: str,
         expected_out: str | None,
-        the_module: ModuleType | None,
         nprocs: int,
         start_method: str,
         concurrency: str = "multiprocessing",
@@ -492,30 +474,27 @@ class MultiprocessingTest(CoverageTest):
 
         cmd = f"coverage run {args} multi.py {start_method}"
         _, out = self.run_command_status(cmd)
-        expected_cant_trace = cant_trace_msg(concurrency, the_module)
+        assert out.rstrip() == expected_out
+        assert len(glob.glob(".coverage.*")) == nprocs + 1
 
-        if expected_cant_trace is not None:
-            assert expected_cant_trace in out
-            pytest.skip(f"Can't test: {expected_cant_trace}")
-        else:
-            assert out.rstrip() == expected_out
-            assert len(glob.glob(".coverage.*")) == nprocs + 1
-
-            out = self.run_command("coverage combine")
-            out_lines = out.splitlines()
-            assert len(out_lines) == nprocs + 1
-            assert all(
-                re.fullmatch(
-                    rf"(Combined data file|Skipping duplicate data) \.coverage{SUFFIX_PATTERN}",
-                    line,
-                )
-                for line in out_lines
+        out = self.run_command("coverage combine --debug=combine")
+        out_lines = out.splitlines()
+        # main proc log file, nprocs log files, one summary line
+        assert len(out_lines) == 1 + nprocs + 1
+        assert all(
+            re.fullmatch(
+                rf"(Combined data file|Skipping duplicate data) \.coverage{SUFFIX_PATTERN}",
+                line,
             )
-            assert len(glob.glob(".coverage.*")) == 0
-            out = self.run_command("coverage report -m")
+            for line in out_lines[:-1]
+        )
+        # Combines the main and one subprocess, the other subprocesses are skipped.
+        assert out_lines[-1] == f"Combined 2 files, skipped {nprocs - 1}"
+        assert len(glob.glob(".coverage.*")) == 0
+        out = self.run_command("coverage report -m")
 
-            last_line = self.squeezed_lines(out)[-1]
-            assert re.search(r"TOTAL \d+ 0 100%", last_line)
+        last_line = self.squeezed_lines(out)[-1]
+        assert re.search(r"TOTAL \d+ 0 100%", last_line)
 
     def test_multiprocessing_simple(self, start_method: str) -> None:
         nprocs = 3
@@ -526,7 +505,6 @@ class MultiprocessingTest(CoverageTest):
         self.try_multiprocessing_code(
             code,
             expected_out,
-            threading,
             nprocs,
             start_method=start_method,
         )
@@ -540,26 +518,8 @@ class MultiprocessingTest(CoverageTest):
         self.try_multiprocessing_code(
             code,
             expected_out,
-            threading,
             nprocs,
             args="--append",
-            start_method=start_method,
-        )
-
-    def test_multiprocessing_and_gevent(self, start_method: str) -> None:
-        nprocs = 3
-        upto = 30
-        code = (SUM_RANGE_WORK + EVENTLET + SUM_RANGE_Q + MULTI_CODE).format(
-            NPROCS=nprocs, UPTO=upto
-        )
-        total = sum(sum(range((x + 1) * 100)) for x in range(upto))
-        expected_out = f"{nprocs} pids, total = {total}"
-        self.try_multiprocessing_code(
-            code,
-            expected_out,
-            eventlet,
-            nprocs,
-            concurrency="multiprocessing,eventlet",
             start_method=start_method,
         )
 

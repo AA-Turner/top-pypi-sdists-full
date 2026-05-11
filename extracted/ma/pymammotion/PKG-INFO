@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymammotion
-Version: 0.7.105
+Version: 0.7.107
 Author: jLynx
 Author-email: Michael Arthur <michael@jumblesoft.co.nz>
 License-Expression: GPL-3.0
@@ -10,7 +10,7 @@ Requires-Dist: aiohttp>=3.9.1
 Requires-Dist: aiomqtt>=2.5.1
 Requires-Dist: alibabacloud-apigateway-util<0.0.3,>=0.0.2
 Requires-Dist: alibabacloud-iot-api-gateway<0.0.5,>=0.0.4
-Requires-Dist: betterproto2>=0.9.1
+Requires-Dist: betterproto2==0.9.1
 Requires-Dist: bleak-retry-connector>=3.5.0
 Requires-Dist: bleak>=0.21.0
 Requires-Dist: bluetooth-adapters>=2.0.0

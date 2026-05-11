@@ -81,6 +81,15 @@ def source_files(component_path: str) -> list[Path]:
 def bundle_cache_key(component_path: str, packages: list[str]) -> str:
     h = hashlib.sha256()
     h.update(json.dumps(sorted(package_root(pkg) for pkg in packages), sort_keys=True).encode())
+    entry = component_entry(component_path)
+    try:
+        entry_id = entry.relative_to(Path.cwd()).as_posix()
+    except ValueError:
+        entry_id = entry.as_posix()
+    h.update(b"entry")
+    h.update(b"\0")
+    h.update(entry_id.encode())
+    h.update(b"\0")
     for path in source_files(component_path):
         rel = path.relative_to(component_root(component_path)).as_posix()
         h.update(rel.encode())

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: drydock-cli
-Version: 2.8.10
+Version: 2.8.14
 Summary: Local-first CLI coding agent — tested with Gemma 4 26B via vLLM
 Project-URL: Homepage, https://github.com/fbobe321/drydock
 Project-URL: Repository, https://github.com/fbobe321/drydock

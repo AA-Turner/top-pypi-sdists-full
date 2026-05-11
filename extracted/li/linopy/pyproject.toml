@@ -37,8 +37,6 @@ dependencies = [
     "tqdm",
     "deprecation",
     "packaging",
-    "google-cloud-storage",
-    "requests",
 ]
 
 [project.urls]
@@ -46,6 +44,10 @@ Homepage = "https://github.com/PyPSA/linopy"
 Source = "https://github.com/PyPSA/linopy"
 
 [project.optional-dependencies]
+oetc = [
+    "google-cloud-storage",
+    "requests",
+]
 docs = [
     "ipython==8.26.0",
     "numpydoc==1.7.0",
@@ -57,7 +59,7 @@ docs = [
     "nbsphinx-link==1.3.0",
     "docutils<0.21",
     "numpy<2",
-    "gurobipy==11.0.2",
+    "gurobipy>=13.0.0",
     "ipykernel==6.29.5",
     "matplotlib==3.9.1",
     "highspy>=1.7.1",
@@ -73,6 +75,10 @@ dev = [
     "types-requests",
     "gurobipy",
     "highspy",
+]
+benchmarks = [
+    "pytest-benchmark",
+    "pytest-memray",
 ]
 solvers = [
     "gurobipy",
@@ -100,9 +106,21 @@ version_scheme = "no-guess-dev"
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-norecursedirs = ["dev-scripts", "doc", "examples", "benchmark"]
+norecursedirs = ["dev-scripts", "doc", "examples", "benchmark", "benchmarks"]
 markers = [
     "gpu: marks tests as requiring GPU hardware (deselect with '-m \"not gpu\"')",
+]
+filterwarnings = [
+    # Silence our own EvolvingAPIWarning inside the test suite so the
+    # piecewise tests don't emit 500+ warnings.  Users still see them.
+    # Match by message prefix on the builtin FutureWarning base class
+    # rather than on ``linopy.EvolvingAPIWarning`` directly — using the
+    # class reference here would force pytest to import linopy at
+    # config-parse time, which loads ``linopy.variables`` from
+    # site-packages and then conflicts with ``--doctest-modules``
+    # collection of ``linopy/variables.py`` in the source tree on
+    # Windows CI.
+    "ignore:piecewise:FutureWarning",
 ]
 
 [tool.coverage.run]
@@ -113,7 +131,7 @@ omit = ["test/*"]
 exclude_also = ["if TYPE_CHECKING:"]
 
 [tool.mypy]
-exclude = ['dev/*', 'examples/*', 'benchmark/*', 'doc/*']
+exclude = ['dev/*', 'examples/*', 'benchmark/*', 'benchmarks/*', 'doc/*']
 ignore_missing_imports = true
 no_implicit_optional = true
 warn_unused_ignores = true
@@ -157,6 +175,7 @@ ignore = [
     'D101', # Missing docstring in public class
     'D102', # Missing docstring in public method
     'D103', # Missing docstring in public function
+    'D106', # Missing docstring in public nested class
     'D107', # Missing docstring in __init__
     'D202', # No blank lines allowed after function docstring
     'D203', # 1 blank line required before class docstring

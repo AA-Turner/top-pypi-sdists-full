@@ -46,6 +46,7 @@ class VideoPlayer(Component):
         "_loop_time_offset",
         "_duration",
         "_playing", "_paused", "_initialized",
+        "_frames_ready", "_audio_ready", "_audio_start_time",
     )
 
     requires = ("Transform",)
@@ -120,6 +121,10 @@ class VideoPlayer(Component):
         self._playing: bool = False
         self._paused: bool = False
         self._initialized: bool = False
+
+        self._frames_ready: bool = False
+        self._audio_ready: bool = False
+        self._audio_start_time: float = 0.0
 
     # ======================================== CONTRACT ========================================
     def __repr__(self) -> str:
@@ -373,6 +378,7 @@ class VideoPlayer(Component):
     def pause(self) -> None:
         """Met la lecture en pause
 
+        Fige la clock audio à la position courante et suspend OpenAL.
         Sans effet si la lecture est arrêtée ou déjà en pause.
         """
         if not self._playing or self._paused:
@@ -402,7 +408,10 @@ class VideoPlayer(Component):
                 pass
 
     def stop(self) -> None:
-        """Arrête la lecture et signale le thread de décodage"""
+        """Arrête la lecture et signale le thread de décodage
+
+        Le nettoyage complet des ressources est délégué à ``VideoSystem._stop_player()``.
+        """
         if not self._playing:
             return
         if self._stop_event is not None:

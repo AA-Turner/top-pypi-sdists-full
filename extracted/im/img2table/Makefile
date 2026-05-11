@@ -1,43 +1,47 @@
 #!/bin/bash
 
-VENV = ./activate_venv
 DIR := $(shell pwd)
 export PYTHONPATH := $(DIR)/src
 
 # Virtual environment commands
 venv:
-	python -m venv ./venv || true
-	. $(VENV); python -m pip install pip wheel --upgrade;
-	. $(VENV); python -m pip install -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu
-	. $(VENV); python -m pip install -U opencv-python opencv-contrib-python opencv-python-headless
+	uv sync --all-extras --dev
 
 update:
-	. $(VENV); python -m pip install -U -r requirements-dev.txt --extra-index-url https://download.pytorch.org/whl/cpu
-	. $(VENV); python -m pip install -U opencv-python opencv-contrib-python opencv-python-headless
+	uv sync --upgrade --all-extras --dev
 
 # Test commands
 test:
-	. $(VENV); pytest --cov-report term --cov=src
+	uv run pytest --cov --cov-config=pyproject.toml --cov-report=term
 
 fast-test:
-	. $(VENV); pytest --cov-report term --cov=src --ignore=tests/ocr --ignore=tests/document/base
+	uv run pytest --cov --cov-config=pyproject.toml --cov-report=term --ignore=tests/ocr --ignore=tests/document/rotation
 
 lint:
-	. $(VENV); ruff check src
+	uv run ruff check
+
+type-check:
+	uv run ty check src tests
 
 # Examples commands
-jupyter-examples:
-	. $(VENV); cd examples && jupyter notebook
+jupyter: build-ext
+	cd examples && uv run jupyter notebook
 
 update-examples:
-	. $(VENV);
 	for f in $(PWD)/examples/*.ipynb; do \
-	  jupyter nbconvert --to notebook --execute $$f --inplace; \
+	  uv run jupyter nbconvert --to notebook --execute $$f --inplace; \
 	done
 
 # Build commands
-build: venv
-	. $(VENV); python setup.py sdist bdist_wheel
+build:
+	uv build
 
+build-ext:
+	python setup.py build_ext --inplace
 
-.PHONY: venv
+clean-ext:
+	find src -type f \( -name "*.pyd" -o -name "*.so" \) -delete
+	find src -type f -name "*.pyx" -exec sh -c 'rm -f "$${1%.pyx}.c"' _ {} \;
+	rm -rf build
+
+.PHONY: venv build build-ext clean-ext

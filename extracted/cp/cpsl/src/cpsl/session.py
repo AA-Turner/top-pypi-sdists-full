@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import hashlib
 import json
+import math
 import uuid
 from collections.abc import AsyncIterator, Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
+from enum import Enum
 from typing import Any
 from urllib.parse import urlparse
 
@@ -147,7 +150,16 @@ class SessionData(dict):
 
     async def set(self, key: str, value: Any) -> Any:
         """Persist a named session data value and broadcast realtime updates."""
-        self[key] = value
+        super().__setitem__(key, _track_data_value(value, self._notify))
+        if self._notify:
+            owner = getattr(self._notify, "__self__", None)
+            notify_async = getattr(owner, "_notify_data_changed_async", None)
+            if callable(notify_async):
+                await notify_async()
+            else:
+                result = self._notify()
+                if asyncio.iscoroutine(result):
+                    await result
         return self[key]
 
 
@@ -160,6 +172,41 @@ def _track_data_value(value: Any, notify: Callable[[], None] | None) -> Any:
     if isinstance(value, list):
         return _TrackedList(value, notify)
     return value
+
+
+def _json_safe_value(value: Any) -> Any:
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, Enum):
+        return _json_safe_value(value.value)
+    if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
+        return value.isoformat()
+    if isinstance(value, bytes):
+        return value.decode(errors="replace")
+
+    dump = getattr(value, "model_dump", None)
+    if callable(dump):
+        try:
+            return _json_safe_value(dump(mode="json"))
+        except TypeError:
+            return _json_safe_value(dump())
+
+    if is_dataclass(value) and not isinstance(value, type):
+        return _json_safe_value(asdict(value))
+
+    if isinstance(value, dict):
+        return {str(key): _json_safe_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set, SessionData, _TrackedList)):
+        return [_json_safe_value(item) for item in value]
+
+    return str(value)
+
+
+def session_data_json(data: Any) -> str:
+    """Encode session data through the SDK's durable JSON boundary."""
+    return json.dumps(_json_safe_value(data))
 
 
 @dataclass
@@ -832,10 +879,6 @@ class Session:
         self.id = id
         self.user = user
         self.channel = channel
-        self.history: list[Message] = history or []
-        self.data: SessionData = SessionData(data or {}, self._notify_data_changed)
-        self.integrations: dict[str, IntegrationCredentials] = integrations or {}
-        self.media = SessionMedia(self)
         self._reply_callback: Any = None
         self._stream_callback: Any = None
         self._stream_write_callback: Any = None
@@ -850,9 +893,13 @@ class Session:
         self._session_stub: Any = None
         self._app_id: str = ""
         self._kv: Collection | None = None
+        self.history: list[Message] = history or []
+        self.data: SessionData = SessionData(data or {}, self._notify_data_changed)
+        self.integrations: dict[str, IntegrationCredentials] = integrations or {}
+        self.media = SessionMedia(self)
 
     def _notify_data_changed(self) -> None:
-        cb = self._data_change_callback
+        cb = getattr(self, "_data_change_callback", None)
         if cb is None:
             return
         try:
@@ -863,6 +910,17 @@ class Session:
                     loop.create_task(result)
                 except RuntimeError:
                     pass
+        except Exception:
+            pass
+
+    async def _notify_data_changed_async(self) -> None:
+        cb = getattr(self, "_data_change_callback", None)
+        if cb is None:
+            return
+        try:
+            result = cb()
+            if asyncio.iscoroutine(result):
+                await result
         except Exception:
             pass
 

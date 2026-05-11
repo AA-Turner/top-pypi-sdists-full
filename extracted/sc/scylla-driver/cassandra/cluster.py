@@ -20,16 +20,18 @@ from __future__ import absolute_import
 
 import atexit
 import datetime
+from enum import Enum
 from binascii import hexlify
 from collections import defaultdict
 from collections.abc import Mapping
-from concurrent.futures import ThreadPoolExecutor, FIRST_COMPLETED, wait as wait_futures
+from concurrent.futures import Future, ThreadPoolExecutor, FIRST_COMPLETED, wait as wait_futures
 from copy import copy
 from functools import partial, reduce, wraps
 from itertools import groupby, count, chain
+import enum
 import json
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, Tuple
 from warnings import warn
 from random import random
 import re
@@ -191,7 +193,6 @@ DefaultConnection = conn_class
 
 log = logging.getLogger(__name__)
 
-
 _GRAPH_PAGING_MIN_DSE_VERSION = Version('6.8.0')
 
 _NOT_SET = object()
@@ -213,6 +214,14 @@ class NoHostAvailable(Exception):
     def __init__(self, message, errors):
         Exception.__init__(self, message, errors)
         self.errors = errors
+
+
+class SchemaAgreementScope(str, Enum):
+    """Scope selectors for :meth:`.Session.wait_for_schema_agreement`."""
+
+    RACK = 'rack'
+    DC = 'dc'
+    CLUSTER = 'cluster'
 
 
 def _future_completed(future):
@@ -506,8 +515,9 @@ class GraphAnalyticsExecutionProfile(GraphExecutionProfile):
 
 class ProfileManager(object):
 
-    def __init__(self):
+    def __init__(self, pools_allowed: bool=True):
         self.profiles = dict()
+        self.pools_allowed = pools_allowed
 
     def _profiles_without_explicit_lbps(self):
         names = (profile_name for
@@ -519,6 +529,8 @@ class ProfileManager(object):
         )
 
     def distance(self, host):
+        if not self.pools_allowed:
+            return HostDistance.IGNORED
         distances = set(p.load_balancing_policy.distance(host) for p in self.profiles.values())
         return HostDistance.LOCAL_RACK if HostDistance.LOCAL_RACK in distances else \
             HostDistance.LOCAL if HostDistance.LOCAL in distances else \
@@ -534,10 +546,14 @@ class ProfileManager(object):
             p.load_balancing_policy.check_supported()
 
     def on_up(self, host):
+        if not self.pools_allowed:
+            return
         for p in self.profiles.values():
             p.load_balancing_policy.on_up(host)
 
     def on_down(self, host):
+        if not self.pools_allowed:
+            return
         for p in self.profiles.values():
             p.load_balancing_policy.on_down(host)
 
@@ -609,6 +625,31 @@ class _ConfigMode(object):
     UNCOMMITTED = 0
     LEGACY = 1
     PROFILES = 2
+
+
+class ControlConnectionQueryFallback(enum.Enum):
+    """
+    Controls how application queries use the control connection when node pools
+    are unavailable.
+
+    ``Disabled`` requires a usable node pool for application queries. If the
+    driver cannot establish one during session startup, it raises
+    :class:`NoHostAvailable`.
+
+    ``Fallback`` still attempts to create node pools, but allows application
+    queries to fall back to the control connection when no usable node pool is
+    available. Session startup is allowed to proceed even if the initial pool
+    attempts all fail.
+
+    ``SkipPoolCreation`` disables node-pool creation for the session and uses
+    the control-connection fallback path for application queries.
+
+    The fallback path is not used for requests targeted to an explicit host.
+    """
+
+    Disabled = "Disabled"
+    Fallback = "Fallback"
+    SkipPoolCreation = "SkipPoolCreation"
 
 
 class Cluster(object):
@@ -931,6 +972,16 @@ class Cluster(object):
     If set to :const:`None`, there will be no timeout for these queries.
     """
 
+    allow_control_connection_query_fallback: ControlConnectionQueryFallback = ControlConnectionQueryFallback.Disabled
+    """
+    Controls whether application queries may fall back to the control connection.
+
+    ``Disabled`` keeps the old behavior.
+    ``Fallback`` enables control-connection fallback when no usable node pools exist.
+    ``SkipPoolCreation`` skips node-pool creation and uses the control connection fallback path.
+    This fallback is still not used for requests targeted to an explicit host.
+    """
+
     idle_heartbeat_interval = 30
     """
     Interval, in seconds, on which to heartbeat idle connections. This helps
@@ -1217,7 +1268,8 @@ class Cluster(object):
                  metadata_request_timeout: Optional[float] = None,
                  column_encryption_policy=None,
                  application_info:Optional[ApplicationInfoBase]=None,
-                 client_routes_config:Optional[ClientRoutesConfig]=None
+                 client_routes_config:Optional[ClientRoutesConfig]=None,
+                 allow_control_connection_query_fallback:Optional[ControlConnectionQueryFallback]=ControlConnectionQueryFallback.Disabled
                  ):
         """
         ``executor_threads`` defines the number of threads in a pool for handling asynchronous tasks such as
@@ -1234,6 +1286,10 @@ class Cluster(object):
 
         if port < 1 or port > 65535:
             raise ValueError("Invalid port number (%s) (1-65535)" % port)
+
+        if not isinstance(allow_control_connection_query_fallback, ControlConnectionQueryFallback):
+            raise TypeError(
+                "allow_control_connection_query_fallback must be a ControlConnectionQueryFallback value")
 
         if connection_class is not None:
             self.connection_class = connection_class
@@ -1396,7 +1452,8 @@ class Cluster(object):
         else:
             self.timestamp_generator = MonotonicTimestampGenerator()
 
-        self.profile_manager = ProfileManager()
+        self.profile_manager = ProfileManager(
+            pools_allowed=allow_control_connection_query_fallback != ControlConnectionQueryFallback.SkipPoolCreation)
         self.profile_manager.profiles[EXEC_PROFILE_DEFAULT] = ExecutionProfile(
             self.load_balancing_policy,
             self.default_retry_policy,
@@ -1465,6 +1522,7 @@ class Cluster(object):
         self.cql_version = cql_version
         self.max_schema_agreement_wait = max_schema_agreement_wait
         self.control_connection_timeout = control_connection_timeout
+        self.allow_control_connection_query_fallback = allow_control_connection_query_fallback
         self.metadata_request_timeout = self.control_connection_timeout if metadata_request_timeout is None else metadata_request_timeout
         self.idle_heartbeat_interval = idle_heartbeat_interval
         self.idle_heartbeat_timeout = idle_heartbeat_timeout
@@ -1683,7 +1741,8 @@ class Cluster(object):
             futures.update(session.update_created_pools())
         _, not_done = wait_futures(futures, pool_wait_timeout)
         if not_done:
-            raise OperationTimedOut("Failed to create all new connection pools in the %ss timeout.")
+            raise OperationTimedOut("Failed to create all new connection pools in the %ss timeout." % pool_wait_timeout,
+                                    timeout=pool_wait_timeout)
 
     def connection_factory(self, endpoint, host_conn = None, *args, **kwargs):
         """
@@ -1806,7 +1865,8 @@ class Cluster(object):
         return pools
 
     def is_shard_aware(self):
-        return bool(self.get_all_pools()[0].host.sharding_info)
+        pools = self.get_all_pools()
+        return bool(pools and pools[0].host.sharding_info)
 
     def shard_aware_stats(self):
         if self.is_shard_aware():
@@ -1911,7 +1971,7 @@ class Cluster(object):
         """
         Intended for internal use only.
         """
-        if self.is_shutdown:
+        if self.is_shutdown or self.allow_control_connection_query_fallback == ControlConnectionQueryFallback.SkipPoolCreation:
             return
 
         log.debug("Waiting to acquire lock for handling up status of node %s", host)
@@ -2019,7 +2079,7 @@ class Cluster(object):
         """
         Intended for internal use only.
         """
-        if self.is_shutdown:
+        if self.is_shutdown or self.allow_control_connection_query_fallback == ControlConnectionQueryFallback.SkipPoolCreation:
             return
 
         with host.lock:
@@ -2624,20 +2684,24 @@ class Session(object):
 
         # create connection pools in parallel
         self._initial_connect_futures = set()
-        for host in hosts:
-            future = self.add_or_renew_pool(host, is_host_addition=False)
-            if future:
-                self._initial_connect_futures.add(future)
+        fallback_mode = self.cluster.allow_control_connection_query_fallback
+        if fallback_mode is not ControlConnectionQueryFallback.SkipPoolCreation:
+            for host in hosts:
+                future = self.add_or_renew_pool(host, is_host_addition=False)
+                if future:
+                    self._initial_connect_futures.add(future)
 
-        futures = wait_futures(self._initial_connect_futures, return_when=FIRST_COMPLETED)
-        while futures.not_done and not any(f.result() for f in futures.done):
-            futures = wait_futures(futures.not_done, return_when=FIRST_COMPLETED)
+            futures = wait_futures(self._initial_connect_futures, return_when=FIRST_COMPLETED)
+            while futures.not_done and not any(f.result() for f in futures.done):
+                futures = wait_futures(futures.not_done, return_when=FIRST_COMPLETED)
 
-        if not any(f.result() for f in self._initial_connect_futures):
-            msg = "Unable to connect to any servers"
-            if self.keyspace:
-                msg += " using keyspace '%s'" % self.keyspace
-            raise NoHostAvailable(msg, [h.address for h in hosts])
+            # Only Disabled requires an initial pool to come up.
+            if not any(f.result() for f in self._initial_connect_futures) and \
+                    fallback_mode is ControlConnectionQueryFallback.Disabled:
+                msg = "Unable to connect to any servers"
+                if self.keyspace:
+                    msg += " using keyspace '%s'" % self.keyspace
+                raise NoHostAvailable(msg, [h.address for h in hosts])
 
         self.session_id = uuid.uuid4()
 
@@ -3236,6 +3300,9 @@ class Session(object):
         """
         For internal use only.
         """
+        if self.cluster.allow_control_connection_query_fallback is ControlConnectionQueryFallback.SkipPoolCreation:
+            return None
+
         distance = self._profile_manager.distance(host)
         if distance == HostDistance.IGNORED:
             return None
@@ -3306,6 +3373,9 @@ class Session(object):
 
         For internal use only.
         """
+        if self.cluster.allow_control_connection_query_fallback is ControlConnectionQueryFallback.SkipPoolCreation:
+            return set()
+
         futures = set()
         for host in self.cluster.metadata.all_hosts():
             distance = self._profile_manager.distance(host)
@@ -3373,6 +3443,185 @@ class Session(object):
 
         for pool in tuple(self._pools.values()):
             pool._set_keyspace_for_all_conns(keyspace, pool_finished_setting_keyspace)
+
+    def wait_for_schema_agreement(self, wait_time: Optional[float] = None,
+                                  scope: SchemaAgreementScope = SchemaAgreementScope.CLUSTER) -> bool:
+        """
+        Wait for connected hosts in the selected scope to report the same
+        schema version from ``system.local``.
+
+        By default, the timeout for this operation is governed by
+        :attr:`~.Cluster.max_schema_agreement_wait` and
+        :attr:`~.Cluster.control_connection_timeout`.
+
+        Passing ``wait_time`` here overrides
+        :attr:`~.Cluster.max_schema_agreement_wait`. If provided, ``wait_time``
+        must be greater than 0.
+
+        ``scope`` determines which connected hosts participate in the check.
+        Pass :attr:`SchemaAgreementScope.RACK`, :attr:`SchemaAgreementScope.DC`,
+        or :attr:`SchemaAgreementScope.CLUSTER`.
+        The default is :attr:`SchemaAgreementScope.CLUSTER`. ``RACK`` narrows
+        the check to connected hosts in the local rack only. ``DC`` checks
+        connected hosts in the local datacenter. ``CLUSTER`` queries every
+        connected host across all datacenters.
+
+        :param wait_time: Override for
+            :attr:`~.Cluster.max_schema_agreement_wait`, should be positive
+            number.
+        :param scope: Restricts the check to connected hosts in the local rack,
+            local datacenter, or whole connected cluster.
+        :returns: ``True`` when the selected connected hosts agree on schema,
+            otherwise ``False``.
+        :raises ValueError: If ``wait_time`` is provided and is not greater
+            than 0.
+        :raises ValueError: If ``scope`` is not one of the schema agreement
+            scope values.
+        """
+
+        if wait_time is not None and wait_time <= 0:
+            raise ValueError("wait_time must be greater than 0")
+
+        total_timeout = wait_time if wait_time is not None else self.cluster.max_schema_agreement_wait
+        if total_timeout <= 0:
+            raise ValueError("total_timeout must be greater than 0")
+
+        deadline = time.time() + total_timeout
+        schema_mismatches = None
+        scope_label = 'local rack' if scope is SchemaAgreementScope.RACK else (
+            'local datacenter' if scope is SchemaAgreementScope.DC else 'cluster')
+
+        while time.time() < deadline:
+            schema_mismatches = self._get_schema_mismatches_for_scope(deadline, scope)
+            if schema_mismatches is None:
+                return True
+
+            log.debug("[session] Connected hosts in the %s still disagree on schema, trying again", scope_label)
+            remaining = deadline - time.time()
+            if remaining > 0:
+                time.sleep(min(0.2, remaining))
+
+        log.warning("[session] Connected hosts in the %s are reporting a schema disagreement: %s",
+                    scope_label, schema_mismatches)
+        return False
+
+    def _get_schema_mismatches_for_scope(self, deadline: float,
+                                         scope: SchemaAgreementScope) -> Optional[Dict[Any, Any]]:
+        hosts = self._get_schema_agreement_hosts(scope)
+        mismatches = defaultdict(list)
+        errors = {}
+        scope_label = 'local rack' if scope is SchemaAgreementScope.RACK else (
+            'local datacenter' if scope is SchemaAgreementScope.DC else 'cluster')
+
+        if not hosts:
+            errors[scope.value] = ConnectionException(
+                "No connected hosts available in the %s" % (scope_label,)
+            )
+            return {'unavailable': errors}
+
+        metadata_request_timeout = self.cluster.control_connection._metadata_request_timeout
+        query = maybe_add_timeout_to_query(ControlConnection._SELECT_SCHEMA_LOCAL, metadata_request_timeout)
+
+        schema_version_futures = []
+        for host in hosts:
+            try:
+                schema_version_future = self._query_local_schema_version(host, query, deadline)
+            except Exception as exc:
+                errors[host.endpoint] = exc
+                continue
+
+            schema_version_futures.append((host, schema_version_future))
+
+        if schema_version_futures:
+            # Start all host queries first, then wait for the whole batch.
+            remaining = max(0.0, deadline - time.time())
+            if remaining > 0:
+                wait_futures([future for _, future in schema_version_futures], timeout=remaining)
+
+            for host, future in schema_version_futures:
+                if future.done():
+                    try:
+                        rows = future.result()
+                    except Exception as exc:
+                        errors[host.endpoint] = exc
+                        continue
+
+                    row = rows.one()
+                    schema_version = getattr(row, "schema_version", None) if row is not None else None
+                    mismatches[schema_version].append(host.endpoint)
+                else:
+                    errors[host.endpoint] = OperationTimedOut(last_host=host, timeout=max(0.0, deadline - time.time()))
+
+        if len(mismatches) == 1 and None not in mismatches and not errors:
+            log.debug("[session] Connected hosts in the %s agree on schema", scope_label)
+            return None
+
+        if errors:
+            mismatches['unavailable'] = errors
+        return dict(mismatches)
+
+    def _get_schema_agreement_hosts(self, scope: SchemaAgreementScope) -> Tuple[Host, ...]:
+        if scope is SchemaAgreementScope.RACK:
+            allowed_distances = (HostDistance.LOCAL_RACK,)
+        elif scope is SchemaAgreementScope.DC:
+            allowed_distances = (HostDistance.LOCAL_RACK, HostDistance.LOCAL)
+        else:
+            allowed_distances = (HostDistance.LOCAL_RACK, HostDistance.LOCAL, HostDistance.REMOTE)
+
+        return tuple(
+            host for host, pool in tuple(self._pools.items())
+            if host.is_up
+            and not pool.is_shutdown
+            and self._profile_manager.distance(host) in allowed_distances)
+
+    def _query_local_schema_version(self, host: Host, query: str, deadline: float) -> Future:
+        remaining = max(0.0, deadline - time.time())
+        try:
+            response_future = self.execute_async(
+                query,
+                timeout=self._schema_agreement_query_timeout(remaining),
+                host=host,
+            )
+        except OperationTimedOut as timeout:
+            log.debug("[session] Timed out waiting for schema version from %s: %s", host, timeout)
+            raise
+        except Exception as exc:
+            log.debug("[session] Error querying schema version from %s: %s", host, exc)
+            raise
+
+        # execute_async returns cassandra.cluster.ResponseFuture, which does not have bulk waiting logic for it.
+        # That is why _query_local_schema_version returns concurrent.futures.Future
+        #  so that schema agreement logic could use concurrent.futures.wait_futures to wait on them.
+        # schema_version_future is an adapter between cassandra.cluster.ResponseFuture and concurrent.futures.Future
+        # to make things work
+        schema_version_future = Future()
+
+        def _set_result(result, result_future=schema_version_future, response_future=response_future):
+            if result_future.done():
+                return
+            try:
+                result_future.set_result(ResultSet(response_future, result))
+            except Exception as exc:
+                result_future.set_exception(exc)
+
+        def _set_exception(exc, result_future=schema_version_future):
+            if result_future.done():
+                return
+            result_future.set_exception(exc)
+
+        try:
+            response_future.add_callbacks(_set_result, _set_exception)
+        except Exception as exc:
+            log.debug("[session] Error registering schema version callback from %s: %s", host, exc)
+            raise
+
+        return schema_version_future
+
+    def _schema_agreement_query_timeout(self, remaining: float) -> float:
+        control_timeout = self.cluster.control_connection._timeout
+        if control_timeout is None:
+            return max(0.0, remaining)
+        return max(0.0, min(control_timeout, remaining))
 
     def user_type_registered(self, keyspace, user_type, klass):
         """
@@ -3786,7 +4035,7 @@ class ControlConnection(object):
         if self._cluster.is_shutdown:
             return False
 
-        agreed = self.wait_for_schema_agreement(connection,
+        agreed = self._wait_for_schema_agreement(connection=connection,
                                                 preloaded_results=preloaded_results,
                                                 wait_time=schema_agreement_wait)
 
@@ -4079,7 +4328,30 @@ class ControlConnection(object):
         self._cluster.scheduler.schedule_unique(delay, self.refresh_schema, **event)
 
     def wait_for_schema_agreement(self, connection=None, preloaded_results=None, wait_time=None):
+        """
+        Wait for schema agreement from the control connection's metadata view.
 
+        This method is intended for internal metadata refresh flows. External
+        callers should use :meth:`.Session.wait_for_schema_agreement` instead.
+
+        The control connection observes schema agreement from its own
+        perspective, which may include hosts the session is not using, and it
+        may fail when the control connection itself is transiently unhealthy.
+        That can produce false positives or failures that do not reflect
+        whether a session can safely proceed.
+
+        .. deprecated:: 3.30.0
+           Use :meth:`.Session.wait_for_schema_agreement` instead.
+        """
+        warn("ControlConnection.wait_for_schema_agreement is deprecated and will be removed in 4.0. "
+             "Use Session.wait_for_schema_agreement instead. "
+             "This method is for internal metadata refresh use only.",
+             DeprecationWarning, stacklevel=2)
+        return self._wait_for_schema_agreement(connection=connection,
+                                               preloaded_results=preloaded_results,
+                                               wait_time=wait_time)
+
+    def _wait_for_schema_agreement(self, connection=None, preloaded_results=None, wait_time=None):
         total_timeout = wait_time if wait_time is not None else self._cluster.max_schema_agreement_wait
         if total_timeout <= 0:
             return True
@@ -4117,7 +4389,8 @@ class ControlConnection(object):
                 local_query = QueryMessage(query=maybe_add_timeout_to_query(self._SELECT_SCHEMA_LOCAL, self._metadata_request_timeout),
                                            consistency_level=cl)
                 try:
-                    timeout = min(self._timeout, total_timeout - elapsed)
+                    remaining = total_timeout - elapsed
+                    timeout = min(self._timeout, remaining) if self._timeout is not None else remaining
                     peers_result, local_result = connection.wait_for_responses(
                         peers_query, local_query, timeout=timeout)
                 except OperationTimedOut as timeout:
@@ -4438,6 +4711,7 @@ class ResponseFuture(object):
     _spec_execution_plan = NoSpeculativeExecutionPlan()
     _continuous_paging_session = None
     _host = None
+    _control_connection_query_attempted = False
     _TABLET_ROUTING_CTYPE = None
 
     _warned_timeout = False
@@ -4458,6 +4732,7 @@ class ResponseFuture(object):
         self._callback_lock = Lock()
         self._start_time = start_time or time.time()
         self._host = host
+        self._control_connection_query_attempted = False
         self._spec_execution_plan = speculative_execution_plan or self._spec_execution_plan
         self._make_query_plan()
         self._event = Event()
@@ -4504,6 +4779,7 @@ class ResponseFuture(object):
             )
             return
 
+        conn_in_flight = None
         if self._connection is not None:
             try:
                 self._connection._requests.pop(self._req_id)
@@ -4514,8 +4790,13 @@ class ResponseFuture(object):
             except KeyError:
                 key = "Connection defunct by heartbeat"
                 errors = {key: "Client request timeout. See Session.execute[_async](timeout)"}
-                self._set_final_exception(OperationTimedOut(errors, self._current_host))
+                self._set_final_exception(OperationTimedOut(errors, self._current_host,
+                                                            timeout=self.timeout,
+                                                            in_flight=self._connection.in_flight))
                 return
+
+            # Capture connection stats before pool.return_connection() can alter state
+            conn_in_flight = self._connection.in_flight
 
             pool = self.session._pools.get(self._current_host)
             if pool and not pool.is_shutdown:
@@ -4530,18 +4811,31 @@ class ResponseFuture(object):
                         self._connection.orphaned_threshold_reached = True
 
                 pool.return_connection(self._connection, stream_was_orphaned=True)
+            elif self._connection.is_control_connection:
+                with self._connection.lock:
+                    self._connection.orphaned_request_ids.add(self._req_id)
+                    if len(self._connection.orphaned_request_ids) >= self._connection.orphaned_threshold:
+                        self._connection.orphaned_threshold_reached = True
 
         errors = self._errors
         if not errors:
             if self.is_schema_agreed:
-                key = str(self._current_host.endpoint) if self._current_host else 'no host queried before timeout'
+                if self._current_host is None:
+                    key = 'no host queried before timeout'
+                elif self._connection is not None and self._connection.is_control_connection:
+                    control_host = self.session.cluster.get_control_connection_host()
+                    key = str(control_host.endpoint) if control_host is not None else str(self._connection.endpoint)
+                else:
+                    key = str(self._current_host.endpoint)
                 errors = {key: "Client request timeout. See Session.execute[_async](timeout)"}
             else:
                 connection = self.session.cluster.control_connection._connection
                 host = str(connection.endpoint) if connection else 'unknown'
                 errors = {host: "Request timed out while waiting for schema agreement. See Session.execute[_async](timeout) and Cluster.max_schema_agreement_wait."}
 
-        self._set_final_exception(OperationTimedOut(errors, self._current_host))
+        self._set_final_exception(OperationTimedOut(errors, self._current_host,
+                                                    timeout=self.timeout,
+                                                    in_flight=conn_in_flight))
 
     def _on_speculative_execute(self):
         self._timer = None
@@ -4590,13 +4884,109 @@ class ResponseFuture(object):
                 self._on_timeout()
                 return True
         if error_no_hosts:
+            if self._fallback_to_control_connection():
+                req_id = self._query_control_connection()
+                if req_id is not None:
+                    self._req_id = req_id
+                    return True
+
             self._set_final_exception(NoHostAvailable(
                 "Unable to complete the operation against any hosts", self._errors))
         return False
 
+    def _has_usable_node_pool(self):
+        try:
+            pools = tuple(self.session._pools.values())
+        except (AttributeError, TypeError):
+            return False
+
+        return any(pool and not pool.is_shutdown for pool in pools)
+
+    def _fallback_to_control_connection(self):
+        fallback_mode = self.session.cluster.allow_control_connection_query_fallback
+        if fallback_mode is ControlConnectionQueryFallback.Disabled:
+            return False
+        if self._host or self._control_connection_query_attempted:
+            return False
+        if fallback_mode is ControlConnectionQueryFallback.SkipPoolCreation:
+            return True
+        return not self._has_usable_node_pool()
+
+    def _borrow_control_connection(self, connection):
+        with connection.lock:
+            if connection.in_flight >= connection.max_request_id:
+                raise NoConnectionsAvailable("All request IDs are currently in use")
+            connection.in_flight += 1
+            return connection.get_request_id()
+
+    def _release_control_connection_request(self, connection, request_id):
+        with connection.lock:
+            connection.in_flight -= 1
+            connection.request_ids.append(request_id)
+            connection._requests.pop(request_id, None)
+
+    def _handle_control_connection_response(self, connection, cb, response):
+        with connection.lock:
+            connection.in_flight -= 1
+        cb(response)
+
+    def _query_control_connection(self, message=None, cb=None, connection=None, host=None):
+        self._control_connection_query_attempted = True
+
+        if message is None:
+            message = self.message
+
+        if connection is None:
+            control_connection = self.session.cluster.control_connection
+            connection = control_connection._connection if control_connection else None
+        if not connection:
+            self._errors['control connection'] = ConnectionException("Control connection is not connected")
+            return None
+
+        if host is None:
+            host = self.session.cluster.get_control_connection_host() or connection.endpoint
+        self._current_host = host
+
+        request_id = None
+        request_sent = False
+        try:
+            request_id = self._borrow_control_connection(connection)
+            self._connection = connection
+            result_meta = self.prepared_statement.result_metadata if self.prepared_statement else []
+            if cb is None:
+                cb = partial(self._set_result, host, connection, None)
+            cb = partial(self._handle_control_connection_response, connection, cb)
+
+            log.debug("No usable node pools; falling back to control connection for host %s", host)
+            self.request_encoded_size = connection.send_msg(message, request_id, cb=cb,
+                                                            encoder=self._protocol_handler.encode_message,
+                                                            decoder=self._protocol_handler.decode_message,
+                                                            result_metadata=result_meta)
+            request_sent = True
+            self.attempted_hosts.append(host)
+            return request_id
+        except NoConnectionsAvailable as exc:
+            log.debug("Control connection is at capacity")
+            self._errors[host] = exc
+        except ConnectionBusy as exc:
+            log.debug("Control connection is busy")
+            self._errors[host] = exc
+        except Exception as exc:
+            log.debug("Error querying control connection", exc_info=True)
+            self._errors[host] = exc
+            if self._metrics is not None:
+                self._metrics.on_connection_error()
+        finally:
+            if request_id is not None and not request_sent:
+                self._release_control_connection_request(connection, request_id)
+
+        return None
+
     def _query(self, host, message=None, cb=None):
         if message is None:
             message = self.message
+
+        self._control_connection_query_attempted = False
 
         pool = self.session._pools.get(host)
         if not pool:
@@ -4708,12 +5098,17 @@ class ResponseFuture(object):
         self._event.clear()
         self._final_result = _NOT_SET
         self._final_exception = None
+        self._control_connection_query_attempted = False
         self._start_timer()
         self.send_request()
 
     def _reprepare(self, prepare_message, host, connection, pool):
         cb = partial(self.session.submit, self._execute_after_prepare, host, connection, pool)
-        request_id = self._query(host, prepare_message, cb=cb)
+        if pool is None and connection is not None and connection.is_control_connection:
+            request_id = self._query_control_connection(prepare_message, cb=cb,
+                                                        connection=connection, host=host)
+        else:
+            request_id = self._query(host, prepare_message, cb=cb)
         if request_id is None:
             # try to submit the original prepared statement on some other host
             self.send_request()
@@ -4752,6 +5147,8 @@ class ResponseFuture(object):
             if isinstance(response, ResultMessage):
                 if response.kind == RESULT_KIND_SET_KEYSPACE:
                     session = getattr(self, 'session', None)
+                    if connection is not None:
+                        connection.keyspace = response.new_keyspace
                     # since we're running on the event loop thread, we need to
                     # use a non-blocking method for setting the keyspace on
                     # all connections in this session, otherwise the event
@@ -4928,10 +5325,13 @@ class ResponseFuture(object):
                     new_metadata_id = response.result_metadata_id
                     if new_metadata_id is not None:
                         self.prepared_statement.result_metadata_id = new_metadata_id
-
+                
                 # use self._query to re-use the same host and
                 # at the same time properly borrow the connection
-                request_id = self._query(host)
+                if pool is None and connection is not None and connection.is_control_connection:
+                    request_id = self._query_control_connection(connection=connection, host=host)
+                else:
+                    request_id = self._query(host)
                 if request_id is None:
                     # this host errored out, move on to the next
                     self.send_request()
@@ -5042,6 +5442,11 @@ class ResponseFuture(object):
         if self._final_exception:
             # the connection probably broke while we were waiting
             # to retry the operation
+            return
+
+        if self._control_connection_query_attempted:
+            self._control_connection_query_attempted = False
+            self.send_request()
             return
 
         if reuse_connection and self._query(host) is not None:

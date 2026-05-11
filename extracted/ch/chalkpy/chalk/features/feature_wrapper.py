@@ -86,6 +86,20 @@ class FeatureWrapper:
             self._chalk_underlying = unwrap_feature(self._chalk_underlying)
         return self._chalk_underlying
 
+    @property
+    def auxiliary_namespace(self) -> str | None:
+        """Namespace of the auxiliary class that contributed this feature, if any."""
+        from chalk.features.feature_field import Feature
+        underlying = self._chalk_get_underlying()
+        return underlying.auxiliary_namespace if isinstance(underlying, Feature) else None
+
+    @property
+    def auxiliary_filename(self) -> str | None:
+        """Source file of the auxiliary class that contributed this feature, if any."""
+        from chalk.features.feature_field import Feature
+        underlying = self._chalk_get_underlying()
+        return underlying.auxiliary_filename if isinstance(underlying, Feature) else None
+
     def _chalk_do_add(self, other: object):
         from chalk.features.feature_field import Feature
         f_self = unwrap_feature(self, raise_error=False)

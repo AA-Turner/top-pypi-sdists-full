@@ -3,7 +3,7 @@ import random
 import shutil
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Union
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -27,6 +27,7 @@ from instagrapi.types import (
     StoryMention,
     StoryPoll,
     StorySticker,
+    Track,
     Usertag,
 )
 from instagrapi.utils import date_time_original, dumps
@@ -42,9 +43,7 @@ class DownloadPhotoMixin:
     Helpers for downloading photo
     """
 
-    def photo_download(
-        self, media_pk: int, folder: Path = "", overwrite: bool = True
-    ) -> Path:
+    def photo_download(self, media_pk: int, folder: Path = "", overwrite: bool = True) -> Path:
         """
         Download photo using media pk
 
@@ -66,12 +65,8 @@ class DownloadPhotoMixin:
         """
         media = self.media_info(media_pk)
         assert media.media_type == 1, "Must been photo"
-        filename = "{username}_{media_pk}".format(
-            username=media.user.username, media_pk=media_pk
-        )
-        return self.photo_download_by_url(
-            media.thumbnail_url, filename, folder, overwrite=overwrite
-        )
+        filename = "{username}_{media_pk}".format(username=media.user.username, media_pk=media_pk)
+        return self.photo_download_by_url(media.thumbnail_url, filename, folder, overwrite=overwrite)
 
     def photo_download_by_url(
         self,
@@ -167,9 +162,7 @@ class UploadPhotoMixin:
         assert isinstance(path, Path), f"Path must been Path, now {path} ({type(path)})"
         valid_extensions = [".jpg", ".jpeg", ".png", ".webp"]
         if path.suffix.lower() not in valid_extensions:
-            raise ValueError(
-                "Invalid file format. Only JPG/JPEG/PNG/WEBP files are supported."
-            )
+            raise ValueError("Invalid file format. Only JPG/JPEG/PNG/WEBP files are supported.")
         image_type = "image/jpeg"
         if path.suffix.lower() == ".png":
             image_type = "image/png"
@@ -181,18 +174,14 @@ class UploadPhotoMixin:
         assert path, "Not specified path to photo"
         waterfall_id = str(uuid4())
         # upload_name example: '1576102477530_0_7823256191'
-        upload_name = "{upload_id}_0_{rand}".format(
-            upload_id=upload_id, rand=random.randint(1000000000, 9999999999)
-        )
+        upload_name = "{upload_id}_0_{rand}".format(upload_id=upload_id, rand=random.randint(1000000000, 9999999999))
         # media_type: "2" when from video/igtv/album thumbnail, "1" - upload photo only
         rupload_params = {
             "retry_context": '{"num_step_auto_retry":0,"num_reupload":0,"num_step_manual_retry":0}',
             "media_type": "1",  # "2" if upload_id else "1",
             "xsharing_user_ids": "[]",
             "upload_id": upload_id,
-            "image_compression": json.dumps(
-                {"lib_name": "moz", "lib_version": "3.1.m", "quality": "80"}
-            ),
+            "image_compression": json.dumps({"lib_name": "moz", "lib_version": "3.1.m", "quality": "80"}),
         }
         if to_album:
             rupload_params["is_sidecar"] = "1"
@@ -218,17 +207,13 @@ class UploadPhotoMixin:
             "Content-Length": photo_len,
         }
         response = self.private.post(
-            "https://{domain}/rupload_igphoto/{name}".format(
-                domain=config.API_DOMAIN, name=upload_name
-            ),
+            "https://{domain}/rupload_igphoto/{name}".format(domain=config.API_DOMAIN, name=upload_name),
             data=photo_data,
             headers=headers,
         )
         self.request_log(response)
         if response.status_code != 200:
-            self.logger.error(
-                "Photo Upload failed with the following response: %s", response
-            )
+            self.logger.error("Photo Upload failed with the following response: %s", response)
             last_json = self.last_json  # local variable for read in sentry
             raise PhotoNotUpload(response.text, response=response, **last_json)
         with Image.open(path) as im:
@@ -270,15 +255,13 @@ class UploadPhotoMixin:
         path = Path(path)
         valid_extensions = [".jpg", ".jpeg", ".png", ".webp"]
         if path.suffix.lower() not in valid_extensions:
-            raise ValueError(
-                "Invalid file format. Only JPG/JPEG/PNG/WEBP files are supported."
-            )
+            raise ValueError("Invalid file format. Only JPG/JPEG/PNG/WEBP files are supported.")
 
         upload_id, width, height = self.photo_rupload(path, upload_id)
         for attempt in range(10):
             self.logger.debug(f"Attempt #{attempt} to configure Photo: {path}")
             time.sleep(3)
-            if self.photo_configure(
+            configured = self.photo_configure(
                 upload_id,
                 width,
                 height,
@@ -286,14 +269,81 @@ class UploadPhotoMixin:
                 usertags,
                 location,
                 extra_data=extra_data,
-            ):
+            )
+            if configured:
                 self.expose()
                 return self._extract_configured_media_or_raise(
-                    self.last_json,
+                    configured,
                     PhotoConfigureError,
                     "Photo upload",
                 )
         raise PhotoConfigureError(response=self.last_response, **self.last_json)
+
+    def photo_upload_with_music(
+        self,
+        path: Path,
+        caption: str,
+        track: Union[Track, Dict],
+        upload_id: str = "",
+        usertags: List[Usertag] = [],
+        location: Location = None,
+        extra_data: Dict[str, str] = {},
+        audio_asset_start_time: Optional[int] = None,
+        overlap_duration: int = 30000,
+        browse_session_id: Optional[str] = None,
+        alacorn_session_id: Optional[str] = None,
+    ) -> Media:
+        """
+        Upload a feed photo with attached music.
+
+        Parameters
+        ----------
+        path: Path
+            Path to the media
+        caption: str
+            Media caption
+        track: Track or dict
+            Track from music search/browser response or a compatible dict.
+        upload_id: str, optional
+            Unique upload_id.
+        usertags: List[Usertag], optional
+            List of users to be tagged on this upload.
+        location: Location, optional
+            Location tag for this upload.
+        extra_data: Dict[str, str], optional
+            Additional configure params.
+        audio_asset_start_time: int, optional
+            Audio start time in milliseconds. Defaults to the first highlighted
+            start time from the track, or 0.
+        overlap_duration: int, optional
+            Audio duration in milliseconds, default 30000.
+        browse_session_id: str, optional
+            Music browser session id.
+        alacorn_session_id: str, optional
+            Music browser session id returned by ``music_in_feed_audio_browser``.
+            Fetched automatically when omitted.
+
+        Returns
+        -------
+        Media
+            A Media response from the call
+        """
+        data = dict(extra_data or {})
+        data["music_params"] = self._feed_music_params(
+            track,
+            audio_asset_start_time=audio_asset_start_time,
+            overlap_duration=overlap_duration,
+            browse_session_id=browse_session_id,
+            alacorn_session_id=alacorn_session_id,
+        )
+        return self.photo_upload(
+            path,
+            caption,
+            upload_id=upload_id,
+            usertags=usertags,
+            location=location,
+            extra_data=data,
+        )
 
     def photo_configure(
         self,
@@ -330,9 +380,7 @@ class UploadPhotoMixin:
         Dict
             A dictionary of response from the call
         """
-        usertags = [
-            {"user_id": tag.user.pk, "position": [tag.x, tag.y]} for tag in usertags
-        ]
+        usertags = [{"user_id": tag.user.pk, "position": [tag.x, tag.y]} for tag in usertags]
         data = {
             "timezone_offset": str(self.timezone_offset),
             "camera_model": self.device.get("model", ""),
@@ -749,10 +797,7 @@ class UploadPhotoMixin:
                         "finished": poll.finished,
                         "color": poll.color,
                         "question": poll.question,
-                        "tallies": [
-                            {"count": 0, "font_size": 39.0, "text": o}
-                            for o in poll.options
-                        ],
+                        "tallies": [{"count": 0, "font_size": 39.0, "text": o} for o in poll.options],
                         **poll_extra,
                     }
                 )
@@ -762,6 +807,4 @@ class UploadPhotoMixin:
             data["static_models"] = dumps(static_models)
         if story_sticker_ids:
             data["story_sticker_ids"] = ",".join(story_sticker_ids)
-        return self.private_request(
-            "media/configure_to_story/", self.with_default_data(data)
-        )
+        return self.private_request("media/configure_to_story/", self.with_default_data(data))

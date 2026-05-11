@@ -7,6 +7,7 @@ import contextlib
 from dataclasses import dataclass, field
 from enum import IntEnum
 import logging
+import time
 from typing import TYPE_CHECKING
 
 from pymammotion.aliyun.exceptions import DeviceOfflineException, TooManyRequestsException
@@ -31,6 +32,11 @@ class Priority(IntEnum):
     BACKGROUND = 3  # low-urgency polling — waits for exclusive slot
 
 
+#: Commands that have not been dispatched within this window are silently dropped.
+#: EMERGENCY items (e-stop, return-to-dock) are exempt.
+_COMMAND_TTL = 120.0  # 2 minutes
+
+
 @dataclass(order=True)
 class _QueueItem:
     priority: int
@@ -38,6 +44,7 @@ class _QueueItem:
     work: Callable[[], Awaitable[None]] = field(compare=False)
     skip_if_saga_active: bool = field(compare=False, default=False)
     dedup_key: str | None = field(compare=False, default=None)
+    enqueued_at: float = field(compare=False, default_factory=time.monotonic)
 
 
 class DeviceCommandQueue:
@@ -55,6 +62,12 @@ class DeviceCommandQueue:
         self._queue: asyncio.PriorityQueue[_QueueItem] = asyncio.PriorityQueue()
         self._exclusive_active = asyncio.Event()
         self._exclusive_active.set()  # set = free (no saga running)
+        # Gate cleared while the active MQTT transport is reconnecting (CONNECTING state)
+        # and no BLE fallback is available.  Non-EMERGENCY items wait here so we don't
+        # dispatch commands whose responses we cannot receive (MQTT subscription inactive).
+        # DeviceHandle manages the gate via pause_for_reconnect() / resume_after_reconnect().
+        self._transport_gate: asyncio.Event = asyncio.Event()
+        self._transport_gate.set()  # set = open (no reconnection in progress)
         self._seq = 0
         self._running = False
         self._task: asyncio.Task[None] | None = None
@@ -80,10 +93,26 @@ class DeviceCommandQueue:
             self._running = True
             self._task = asyncio.get_running_loop().create_task(self._process())
 
+    def pause_for_reconnect(self) -> None:
+        """Block command dispatch while the MQTT transport is reconnecting.
+
+        Called by DeviceHandle when the active MQTT transport transitions to
+        CONNECTING state and no BLE fallback is available.  Commands accumulate
+        in the queue but are not dispatched until resume_after_reconnect() is
+        called (transport becomes CONNECTED, or BLE connects as a fallback).
+        EMERGENCY items always bypass this gate.
+        """
+        self._transport_gate.clear()
+
+    def resume_after_reconnect(self) -> None:
+        """Unblock command dispatch after transport reconnection completes."""
+        self._transport_gate.set()
+
     async def stop(self) -> None:
         """Stop the queue processor and release any held exclusive lock."""
         self._running = False
         self._exclusive_active.set()  # release any waiters
+        self._transport_gate.set()  # release any gate-blocked waiters
         if self._task is not None and not self._task.done():
             self._task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -197,6 +226,20 @@ class DeviceCommandQueue:
                 if item.dedup_key is not None:
                     self._pending_dedup_keys.discard(item.dedup_key)
 
+                # Drop commands that have waited longer than _COMMAND_TTL without being
+                # dispatched.  Checked here — before any lock/gate waits — so stale
+                # commands don't execute after a long reconnect or saga pause.
+                # EMERGENCY items (e-stop, return-to-dock) are exempt.
+                if item.priority > Priority.EMERGENCY:
+                    age = time.monotonic() - item.enqueued_at
+                    if age > _COMMAND_TTL:
+                        _logger.debug(
+                            "DeviceCommandQueue[%s]: command expired after %.0fs — dropping",
+                            self._device_name,
+                            age,
+                        )
+                        continue
+
                 # Non-emergency items yield to an active exclusive op
                 if item.priority > Priority.EXCLUSIVE:
                     await self._exclusive_active.wait()
@@ -204,6 +247,13 @@ class DeviceCommandQueue:
                 # Re-check skip condition after waiting
                 if item.skip_if_saga_active and self.is_saga_active and item.priority > Priority.EXCLUSIVE:
                     continue
+
+                # Non-emergency items hold here while the MQTT transport is reconnecting.
+                # This prevents dispatching commands whose responses can't be received
+                # because the MQTT subscription isn't active yet.  EMERGENCY items
+                # (e-stop, return-to-dock) bypass the gate unconditionally.
+                if item.priority > Priority.EMERGENCY:
+                    await self._transport_gate.wait()
 
                 from pymammotion.aliyun.exceptions import GatewayTimeoutException
 

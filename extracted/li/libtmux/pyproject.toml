@@ -1,6 +1,6 @@
 [project]
 name = "libtmux"
-version = "0.55.1"
+version = "0.56.0"
 description = "Typed library that provides an ORM wrapper for tmux, a terminal multiplexer."
 requires-python = ">=3.10,<4.0"
 authors = [
@@ -52,9 +52,9 @@ Changes = "https://github.com/tmux-python/libtmux/blob/master/CHANGES"
 [dependency-groups]
 dev = [
   # Docs (via gp-sphinx)
-  "gp-sphinx==0.0.1a9",
-  "sphinx-autodoc-api-style==0.0.1a9",
-  "sphinx-autodoc-pytest-fixtures==0.0.1a9",
+  "gp-sphinx==0.0.1a17",
+  "sphinx-autodoc-api-style==0.0.1a17",
+  "sphinx-autodoc-pytest-fixtures==0.0.1a17",
   "sphinx-autobuild",
   "types-docutils",
   # Testing
@@ -75,9 +75,9 @@ dev = [
 ]
 
 docs = [
-  "gp-sphinx==0.0.1a9",
-  "sphinx-autodoc-api-style==0.0.1a9",
-  "sphinx-autodoc-pytest-fixtures==0.0.1a9",
+  "gp-sphinx==0.0.1a17",
+  "sphinx-autodoc-api-style==0.0.1a17",
+  "sphinx-autodoc-pytest-fixtures==0.0.1a17",
   "sphinx-autobuild",
 ]
 testing = [
@@ -105,6 +105,30 @@ libtmux = "libtmux.pytest_plugin"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv.exclude-newer-package]
+# git-pull packages release in lockstep with their workspaces, so a
+# fresh release blocking on the 3-day cooldown blocks every
+# contributor's `uv sync` until it clears. `false` exempts each
+# from any `exclude-newer` constraint (global or per-user) without
+# committing a date that would age into the lockfile. Mirrors the
+# pattern at vcspull/pyproject.toml for libvcs.
+gp-libs = false
+gp-furo-theme = false
+gp-sphinx = false
+sphinx-autodoc-api-style = false
+sphinx-autodoc-argparse = false
+sphinx-autodoc-docutils = false
+sphinx-autodoc-fastmcp = false
+sphinx-autodoc-pytest-fixtures = false
+sphinx-autodoc-sphinx = false
+sphinx-autodoc-typehints-gp = false
+sphinx-fonts = false
+sphinx-gp-opengraph = false
+sphinx-gp-sitemap = false
+sphinx-gp-theme = false
+sphinx-ux-autodoc-layout = false
+sphinx-ux-badges = false
 
 [tool.mypy]
 strict = true

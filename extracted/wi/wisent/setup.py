@@ -57,6 +57,7 @@ setup(
             "support/parameters/evaluator_methodologies/*/*.json",
             "support/parameters/evaluator_methodologies/*/*/*.json",
             "support/parameters/evaluator_methodologies/*/*/*/*.json",
+            "support/examples/scripts/*.json",
             "core/control/steering_methods/configs/*.json",
         ],
     },

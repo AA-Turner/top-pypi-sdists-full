@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pretext
-Version: 2.38.3
+Version: 2.39.0
 Summary: A package to author, build, and deploy PreTeXt projects.
 Home-page: https://pretextbook.org
 License: GPL-3.0-or-later

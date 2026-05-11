@@ -139,6 +139,16 @@ class FakePopen:
         return None
 
     def poll(self) -> Optional[int]:
+        if (
+            self.returncode is None
+            and self.__thread is not None
+            and not self.__thread.is_alive()
+        ):
+            # The callback/wait thread has finished but _finalize_thread() has
+            # not been called yet (e.g. the caller uses poll() instead of
+            # wait()/communicate()).  Finalise now so returncode is updated,
+            # mirroring real subprocess.Popen.poll() behaviour.
+            self._finalize_thread(None)
         return self.returncode
 
     def wait(self, timeout: Optional[float] = None) -> int:
@@ -170,10 +180,6 @@ class FakePopen:
         self.__kwargs = self.safe_copy(kwargs)
         self.__universal_newlines = kwargs.get("universal_newlines", None)
 
-        stdin = kwargs.get("stdin")
-        if stdin == subprocess.PIPE:
-            self.stdin = self._get_empty_buffer(False)
-
         text = kwargs.get("text", None)
         encoding = kwargs.get("encoding", None)
         errors = kwargs.get("errors", None)
@@ -182,6 +188,10 @@ class FakePopen:
             raise TypeError("__init__() got an unexpected keyword argument 'text'")
 
         self.text_mode = bool(text or self.__universal_newlines or encoding or errors)
+
+        stdin = kwargs.get("stdin")
+        if stdin == subprocess.PIPE:
+            self.stdin = self._get_empty_buffer(self.text_mode)
 
         # validation taken from the real subprocess
         if (

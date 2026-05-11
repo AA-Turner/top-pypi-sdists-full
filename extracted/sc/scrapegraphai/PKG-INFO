@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scrapegraphai
-Version: 1.76.0
+Version: 2.1.1
 Summary: A web scraping library based on LangChain which uses LLM and direct graph logic to create scraping pipelines.
 Author-email: Marco Vinciguerra <mvincig11@gmail.com>, Lorenzo Padoan <lorenzo.padoan977@gmail.com>
 Keywords: ai,artificial intelligence,gpt,graph,langchain,llm,machine learning,natural language processing,nlp,openai,rag,scrapegraph,scrapegraphai,scraping,web scraping,web scraping library,web scraping tool,webscraping
@@ -8,7 +8,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <4.0,>=3.10
+Requires-Python: <4.0,>=3.12
 Requires-Dist: async-timeout>=4.0.0
 Requires-Dist: beautifulsoup4>=4.14.3
 Requires-Dist: duckduckgo-search>=8.1.1
@@ -26,7 +26,7 @@ Requires-Dist: minify-html>=0.18.1
 Requires-Dist: playwright>=1.57.0
 Requires-Dist: pydantic>=2.12.5
 Requires-Dist: python-dotenv>=1.2.1
-Requires-Dist: scrapegraph-py>=1.44.0
+Requires-Dist: scrapegraph-py>=2.0.0
 Requires-Dist: semchunk>=3.2.5
 Requires-Dist: simpleeval>=1.0.3
 Requires-Dist: tiktoken>=0.12.0
@@ -34,9 +34,6 @@ Requires-Dist: tqdm>=4.67.1
 Requires-Dist: undetected-playwright>=0.3.0
 Provides-Extra: burr
 Requires-Dist: burr[start]==0.22.1; extra == 'burr'
-Provides-Extra: docs
-Requires-Dist: furo==2024.5.6; extra == 'docs'
-Requires-Dist: sphinx==6.0; extra == 'docs'
 Provides-Extra: nvidia
 Requires-Dist: langchain-nvidia-ai-endpoints>=0.1.0; extra == 'nvidia'
 Provides-Extra: ocr
@@ -52,6 +49,12 @@ Description-Content-Type: text/markdown
 
 # 🕷️ ScrapeGraphAI: You Only Scrape Once
 
+<p align="center">
+  <a href="https://scrapegraphai.com">
+    <img src="media/banner.png" alt="ScrapeGraphAI" style="width: 100%;">
+  </a>
+</p>
+
 [English](https://github.com/VinciGit00/Scrapegraph-ai/blob/main/README.md) | [中文](https://github.com/VinciGit00/Scrapegraph-ai/blob/main/docs/chinese.md) | [日本語](https://github.com/VinciGit00/Scrapegraph-ai/blob/main/docs/japanese.md)
 | [한국어](https://github.com/VinciGit00/Scrapegraph-ai/blob/main/docs/korean.md)
 | [Русский](https://github.com/VinciGit00/Scrapegraph-ai/blob/main/docs/russian.md) | [Türkçe](https://github.com/VinciGit00/Scrapegraph-ai/blob/main/docs/turkish.md)
@@ -61,13 +64,9 @@ Description-Content-Type: text/markdown
 | [Português](https://github.com/VinciGit00/Scrapegraph-ai/blob/main/docs/portuguese.md)
 
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/scrapegraphai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/scrapegraphai)
-[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen?style=for-the-badge)](https://github.com/pylint-dev/pylint)
-[![Pylint](https://img.shields.io/github/actions/workflow/status/VinciGit00/Scrapegraph-ai/code-quality.yml?label=Pylint&logo=github&style=for-the-badge)](https://github.com/VinciGit00/Scrapegraph-ai/actions/workflows/code-quality.yml)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/VinciGit00/Scrapegraph-ai/codeql.yml?label=CodeQL&logo=github&style=for-the-badge)](https://github.com/VinciGit00/Scrapegraph-ai/actions/workflows/codeql.yml)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![](https://dcbadge.vercel.app/api/server/gkxQDAjfeX)](https://discord.gg/gkxQDAjfeX)
-
-[![API Banner](https://raw.githubusercontent.com/ScrapeGraphAI/Scrapegraph-ai/main/docs/assets/api_banner.png)](https://scrapegraphai.com/?utm_source=github&utm_medium=readme&utm_campaign=api_banner&utm_content=api_banner_image)
 
 <p align="center">
 <a href="https://trendshift.io/repositories/9761" target="_blank"><img src="https://trendshift.io/api/badge/repositories/9761" alt="VinciGit00%2FScrapegraph-ai | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
@@ -76,11 +75,6 @@ Description-Content-Type: text/markdown
 [ScrapeGraphAI](https://scrapegraphai.com) is a *web scraping* python library that uses LLM and direct graph logic to create scraping pipelines for websites and local documents (XML, HTML, JSON, Markdown, etc.).
 
 Just say which information you want to extract and the library will do it for you!
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/VinciGit00/Scrapegraph-ai/main/docs/assets/sgai-hero.png" alt="ScrapeGraphAI Hero" style="width: 100%;">
-</p>
-
 
 ## 🚀 Integrations
 ScrapeGraphAI offers seamless integration with popular frameworks and tools to enhance your scraping capabilities. Whether you're building with Python or Node.js, using LLM frameworks, or working with no-code platforms, we've got you covered with our comprehensive integration options..
@@ -207,8 +201,7 @@ Remember to have [Ollama](https://ollama.com/) installed and download the models
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1sEZBonBMGP44CtO6GQTwAlL0BGJXjtfd?usp=sharing)
 
-The documentation for ScrapeGraphAI can be found [here](https://scrapegraph-ai.readthedocs.io/en/latest/).
-Check out also the Docusaurus [here](https://docs-oss.scrapegraphai.com/).
+The documentation for ScrapeGraphAI can be found [here](https://docs.scrapegraphai.com/introduction).
 
 ## 🤝 Contributing
 
@@ -232,10 +225,10 @@ We offer SDKs in both Python and Node.js, making it easy to integrate into your 
 | Python SDK | Python   | [scrapegraph-py](https://github.com/ScrapeGraphAI/scrapegraph-sdk/tree/main/scrapegraph-py) |
 | Node.js SDK | Node.js  | [scrapegraph-js](https://github.com/ScrapeGraphAI/scrapegraph-sdk/tree/main/scrapegraph-js) |
 
-The Official API Documentation can be found [here](https://docs.scrapegraphai.com/).
+The Official API Documentation can be found [here](https://docs.scrapegraphai.com/introduction).
 
 ## 📈 Telemetry
-We collect anonymous usage metrics to enhance our package's quality and user experience. The data helps us prioritize improvements and ensure compatibility. If you wish to opt-out, set the environment variable SCRAPEGRAPHAI_TELEMETRY_ENABLED=false. For more information, please refer to the documentation [here](https://scrapegraph-ai.readthedocs.io/en/latest/scrapers/telemetry.html).
+We collect anonymous usage metrics to enhance our package's quality and user experience. The data helps us prioritize improvements and ensure compatibility. If you wish to opt-out, set the environment variable SCRAPEGRAPHAI_TELEMETRY_ENABLED=false. For more information, please refer to the documentation [here](https://docs.scrapegraphai.com/introduction).
 
 ## ❤️ Contributors
 [![Contributors](https://contrib.rocks/image?repo=VinciGit00/Scrapegraph-ai)](https://github.com/VinciGit00/Scrapegraph-ai/graphs/contributors)

@@ -32,9 +32,7 @@ capi2_schema = """
     "generators": { "$ref": "#/$defs/generators" },
     "name": {
       "description": "VLNV identifier for core",
-      "type": "string",
-      "minProperties" : 1,
-      "maxProperties" : 1
+      "type": "string"
     },
     "parameters": { "$ref": "#/$defs/parameters" },
     "provider": { "$ref": "#/$defs/provider" },
@@ -45,31 +43,24 @@ capi2_schema = """
       "type": "object",
       "patternProperties": {
         "^.+$": {
+          "type": "object",
           "patternProperties": {
             "^filesets(_append)?$": {
               "description": "Filesets containing files to use when compiling the VPI library",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             },
             "^libs(_append)?$": {
               "description": "External libraries to link against",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             }
-          }
+          },
+          "additionalProperties": false
         }
       }
     },
     "virtual": {
       "description": "VLNV of a virtual core provided by this core. Versions are currently not supported, only the VLN part is used.",
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "$ref": "#/$defs/string_array"
     },
     "mapping": {
       "description": "",
@@ -81,14 +72,42 @@ capi2_schema = """
       }
     }
   },
+  "required": ["name"],
   "additionalProperties": false,
 
   "$defs": {
 
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+
+    "any_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "array"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+
     "files": {
       "description": "Files in fileset",
       "type": "array",
-      "minContains": 1,
+      "minItems": 1,
       "items": {
         "oneOf": [
           {
@@ -114,7 +133,8 @@ capi2_schema = """
                           { "type": "boolean"}
                         ]
                       }
-                    }
+                    },
+                    "additionalProperties": false
                   },
                   "is_include_file": {
                     "description": "Treats file as an include file when true",
@@ -134,10 +154,7 @@ capi2_schema = """
                   },
                   "tags": {
                     "description": "Tags, special file-specific hints for the backends. Appends the tags set on the containing fileset",
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
+                    "$ref": "#/$defs/string_array"
                   },
                   "copyto": {
                     "description": "Copy the source file to this path in the work directory",
@@ -160,29 +177,25 @@ capi2_schema = """
         "^.+$": {
           "description": "Name of fileset",
           "type": "object",
-          "patternProperties": {
-            "^file_type$": {
+          "properties": {
+            "file_type": {
               "description": "Default file_type for files in fileset",
               "type": "string"
             },
-            "^logical_name$": {
+            "logical_name": {
               "description": "Default logical_name (i.e. library) for files in fileset",
               "type": "string"
             },
-            "^tags$": {
+            "tags": {
               "description": "Default tags for files in fileset",
-               "type": "array",
-               "items": {
-                 "type": "string"
-               }
-            },
+              "$ref": "#/$defs/string_array"
+            }
+          },
+          "patternProperties": {
             "^files(_append)?$": { "$ref": "#/$defs/files" },
             "^depend(_append)?$": {
               "description": "Dependencies of fileset",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             }
           },
           "additionalProperties": false
@@ -197,6 +210,7 @@ capi2_schema = """
       "patternProperties": {
         "^.+$": {
           "description": "Name of generator to use",
+          "type": "object",
           "properties": {
             "generator": {
               "description": "The generator to use. Note that the generator must be present in the dependencies of the core.",
@@ -205,7 +219,7 @@ capi2_schema = """
             "position": {
               "description": "Where to insert the generated core. Legal values are *first*, *prepend*, *append* or *last*. *prepend* (*append*) will insert core before (after) the core that called the generator",
               "type": "string",
-              "pattern": "^first|prepend|append|last$"
+              "enum": ["first", "prepend", "append", "last"]
             },
             "parameters": {
               "description": "Generator-specific parameters. ``fusesoc gen show $generator`` might show available parameters. ",
@@ -226,6 +240,7 @@ capi2_schema = """
       "patternProperties": {
         "^.+$": {
           "description": "Name of generator",
+          "type": "object",
           "properties": {
             "command": {
               "description": "The command to run (relative to the core root)",
@@ -238,7 +253,7 @@ capi2_schema = """
             "cache_type": {
               "description": "If the result of the generator should be considered cacheable. Legal values are *none*, *input* or *generator*.",
               "type": "string",
-              "pattern": "^none|input|generator$"
+              "enum": ["none", "input", "generator"]
             },
             "file_input_parameters": {
               "description": "All parameters that are file inputs to the generator. This option can be used when *cache_type* is set to *input* if fusesoc should track if these files change.",
@@ -266,11 +281,12 @@ capi2_schema = """
       "type": "object",
       "patternProperties": {
         "^.+$": {
+          "type": "object",
           "properties": {
             "datatype": {
               "description": "Parameter datatype. Legal values are *bool*, *file*, *int*, *str*. *file* is same as *str*, but prefixed with the current directory that FuseSoC runs from",
               "type": "string",
-              "pattern": "^bool|file|int|real|str$"
+              "enum": ["bool", "file", "int", "real", "str"]
             },
             "default": {
               "description": "Default value",
@@ -318,7 +334,7 @@ capi2_schema = """
           "properties": {
             "name": {
               "type": "string",
-              "pattern": "^github$"
+              "const": "github"
             },
             "user": {
               "type": "string"
@@ -330,10 +346,7 @@ capi2_schema = """
               "type": "string"
             },
             "patches": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             },
             "cachable": {
               "type": "boolean"
@@ -353,13 +366,10 @@ capi2_schema = """
           "properties": {
             "name": {
               "type": "string",
-              "pattern": "^local$"
+              "const": "local"
             },
             "patches": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             },
             "cachable": {
               "type": "boolean"
@@ -376,7 +386,7 @@ capi2_schema = """
           "properties": {
             "name": {
               "type": "string",
-              "pattern": "^git$"
+              "const": "git"
             },
             "repo": {
               "type": "string"
@@ -385,10 +395,7 @@ capi2_schema = """
               "type": "string"
             },
             "patches": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             },
             "cachable": {
               "type": "boolean"
@@ -406,7 +413,7 @@ capi2_schema = """
           "properties": {
             "name": {
               "type": "string",
-              "pattern": "^opencores$"
+              "const": "opencores"
             },
             "repo_name": {
               "type": "string"
@@ -418,10 +425,7 @@ capi2_schema = """
               "type": "string"
             },
             "patches": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             },
             "cachable": {
               "type": "boolean"
@@ -441,7 +445,7 @@ capi2_schema = """
           "properties": {
             "name": {
               "type": "string",
-              "pattern": "^svn$"
+              "const": "svn"
             },
             "url": {
               "type": "string"
@@ -453,10 +457,7 @@ capi2_schema = """
               "type": "boolean"
             },
             "patches": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             },
             "cachable": {
               "type": "boolean"
@@ -474,7 +475,7 @@ capi2_schema = """
           "properties": {
             "name": {
               "type": "string",
-              "pattern": "^url$"
+              "const": "url"
             },
             "url": {
               "type": "string"
@@ -489,10 +490,7 @@ capi2_schema = """
               "type": "string"
             },
             "patches": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             },
             "cachable": {
               "type": "boolean"
@@ -512,29 +510,27 @@ capi2_schema = """
       "type": "object",
       "patternProperties": {
         "^.+$": {
-          "patternProperties": {
-            "^cmd(_append)?$": {
-              "description": "List of command-line arguments",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "^filesets(_append)?$": {
-              "description": "Filesets needed to run the script",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "^env$": {
+          "type": "object",
+          "properties": {
+            "env": {
               "description": "Map of environment variables to set before launching the script",
               "type": "object",
               "patternProperties": {
                 "^.+$": {
                   "type": "string"
                 }
-              }
+              },
+              "additionalProperties": false
+            }
+          },
+          "patternProperties": {
+            "^cmd(_append)?$": {
+              "description": "List of command-line arguments",
+              "$ref": "#/$defs/string_array"
+            },
+            "^filesets(_append)?$": {
+              "description": "Filesets needed to run the script",
+              "$ref": "#/$defs/string_array"
             }
           },
           "additionalProperties": false
@@ -547,80 +543,53 @@ capi2_schema = """
       "type": "object",
       "patternProperties": {
         "^.+$": {
-          "patternProperties": {
-            "^default_tool$": {
+          "type": "object",
+          "properties": {
+            "default_tool": {
               "description": "Default tool to use unless overridden with ``--tool=`` This key is used by the Edalize Tool API and is ignored if the Flow API is used instead.",
               "type": "string"
             },
-            "^description$": {
+            "description": {
               "description": "Description of the target",
               "type": "string"
             },
-            "^flow$": {
+            "flow": {
               "description": "Edalize backend flow to use for target. Setting this key enables the flow API instead of the legacy Tool API.",
               "type": "string"
             },
-            "^flow_options$": {
+            "flow_options": {
               "description": "Tool- and flow-specific options. Used by the Flow API. The Edalize documentation contains information on available options for different flows (https://edalize.readthedocs.io/en/latest/edam/api.html#flow-options)",
               "type": "object",
               "patternProperties": {
                 "^.+$": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "type": "array"
-                    },
-                    {
-                      "type": "object"
-                    }
-                  ]
+                  "$ref": "#/$defs/any_type"
                 }
               }
             },
-            "^hooks$": {
+            "hooks": {
               "description": "Script hooks to run when target is used",
               "type": "object",
               "patternProperties": {
                 "^pre_build(_append)?$": {
                   "description": "Scripts executed before the *build* phase",
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                  "$ref": "#/$defs/string_array"
                 },
                 "^post_build(_append)?$": {
                   "description": "Scripts executed after the *build* phase",
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                  "$ref": "#/$defs/string_array"
                 },
                 "^pre_run(_append)?$": {
-                  "description": "Scrips executed before the *run* phase",
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                  "description": "Scripts executed before the *run* phase",
+                  "$ref": "#/$defs/string_array"
                 },
                 "^post_run(_append)?$": {
                   "description": "Scripts executed after the *run* phase",
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                  "$ref": "#/$defs/string_array"
                 }
               },
               "additionalProperties": false
             },
-            "^tools$": {
+            "tools": {
               "description": "Tool-specific options for target. Used by the legacy Tool API. The contents of this section is handled by Edalize, and a list of available tool options for each tool can be found in the Edalize documentation (https://edalize.readthedocs.io/en/latest/edam/api.html#tool-options)",
               "type": "object",
               "patternProperties": {
@@ -628,55 +597,41 @@ capi2_schema = """
                   "type": "object",
                   "patternProperties": {
                     "^.+$": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "array"
-                        },
-                        {
-                          "type": "object"
-                        }
-                      ]
+                      "$ref": "#/$defs/any_type"
                     }
                   }
                 }
               }
             },
-            "^toplevel$": {
+            "toplevel": {
               "description": "Top-level module. Normally a single module/entity but can be a list of several items",
               "anyOf": [
                 {
                   "type": "string"
                 },
                 {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                  "$ref": "#/$defs/string_array"
                 }
               ]
             },
+            "flags": {
+              "description": "Default values of flags",
+              "type": "object",
+              "patternProperties": {
+                "^.+$": {
+                  "$ref": "#/$defs/any_type"
+                }
+              }
+            }
+          },
+          "patternProperties": {
             "^filesets(_append)?$": {
               "description": "File sets to use in target",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             },
             "^filters(_append)?$": {
               "description": "EDAM filters to apply",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             },
             "^generate(_append)?$": {
               "description": "Parameterized generators to run for this target with optional parametrization",
@@ -694,42 +649,11 @@ capi2_schema = """
             },
             "^parameters(_append)?$": {
               "description": "Parameters to use in target. The parameter default value can be set here with ``param=value``",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "$ref": "#/$defs/string_array"
             },
             "^vpi(_append)?$": {
               "description": "VPI modules to build and include for target",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "flags": {
-              "description": "Default values of flags",
-              "type": "object",
-              "patternProperties": {
-                "^.+$": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "type": "array"
-                    },
-                    {
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
+              "$ref": "#/$defs/string_array"
             }
           },
           "additionalProperties": false

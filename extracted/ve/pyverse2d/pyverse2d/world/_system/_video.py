@@ -25,7 +25,12 @@ _AUDIO_PREBUFFER:  float = 0.6
 
 # ======================================== NO-SEEK PLAYER ========================================
 class _NoSeekPlayer(_media.Player):
-    """Player pyglet qui ne tente pas de seek() à la fin d'un StreamingSource."""
+    """Player pyglet qui ne tente pas de seek() à la fin d'un StreamingSource.
+
+    Le comportement par défaut de pyglet sur on_eos sans source suivante est
+    d'appeler next_source() → seek(0.0), ce qui lève CannotSeekException sur
+    tout StreamingSource. On override pour ignorer silencieusement ce cas.
+    """
 
     def __init__(self) -> None:
         super().__init__()
@@ -37,7 +42,13 @@ class _NoSeekPlayer(_media.Player):
 
 # ======================================== AUDIO FEED ========================================
 class _AudioFeed(_media.StreamingSource):
-    """Source PCM streaming"""
+    """Source PCM streaming thread-safe pour pyglet/OpenAL.
+
+    Clock de synchro : monotonic ancrée au moment du PREMIER appel réel à
+    ``get_audio_data`` qui retourne des données non-silencieuses. C'est le
+    moment où OpenAL commence effectivement à consommer le signal — bien plus
+    précis que l'instant de ``player.play()`` qui précède la latence driver.
+    """
 
     def __init__(self, sample_rate: int = _AUDIO_RATE, channels: int = _AUDIO_CH) -> None:
         self.audio_format = _codecs.AudioFormat(
@@ -45,13 +56,18 @@ class _AudioFeed(_media.StreamingSource):
             sample_size=16,
             sample_rate=sample_rate,
         )
-        self._buf:         bytearray         = bytearray()
-        self._lock:        threading.Lock    = threading.Lock()
-        self._done:        bool              = False
-        self._start_mono:  float | None      = None
-        self._loop_offset: float             = 0.0
-        self._queued:      bool              = False
+        self._buf:               bytearray         = bytearray()
+        self._lock:              threading.Lock    = threading.Lock()
+        self._done:              bool              = False
+        self._start_mono:        float | None      = None
+        self._play_requested_at: float | None      = None
+        self._loop_offset:       float             = 0.0
+        self._queued:            bool              = False
+        # Positionné à True sur les passes de loop : le buffer est déjà plein
+        # au moment du démarrage, pas besoin d'attendre _AUDIO_PREBUFFER.
+        self._skip_prebuffer:    bool              = False
 
+    # ------------------------------------------------------------------
     def push(self, data: bytes) -> None:
         with self._lock:
             if len(self._buf) + len(data) <= _AUDIO_BUFFER_MAX:
@@ -61,6 +77,7 @@ class _AudioFeed(_media.StreamingSource):
         with self._lock:
             self._done = True
 
+    # ------------------------------------------------------------------
     @property
     def started(self) -> bool:
         """``True`` dès que le premier sample réel a été consommé par OpenAL."""
@@ -81,6 +98,7 @@ class _AudioFeed(_media.StreamingSource):
         with self._lock:
             return len(self._buf) / bps
 
+    # ------------------------------------------------------------------
     def get_audio_data(self, num_bytes: int, compensation_time: float = 0.0):
         with self._lock:
             available = len(self._buf)
@@ -106,9 +124,27 @@ class _AudioFeed(_media.StreamingSource):
         dur = n / (sr * ch * 2)
         return _codecs.AudioData(data, n, 0.0, dur, [])
 
+
 # ======================================== SYSTEM ========================================
 class VideoSystem(System):
-    """Système gérant les composants ``VideoPlayer``"""
+    """Système gérant les composants ``VideoPlayer``.
+
+    ## Clock de synchro vidéo
+
+    ``_AudioFeed.playback_time`` — monotonic ancré au moment où OpenAL consomme
+    le premier sample réel (pas au play(), pas aux bytes théoriques). Aucun drift
+    lié à la latence driver. Le temps absolu est ``_loop_time_offset + feed.playback_time``.
+
+    ## Stratégie loop
+
+    À chaque loop :
+    1. Thread décodeur finit, pose ``loop_event``, s'arrête sans mark_done.
+    2. Main thread recrée un ``_NoSeekPlayer`` propre, accumule ``_loop_time_offset``.
+    3. Un nouveau thread démarre avec ``pts_offset = _loop_time_offset`` pour que
+       les PTS vidéo soient continus sur toute la durée de vie du player.
+    4. Le prebuffer est ignoré (``_skip_prebuffer=True``) car le thread a déjà
+       eu le temps de remplir le buffer pendant que l'ancien audio se terminait.
+    """
 
     __slots__ = ("_origin", "_threads", "_sprites")
 
@@ -169,12 +205,9 @@ class VideoSystem(System):
             self._update_audio(vp, spatial_volume)
             self._check_signals(eid, vp)
 
-            if not vp._audio_started:
+            feed = vp._audio_feed
+            if not vp._audio_started or feed is None or not feed.started:
                 continue
-
-            if not vp._audio_feed.started:
-                continue
-
             self._consume_frames(vp)
 
         for eid in list(self._threads):
@@ -228,6 +261,9 @@ class VideoSystem(System):
         first=True  → initialise aussi la queue vidéo et les events globaux.
         first=False → réutilise queue et stop/pause events ; crée juste
                       un nouveau feed et thread pour cette passe.
+
+        Note : le feed N'EST PAS queué ici sur le player. C'est _update_audio
+        qui s'en charge au moment du prebuffer, pour éviter le double-queue.
         """
         if first:
             vp._frame_queue      = queue.Queue(maxsize=_VIDEO_BUFFER)
@@ -238,11 +274,15 @@ class VideoSystem(System):
             vp._audio_started    = False
             vp._loop_time_offset = 0.0
             vp._prev_audio_feed  = None
+            vp._frames_ready     = False
+            vp._audio_ready      = False
 
         feed = _AudioFeed(_AUDIO_RATE, _AUDIO_CH)
-        feed._loop_offset  = vp._loop_time_offset
-        vp._audio_feed     = feed
-        vp._audio_player.queue(feed)
+        feed._loop_offset    = vp._loop_time_offset
+        feed._skip_prebuffer = not first
+        vp._audio_feed       = feed
+        # Le queue sur le player est délégué à _update_audio (via _queued flag)
+        # pour éviter le double-queue qui causait le décalage aux loops.
 
         vp._end_event  = threading.Event()
         vp._loop_event = threading.Event()
@@ -315,11 +355,17 @@ class VideoSystem(System):
             vp._decode_thread.join(timeout=1.0)
             vp._decode_thread = None
 
+        # Calcul de l'offset AVANT de tuer le feed.
+        # On utilise _duration (temps réel du fichier) plutôt que playback_time
+        # qui est toujours en retard sur le buffer non encore consommé par OpenAL.
+        if vp._duration is not None:
+            vp._loop_time_offset += vp._duration
+        else:
+            vp._loop_time_offset = self._video_time(vp)
+
         if vp._audio_feed is not None:
             vp._audio_feed.mark_done()
             vp._audio_feed = None
-
-        vp._loop_time_offset = self._video_time(vp)
 
         while True:
             try:
@@ -337,6 +383,8 @@ class VideoSystem(System):
         vp._audio_started   = False
         vp._prev_audio_feed = None
 
+        vp._frames_ready = False
+        vp._audio_ready  = False
         self._start_decode_pass(eid, vp, first=False)
 
     # ======================================== AUDIO ========================================
@@ -351,8 +399,12 @@ class VideoSystem(System):
         if not vp._audio_started:
             if vp._audio_feed is None:
                 return
-            if vp._audio_feed.buffered_seconds < _AUDIO_PREBUFFER:
-                return
+            # Sur une passe de loop, le thread a déjà eu le temps de remplir
+            # le buffer pendant que l'ancien audio se terminait — on démarre
+            # immédiatement sans attendre _AUDIO_PREBUFFER.
+            if not vp._audio_feed._skip_prebuffer:
+                if vp._audio_feed.buffered_seconds < _AUDIO_PREBUFFER:
+                    return
             try:
                 if not vp._audio_feed._queued:
                     player.queue(vp._audio_feed)

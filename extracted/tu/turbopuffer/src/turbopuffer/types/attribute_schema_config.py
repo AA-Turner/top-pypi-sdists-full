@@ -7,8 +7,9 @@ from .._models import BaseModel
 from .attribute_type import AttributeType
 from .distance_metric import DistanceMetric
 from .full_text_search import FullTextSearch
+from .sparse_distance_metric import SparseDistanceMetric
 
-__all__ = ["AttributeSchemaConfig", "Ann", "AnnAnnConfig"]
+__all__ = ["AttributeSchemaConfig", "Ann", "AnnAnnConfig", "SparseKnn"]
 
 
 class AnnAnnConfig(BaseModel):
@@ -21,6 +22,16 @@ class AnnAnnConfig(BaseModel):
 Ann: TypeAlias = Union[bool, AnnAnnConfig]
 
 
+class SparseKnn(BaseModel):
+    """Whether to create a sparse kNN index for the attribute.
+
+    Requires the `{}f16` type.
+    """
+
+    distance_metric: SparseDistanceMetric
+    """A function used to calculate sparse vector similarity."""
+
+
 class AttributeSchemaConfig(BaseModel):
     """Detailed configuration for an attribute attached to a document."""
 
@@ -28,7 +39,7 @@ class AttributeSchemaConfig(BaseModel):
     """The data type of the attribute.
 
     Valid values: string, int, uint, float, uuid, datetime, bool, []string, []int,
-    []uint, []float, []uuid, []datetime, []bool, [DIMS]f16, [DIMS]f32.
+    []uint, []float, []uuid, []datetime, []bool, [DIMS]f16, [DIMS]f32, {}f16.
     """
 
     ann: Optional[Ann] = None
@@ -48,8 +59,17 @@ class AttributeSchemaConfig(BaseModel):
     `filterable: true`.
     """
 
+    fuzzy: Optional[bool] = None
+    """Whether to enable Fuzzy filters on this attribute."""
+
     glob: Optional[bool] = None
     """Whether to enable Glob filters on this attribute."""
 
     regex: Optional[bool] = None
     """Whether to enable Regex filters on this attribute."""
+
+    sparse_knn: Optional[SparseKnn] = None
+    """Whether to create a sparse kNN index for the attribute.
+
+    Requires the `{}f16` type.
+    """

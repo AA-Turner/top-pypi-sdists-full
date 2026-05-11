@@ -116,6 +116,24 @@ class OnboardingTests(unittest.TestCase):
         self.assertNotEqual(first, package_changed)
         self.assertNotEqual(first, source_changed)
 
+    def test_page_bundle_cache_key_tracks_entry_component(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = os.getcwd()
+            try:
+                os.chdir(tmp)
+                os.makedirs("pages")
+                with open("pages/mailbox.tsx", "w") as f:
+                    f.write("export default function Mailbox() { return null }")
+                with open("pages/simulator.tsx", "w") as f:
+                    f.write("export default function Simulator() { return null }")
+
+                mailbox = bundle_cache_key("pages/mailbox.tsx", [])
+                simulator = bundle_cache_key("pages/simulator.tsx", [])
+            finally:
+                os.chdir(cwd)
+
+        self.assertNotEqual(mailbox, simulator)
+
     def test_page_bundle_external_args_include_package_roots(self):
         self.assertEqual(package_root("lucide-react@0.468.0"), "lucide-react")
         self.assertEqual(package_root("@scope/pkg@1.2.3"), "@scope/pkg")

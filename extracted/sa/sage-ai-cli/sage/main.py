@@ -2179,6 +2179,34 @@ def _ensure_model_available(
     # Resolve bare model names to prefixed ones
     resolved = _resolve_model_prefix(model_id, cfg)
 
+    # Smart re-route (Novellia bugfix): if `llama_cpp:X` was requested but:
+    #   - the GGUF isn't registered locally AND
+    #   - the GGUF isn't in the downloadable catalog AND
+    #   - Ollama IS running with `X` pulled
+    # …then transparently rewrite to `ollama:X` so we don't waste time on a
+    # broken llama_cpp load that would fall back to a tiny default model.
+    if resolved.startswith("llama_cpp:"):
+        _stem = resolved.removeprefix("llama_cpp:")
+        _registered = cfg.get_local_model(_stem) is not None
+        _in_catalog = (_stem in CATALOG_BY_NAME
+                       and getattr(CATALOG_BY_NAME[_stem], "backend", "") == "gguf")
+        if not _registered and not _in_catalog:
+            try:
+                import httpx as _hx
+                r = _hx.get("http://127.0.0.1:11434/api/tags", timeout=2.0)
+                if r.status_code == 200:
+                    pulled_bare = {m["name"].split(":")[0]
+                                   for m in (r.json().get("models") or [])
+                                   if isinstance(m, dict) and m.get("name")}
+                    if _stem in pulled_bare:
+                        renderer.info(
+                            f"Note: '{_stem}' isn't a local GGUF but Ollama has it — "
+                            f"routing to ollama:{_stem}"
+                        )
+                        resolved = f"ollama:{_stem}"
+            except Exception:
+                pass
+
     if resolved.startswith("llama_cpp:"):
         model_name = resolved.removeprefix("llama_cpp:")
         entry = cfg.get_local_model(model_name)

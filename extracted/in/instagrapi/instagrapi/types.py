@@ -12,17 +12,13 @@ from pydantic import (
 
 
 class TypesBaseModel(BaseModel):
-    model_config = ConfigDict(
-        coerce_numbers_to_str=True
-    )  # (jarrodnorwell) fixed city_id issue
+    model_config = ConfigDict(coerce_numbers_to_str=True)  # (jarrodnorwell) fixed city_id issue
 
 
 def validate_external_url(cls, v):
     if v is None or (v.startswith("http") and "://" in v) or isinstance(v, str):
         return v
-    raise ValidationError(
-        "external_url must be a URL or string"
-    )  # Corrected 'been' to 'be'
+    raise ValidationError("external_url must be a URL or string")  # Corrected 'been' to 'be'
 
 
 class Resource(TypesBaseModel):
@@ -221,9 +217,7 @@ class SharedMediaImageVersions(TypesBaseModel):
 
     additional_candidates: Optional[AdditionalCandidates] = None
     candidates: List[SharedMediaImageCandidate] = []
-    scrubber_spritesheet_info_candidates: Optional[
-        ScrubberSpritesheetInfoCandidates
-    ] = None
+    scrubber_spritesheet_info_candidates: Optional[ScrubberSpritesheetInfoCandidates] = None
 
 
 class ClipsAchievementsInfo(TypesBaseModel):
@@ -649,6 +643,14 @@ class Story(TypesBaseModel):
     polls: List[StoryPoll] = []
 
 
+class StoryArchiveDay(TypesBaseModel):
+    id: str
+    timestamp: datetime
+    media_count: int
+    reel_type: str
+    latest_reel_media: Optional[int] = None
+
+
 class Guide(TypesBaseModel):
     id: Optional[str] = None
     title: Optional[str] = None
@@ -941,9 +943,7 @@ class DirectThread(TypesBaseModel):
             return False
         own_timestamp = self.last_seen_at[user_id].timestamp.timestamp()
         timestamps = [
-            (v.timestamp.timestamp() - own_timestamp) > 0
-            for k, v in self.last_seen_at.items()
-            if k != user_id
+            (v.timestamp.timestamp() - own_timestamp) > 0 for k, v in self.last_seen_at.items() if k != user_id
         ]
         return not any(timestamps)
 

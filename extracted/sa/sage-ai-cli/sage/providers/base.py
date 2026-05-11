@@ -1,62 +1,39 @@
-"""Abstract base for all Sage model providers."""
+"""Provider base types (minimal recovery skeleton)."""
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
-class ModelInfo:
-    """Metadata about an available model."""
-
-    id: str  # Unique ID used in commands, e.g. "gemini-2.0-flash"
-    provider: str  # Provider name, e.g. "gemini"
-    name: str  # Human-readable label
-    local: bool  # True for GGUF / local, False for API
-    description: str = ""  # Brief description of model capabilities
-    pros: str = ""  # Advantages/strengths
-    cons: str = ""  # Disadvantages/limitations
-
-
-@dataclass(frozen=True)
+@dataclass
 class Message:
-    """A single conversation message."""
-
-    role: str  # "system", "user", or "assistant"
+    role: str
     content: str
 
 
-class ProviderBase(ABC):
-    """Interface that every model provider must implement."""
+@dataclass
+class ModelInfo:
+    id: str
+    provider: str
+    name: str
+    local: bool = False
+    description: str = ""
+    pros: str = ""
+    cons: str = ""
 
-    name: str  # Short identifier, e.g. "gemini"
 
-    @abstractmethod
-    def generate(
-        self,
-        messages: list[Message],
-        model: str,
-        temperature: float = 0.7,
-        max_tokens: int = 2048,
-    ) -> str:
-        """Return the full response text (non-streaming)."""
+class ProviderBase:
+    name: str = "base"
 
-    @abstractmethod
-    def stream(
-        self,
-        messages: list[Message],
-        model: str,
-        temperature: float = 0.7,
-        max_tokens: int = 2048,
-    ) -> Iterator[str]:
-        """Yield response tokens one at a time."""
-
-    @abstractmethod
-    def list_models(self) -> list[ModelInfo]:
-        """Return models this provider can serve right now."""
-
-    @abstractmethod
     def is_available(self) -> bool:
-        """Can this provider handle requests right now?"""
+        return False
+
+    def list_models(self) -> list[ModelInfo]:
+        return []
+
+    def generate(self, messages, model="", temperature=0.7, max_tokens=2048):
+        raise NotImplementedError
+
+    def stream(self, messages, model="", temperature=0.7, max_tokens=2048):
+        raise NotImplementedError

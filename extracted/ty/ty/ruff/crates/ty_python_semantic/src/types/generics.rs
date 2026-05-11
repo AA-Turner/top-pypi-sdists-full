@@ -1116,6 +1116,20 @@ impl<'db> Specialization<'db> {
         }
     }
 
+    pub(crate) fn with_materialization_kind(
+        self,
+        db: &'db dyn Db,
+        materialization_kind: Option<MaterializationKind>,
+    ) -> Self {
+        Specialization::new(
+            db,
+            self.generic_context(db),
+            self.types(db),
+            materialization_kind,
+            self.tuple_inner(db),
+        )
+    }
+
     pub(crate) fn apply_type_mapping<'a>(
         self,
         db: &'db dyn Db,
@@ -1643,7 +1657,7 @@ impl<'c, 'db> DisjointnessChecker<'_, 'c, 'db> {
 ///
 /// You will usually use [`Specialization`] instead of this type. This type is used when we need to
 /// substitute types for type variables before we have fully constructed a [`Specialization`].
-#[derive(Clone, Debug, Eq, PartialEq, get_size2::GetSize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, get_size2::GetSize)]
 pub enum ApplySpecialization<'a, 'db> {
     Specialization(Specialization<'db>),
     Partial {
@@ -1694,6 +1708,38 @@ impl<'db> ApplySpecialization<'_, 'db> {
                     None
                 }
             }
+        }
+    }
+
+    /// Convert this specialization mapping to a concrete specialization over its own generic
+    /// context, preserving skipped type variables in partial specializations as identity mappings.
+    pub(crate) fn as_specialization(self, db: &'db dyn Db) -> Option<Specialization<'db>> {
+        match self {
+            ApplySpecialization::Specialization(specialization) => Some(specialization),
+            ApplySpecialization::Partial {
+                generic_context,
+                types,
+                skip,
+            } => Some(
+                generic_context.specialize(
+                    db,
+                    generic_context
+                        .variables(db)
+                        .enumerate()
+                        .map(|(index, bound_typevar)| {
+                            if skip.is_some_and(|skip| skip == index) {
+                                Type::TypeVar(bound_typevar)
+                            } else {
+                                types
+                                    .get(index)
+                                    .copied()
+                                    .unwrap_or(Type::TypeVar(bound_typevar))
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                ),
+            ),
+            ApplySpecialization::ReturnCallables(_) | ApplySpecialization::Single(_, _) => None,
         }
     }
 }

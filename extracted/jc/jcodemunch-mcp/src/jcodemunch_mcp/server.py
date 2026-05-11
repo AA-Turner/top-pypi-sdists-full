@@ -53,22 +53,26 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     # Search & Retrieval
     "search_symbols", "get_symbol_source", "get_context_bundle",
     "get_file_content", "search_text", "search_columns", "get_ranked_context",
+    "assemble_task_context",
     # Relationships
     "find_importers", "find_references", "check_references",
     "get_dependency_graph", "get_class_hierarchy", "get_related_symbols",
     "get_call_hierarchy",
     # Impact & Safety
-    "get_blast_radius", "check_rename_safe", "get_impact_preview",
-    "get_changed_symbols", "plan_refactoring", "get_symbol_provenance",
-    "get_pr_risk_profile",
+    "get_blast_radius", "check_rename_safe", "check_delete_safe",
+    "get_impact_preview", "get_changed_symbols", "plan_refactoring",
+    "get_symbol_provenance", "get_pr_risk_profile",
+    # Symbol navigation
+    "find_implementations",
     # Architecture
     "get_dependency_cycles", "get_coupling_metrics", "get_layer_violations",
-    "get_extraction_candidates", "get_cross_repo_map", "get_tectonic_map", "get_signal_chains",
+    "get_extraction_candidates", "get_cross_repo_map", "get_group_contracts",
+    "get_tectonic_map", "get_signal_chains",
     "render_diagram", "get_project_intel",
     # Quality & Metrics
     "get_symbol_complexity", "get_churn_rate", "get_hotspots",
-    "get_repo_health", "get_symbol_importance", "find_dead_code",
-    "get_dead_code_v2", "get_untested_symbols", "search_ast",
+    "get_repo_health", "get_symbol_importance", "get_repo_map", "find_dead_code",
+    "get_dead_code_v2", "get_untested_symbols", "find_similar_symbols", "search_ast",
     # Diffs & Embeddings
     "get_symbol_diff", "embed_repo",
     # Utilities
@@ -84,6 +88,12 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     "set_tool_tier", "announce_model",
     # Composite retrieval
     "winnow_symbols",
+    # Runtime trace ingest + analytics (Phases 1-6)
+    "import_runtime_signal",
+    "get_runtime_coverage",
+    "find_hot_paths",
+    "find_unused_paths",
+    "get_redaction_log",
     # Self-guide (force-included; lets one-line CLAUDE.md pull full policy on demand)
     "jcodemunch_guide",
 )
@@ -101,6 +111,7 @@ _TOOL_TIER_CORE: frozenset[str] = frozenset({
     # Search & Retrieval
     "search_symbols", "get_symbol_source", "get_file_content",
     "search_text", "get_context_bundle", "get_ranked_context",
+    "assemble_task_context",
     # Relationships
     "find_importers", "find_references",
 })
@@ -108,22 +119,28 @@ _TOOL_TIER_CORE: frozenset[str] = frozenset({
 _TOOL_TIER_STANDARD: frozenset[str] = _TOOL_TIER_CORE | frozenset({
     # Indexing extras
     "summarize_repo", "embed_repo",
+    "import_runtime_signal", "get_runtime_coverage", "find_hot_paths", "find_unused_paths",
+    "get_redaction_log",
     # Discovery extras
     "suggest_queries", "search_columns",
     # Relationships
     "check_references", "get_dependency_graph",
     "get_class_hierarchy", "get_related_symbols", "get_call_hierarchy",
     # Impact & Safety
-    "get_blast_radius", "check_rename_safe",
+    "get_blast_radius", "check_rename_safe", "check_delete_safe",
     "get_impact_preview", "get_changed_symbols", "get_symbol_diff",
     "get_symbol_provenance", "get_pr_risk_profile",
+    # Symbol navigation
+    "find_implementations",
     # Quality & Metrics
     "get_symbol_complexity", "get_churn_rate", "get_hotspots",
-    "get_symbol_importance", "find_dead_code", "get_dead_code_v2",
-    "get_untested_symbols", "get_repo_health", "search_ast", "winnow_symbols",
+    "get_symbol_importance", "get_repo_map", "find_dead_code", "get_dead_code_v2",
+    "get_untested_symbols", "find_similar_symbols",
+    "get_repo_health", "search_ast", "winnow_symbols",
     # Architecture
     "get_dependency_cycles", "get_coupling_metrics", "get_layer_violations",
-    "get_cross_repo_map", "get_tectonic_map", "get_signal_chains",
+    "get_cross_repo_map", "get_group_contracts",
+    "get_tectonic_map", "get_signal_chains",
     "render_diagram", "get_project_intel",
     # Utilities
     "invalidate_cache", "get_watch_status", "analyze_perf", "tune_weights", "check_embedding_drift",
@@ -793,6 +810,167 @@ def _build_tools_list() -> list[Tool]:
                 },
                 "required": ["path"]
             }
+        ),
+        Tool(
+            name="import_runtime_signal",
+            description=(
+                "Ingest a runtime trace file into the runtime_* tables for the target "
+                "repo. source='otel' takes OTel JSON / JSON-Lines / .gz and maps spans "
+                "via (file_path, line_no, function_name); source='sql_log' takes "
+                "pg_stat_statements CSV or a generic SQL JSON-Lines log and maps queries "
+                "via referenced tables (file-stem match) and dbt/SQLMesh column metadata; "
+                "source='stack_log' takes a plain-text application log or JSON-Lines "
+                "record set with Python / JVM / Node.js tracebacks and writes to both "
+                "runtime_calls (severity-agnostic rollup) and runtime_stack_events "
+                "(per-severity counts: error/warn/info). Returns {records, mapped, "
+                "unmapped, redactions_fired, unmapped_reasons, evicted} plus source-"
+                "specific fields (columns_recorded for sql_log; severity_counts and "
+                "frames for stack_log). PII is redacted at the chokepoint by default. "
+                "apm is reserved."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "source": {
+                        "type": "string",
+                        "enum": ["otel", "sql_log", "stack_log", "apm"],
+                        "description": "Trace source format. Phases 1+4+5 accept 'otel', 'sql_log', and 'stack_log'.",
+                        "default": "otel",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Absolute filesystem path to the trace file",
+                    },
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier (owner/name) — defaults to the current directory's resolved repo",
+                    },
+                    "redact_enabled": {
+                        "type": "boolean",
+                        "description": "Override the runtime_redact_enabled config key. Disable ONLY for offline debugging on synthetic data.",
+                    },
+                },
+                "required": ["path"],
+            },
+        ),
+        Tool(
+            name="get_runtime_coverage",
+            description=(
+                "Runtime coverage histogram for a repo or a single file: count of "
+                "indexed symbols with vs without runtime evidence, plus the diagnostic "
+                "list of unmapped runtime spans (likely reflective dispatch the AST "
+                "missed). Pairs with Phase 2's per-result _runtime_confidence stamping. "
+                "Returns coverage_pct=0 with sources=[] when no traces have been ingested."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {"type": "string", "description": "Repository identifier (owner/name)"},
+                    "file_path": {
+                        "type": "string",
+                        "description": "Optional repo-relative file path. When set, scopes the histogram to this file.",
+                    },
+                    "unmapped_limit": {
+                        "type": "integer",
+                        "description": "Cap on the unmapped_runtime list (default 50)",
+                        "default": 50,
+                    },
+                },
+                "required": ["repo"],
+            },
+        ),
+        Tool(
+            name="find_hot_paths",
+            description=(
+                "Top-N symbols ranked by total runtime hit count across ingested traces, "
+                "with per-symbol p50/p95 latency, sources contributing, and last_seen. "
+                "Optionally filtered by a name substring. Pairs with get_blast_radius to "
+                "answer 'is this PR touching code that runs 4M times/day?' Returns an "
+                "empty results list when no traces have been ingested."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {"type": "string", "description": "Repository identifier (owner/name)"},
+                    "query": {
+                        "type": "string",
+                        "description": "Optional case-insensitive substring filter on symbol name",
+                    },
+                    "top_n": {
+                        "type": "integer",
+                        "description": "Cap on returned rows (default 20, max 200)",
+                        "default": 20,
+                    },
+                },
+                "required": ["repo"],
+            },
+        ),
+        Tool(
+            name="find_unused_paths",
+            description=(
+                "Symbols with zero (or stale) runtime hits over the look-back window. "
+                "Distinct from find_dead_code: this surfaces code that's reachable on "
+                "paper but never executed — only possible to detect with runtime data. "
+                "Excludes test files and entry-point filenames by default. Returns an "
+                "empty results list when no traces have been ingested (refuses to flag "
+                "every symbol as 'unused' against an empty runtime baseline)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {"type": "string", "description": "Repository identifier (owner/name)"},
+                    "since_days": {
+                        "type": "integer",
+                        "description": "Look-back window in days (default 90)",
+                        "default": 90,
+                    },
+                    "include_tests": {
+                        "type": "boolean",
+                        "description": "Include symbols in test files",
+                        "default": False,
+                    },
+                    "include_entry_points": {
+                        "type": "boolean",
+                        "description": "Include symbols in entry-point filenames (main.py, wsgi.py, etc.)",
+                        "default": False,
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Cap on returned rows (default 200, max 1000)",
+                        "default": 200,
+                    },
+                },
+                "required": ["repo"],
+            },
+        ),
+        Tool(
+            name="get_redaction_log",
+            description=(
+                "Per-pattern PII redaction counts from runtime_redaction_log. "
+                "Operators run this to verify the redaction chokepoint is firing on "
+                "production traffic — covers the OTel / SQL / stack ingest paths "
+                "(file-based or HTTP live-ingest, Phase 6). Returns "
+                "{patterns: [{source, pattern, count, last_redacted}], "
+                "total_redactions, sources}. Empty patterns list = either no traffic "
+                "yet, or JCODEMUNCH_RUNTIME_REDACT was disabled."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {"type": "string", "description": "Repository identifier (owner/name)"},
+                    "source": {
+                        "type": "string",
+                        "enum": ["otel", "sql_log", "stack_log", "apm"],
+                        "description": "Optional filter to a single source label",
+                    },
+                    "since_days": {
+                        "type": "integer",
+                        "description": "Lookback window for last_redacted filter (default 30)",
+                        "default": 30,
+                    },
+                },
+                "required": ["repo"],
+            },
         ),
         Tool(
             name="list_repos",
@@ -1964,6 +2142,95 @@ def _build_tools_list() -> list[Tool]:
             },
         ),
         Tool(
+            name="check_delete_safe",
+            description=(
+                "Composite preflight: can this symbol be deleted safely? Combines find_importers "
+                "(cross-repo), check_references, find_dead_code confidence, runtime evidence "
+                "(Phase 7 traces when available), and entry-point heuristics into a single verdict + "
+                "one-line recommended_action. Verdict tiers: safe_to_delete / test_coverage_only / "
+                "internal_only / internal_uses_blocking / external_uses_blocking / cross_repo_blocking "
+                "/ runtime_observed / entry_point. Top-5 blockers ranked by severity. Read-only — "
+                "never mutates the codebase."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {"type": "string", "description": "Repository identifier"},
+                    "symbol": {
+                        "type": "string",
+                        "description": "Symbol ID or name to evaluate for deletion safety.",
+                    },
+                    "cross_repo": {
+                        "type": "boolean",
+                        "description": "Include other indexed repos in the analysis (default true).",
+                        "default": True,
+                    },
+                    "include_runtime": {
+                        "type": "boolean",
+                        "description": "Consult runtime_calls for production evidence (default true).",
+                        "default": True,
+                    },
+                },
+                "required": ["repo", "symbol"],
+            },
+        ),
+        Tool(
+            name="find_implementations",
+            description=(
+                "Find concrete implementations of an interface, abstract class, or method. "
+                "Multi-source resolution with confidence scoring: LSP dispatch (1.0), AST class "
+                "hierarchy (0.85), duck-typed name match (0.65), decorator handler (0.45). "
+                "Classifies each impl (subclass_override / interface_impl / duck_typed / "
+                "decorator_handler / subclass), ranks by PageRank × byte_length, attaches "
+                "differs_by breakdown. Optional cross_repo=true surfaces impls in other indexed "
+                "repos via the package registry. Closes Serena's find_implementations gap."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {"type": "string", "description": "Repository identifier"},
+                    "symbol": {
+                        "type": "string",
+                        "description": "Symbol ID or name of the interface/abstract/method to analyse.",
+                    },
+                    "relationship_kinds": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "Optional whitelist: subclass_override, interface_impl, duck_typed, "
+                            "decorator_handler, subclass. Defaults to all."
+                        ),
+                    },
+                    "include_subclasses": {
+                        "type": "boolean",
+                        "description": "Walk class hierarchy for class-kind targets (default true).",
+                        "default": True,
+                    },
+                    "cross_repo": {
+                        "type": "boolean",
+                        "description": "Also search other indexed repos via the package registry (default false).",
+                        "default": False,
+                    },
+                    "rank_by_importance": {
+                        "type": "boolean",
+                        "description": "Sort by confidence then PageRank × byte_length (default true).",
+                        "default": True,
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Cap on returned implementations (default 50).",
+                        "default": 50,
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Hard cap on response payload (default 4000).",
+                        "default": 4000,
+                    },
+                },
+                "required": ["repo", "symbol"],
+            },
+        ),
+        Tool(
             name="plan_refactoring",
             description=(
                 "Generate edit-ready refactoring instructions for renaming, moving, extracting, or "
@@ -2320,6 +2587,102 @@ def _build_tools_list() -> list[Tool]:
             },
         ),
         Tool(
+            name="find_similar_symbols",
+            description=(
+                "Find clusters of similar functions/methods/classes — consolidation candidates. "
+                "Blends three signals: semantic (embedding cosine when embed_repo has run), "
+                "structural (signature-token Jaccard + size ratio), and behavioral (callee-set Jaccard). "
+                "Runs union-find clustering, classifies each cluster (near_duplicate / similar_logic / "
+                "parallel_implementation), picks a canonical symbol per cluster (highest PageRank), "
+                "and surfaces 'differs_by' breakdowns so an agent can recommend keep-this/replace-those. "
+                "Pre-filters via BM25 inverted index — sub-N^2 on large repos. Degrades gracefully "
+                "without embeddings (mode='structural'). Skip tests/dunders/generated files by default."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {"type": "string", "description": "Repository identifier (owner/repo or just repo name)"},
+                    "threshold": {
+                        "type": "number",
+                        "description": "Minimum combined similarity to form a cluster edge (0.0–1.0). Default 0.80.",
+                        "default": 0.80,
+                    },
+                    "min_size": {
+                        "type": "integer",
+                        "description": "Minimum byte_length per symbol (default 30; filters out getters/wrappers).",
+                        "default": 30,
+                    },
+                    "max_clusters": {
+                        "type": "integer",
+                        "description": "Cap on clusters returned (default 25).",
+                        "default": 25,
+                    },
+                    "include_tests": {
+                        "type": "boolean",
+                        "description": "When False (default), test files are skipped — tests intentionally share shapes.",
+                        "default": False,
+                    },
+                    "scope": {
+                        "type": "string",
+                        "description": "Optional glob to limit to a subdirectory (e.g. 'src/core/*').",
+                    },
+                    "include_kinds": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Symbol kind whitelist. Defaults to ['function', 'method', 'class'].",
+                    },
+                    "semantic_weight": {
+                        "type": "number",
+                        "description": "Embedding weight when embeddings are present (0.0–1.0). Default 0.6.",
+                        "default": 0.6,
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Hard cap on the response's payload (default 4000).",
+                        "default": 4000,
+                    },
+                },
+                "required": ["repo"],
+            },
+        ),
+        Tool(
+            name="get_repo_map",
+            description=(
+                "Query-less, token-budgeted, signature-level overview of a repository. "
+                "Groups symbols by file, ranks files by PageRank on the import graph, and "
+                "greedy-packs signatures (not bodies) under token_budget. Designed for "
+                "cold-start orientation — 'I just cloned this repo, what matters here?' — "
+                "the niche RepoMapper occupies. Pair with get_tectonic_map (module topology) "
+                "and get_ranked_context (query-driven) once you know what to ask for."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {"type": "string", "description": "Repository identifier (owner/repo or just repo name)"},
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Hard cap on returned tokens (default 2048).",
+                        "default": 2048,
+                    },
+                    "scope": {
+                        "type": "string",
+                        "description": "Optional glob to limit to a subdirectory (e.g. 'src/core/*').",
+                    },
+                    "max_per_file": {
+                        "type": "integer",
+                        "description": "Max signatures emitted per file (default 5, capped at 50).",
+                        "default": 5,
+                    },
+                    "include_kinds": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional list of symbol kinds to restrict results (e.g. ['class', 'function']).",
+                    },
+                },
+                "required": ["repo"],
+            },
+        ),
+        Tool(
             name="find_dead_code",
             description=(
                 "Find dead code — files and symbols with zero importers and no entry-point role. "
@@ -2400,6 +2763,50 @@ def _build_tools_list() -> list[Tool]:
                     },
                 },
                 "required": ["repo", "query"],
+            },
+        ),
+        Tool(
+            name="assemble_task_context",
+            description=(
+                "Task-aware single-call orchestrator. Auto-classifies task into "
+                "explore/debug/refactor/extend/audit/review intent, runs the right sub-tools, "
+                "returns one source-attributed capsule under token_budget."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {"type": "string", "description": "Repository identifier"},
+                    "task": {
+                        "type": "string",
+                        "description": "Natural-language task description. Anchors auto-extracted from task text.",
+                    },
+                    "symbols": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional anchor symbol IDs or names; auto-extracted from task when omitted.",
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": ["explore", "debug", "refactor", "extend", "audit", "review"],
+                        "description": "Optional override; auto-detected from task when omitted.",
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "End-to-end hard cap on returned tokens (default 8000).",
+                        "default": 8000,
+                    },
+                    "include": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional whitelist of stages to run (e.g. ['anchor', 'blast', 'runtime']).",
+                    },
+                    "cross_repo": {
+                        "type": "boolean",
+                        "description": "When True, layer cross-repo signals (default false).",
+                        "default": False,
+                    },
+                },
+                "required": ["repo", "task"],
             },
         ),
         Tool(
@@ -2486,6 +2893,67 @@ def _build_tools_list() -> list[Tool]:
                         "description": "Optional repo ID to filter. If omitted, returns the full cross-repo map.",
                     },
                 },
+            },
+        ),
+        Tool(
+            name="get_group_contracts",
+            description=(
+                "Surface the de-facto API contracts across a group of indexed repos. Walks each "
+                "member's named imports, resolves them to symbols in other members via the package "
+                "registry, and classifies each shared symbol into one of four verdict tiers: "
+                "'de_facto_api' (used by ≥min_importers external repos), 'leaky_internal' (underscore-"
+                "prefixed or in _internal/ but imported externally — architecture violation), "
+                "'dead_contract' (declared public but unused externally; opt-in), 'version_skew' "
+                "(same name imported via multiple specifier roots — coordination risk). Attaches "
+                "stability score (churn-weighted), last breaking change (from get_symbol_provenance), "
+                "and runtime hits (when traces have been ingested). Pairs with get_cross_repo_map: "
+                "that gives the repo-level edge graph; this zooms in to the symbol-level surface."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repos": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of indexed repo IDs (owner/name or bare names). Must be ≥2.",
+                    },
+                    "min_importers": {
+                        "type": "integer",
+                        "description": "Minimum distinct external repo importers to surface a contract (default 2).",
+                        "default": 2,
+                    },
+                    "include_internal": {
+                        "type": "boolean",
+                        "description": "Surface leaky_internal contracts (architecture violations). Default true.",
+                        "default": True,
+                    },
+                    "include_dead_contracts": {
+                        "type": "boolean",
+                        "description": "Surface public symbols with zero external importers. Default false.",
+                        "default": False,
+                    },
+                    "classify": {
+                        "type": "boolean",
+                        "description": "Attach verdict tier per contract. Default true.",
+                        "default": True,
+                    },
+                    "churn_days": {
+                        "type": "integer",
+                        "description": "Window for stability scoring (default 90).",
+                        "default": 90,
+                    },
+                    "max_contracts": {
+                        "type": "integer",
+                        "description": "Cap on returned contracts (default 50).",
+                        "default": 50,
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Hard cap on response payload (default 4000).",
+                        "default": 4000,
+                    },
+                },
+                "required": ["repos"],
             },
         ),
         Tool(
@@ -3195,6 +3663,64 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
             _result_cache_invalidate()
+        elif name == "import_runtime_signal":
+            from .tools.import_runtime_signal import import_runtime_signal
+            result = await asyncio.to_thread(
+                functools.partial(
+                    import_runtime_signal,
+                    source=arguments.get("source", "otel"),
+                    path=arguments["path"],
+                    repo=arguments.get("repo"),
+                    redact_enabled=arguments.get("redact_enabled"),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "get_runtime_coverage":
+            from .tools.get_runtime_coverage import get_runtime_coverage
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_runtime_coverage,
+                    repo=arguments["repo"],
+                    file_path=arguments.get("file_path"),
+                    unmapped_limit=arguments.get("unmapped_limit", 50),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "find_hot_paths":
+            from .tools.find_hot_paths import find_hot_paths
+            result = await asyncio.to_thread(
+                functools.partial(
+                    find_hot_paths,
+                    repo=arguments["repo"],
+                    query=arguments.get("query"),
+                    top_n=arguments.get("top_n", 20),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "find_unused_paths":
+            from .tools.find_unused_paths import find_unused_paths
+            result = await asyncio.to_thread(
+                functools.partial(
+                    find_unused_paths,
+                    repo=arguments["repo"],
+                    since_days=arguments.get("since_days", 90),
+                    include_tests=arguments.get("include_tests", False),
+                    include_entry_points=arguments.get("include_entry_points", False),
+                    max_results=arguments.get("max_results", 200),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "get_redaction_log":
+            from .tools.get_redaction_log import get_redaction_log
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_redaction_log,
+                    repo=arguments["repo"],
+                    source=arguments.get("source"),
+                    since_days=arguments.get("since_days", 30),
+                    storage_path=storage_path,
+                )
+            )
         elif name == "list_repos":
             from .tools.list_repos import list_repos
             result = await asyncio.to_thread(
@@ -3407,6 +3933,21 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     include_kinds=arguments.get("include_kinds"),
                     scope=arguments.get("scope"),
                     fusion=arguments.get("fusion", False),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "assemble_task_context":
+            from .tools.assemble_task_context import assemble_task_context
+            result = await asyncio.to_thread(
+                functools.partial(
+                    assemble_task_context,
+                    repo=arguments["repo"],
+                    task=arguments["task"],
+                    symbols=arguments.get("symbols"),
+                    intent=arguments.get("intent"),
+                    token_budget=arguments.get("token_budget", 8000),
+                    include=arguments.get("include"),
+                    cross_repo=arguments.get("cross_repo", False),
                     storage_path=storage_path,
                 )
             )
@@ -3671,6 +4212,34 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     storage_path=storage_path,
                 )
             )
+        elif name == "check_delete_safe":
+            from .tools.check_delete_safe import check_delete_safe
+            result = await asyncio.to_thread(
+                functools.partial(
+                    check_delete_safe,
+                    repo=arguments["repo"],
+                    symbol=arguments["symbol"],
+                    cross_repo=arguments.get("cross_repo", True),
+                    include_runtime=arguments.get("include_runtime", True),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "find_implementations":
+            from .tools.find_implementations import find_implementations
+            result = await asyncio.to_thread(
+                functools.partial(
+                    find_implementations,
+                    repo=arguments["repo"],
+                    symbol=arguments["symbol"],
+                    relationship_kinds=arguments.get("relationship_kinds"),
+                    include_subclasses=arguments.get("include_subclasses", True),
+                    cross_repo=arguments.get("cross_repo", False),
+                    rank_by_importance=arguments.get("rank_by_importance", True),
+                    max_results=arguments.get("max_results", 50),
+                    token_budget=arguments.get("token_budget", 4000),
+                    storage_path=storage_path,
+                )
+            )
         elif name == "plan_refactoring":
             from .tools.plan_refactoring import plan_refactoring
             result = await asyncio.to_thread(
@@ -3806,6 +4375,36 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     storage_path=storage_path,
                 )
             )
+        elif name == "get_repo_map":
+            from .tools.get_repo_map import get_repo_map
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_repo_map,
+                    repo=arguments["repo"],
+                    token_budget=arguments.get("token_budget", 2048),
+                    scope=arguments.get("scope"),
+                    max_per_file=arguments.get("max_per_file", 5),
+                    include_kinds=arguments.get("include_kinds"),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "find_similar_symbols":
+            from .tools.find_similar_symbols import find_similar_symbols
+            result = await asyncio.to_thread(
+                functools.partial(
+                    find_similar_symbols,
+                    repo=arguments["repo"],
+                    threshold=arguments.get("threshold", 0.80),
+                    min_size=arguments.get("min_size", 30),
+                    max_clusters=arguments.get("max_clusters", 25),
+                    include_tests=arguments.get("include_tests", False),
+                    scope=arguments.get("scope"),
+                    include_kinds=arguments.get("include_kinds"),
+                    semantic_weight=arguments.get("semantic_weight", 0.6),
+                    token_budget=arguments.get("token_budget", 4000),
+                    storage_path=storage_path,
+                )
+            )
         elif name == "find_dead_code":
             from .tools.find_dead_code import find_dead_code
             result = await asyncio.to_thread(
@@ -3876,6 +4475,22 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 functools.partial(
                     get_cross_repo_map,
                     repo=arguments.get("repo"),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "get_group_contracts":
+            from .tools.get_group_contracts import get_group_contracts
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_group_contracts,
+                    repos=arguments.get("repos") or [],
+                    min_importers=arguments.get("min_importers", 2),
+                    include_internal=arguments.get("include_internal", True),
+                    include_dead_contracts=arguments.get("include_dead_contracts", False),
+                    classify=arguments.get("classify", True),
+                    churn_days=arguments.get("churn_days", 90),
+                    max_contracts=arguments.get("max_contracts", 50),
+                    token_budget=arguments.get("token_budget", 4000),
                     storage_path=storage_path,
                 )
             )
@@ -4490,10 +5105,16 @@ async def run_sse_server(host: str, port: int):
     if rate_mw:
         middleware.append(rate_mw)
 
+    # Phase 6: optional /runtime/* live-ingest routes (off by default; gated
+    # by runtime_ingest_enabled config + JCODEMUNCH_HTTP_TOKEN auth).
+    from .runtime.http_routes import make_runtime_routes
+    runtime_routes = make_runtime_routes()
+
     starlette_app = Starlette(
         routes=[
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse_transport.handle_post_message),
+            *runtime_routes,
         ],
         middleware=middleware,
     )
@@ -4668,9 +5289,14 @@ async def run_streamable_http_server(host: str, port: int):
     if rate_mw:
         middleware.append(rate_mw)
 
+    # Phase 6: optional /runtime/* live-ingest routes (off by default).
+    from .runtime.http_routes import make_runtime_routes
+    runtime_routes = make_runtime_routes()
+
     starlette_app = Starlette(
         routes=[
             Route("/mcp", endpoint=handle_mcp, methods=["GET", "POST", "DELETE"]),
+            *runtime_routes,
         ],
         middleware=middleware,
     )
@@ -4766,11 +5392,12 @@ def _generate_claude_md_snippet(missing_only: bool = False) -> str:
                        "get_repo_outline", "get_file_tree", "get_file_outline"]),
         ("Search & Retrieval", ["search_symbols", "get_symbol_source", "get_context_bundle",
                                  "get_file_content", "search_text", "search_columns",
-                                 "get_ranked_context"]),
+                                 "get_ranked_context", "assemble_task_context"]),
         ("Relationships", ["find_importers", "find_references", "check_references",
                            "get_dependency_graph", "get_class_hierarchy",
-                           "get_related_symbols", "get_call_hierarchy"]),
-        ("Impact & Safety", ["get_blast_radius", "check_rename_safe",
+                           "get_related_symbols", "get_call_hierarchy",
+                           "find_implementations"]),
+        ("Impact & Safety", ["get_blast_radius", "check_rename_safe", "check_delete_safe",
                               "get_impact_preview", "get_changed_symbols",
                               "plan_refactoring", "get_symbol_provenance",
                               "get_pr_risk_profile"]),
@@ -4778,10 +5405,11 @@ def _generate_claude_md_snippet(missing_only: bool = False) -> str:
                           "get_layer_violations", "get_extraction_candidates",
                           "get_cross_repo_map", "get_tectonic_map",
                           "get_signal_chains", "render_diagram",
-                          "get_project_intel"]),
+                          "get_project_intel", "get_group_contracts"]),
         ("Quality & Metrics", ["get_symbol_complexity", "get_churn_rate", "get_hotspots",
                                 "get_repo_health", "diff_health_radar",
                                 "get_file_risk", "get_symbol_importance",
+                                "get_repo_map", "find_similar_symbols",
                                 "find_dead_code", "get_dead_code_v2",
                                 "get_untested_symbols", "search_ast",
                                 "winnow_symbols"]),
@@ -4790,6 +5418,10 @@ def _generate_claude_md_snippet(missing_only: bool = False) -> str:
         ("Utilities", ["get_session_stats", "analyze_perf", "tune_weights", "check_embedding_drift",
                         "invalidate_cache", "test_summarizer",
                         "audit_agent_config", "get_watch_status"]),
+        ("Runtime Trace Ingest & Analytics", [
+            "import_runtime_signal", "get_runtime_coverage",
+            "find_hot_paths", "find_unused_paths", "get_redaction_log",
+        ]),
         ("Runtime Tier Switching", ["set_tool_tier", "announce_model"]),
         ("Self-Guide", ["jcodemunch_guide"]),
     ]
@@ -5540,6 +6172,42 @@ def main(argv: Optional[list[str]] = None):
     )
     _add_common_args(index_file_parser)
 
+    # --- import-trace (Phases 1 + 4 + 5: OTel + SQL log + stack log ingest) ---
+    import_trace_parser = subparsers.add_parser(
+        "import-trace",
+        help="Ingest a runtime trace file (OTel / SQL log / stack log) into the runtime_* tables",
+    )
+    import_trace_parser.add_argument(
+        "--otel",
+        dest="otel_path",
+        metavar="PATH",
+        help="Path to an OTel JSON, JSON-Lines, or .gz trace file",
+    )
+    import_trace_parser.add_argument(
+        "--sql-log",
+        dest="sql_log_path",
+        metavar="PATH",
+        help="Path to a pg_stat_statements CSV or generic SQL query JSON-Lines log",
+    )
+    import_trace_parser.add_argument(
+        "--stack-log",
+        dest="stack_log_path",
+        metavar="PATH",
+        help="Path to a plain-text app log or JSON-Lines record set with Python / JVM / Node.js stack traces",
+    )
+    import_trace_parser.add_argument(
+        "--repo",
+        dest="repo",
+        default=None,
+        help="Repo identifier (owner/name) — defaults to resolving the current directory",
+    )
+    import_trace_parser.add_argument(
+        "--no-redact",
+        action="store_true",
+        help="Disable PII redaction. Use ONLY for offline debugging on synthetic data.",
+    )
+    _add_common_args(import_trace_parser)
+
     # --- init ---
     init_parser = subparsers.add_parser(
         "init",
@@ -5604,6 +6272,104 @@ def main(argv: Optional[list[str]] = None):
         action="store_true",
         dest="no_backup",
         help="Skip creating .bak backups of modified files",
+    )
+
+    # --- install (per-agent sugar over init) ---
+    install_parser = subparsers.add_parser(
+        "install",
+        help="Per-agent install shortcut. `install claude-code` is sugar for `init --client claude-code --yes`.",
+    )
+    install_parser.add_argument(
+        "target",
+        nargs="?",
+        default=None,
+        help="Agent target: claude-code, claude-desktop, cursor, windsurf, continue, all. "
+             "Omit with --list/--status for info-only output.",
+    )
+    install_parser.add_argument(
+        "--list",
+        action="store_true",
+        dest="list_targets",
+        help="List valid install targets and exit",
+    )
+    install_parser.add_argument(
+        "--status",
+        action="store_true",
+        dest="status",
+        help="Print current install state across every target",
+    )
+    install_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="With --status: emit JSON instead of pretty-printed output",
+    )
+    install_parser.add_argument(
+        "--dry-run", action="store_true", dest="dry_run",
+        help="Show what would happen without making changes",
+    )
+    install_parser.add_argument(
+        "--no-backup", action="store_true", dest="no_backup",
+        help="Skip creating .bak backups of modified files",
+    )
+
+    # --- install-status (top-level read-only inspector) ---
+    status_parser = subparsers.add_parser(
+        "install-status",
+        help="Print current install state (clients, policies, hooks).",
+    )
+    status_parser.add_argument(
+        "--json", action="store_true", dest="as_json",
+        help="Emit JSON instead of pretty-printed output",
+    )
+
+    # --- uninstall ---
+    uninstall_parser = subparsers.add_parser(
+        "uninstall",
+        help="Reverse `init` / `install`: remove jcodemunch entries from configs, policies, and hooks.",
+    )
+    uninstall_parser.add_argument(
+        "target",
+        nargs="?",
+        default=None,
+        help="Agent target to uninstall (claude-code, claude-desktop, cursor, windsurf, continue, all). "
+             "Omit to uninstall every detected target plus shared policies and hooks.",
+    )
+    uninstall_parser.add_argument(
+        "--keep-claude-md", action="store_true", dest="keep_claude_md",
+        help="Preserve the CLAUDE.md policy block (do not strip it)",
+    )
+    uninstall_parser.add_argument(
+        "--keep-cursor-rules", action="store_true", dest="keep_cursor_rules",
+        help="Preserve .cursor/rules/jcodemunch.mdc",
+    )
+    uninstall_parser.add_argument(
+        "--keep-windsurf-rules", action="store_true", dest="keep_windsurf_rules",
+        help="Preserve the .windsurfrules policy block",
+    )
+    uninstall_parser.add_argument(
+        "--keep-agents-md", action="store_true", dest="keep_agents_md",
+        help="Preserve the AGENTS.md policy block",
+    )
+    uninstall_parser.add_argument(
+        "--keep-hooks", action="store_true", dest="keep_hooks",
+        help="Preserve jcodemunch hooks in ~/.claude/settings.json",
+    )
+    uninstall_parser.add_argument(
+        "--keep-copilot-hooks", action="store_true", dest="keep_copilot_hooks",
+        help="Preserve the Copilot postToolUse hook in .github/hooks/hooks.json",
+    )
+    uninstall_parser.add_argument(
+        "--dry-run", action="store_true", dest="dry_run",
+        help="Show what would happen without making changes",
+    )
+    uninstall_parser.add_argument(
+        "--no-backup", action="store_true", dest="no_backup",
+        help="Skip creating .bak backups of modified files",
+    )
+    uninstall_parser.add_argument(
+        "--yes", "-y", action="store_true",
+        help="Accept all defaults non-interactively",
     )
 
     # --- hook-event ---
@@ -5890,7 +6656,27 @@ def main(argv: Optional[list[str]] = None):
     if any(arg in top_level_flags for arg in raw_argv):
         args = parser.parse_args(raw_argv)
     else:
-        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-copilot-posttooluse", "hook-precompact", "hook-taskcomplete", "hook-subagent-start", "watch-claude", "watch-all", "watch-install", "watch-uninstall", "watch-status", "config", "index", "index-file", "claude-md", "init", "install-pack", "download-model", "upgrade", "whatsnew", "receipt", "digest", "health", "file-risk", "observatory"}
+        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-copilot-posttooluse", "hook-precompact", "hook-taskcomplete", "hook-subagent-start", "watch-claude", "watch-all", "watch-install", "watch-uninstall", "watch-status", "config", "index", "index-file", "import-trace", "claude-md", "init", "install", "install-status", "uninstall", "install-pack", "download-model", "upgrade", "whatsnew", "receipt", "digest", "health", "file-risk", "observatory"}
+        # MCP-tool-name typos: route to the right CLI verb with a friendly hint.
+        # `index_repo` and `index_folder` are MCP tools, not CLI subcommands.
+        _CLI_ALIASES = {
+            "index_repo": "index",
+            "index-repo": "index",
+            "index_folder": "index",
+            "index-folder": "index",
+            "index_file": "index-file",
+        }
+        first_pos = next((a for a in raw_argv if not a.startswith("-")), None)
+        if first_pos in _CLI_ALIASES:
+            target = _CLI_ALIASES[first_pos]
+            print(
+                f"jcodemunch-mcp: error: unknown subcommand `{first_pos}`. Did you mean:\n"
+                f"    jcodemunch-mcp {target} <owner/repo>\n"
+                f"    jcodemunch-mcp {target} <github-url>\n"
+                f"    jcodemunch-mcp {target} <local-path>",
+                file=sys.stderr,
+            )
+            sys.exit(2)
         has_subcommand = any(arg in known_commands for arg in raw_argv if not arg.startswith("-"))
         if not has_subcommand:
             raw_argv = ["serve"] + list(raw_argv)
@@ -5924,6 +6710,69 @@ def main(argv: Optional[list[str]] = None):
             demo=args.demo,
             yes=args.yes,
             no_backup=args.no_backup,
+        ))
+
+    if args.command == "install":
+        from .cli.init import (
+            list_targets as _list_targets,
+            install_status as _install_status,
+            print_status as _print_status,
+            run_init,
+            _AGENT_ALIASES,
+        )
+        if getattr(args, "list_targets", False):
+            _list_targets()
+            sys.exit(0)
+        if getattr(args, "status", False):
+            _print_status(_install_status(), as_json=getattr(args, "as_json", False))
+            sys.exit(0)
+        target = args.target
+        if not target:
+            print(
+                "install: please pass a target (e.g. `install claude-code`),\n"
+                "        or use --list / --status for info-only output.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if target.lower() not in _AGENT_ALIASES:
+            print(
+                f"install: unknown target '{target}'. Valid: "
+                f"{', '.join(sorted(_AGENT_ALIASES))}",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        client_arg = None if target.lower() == "all" else [target.lower()]
+        sys.exit(run_init(
+            clients=client_arg or ["auto"],
+            claude_md="global",
+            hooks=True,
+            copilot_hooks=False,
+            index=False,
+            audit=False,
+            dry_run=getattr(args, "dry_run", False),
+            demo=False,
+            yes=True,
+            no_backup=getattr(args, "no_backup", False),
+        ))
+
+    if args.command == "install-status":
+        from .cli.init import install_status as _install_status, print_status as _print_status
+        _print_status(_install_status(), as_json=getattr(args, "as_json", False))
+        sys.exit(0)
+
+    if args.command == "uninstall":
+        from .cli.init import run_uninstall
+        sys.exit(run_uninstall(
+            target=args.target,
+            claude_md=not getattr(args, "keep_claude_md", False),
+            cursor_rules=not getattr(args, "keep_cursor_rules", False),
+            windsurf_rules=not getattr(args, "keep_windsurf_rules", False),
+            agents_md=not getattr(args, "keep_agents_md", False),
+            hooks=not getattr(args, "keep_hooks", False),
+            copilot_hooks=not getattr(args, "keep_copilot_hooks", False),
+            dry_run=getattr(args, "dry_run", False),
+            no_backup=getattr(args, "no_backup", False),
+            yes=getattr(args, "yes", False),
         ))
 
     if args.command == "download-model":
@@ -6145,7 +6994,10 @@ def main(argv: Optional[list[str]] = None):
         import json as _json
         t = args.target
         use_ai = not args.no_ai_summaries and _default_use_ai_summaries()
-        # Heuristic: "owner/repo" is a GitHub repo; anything else is a local path
+        # Heuristic: local paths start with /, ., or a Windows drive letter.
+        # Everything else (owner/repo, github.com/owner/repo, https://github.com/...,
+        # git@github.com:owner/repo) routes to the GitHub indexer, which calls
+        # parse_github_url for normalization.
         is_local = "/" not in t or t.startswith("/") or t.startswith(".") or (len(t) > 1 and t[1] == ":")
         if is_local:
             from .tools.index_folder import index_folder as _index_folder
@@ -6178,6 +7030,46 @@ def main(argv: Optional[list[str]] = None):
         )
         print(_json.dumps(result, indent=2))
         if not result.get("success"):
+            sys.exit(1)
+    elif args.command == "import-trace":
+        from .tools.import_runtime_signal import import_runtime_signal as _import_runtime_signal
+        import json as _json
+
+        otel_path = getattr(args, "otel_path", None)
+        sql_log_path = getattr(args, "sql_log_path", None)
+        stack_log_path = getattr(args, "stack_log_path", None)
+        provided = [p for p in (otel_path, sql_log_path, stack_log_path) if p]
+        if not provided:
+            print(
+                "jcodemunch-mcp: error: import-trace requires one of --otel / --sql-log / --stack-log <path>",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if len(provided) > 1:
+            print(
+                "jcodemunch-mcp: error: import-trace accepts exactly one of --otel / --sql-log / --stack-log. "
+                "Run the command once per source if you have multiple.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        if otel_path:
+            source = "otel"
+            trace_path = otel_path
+        elif sql_log_path:
+            source = "sql_log"
+            trace_path = sql_log_path
+        else:
+            source = "stack_log"
+            trace_path = stack_log_path
+        result = _import_runtime_signal(
+            source=source,
+            path=trace_path,
+            repo=args.repo,
+            redact_enabled=not args.no_redact,
+            storage_path=os.environ.get("CODE_INDEX_PATH"),
+        )
+        print(_json.dumps(result, indent=2))
+        if not result.get("success", True):
             sys.exit(1)
     else:
         # serve (default)

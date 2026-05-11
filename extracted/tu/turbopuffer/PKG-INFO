@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: turbopuffer
-Version: 1.21.0
+Version: 2.0.0
 Summary: The official Python library for the turbopuffer API
 Project-URL: Homepage, https://github.com/turbopuffer/turbopuffer-python
 Project-URL: Repository, https://github.com/turbopuffer/turbopuffer-python
@@ -294,9 +294,12 @@ client = Turbopuffer()
 
 response = client.namespaces.write(
     namespace="namespace",
-    encryption={},
+    patch_by_filter={
+        "filters": {},
+        "patch": {"foo": "bar"},
+    },
 )
-print(response.encryption)
+print(response.patch_by_filter)
 ```
 
 ## Handling errors

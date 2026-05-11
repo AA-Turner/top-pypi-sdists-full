@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: approvaltests
-Version: 18.0.1
+Version: 18.0.3
 Summary: Assertion/verification library to aid testing
 Home-page: https://github.com/approvals/ApprovalTests.Python
 Author: ApprovalTests Contributors
@@ -24,7 +24,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pytest>=4.0.0
+Requires-Dist: pytest>=9.0.3
 Requires-Dist: empty-files>=0.0.3
 Requires-Dist: typing_extensions>=3.6.2
 Requires-Dist: pyperclip>=1.5.29
@@ -32,7 +32,7 @@ Requires-Dist: beautifulsoup4>=4.4.0
 Requires-Dist: allpairspy>=2.1.0
 Requires-Dist: testfixtures>=7.1.0
 Requires-Dist: mock>=5.1.0
-Requires-Dist: approval_utilities==18.0.1
+Requires-Dist: approval_utilities==18.0.3
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -68,8 +68,9 @@ Dynamic: summary
   * [Support and Documentation](#support-and-documentation)
     * [Missing Documentation?](#missing-documentation)
     * [Dependencies](#dependencies)
-      * [Required dependencies](#required-dependencies)
-      * [Extra dependencies](#extra-dependencies)
+      * [Python](#python)
+      * [Required packages](#required-packages)
+      * [Extra packages](#extra-packages)
   * [For developers](#for-developers)
     * [Weekly Ensemble](#weekly-ensemble)
     * [Pull Requests](#pull-requests)<!-- endToc -->
@@ -317,29 +318,32 @@ If there is documentation you wish existed, please add a `page request` to [this
 
 ### Dependencies
 
-ApprovalTests is tested on the following Python versions: 3.10, 3.11, 3.12, 3.13, 3.14.<!-- singleLineInclude: tests/approved_files/test_workflow_matrix.test_workflow_matrix_python_versions.approved.txt -->
+#### Python
 
-For older versions of Python, either use an older version of ApprovalTests or use [TextTest](https://texttest.org/).
+ApprovalTests is tested on the following Python versions: 3.10, 3.11, 3.12, 3.13, 3.14.<!-- singleLineInclude: tests/approved_files/test_workflow_matrix.test_tested_versions_message.approved.txt -->
 
-ApprovalTests requires the following dependencies:
+For older versions of Python, either:
+- use an older version of ApprovalTests, or
+- use [TextTest](https://texttest.org/), or
+- hire us to help
 
-#### Required dependencies
+#### Required packages
 
 These dependencies are always required for approvaltests
 
 <!-- snippet: requirements.prod.required.txt -->
 <a id='snippet-requirements.prod.required.txt'></a>
 ```txt
-pytest>=4.0.0
+pytest>=9.0.3
 empty-files>=0.0.3
 typing_extensions>=3.6.2
 ```
 <sup><a href='/requirements.prod.required.txt#L1-L5' title='Snippet source file'>snippet source</a> | <a href='#snippet-requirements.prod.required.txt' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-#### Extra dependencies
+#### Extra packages
 
-These dependencies are required if you are going to use the related functionality.  
+These dependencies are needed if you are going to use the related functionality.  
 If you want the bare minimum you can use the pypi project
 [approvaltests-minimal](https://pypi.org/project/approvaltests-minimal/).
 
