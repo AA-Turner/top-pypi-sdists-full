@@ -9,22 +9,40 @@ from pathlib import Path
 from typing import Any
 
 from ouroboros.auto.adapters import (
+    HandlerEvaluator,
     HandlerInterviewBackend,
+    HandlerLateralThinker,
+    HandlerRalphPoller,
+    HandlerRalphStarter,
     HandlerRunStarter,
     HandlerSeedGenerator,
     load_seed,
     save_seed,
 )
+from ouroboros.auto.answerer import AutoAnswerContext
 from ouroboros.auto.interview_driver import AutoInterviewDriver
+from ouroboros.auto.ledger import REQUIRED_SECTIONS
 from ouroboros.auto.pipeline import AutoPipeline, AutoPipelineResult
+from ouroboros.auto.repo_context import repo_auto_answer_context
 from ouroboros.auto.resume_render import render_resume_lines
 from ouroboros.auto.seed_repairer import SeedRepairer
-from ouroboros.auto.state import AutoPhase, AutoPipelineState, AutoResumeCapability, AutoStore
+from ouroboros.auto.state import (
+    DEFAULT_PIPELINE_TIMEOUT_SECONDS,
+    MAX_PIPELINE_TIMEOUT_SECONDS,
+    MIN_PIPELINE_TIMEOUT_SECONDS,
+    AutoPhase,
+    AutoPipelineState,
+    AutoResumeCapability,
+    AutoStore,
+)
 from ouroboros.config import get_opencode_mode
 from ouroboros.core.types import Result
 from ouroboros.mcp.errors import MCPServerError, MCPToolError
 from ouroboros.mcp.tools.authoring_handlers import GenerateSeedHandler, InterviewHandler
+from ouroboros.mcp.tools.evaluation_handlers import LateralThinkHandler
 from ouroboros.mcp.tools.execution_handlers import ExecuteSeedHandler, StartExecuteSeedHandler
+from ouroboros.mcp.tools.qa import QAHandler
+from ouroboros.mcp.tools.ralph_handlers import RalphHandler
 from ouroboros.mcp.types import (
     ContentType,
     MCPContentItem,
@@ -124,6 +142,42 @@ class AutoHandler:
                     "Source label for run handoff reconciliation",
                     required=False,
                 ),
+                MCPToolParameter(
+                    "pipeline_timeout_seconds",
+                    ToolInputType.NUMBER,
+                    (
+                        "Top-level pipeline deadline in seconds. Defaults to "
+                        f"{DEFAULT_PIPELINE_TIMEOUT_SECONDS:g}s for new sessions. "
+                        f"Range: {MIN_PIPELINE_TIMEOUT_SECONDS:g}-"
+                        f"{MAX_PIPELINE_TIMEOUT_SECONDS:g}. Cannot be changed on "
+                        "resume; the deadline is preserved across process restarts."
+                    ),
+                    required=False,
+                ),
+                MCPToolParameter(
+                    "user_preferences",
+                    ToolInputType.OBJECT,
+                    (
+                        "Caller-supplied user preferences keyed by ledger section name "
+                        "(e.g. runtime_context, constraints, non_goals). The Driver "
+                        "tags matching answers with [from-auto][user_preference] in the "
+                        "ledger. Keys must be valid ledger section names; values must "
+                        "be non-empty strings."
+                    ),
+                    required=False,
+                ),
+                MCPToolParameter(
+                    "complete_product",
+                    ToolInputType.BOOLEAN,
+                    (
+                        "When true, chain RUN → RALPH_HANDOFF after a successful run "
+                        "handoff so a single ouroboros_auto invocation iterates Ralph "
+                        "until QA passes, convergence, or a budget bound trips. "
+                        "Defaults to false (opt-in)."
+                    ),
+                    required=False,
+                    default=False,
+                ),
             ),
         )
 
@@ -151,6 +205,7 @@ class AutoHandler:
         store = self.store or AutoStore()
         resume = arguments.get("resume")
         requested_skip_run = bool(arguments.get("skip_run", False))
+        complete_product = bool(arguments.get("complete_product", False))
         attach_execution = _optional_text_arg(arguments, "attach_execution")
         attach_job = _optional_text_arg(arguments, "attach_job")
         attach_session = _optional_text_arg(arguments, "attach_session")
@@ -162,6 +217,24 @@ class AutoHandler:
             raise ValueError("attach_* arguments require resume")
         if reconcile_run and not (isinstance(resume, str) and resume):
             raise ValueError("reconcile_run requires resume")
+        pipeline_timeout_seconds = _optional_pipeline_timeout(arguments)
+        if pipeline_timeout_seconds is not None and isinstance(resume, str) and resume:
+            raise ValueError(
+                "pipeline_timeout_seconds cannot be changed on resume; the "
+                "original deadline is preserved across process restarts"
+            )
+        # Distinguish "caller did not pass user_preferences" from "caller
+        # passed an empty mapping". Only validate/parse when the caller
+        # actually supplied the arg so a resume call can defer to persisted
+        # state without being forced to resupply.
+        user_preferences_supplied = (
+            "user_preferences" in arguments and arguments.get("user_preferences") is not None
+        )
+        supplied_user_preferences = (
+            _parse_user_preferences(arguments.get("user_preferences"))
+            if user_preferences_supplied
+            else {}
+        )
         if isinstance(resume, str) and resume:
             state = store.load(resume)
             cwd = state.cwd
@@ -175,6 +248,20 @@ class AutoHandler:
             max_interview_rounds = state.max_interview_rounds
             max_repair_rounds = state.max_repair_rounds
             skip_run = requested_skip_run or state.skip_run
+            # Resume contract: caller-supplied preferences override persisted
+            # ones; otherwise the original session's preferences are reused so
+            # the same input converges to the same Seed.
+            if user_preferences_supplied:
+                state.user_preferences = dict(supplied_user_preferences)
+            # Q00/ouroboros#773 (review-3): ``complete_product`` is durable
+            # session intent, not a per-invocation flag. Honor the persisted
+            # value so MCP callers that omit ``complete_product`` on resume
+            # still chain RUN → RALPH_HANDOFF for sessions that originally
+            # opted in. Mirrors the CLI policy in ``cli/commands/auto.py``.
+            if state.complete_product and not complete_product:
+                complete_product = True
+            elif complete_product and not state.complete_product:
+                state.complete_product = True
         else:
             goal = arguments.get("goal")
             if not isinstance(goal, str) or not goal.strip():
@@ -186,8 +273,12 @@ class AutoHandler:
             max_repair_rounds = _positive_int_arg(arguments, "max_repair_rounds", 5)
             skip_run = requested_skip_run
             state = AutoPipelineState(goal=goal.strip(), cwd=cwd)
+            state.user_preferences = dict(supplied_user_preferences)
             state.max_interview_rounds = max_interview_rounds
             state.max_repair_rounds = max_repair_rounds
+            state.complete_product = complete_product
+            if pipeline_timeout_seconds is not None:
+                state.pipeline_timeout_seconds = pipeline_timeout_seconds
         state.runtime_backend = runtime_backend
         state.opencode_mode = opencode_mode
         state.skip_run = skip_run
@@ -214,12 +305,62 @@ class AutoHandler:
             mcp_tool_prefix=self.mcp_tool_prefix,
         )
 
+        context_provider = _build_context_provider(dict(state.user_preferences))
         driver = AutoInterviewDriver(
             HandlerInterviewBackend(interview_handler, cwd=cwd),
             store=store,
             max_rounds=max_interview_rounds,
             timeout_seconds=state.phase_timeout_seconds(AutoPhase.INTERVIEW),
+            context_provider=context_provider,
         )
+        ralph_handler = (
+            RalphHandler(
+                agent_runtime_backend=runtime_backend,
+                opencode_mode=opencode_mode,
+            )
+            if complete_product
+            else None
+        )
+        ralph_starter = HandlerRalphStarter(ralph_handler) if ralph_handler is not None else None
+        # Q00/ouroboros#773 (review-5 finding 1): wire a poller backed by the
+        # same ``RalphHandler`` so MCP-side resumes of an interrupted
+        # ``RALPH_HANDOFF`` checkpoint actually reconcile the persisted job
+        # to a terminal auto phase. The same handler is reused so both the
+        # starter and the poller share a ``JobManager`` (and underlying
+        # ``EventStore``) — without that share the poller would query a
+        # fresh, empty job table.
+        ralph_resumer = HandlerRalphPoller(ralph_handler) if ralph_handler is not None else None
+        # RFC #809 Phase 2.1 — wire the QA-backed evaluator only when the
+        # session is in complete-product mode. Outside that mode the chain
+        # is RUN → COMPLETE (async run handoff) so there is no synchronous
+        # artifact to grade; instantiating QAHandler would be wasted setup.
+        #
+        # Plugin-mode skip: ``QAHandler`` / ``LateralThinkHandler`` dispatch
+        # to OpenCode Task panes when ``opencode_mode == "plugin"``. The
+        # auto pipeline's Phase 2.1/2.2 advisory layer is synchronous and
+        # cannot consume out-of-band subagent output, so we leave both
+        # adapters unwired in plugin mode. The chain then falls back to
+        # the pre-Phase-2.1 behaviour (RUN → RALPH_HANDOFF → COMPLETE) —
+        # the existing Ralph plugin delegation continues to drive
+        # complete-product sessions in OpenCode Task panes as before.
+        evaluator = None
+        lateral_thinker = None
+        opencode_plugin_mode = opencode_mode == "plugin"
+        if complete_product and not opencode_plugin_mode:
+            qa_handler = QAHandler(
+                llm_backend=self.llm_backend,
+                agent_runtime_backend=runtime_backend,
+                opencode_mode=opencode_mode,
+            )
+            evaluator = HandlerEvaluator(qa_handler)
+            # RFC #809 Phase 2.2 — wire the persona-driven lateral advisor
+            # alongside the evaluator. Same gating: only when complete-product
+            # is on and we are NOT in plugin mode.
+            lateral_handler = LateralThinkHandler(
+                agent_runtime_backend=runtime_backend,
+                opencode_mode=opencode_mode,
+            )
+            lateral_thinker = HandlerLateralThinker(lateral_handler)
         pipeline = AutoPipeline(
             driver,
             HandlerSeedGenerator(generate_seed_handler),
@@ -235,6 +376,11 @@ class AutoHandler:
             attach_source=attach_source,
             reconcile_run=reconcile_run,
             reconcile_source=reconcile_source,
+            ralph_starter=ralph_starter,
+            ralph_resumer=ralph_resumer,
+            complete_product=complete_product,
+            evaluator=evaluator,
+            lateral_thinker=lateral_thinker,
         )
         return await pipeline.run(state)
 
@@ -281,6 +427,47 @@ def _result_meta(result: AutoPipelineResult) -> dict[str, Any]:
         meta["run_reconciliation_status"] = result.run_reconciliation_status
         meta["run_reconciliation_source"] = result.run_reconciliation_source
         meta["run_reconciled_at"] = result.run_reconciled_at
+    # Q00/ouroboros#773 (review-4): surface Ralph handoff tracking handles on
+    # the MCP result contract. Without these, plugin-mode dispatches and
+    # mid-loop checkpoints expose no structured handle for clients to monitor
+    # or correlate the Ralph work, forcing them to read local state files
+    # out-of-band. Each field is emitted only when populated so default-off
+    # ``complete_product=False`` runs keep the legacy meta shape byte-identical.
+    if result.ralph_job_id:
+        meta["ralph_job_id"] = result.ralph_job_id
+    if result.ralph_lineage_id:
+        meta["ralph_lineage_id"] = result.ralph_lineage_id
+    if result.ralph_dispatch_mode:
+        meta["ralph_dispatch_mode"] = result.ralph_dispatch_mode
+    # RFC #809 Phase 2.1 — surface the EVALUATE verdict when present. None
+    # signals "EVALUATE did not run" so clients can distinguish "not graded"
+    # from "graded and failed".
+    if result.last_qa_score is not None:
+        meta["last_qa_score"] = result.last_qa_score
+    if result.last_qa_verdict is not None:
+        meta["last_qa_verdict"] = result.last_qa_verdict
+    if result.last_qa_differences:
+        meta["last_qa_differences"] = list(result.last_qa_differences)
+    if result.last_qa_suggestions:
+        meta["last_qa_suggestions"] = list(result.last_qa_suggestions)
+    # RFC #809 Phase 2.2 — surface the UNSTUCK_LATERAL persona advisory when
+    # present so clients can distinguish "QA failed and lateral surfaced a
+    # reframing" from "QA failed without lateral context".
+    if result.last_lateral_persona is not None:
+        meta["last_lateral_persona"] = result.last_lateral_persona
+    if result.last_lateral_approach_summary is not None:
+        meta["last_lateral_approach_summary"] = result.last_lateral_approach_summary
+    if result.last_lateral_text is not None:
+        meta["last_lateral_text"] = result.last_lateral_text
+    # Always emit the ledger-provenance surface so MCP clients can distinguish
+    # "computed and empty" (no resolved sections yet, or no per-source split
+    # available) from "field not provided at all".  Empty containers are part
+    # of the contract — consumers should treat absence as a protocol error.
+    meta["ledger_provenance"] = {
+        source: list(sections) for source, sections in result.ledger_provenance.items()
+    }
+    meta["evidence_backed_sections"] = list(result.evidence_backed_sections)
+    meta["assumption_only_sections"] = list(result.assumption_only_sections)
     return meta
 
 
@@ -298,6 +485,72 @@ def _optional_text_arg(arguments: dict[str, Any], name: str) -> str | None:
         msg = f"{name} must be a non-empty string"
         raise ValueError(msg)
     return value.strip()
+
+
+def _optional_pipeline_timeout(arguments: dict[str, Any]) -> float | None:
+    """Validate the optional ``pipeline_timeout_seconds`` MCP argument.
+
+    Returns ``None`` when omitted, otherwise a float in the inclusive
+    ``[MIN_PIPELINE_TIMEOUT_SECONDS, MAX_PIPELINE_TIMEOUT_SECONDS]`` window.
+    """
+    value = arguments.get("pipeline_timeout_seconds")
+    if value in {None, ""}:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        msg = "pipeline_timeout_seconds must be a number"
+        raise ValueError(msg)
+    timeout = float(value)
+    if not (MIN_PIPELINE_TIMEOUT_SECONDS <= timeout <= MAX_PIPELINE_TIMEOUT_SECONDS):
+        msg = (
+            "pipeline_timeout_seconds must be between "
+            f"{MIN_PIPELINE_TIMEOUT_SECONDS:g} and {MAX_PIPELINE_TIMEOUT_SECONDS:g}"
+        )
+        raise ValueError(msg)
+    return timeout
+
+
+def _parse_user_preferences(value: object) -> dict[str, str]:
+    """Validate and normalise the optional ``user_preferences`` MCP arg.
+
+    Returns a dict keyed by ledger section names. Empty input yields an empty
+    dict. Any unknown section name or empty/non-string value is rejected with
+    ``ValueError`` so callers see a clear contract failure rather than a
+    silently-ignored preference.
+    """
+    if value is None or value == "":
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("user_preferences must be an object keyed by ledger section names")
+    if not value:
+        return {}
+    valid_sections = frozenset(REQUIRED_SECTIONS)
+    cleaned: dict[str, str] = {}
+    for raw_key, raw_val in value.items():
+        if not isinstance(raw_key, str):
+            raise ValueError("user_preferences keys must be strings")
+        if raw_key not in valid_sections:
+            raise ValueError(
+                f"user_preferences key '{raw_key}' is not a valid ledger section "
+                f"(allowed: {', '.join(sorted(valid_sections))})"
+            )
+        if not isinstance(raw_val, str) or not raw_val.strip():
+            raise ValueError(f"user_preferences['{raw_key}'] must be a non-empty string")
+        cleaned[raw_key] = raw_val.strip()
+    return cleaned
+
+
+def _build_context_provider(user_preferences: dict[str, str]):
+    """Return a context_provider that augments repo context with user preferences."""
+
+    def provider(cwd: str) -> AutoAnswerContext:
+        base = repo_auto_answer_context(cwd)
+        return AutoAnswerContext(
+            repo_facts=base.repo_facts,
+            evidence=base.evidence,
+            user_preferences=user_preferences,
+        )
+
+    return provider
 
 
 def _positive_int_arg(arguments: dict[str, Any], name: str, default: int) -> int:
@@ -476,6 +729,31 @@ def _format_result(result: AutoPipelineResult) -> str:
         lines.append(f"Run reconciliation status: {result.run_reconciliation_status}")
         lines.append(f"Run reconciliation source: {result.run_reconciliation_source}")
         lines.append(f"Run reconciled at: {result.run_reconciled_at}")
+    if result.ralph_dispatch_mode or result.ralph_job_id or result.ralph_lineage_id:
+        lines.append("Ralph handoff:")
+        if result.ralph_dispatch_mode:
+            lines.append(f"  dispatch_mode: {result.ralph_dispatch_mode}")
+        if result.ralph_job_id:
+            lines.append(f"  job_id: {result.ralph_job_id}")
+        if result.ralph_lineage_id:
+            lines.append(f"  lineage_id: {result.ralph_lineage_id}")
+    # RFC #809 Phase 2.1 — render the EVALUATE verdict when present so resume
+    # surfaces tell the user whether the session converged on AC verification
+    # or stalled with QA findings the operator must act on.
+    if result.last_qa_verdict is not None:
+        score = f"{result.last_qa_score:.2f}" if result.last_qa_score is not None else "n/a"
+        lines.append(f"QA verdict: {result.last_qa_verdict} (score {score})")
+        if result.last_qa_differences:
+            lines.append("  differences:")
+            lines.extend(f"  - {item}" for item in result.last_qa_differences[:3])
+        if result.last_qa_suggestions:
+            lines.append("  suggestions:")
+            lines.extend(f"  - {item}" for item in result.last_qa_suggestions[:3])
+    # RFC #809 Phase 2.2 — render the lateral persona advisory when present.
+    if result.last_lateral_persona is not None:
+        lines.append(f"Lateral persona: {result.last_lateral_persona}")
+        if result.last_lateral_approach_summary:
+            lines.append(f"  approach: {result.last_lateral_approach_summary}")
     if result.assumptions:
         lines.append("Assumptions:")
         lines.extend(f"- {item}" for item in result.assumptions)

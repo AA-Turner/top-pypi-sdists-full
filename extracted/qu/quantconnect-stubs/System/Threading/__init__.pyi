@@ -281,11 +281,6 @@ class Interlocked(System.Object):
 
     @staticmethod
     @overload
-    def compare_exchange(location_1: typing.Any, value: typing.Any, comparand: typing.Any) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
     def compare_exchange(location_1: int, value: int, comparand: int) -> int:
         ...
 
@@ -305,12 +300,12 @@ class Interlocked(System.Object):
         ...
 
     @staticmethod
-    def decrement(location: int) -> int:
+    @overload
+    def compare_exchange(location_1: typing.Any, value: typing.Any, comparand: typing.Any) -> System.Object:
         ...
 
     @staticmethod
-    @overload
-    def exchange(location_1: typing.Any, value: typing.Any) -> System.Object:
+    def decrement(location: int) -> int:
         ...
 
     @staticmethod
@@ -331,6 +326,11 @@ class Interlocked(System.Object):
     @staticmethod
     @overload
     def exchange(location_1: System.UIntPtr, value: System.UIntPtr) -> System.UIntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def exchange(location_1: typing.Any, value: typing.Any) -> System.Object:
         ...
 
     @staticmethod
@@ -392,14 +392,22 @@ class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
         ...
 
     @overload
-    def equals(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
     def equals(self, other: System.Threading.CancellationToken) -> bool:
         ...
 
+    @overload
+    def equals(self, other: typing.Any) -> bool:
+        ...
+
     def get_hash_code(self) -> int:
+        ...
+
+    @overload
+    def register(self, callback: typing.Callable[[], typing.Any]) -> System.Threading.CancellationTokenRegistration:
+        ...
+
+    @overload
+    def register(self, callback: typing.Callable[[], typing.Any], use_synchronization_context: bool) -> System.Threading.CancellationTokenRegistration:
         ...
 
     @overload
@@ -412,14 +420,6 @@ class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
 
     @overload
     def register(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any, use_synchronization_context: bool) -> System.Threading.CancellationTokenRegistration:
-        ...
-
-    @overload
-    def register(self, callback: typing.Callable[[], typing.Any]) -> System.Threading.CancellationTokenRegistration:
-        ...
-
-    @overload
-    def register(self, callback: typing.Callable[[], typing.Any], use_synchronization_context: bool) -> System.Threading.CancellationTokenRegistration:
         ...
 
     def throw_if_cancellation_requested(self) -> None:
@@ -948,12 +948,12 @@ class ThreadPool(System.Object):
 
     @staticmethod
     @overload
-    def queue_user_work_item(call_back: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> bool:
+    def queue_user_work_item(call_back: typing.Callable[[System.Object], typing.Any]) -> bool:
         ...
 
     @staticmethod
     @overload
-    def queue_user_work_item(call_back: typing.Callable[[System.Object], typing.Any]) -> bool:
+    def queue_user_work_item(call_back: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> bool:
         ...
 
     @staticmethod
@@ -1211,11 +1211,11 @@ class Thread(System.Runtime.ConstrainedExecution.CriticalFinalizerObject):
         ...
 
     @overload
-    def abort(self, state_info: typing.Any) -> None:
+    def abort(self) -> None:
         ...
 
     @overload
-    def abort(self) -> None:
+    def abort(self, state_info: typing.Any) -> None:
         ...
 
     @staticmethod
@@ -1352,11 +1352,6 @@ class Thread(System.Runtime.ConstrainedExecution.CriticalFinalizerObject):
 
     @staticmethod
     @overload
-    def volatile_read(address: typing.Any) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
     def volatile_read(address: int) -> int:
         ...
 
@@ -1372,12 +1367,12 @@ class Thread(System.Runtime.ConstrainedExecution.CriticalFinalizerObject):
 
     @staticmethod
     @overload
-    def volatile_read(address: System.UIntPtr) -> System.UIntPtr:
+    def volatile_read(address: typing.Any) -> System.Object:
         ...
 
     @staticmethod
     @overload
-    def volatile_write(address: typing.Any, value: typing.Any) -> None:
+    def volatile_read(address: System.UIntPtr) -> System.UIntPtr:
         ...
 
     @staticmethod
@@ -1393,6 +1388,11 @@ class Thread(System.Runtime.ConstrainedExecution.CriticalFinalizerObject):
     @staticmethod
     @overload
     def volatile_write(address: System.IntPtr, value: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def volatile_write(address: typing.Any, value: typing.Any) -> None:
         ...
 
     @staticmethod

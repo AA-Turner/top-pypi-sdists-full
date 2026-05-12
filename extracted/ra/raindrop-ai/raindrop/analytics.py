@@ -26,6 +26,10 @@ from raindrop.models import (
     PartialAIData,
 )
 from raindrop.interaction import Interaction
+from raindrop.local_debugger import (
+    UNSET,
+    resolve_local_workshop_url,
+)
 from raindrop.redact import perform_pii_redaction
 import weakref
 import urllib.parse
@@ -161,6 +165,7 @@ def _remove_instrumentation_filters() -> None:
 write_key = None
 _wizard_session = None
 api_url = "https://api.raindrop.ai/v1/"
+local_workshop_url: str | None = None
 max_queue_size = 10_000
 upload_size = 10
 upload_interval = 1.0
@@ -436,7 +441,30 @@ def _build_direct_traces_payload(spans: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
+_LOCAL_MIRROR_TIMEOUT_SECONDS = 2.0
+
+
+def _post_local_mirror(path: str, payload: Any) -> None:
+    if not local_workshop_url:
+        return
+    url = f"{local_workshop_url}{path}"
+    # Deliberately omit Authorization: the local Workshop daemon doesn't
+    # validate cloud credentials, and the mirror URL can come from env vars
+    # or user input — never let a misconfigured RAINDROP_LOCAL_DEBUGGER /
+    # RAINDROP_WORKSHOP host receive the cloud write key.
+    headers = {"Content-Type": "application/json"}
+    try:
+        requests.post(url, json=payload, headers=headers, timeout=_LOCAL_MIRROR_TIMEOUT_SECONDS)
+    except Exception as exc:
+        logger.debug("Local Workshop mirror to %s failed: %s", url, exc)
+
+
 def _send_traces_request(payload: Dict[str, Any]) -> None:
+    _post_local_mirror("traces", payload)
+
+    if not write_key:
+        return
+
     url = urllib.parse.urljoin(
         api_url if api_url.endswith("/") else f"{api_url}/", "traces"
     )
@@ -494,6 +522,10 @@ def _enqueue_direct_tool_span(span: Dict[str, Any]) -> None:
 def send_request(
     endpoint: str, data_entries: List[Dict[str, Union[str, Dict]]]
 ) -> None:
+    _post_local_mirror(endpoint, data_entries)
+
+    if not write_key:
+        return
 
     url = f"{api_url}{endpoint}"
     headers = {
@@ -618,9 +650,11 @@ def shutdown():
 
 
 def _check_write_key():
-    if write_key is None:
+    if write_key is None and local_workshop_url is None:
         logger.warning(
-            "write_key is not set. Please set it before using raindrop analytics."
+            "write_key is not set and no local Workshop daemon is configured. "
+            "Set RAINDROP_WRITE_KEY or RAINDROP_LOCAL_DEBUGGER (or pass "
+            "`local_workshop_url=...` to init) before using raindrop analytics."
         )
         return False
     return True
@@ -915,17 +949,21 @@ def _temp_env(key: str, value: str):
 
 
 def init(
-    api_key: str,
+    api_key: str | None = None,
     wizard_session: str | None = None,
     tracing_enabled: bool = False,
     auto_instrument: bool = True,
     bypass_otel_for_tools: bool = False,
+    endpoint: str | None = None,
+    local_workshop_url: Any = UNSET,
     **traceloop_kwargs,
 ):
     """Initialize Raindrop with Traceloop integration.
 
     Args:
-        api_key: Raindrop API key.
+        api_key: Raindrop API key. When ``None`` or empty, cloud telemetry is
+            skipped and the SDK only fans out to ``local_workshop_url`` (if
+            resolved). Useful for local-only Workshop debugging.
         tracing_enabled: Enable OpenTelemetry tracing.
         auto_instrument: If True (default), Traceloop will auto-instrument
             detected LLM client libraries (OpenAI, Anthropic, etc). Set to
@@ -934,12 +972,27 @@ def init(
         bypass_otel_for_tools: If True, ``interaction.track_tool()`` emits OTLP
             tool spans directly to ``/v1/traces`` instead of relying on the
             configured OTEL exporter pipeline.
+        endpoint: Override the cloud API endpoint (defaults to
+            ``https://api.raindrop.ai/v1/``). Rarely needed.
+        local_workshop_url: Optional Raindrop Workshop daemon URL to mirror
+            partial events and trace exports to in addition to the cloud.
+            ``str`` forces the URL; ``None`` opts out (suppresses env +
+            auto-detect); omitted falls through to ``RAINDROP_LOCAL_DEBUGGER`` /
+            ``RAINDROP_WORKSHOP`` env vars and a TCP probe of localhost:5899.
         **traceloop_kwargs: Extra kwargs forwarded to Traceloop.init().
             Can include ``instruments`` or ``block_instruments`` for
             fine-grained control over which libraries are instrumented.
     """
+    resolved_local = resolve_local_workshop_url(local_workshop_url)
+
     global write_key
-    write_key = api_key
+    write_key = api_key or None
+
+    global api_url
+    if endpoint is not None:
+        api_url = endpoint if endpoint.endswith("/") else f"{endpoint}/"
+
+    globals()["local_workshop_url"] = resolved_local
 
     global _wizard_session
     _wizard_session = wizard_session
@@ -951,6 +1004,22 @@ def init(
     _bypass_otel_for_tools = bool(bypass_otel_for_tools and tracing_enabled)
 
     if not _tracing_enabled:
+        _remove_instrumentation_filters()
+        return
+
+    # Traceloop's OTEL exporter sends to the cloud endpoint and authenticates
+    # with the cloud API key. With no key we'd either see export-time auth
+    # errors or silently dropped spans, so disable tracing entirely until the
+    # caller supplies one. Local-only Workshop mode still gets manual events
+    # (track_ai, identify, signals) via the analytics fan-out path.
+    if not write_key:
+        _tracing_enabled = False
+        _bypass_otel_for_tools = False
+        logger.warning(
+            "[raindrop] tracing_enabled=True requires api_key for OTEL export; "
+            "disabling auto-instrumentation. Pass api_key=... or unset "
+            "tracing_enabled to silence this warning."
+        )
         _remove_instrumentation_filters()
         return
 

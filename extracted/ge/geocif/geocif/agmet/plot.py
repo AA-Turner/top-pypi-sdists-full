@@ -98,9 +98,11 @@ class AgmetPlotter:
         production_pct=None,
         country=None,
         region=None,
+        region_id=None,
         boundary_gdf=None,
         highlight_gdf=None,
         admin_level=None,
+        show_logos=True,
     ):
         self.df = df.copy()
         self.names_cols = names_cols
@@ -115,9 +117,11 @@ class AgmetPlotter:
         self.production_pct = production_pct
         self.country = country
         self.region = region
+        self.region_id = region_id
         self.boundary_gdf = boundary_gdf
         self.highlight_gdf = highlight_gdf
         self.admin_level = admin_level
+        self.show_logos = show_logos
 
         self.use_forecast = False
         self.color_list = get_colors("tableau", only_colors=True)
@@ -502,10 +506,11 @@ class AgmetPlotter:
         """Add logos, data sources, production share, and footer text."""
         import matplotlib.image as image
 
-        im = image.imread(str(self.logos[0]))
-        fig.figimage(im, 150, 2250, zorder=3)
-        im = image.imread(str(self.logos[1]))
-        fig.figimage(im, 450, 2300, zorder=3)
+        if self.show_logos and self.logos:
+            im = image.imread(str(self.logos[0]))
+            fig.figimage(im, 150, 2250, zorder=3)
+            im = image.imread(str(self.logos[1]))
+            fig.figimage(im, 450, 2300, zorder=3)
 
         # Configure legend FIRST so its title position can be measured
         leg.get_frame().set_facecolor("none")
@@ -615,15 +620,33 @@ class AgmetPlotter:
             gdf = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])].copy()
 
             # Draw country as single dissolved polygon (avoids tiny admin_2 dots)
-            gdf.dissolve().plot(ax=ax_map, color="lightgray", edgecolor="black", linewidth=1.0)
+            dissolved = gdf.dissolve()
+            dissolved.plot(ax=ax_map, color="lightgray", edgecolor="black", linewidth=1.0)
 
-            # Highlight region: use highlight_gdf (district) or match by name (adm1)
+            # Highlight region: use highlight_gdf (district) or match by name (adm1).
+            # When region_id is given AND boundary_gdf carries ADM_ID, prefer ID-based
+            # match so counties sharing a name across states (e.g. Kiowa in CO/KS/OK)
+            # don't all light up together.
             if self.highlight_gdf is not None and not self.highlight_gdf.empty:
                 hgdf = self.highlight_gdf[
                     self.highlight_gdf.geometry.type.isin(["Polygon", "MultiPolygon"])
                 ]
                 if not hgdf.empty:
-                    hgdf.plot(ax=ax_map, color="royalblue", edgecolor="royalblue")
+                    # Clip highlight to the dissolved boundary so the blue
+                    # never spills past the gray outline (e.g. a state polygon
+                    # from shp_region extends beyond the sorghum counties).
+                    try:
+                        import geopandas as gpd
+                        if hgdf.crs != dissolved.crs:
+                            hgdf = hgdf.to_crs(dissolved.crs)
+                        hgdf = gpd.clip(hgdf, dissolved)
+                    except Exception:
+                        pass
+                    if not hgdf.empty:
+                        hgdf.plot(ax=ax_map, color="royalblue", edgecolor="royalblue")
+            elif self.region_id is not None and "ADM_ID" in gdf.columns:
+                mask = gdf["ADM_ID"].astype(str) == str(self.region_id)
+                gdf[mask].plot(ax=ax_map, color="royalblue", edgecolor="royalblue")
             elif self.region:
                 region_clean = self.region.replace("_", " ").lower()
                 mask = gdf[name_col].str.lower().str.replace("_", " ") == region_clean

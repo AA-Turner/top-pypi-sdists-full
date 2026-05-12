@@ -12,7 +12,7 @@ import pyglet.text
 from pyglet.graphics import Group
 
 # ======================================== CONSTANTS ========================================
-_UNSET = object()
+_UNSET: object = object()
 
 # ======================================== PUBLIC ========================================
 class PygletLabelRenderer:
@@ -207,8 +207,7 @@ class PygletLabelRenderer:
 
     # ======================================== LIFE CYCLE ========================================
     def update(self, **kwargs) -> None:
-        """
-        Met à jour le renderer label
+        """Met à jour le renderer label
 
         Args:
             text: texte à rendre

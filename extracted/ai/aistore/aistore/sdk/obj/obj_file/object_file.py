@@ -2,14 +2,23 @@
 # Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
 #
 
-from sys import maxsize as sys_maxsize
-from requests.exceptions import ChunkedEncodingError, ConnectionError, ReadTimeout
-from urllib3.exceptions import ProtocolError, ReadTimeoutError
 from io import BufferedIOBase, BufferedWriter
+from sys import maxsize as sys_maxsize
 from typing import Optional, Generator
+
 from overrides import override
+from requests.exceptions import (
+    ChunkedEncodingError,
+    ConnectionError as RequestsConnectionError,
+    ReadTimeout,
+)
+from urllib3.exceptions import ProtocolError, ReadTimeoutError
+
 from aistore.sdk.obj.content_iterator import BaseContentIterProvider
-from aistore.sdk.obj.obj_file.errors import ObjectFileReaderMaxResumeError
+from aistore.sdk.obj.obj_file.errors import (
+    ObjectFileReaderMaxResumeError,
+    ObjectFileReaderUnexpectedEOF,
+)
 from aistore.sdk.utils import get_logger
 
 logger = get_logger(__name__)
@@ -29,13 +38,21 @@ class ObjectFileReader(BufferedIOBase):
     retrieved chunk. The `max_resume` parameter controls how many retry attempts are made before an error is raised.
 
     Args:
-        content_provider (BaseContentIterProvider): A provider that creates iterators which can fetch object data from AIS in chunks.
+        content_provider (BaseContentIterProvider): A provider that creates iterators which
+            can fetch object data from AIS in chunks.
         max_resume (int): Maximum number of resumes allowed for an ObjectFileReader instance.
     """
 
     def __init__(self, content_provider: BaseContentIterProvider, max_resume: int):
         self._content_provider = content_provider
         self._max_resume = max_resume  # Maximum number of resume attempts allowed
+        # Declared here so static analysis sees them as instance attributes;
+        # actual values are (re)assigned by _reset().
+        self._content_iter: Optional[Generator[bytes, None, None]] = None
+        self._remainder: Optional[memoryview] = None
+        self._resume_position = 0
+        self._closed = False
+        self._resume_total = 0
         self._reset()
 
     def _reset(self, retain_resumes: bool = False) -> None:
@@ -57,6 +74,7 @@ class ObjectFileReader(BufferedIOBase):
         return not self._closed
 
     @override
+    # pylint: disable=too-many-branches,too-many-statements
     def read(self, size: Optional[int] = -1) -> bytes:
         """
         Read up to 'size' bytes from the object. If size is -1, read until the end of the stream.
@@ -106,7 +124,7 @@ class ObjectFileReader(BufferedIOBase):
                 try:
                     chunk = memoryview(next(self._content_iter))
                 except (
-                    ConnectionError,
+                    RequestsConnectionError,
                     ChunkedEncodingError,
                     ProtocolError,
                     ReadTimeout,
@@ -129,6 +147,20 @@ class ObjectFileReader(BufferedIOBase):
                     continue
 
                 except StopIteration:
+                    expected_end_position = self._expected_end_position()
+                    if (
+                        expected_end_position is not None
+                        and self._resume_position < expected_end_position
+                    ):
+                        err = ObjectFileReaderUnexpectedEOF(
+                            self._resume_position,
+                            expected_end_position,
+                        )
+                        self._content_iter = self._handle_broken_stream(err)
+                        if not self._content_iter:
+                            self._reset(retain_resumes=True)
+                            size = sys_maxsize if original_size < 0 else original_size
+                        continue
                     # End of stream, exit loop
                     break
 
@@ -168,6 +200,11 @@ class ObjectFileReader(BufferedIOBase):
         if self._content_iter:
             self._content_iter.close()
 
+    def _expected_end_position(self) -> Optional[int]:
+        # Treat anything that isn't a real int as unknown.
+        expected = self._content_provider.expected_end_position
+        return expected if isinstance(expected, int) else None
+
     def _handle_broken_stream(
         self, err: Exception
     ) -> Optional[Generator[bytes, None, None]]:
@@ -193,14 +230,16 @@ class ObjectFileReader(BufferedIOBase):
 
         obj_path = self._content_provider.client.path
         logger.warning(
-            "Error while reading '%s', retrying %d/%d",
+            "Resuming '%s' after %s (%d/%d)",
             obj_path,
+            err,
             self._resume_total,
             self._max_resume,
-            exc_info=err,
         )
 
-        # If remote object is not cached, start over
+        # If remote object is not cached, start over.
+        # Required even on clean short EOF: under Streaming-Cold-GET the object
+        # may not be fully cached yet, and a range resume can hang.
         if not self._content_provider.client.head().present:
             return None
 
@@ -241,7 +280,7 @@ class ObjectFileWriter(BufferedWriter):
         Write data to the object.
 
         Args:
-            data (bytes): The data to write.
+            buffer (bytes): The data to write.
 
         Returns:
             int: Number of bytes written.

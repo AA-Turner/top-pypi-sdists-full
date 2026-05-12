@@ -36,7 +36,10 @@ from instagrapi.exceptions import (
     UserNotFound,
     VideoTooLongException,
 )
-from instagrapi.utils import dumps, generate_signature, random_delay
+from instagrapi.utils.auth import generate_signature
+from instagrapi.utils.logging import truncate_log_text
+from instagrapi.utils.serialization import dumps
+from instagrapi.utils.timing import random_delay
 
 
 def manual_input_code(self, username: str, choice=None):
@@ -196,7 +199,7 @@ class PrivateRequestMixin:
             "X-MID": self.mid,  # e.g. X--ijgABABFjLLQ1NTEe0A6JSN7o, YRwa1QABBAF-ZA-1tPmnd0bEniTe
             "Accept-Encoding": "gzip, deflate",  # ignore zstd
             "Host": self.domain,
-            "X-FB-HTTP-Engine": "Liger",
+            "X-FB-HTTP-Engine": "Tigon/MNS/TCP",
             "Connection": "keep-alive",
             # "Pragma": "no-cache",
             # "Cache-Control": "no-cache",
@@ -380,7 +383,7 @@ class PrivateRequestMixin:
                 response.status_code,
                 self.user_id,
                 endpoint,
-                response.text,
+                truncate_log_text(response.text),
             )
             raise ClientJSONDecodeError(
                 "JSONDecodeError {0!s} while opening {1!s}".format(e, response.url),

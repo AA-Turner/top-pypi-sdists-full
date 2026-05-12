@@ -3,6 +3,8 @@ from typing import Any
 JsonSchemaObject = dict[str, Any]
 JsonSchema = JsonSchemaObject | bool
 
+JsonValue = dict[str, "JsonValue"] | list["JsonValue"] | str | int | float | bool | None
+
 ANY_TYPE = ["null", "boolean", "number", "string", "array", "object"]
 ALL_TYPES = ["null", "boolean", "integer", "number", "string", "array", "object"]
 
@@ -25,7 +27,7 @@ def _get_type(schema: JsonSchema) -> list[str]:
     return get_type(schema, _check_type=True)
 
 
-def to_json_type_name(v: Any) -> str:
+def to_json_type_name(v: object) -> str:
     if v is None:
         return "null"
     if isinstance(v, bool):

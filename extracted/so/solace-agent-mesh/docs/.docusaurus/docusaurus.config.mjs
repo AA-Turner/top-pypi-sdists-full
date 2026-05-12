@@ -128,7 +128,7 @@ export default {
           ]
         }
       ],
-      "copyright": "Solace Agent Mesh. Copyright © 2026 Solace. Version: 1.24.1",
+      "copyright": "Solace Agent Mesh. Copyright © 2026 Solace. Version: 1.25.0",
       "logo": {
         "alt": "Solace Logo",
         "src": "img/solace-logo.png",
@@ -382,12 +382,19 @@ export default {
     "/home/runner/work/solace-agent-mesh/solace-agent-mesh/docs/node_modules/docusaurus-lunr-search/src/index.js"
   ],
   "baseUrlIssueBanner": true,
+  "storage": {
+    "type": "localStorage",
+    "namespace": false
+  },
   "future": {
     "v4": {
       "removeLegacyPostBuildHeadAttribute": false,
-      "useCssCascadeLayers": false
+      "useCssCascadeLayers": false,
+      "siteStorageNamespacing": false,
+      "fasterByDefault": false,
+      "mdx1CompatDisabledByDefault": false
     },
-    "experimental_faster": {
+    "faster": {
       "swcJsLoader": false,
       "swcJsMinimizer": false,
       "swcHtmlMinimizer": false,
@@ -395,12 +402,10 @@ export default {
       "mdxCrossCompilerCache": false,
       "rspackBundler": false,
       "rspackPersistentCache": false,
-      "ssgWorkerThreads": false
+      "ssgWorkerThreads": false,
+      "gitEagerVcs": false
     },
-    "experimental_storage": {
-      "type": "localStorage",
-      "namespace": false
-    },
+    "experimental_vcs": {},
     "experimental_router": "browser"
   },
   "onBrokenAnchors": "warn",

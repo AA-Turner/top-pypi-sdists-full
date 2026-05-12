@@ -52,6 +52,7 @@ class QueuedTaskAdmin(admin.ModelAdmin):
     list_display_links = None
     list_filter = (QueuedTaskAppsListFilter, "priority", QueuedTaskTasksListFilter)
     ordering = ["position"]
+    show_facets = False
 
     def has_add_permission(self, *args, **kwargs):
         return False
@@ -272,6 +273,7 @@ class TaskStatisticAdmin(admin.ModelAdmin):
     list_filter = ["app"]
     ordering = ["name"]
     search_fields = ["name"]
+    show_facets = False
 
     def get_search_results(self, request, queryset, search_term):
         if not search_term:

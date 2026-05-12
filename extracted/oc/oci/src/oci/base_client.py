@@ -331,10 +331,71 @@ class OCIConnectionPool(urllib3.HTTPSConnectionPool):
     """ HTTPConnectionPool with 100 Continue support. """
 
 
-# Replace the HTTPS connection pool with OCIConnectionPool once the env var `OCI_PYSDK_USING_EXPECT_HEADER` is not set
-# to "FALSE"
-if enable_expect_header:
-    urllib3.poolmanager.pool_classes_by_scheme["https"] = OCIConnectionPool
+def _get_oci_scoped_pool_classes_by_scheme():
+    """Return a urllib3 pool mapping with OCI HTTPS behavior scoped locally."""
+    # Copy before modifying so OCI does not mutate urllib3's process-wide
+    # pool class registry. Values are pool classes, so a shallow copy is
+    # sufficient; this method only replaces the HTTPS pool class entry.
+    pool_classes_by_scheme = urllib3.poolmanager.pool_classes_by_scheme.copy()
+    pool_classes_by_scheme["https"] = OCIConnectionPool
+    return pool_classes_by_scheme
+
+
+class OCIPoolManager(urllib3.PoolManager):
+    """Pool manager that applies OCIConnectionPool only to this instance."""
+
+    def __init__(self, *args, **kwargs):
+        super(OCIPoolManager, self).__init__(*args, **kwargs)
+        self.pool_classes_by_scheme = _get_oci_scoped_pool_classes_by_scheme()
+
+
+class OCIProxyManager(urllib3.ProxyManager):
+    """Proxy manager that applies OCIConnectionPool only to this instance."""
+
+    def __init__(self, *args, **kwargs):
+        super(OCIProxyManager, self).__init__(*args, **kwargs)
+        self.pool_classes_by_scheme = _get_oci_scoped_pool_classes_by_scheme()
+
+
+class OCIHTTPAdapter(requests.adapters.HTTPAdapter):
+    """HTTP adapter that confines OCI Expect-header support to one session."""
+
+    # UploadManager uses this marker to preserve OCI transport behavior when it
+    # replaces an adapter only to increase connection pool size.
+    uses_oci_connection_pool = True
+
+    def init_poolmanager(self, connections, maxsize, block=requests.adapters.DEFAULT_POOLBLOCK, **pool_kwargs):
+        """Initialize a per-adapter pool manager with OCI HTTPS support."""
+        self._pool_connections = connections
+        self._pool_maxsize = maxsize
+        self._pool_block = block
+
+        self.poolmanager = OCIPoolManager(
+            num_pools=connections,
+            maxsize=maxsize,
+            block=block,
+            strict=True,
+            **pool_kwargs
+        )
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):
+        """Return a scoped OCI proxy manager for regular HTTP/HTTPS proxies."""
+        if proxy in self.proxy_manager:
+            return self.proxy_manager[proxy]
+
+        if proxy.lower().startswith('socks'):
+            return super(OCIHTTPAdapter, self).proxy_manager_for(proxy, **proxy_kwargs)
+
+        manager = OCIProxyManager(
+            proxy,
+            proxy_headers=self.proxy_headers(proxy),
+            num_pools=self._pool_connections,
+            maxsize=self._pool_maxsize,
+            block=self._pool_block,
+            **proxy_kwargs
+        )
+        self.proxy_manager[proxy] = manager
+        return manager
 
 
 class BaseClient(object):
@@ -405,6 +466,7 @@ class BaseClient(object):
         self.complex_type_mappings = type_mapping
         self.type_mappings = merge_type_mappings(self.primitive_type_map, type_mapping)
         self.session = requests.Session()
+        self._configure_session_for_expect_header()
 
         # If the user doesn't specify timeout explicitly we would use default timeout.
         self.timeout = kwargs.get('timeout') if 'timeout' in kwargs else (DEFAULT_CONNECTION_TIMEOUT, DEFAULT_READ_TIMEOUT)
@@ -440,6 +502,15 @@ class BaseClient(object):
             # Equivalent to decorating the request function with Circuit Breaker
             self.request = circuit_breaker(self.request)
         self.logger.debug('Endpoint: {}'.format(self._endpoint))
+
+    def _configure_session_for_expect_header(self):
+        """Mount OCI's scoped HTTPS adapter when Expect-header support is enabled.
+
+        This keeps OCIConnectionPool limited to this BaseClient session instead
+        of replacing urllib3's process-wide HTTPS pool class.
+        """
+        if enable_expect_header:
+            self.session.mount('https://', OCIHTTPAdapter())
 
     def handle_service_endpoint_template(self, region_id, service_endpoint_template, service_endpoint_template_per_realm):
         should_enable_realm_template = self.should_allow_template_per_realm()

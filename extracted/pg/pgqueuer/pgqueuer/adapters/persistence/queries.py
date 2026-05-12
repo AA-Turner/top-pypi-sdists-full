@@ -14,7 +14,7 @@ import asyncio
 import dataclasses
 import uuid
 from contextlib import suppress
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import TYPE_CHECKING, overload
 
 if TYPE_CHECKING:
@@ -23,12 +23,11 @@ if TYPE_CHECKING:
 
 from pydantic_core import to_json
 
-from pgqueuer.adapters import tracing
 from pgqueuer.adapters.persistence import qb, query_helpers
-from pgqueuer.core import helpers
-from pgqueuer.core.helpers import merge_tracing_headers
-from pgqueuer.domain import errors, models
+from pgqueuer.adapters.persistence.query_helpers import merge_tracing_headers
+from pgqueuer.domain import errors, models, types
 from pgqueuer.domain.types import CronEntrypoint
+from pgqueuer.ports import tracing
 from pgqueuer.ports.driver import Driver, SyncDriver
 from pgqueuer.ports.repository import EntrypointExecutionParameter
 from pgqueuer.ports.tracing import TracingProtocol
@@ -275,26 +274,14 @@ class Queries:
         entrypoints: dict[str, EntrypointExecutionParameter],
         queue_manager_id: uuid.UUID,
         global_concurrency_limit: int | None,
+        heartbeat_timeout: timedelta,
     ) -> list[models.Job]:
         """
         Retrieve and update jobs from the queue to be processed.
 
-        Selects jobs from the queue that match the specified entrypoints and updates
-        their status to 'picked'. The selection prioritizes 'queued' jobs but can
-        also include 'picked' jobs that have exceeded the retry timer, allowing
-        for retries of stalled jobs.
-
-        Args:
-            batch_size (int): The maximum number of jobs to retrieve.
-            entrypoints (set[str]): A set of entrypoints to filter the jobs.
-            retry_timer (timedelta | None): The duration after which 'picked' jobs
-                are considered for retry. If None, retry logic is skipped.
-
-        Returns:
-            list[models.Job]: A list of Job instances representing the dequeued jobs.
-
-        Raises:
-            ValueError: If batch_size is less than 1 or retry_timer is negative.
+        Selects jobs that are queued or whose heartbeat has gone stale
+        (exceeding heartbeat_timeout), locks them with FOR UPDATE SKIP
+        LOCKED, and atomically sets their status to 'picked'.
         """
 
         if batch_size < 1:
@@ -304,11 +291,10 @@ class Queries:
             self.qbq.build_dequeue_query(),
             batch_size,
             list(entrypoints.keys()),
-            [x.retry_after for x in entrypoints.values()],
-            [x.serialized for x in entrypoints.values()],
             [x.concurrency_limit for x in entrypoints.values()],
             queue_manager_id,
             global_concurrency_limit,
+            heartbeat_timeout,
         )
         return [models.Job.model_validate(row) for row in rows]
 
@@ -461,13 +447,9 @@ class Queries:
         """
         Move completed or failed jobs from the queue to the log table.
 
-        Processes a list of jobs along with their final statuses, removing them
-        from the queue table and recording their details in the statistics table.
-
-        Args:
-            job_status (list[tuple[models.Job, models.STATUS_LOG]]): A list of tuples
-                containing jobs and their corresponding statuses
-                ('successful', 'exception', or 'canceled').
+        Jobs with status ``'failed'`` are held in the queue table (UPDATE)
+        rather than deleted.  All other statuses are removed (DELETE) as before.
+        Both paths write an entry to the log table.
         """
         await self.driver.execute(
             self.qbq.build_log_job_query(),
@@ -475,6 +457,48 @@ class Queries:
             [status for _, status, _ in job_status],
             [tb.model_dump_json() if tb else None for _, _, tb in job_status],
         )
+
+    async def retry_job(
+        self,
+        job: models.Job,
+        delay: timedelta,
+        traceback_record: models.TracebackRecord | None,
+    ) -> None:
+        """Re-queue a job for retry with the given delay.
+
+        Atomically updates the job in-place (status → queued, execute_after
+        bumped, attempts incremented) and writes a log entry recording the
+        retry event.
+        """
+        await self.driver.execute(
+            self.qbq.build_retry_job_query(),
+            job.id,
+            delay,
+            traceback_record.model_dump_json() if traceback_record else None,
+        )
+
+    async def requeue_jobs(self, ids: list[models.JobId]) -> None:
+        """Move failed jobs back to queued status for reprocessing.
+
+        Resets attempts to 0 and sets execute_after to NOW().
+        Only affects jobs with status ``'failed'``.
+        """
+        await self.driver.execute(
+            self.qbq.build_requeue_jobs_query(),
+            ids,
+        )
+
+    async def list_failed_jobs(
+        self,
+        limit: int = 100,
+        order: types.SortOrder = "DESC",
+    ) -> list[models.Job]:
+        """List jobs held with status ``'failed'``, ordered by creation time."""
+        rows = await self.driver.fetch(
+            self.qbq.build_list_failed_jobs_query(order=order),
+            limit,
+        )
+        return [models.Job.model_validate(r) for r in rows]
 
     async def clear_statistics_log(self, entrypoint: str | list[str] | None = None) -> None:
         """
@@ -518,18 +542,18 @@ class Queries:
 
     async def log_statistics(
         self,
-        tail: int | None,
+        limit: int | None,
         last: timedelta | None = None,
     ) -> list[models.LogStatistics]:
         """
         Retrieve job processing statistics from the log.
 
         Fetches entries from the statistics table, optionally limited by the number
-        of recent entries (`tail`) and a time window (`last`). This information
+        of recent entries (`limit`) and a time window (`last`). This information
         can be used for monitoring and analysis.
 
         Args:
-            tail (int | None): The maximum number of recent entries to retrieve.
+            limit (int | None): The maximum number of recent entries to retrieve.
             last (timedelta | None): The time window to consider (e.g., last hour).
 
         Returns:
@@ -541,33 +565,10 @@ class Queries:
             models.LogStatistics.model_validate(x)
             for x in await self.driver.fetch(
                 self.qbq.build_log_statistics_query(),
-                tail,
+                limit,
                 last,
             )
         ]
-
-    async def notify_entrypoint_rps(self, entrypoint_count: dict[str, int]) -> None:
-        """
-        Send a requests-per-second event notification for an entrypoint.
-
-        Emits a 'requests_per_second_event' notification via the PostgreSQL NOTIFY
-        system to inform other components about the current request rate for an
-        entrypoint. This can be used to adjust processing rates or trigger scaling.
-
-        Args:
-            entrypoint (str): The entrypoint for which the event is being sent.
-            quantity (int): The number of requests per second to report.
-        """
-        if entrypoint_count:
-            await self.driver.execute(
-                self.qbq.build_notify_query(),
-                models.RequestsPerSecondEvent(
-                    channel=self.qbq.settings.channel,
-                    entrypoint_count=entrypoint_count,
-                    sent_at=helpers.utc_now(),
-                    type="requests_per_second_event",
-                ).model_dump_json(),
-            )
 
     async def notify_job_cancellation(self, ids: list[models.JobId]) -> None:
         """
@@ -580,12 +581,12 @@ class Queries:
         Args:
             ids (list[models.JobId]): The IDs of the jobs that have been cancelled.
         """
-        await self.driver.execute(
-            self.qbq.build_notify_query(),
+        await self.driver.notify(
+            self.qbq.settings.channel,
             models.CancellationEvent(
                 channel=self.qbq.settings.channel,
                 ids=ids,
-                sent_at=helpers.utc_now(),
+                sent_at=models.utc_now(),
                 type="cancellation_event",
             ).model_dump_json(),
         )
@@ -602,11 +603,11 @@ class Queries:
             event (models.HealthCheckEvent): The health check event containing
                 details about the system's health status.
         """
-        await self.driver.execute(
-            self.qbq.build_notify_query(),
+        await self.driver.notify(
+            self.qbq.settings.channel,
             models.HealthCheckEvent(
                 channel=self.qbq.settings.channel,
-                sent_at=datetime.now(timezone.utc),
+                sent_at=models.utc_now(),
                 type="health_check_event",
                 id=health_check_event_id,
             ).model_dump_json(),
@@ -655,11 +656,11 @@ class Queries:
             list(ids),
         )
 
-    async def peak_schedule(self) -> list[models.Schedule]:
+    async def peek_schedule(self) -> list[models.Schedule]:
         return [
             models.Schedule.model_validate(row)
             for row in await self.driver.fetch(
-                self.qbs.build_peak_schedule_query(),
+                self.qbs.build_peek_schedule_query(),
             )
         ]
 
@@ -693,6 +694,11 @@ class Queries:
             (row["job_id"], row["status"])
             for row in await self.driver.fetch(self.qbq.build_job_status_query(), ids)
         ]
+
+    async def next_deferred_eta(self, entrypoints: list[str]) -> timedelta | None:
+        """Return time until the soonest deferred job becomes eligible, or None."""
+        rows = await self.driver.fetch(self.qbq.build_next_deferred_eta_query(), entrypoints)
+        return rows[0]["eta"] if rows and rows[0]["eta"] is not None else None
 
 
 @dataclasses.dataclass

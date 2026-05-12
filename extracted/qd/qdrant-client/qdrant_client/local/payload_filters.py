@@ -20,7 +20,7 @@ def get_value_counts(values: list[Any]) -> list[int]:
         for value in values:
             if value is None:
                 counts.append(0)
-            elif hasattr(value, "__len__") and not isinstance(value, str):
+            elif isinstance(value, list):
                 counts.append(len(value))
             else:
                 counts.append(1)
@@ -68,13 +68,11 @@ def check_geo_bounding_box(condition: models.GeoBoundingBox, values: Any) -> boo
 
         # handle anti-meridian crossing case
         if condition.top_left.lon > condition.bottom_right.lon:
-            longitude_condition = (
-                condition.top_left.lon <= lon <= 180 or -180 <= lon <= condition.bottom_right.lon
-            )
+            longitude_condition = lon > condition.top_left.lon or lon < condition.bottom_right.lon
         else:
-            longitude_condition = condition.top_left.lon <= lon <= condition.bottom_right.lon
+            longitude_condition = condition.top_left.lon < lon < condition.bottom_right.lon
 
-        latitude_condition = condition.top_left.lat >= lat >= condition.bottom_right.lat
+        latitude_condition = condition.top_left.lat > lat > condition.bottom_right.lat
 
         return longitude_condition and latitude_condition
 

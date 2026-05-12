@@ -220,8 +220,7 @@ def list_job_queues(  # noqa: PLR0913
             creator_id=None if include_all_users else (user.id if user else None),
             cloud=cloud,
             project=project,
-            # TODO(praneethkaturi): Pass cluster_status=cluster_status here.
-            # The --cluster-status CLI flag is accepted but currently not forwarded.
+            cluster_status=cluster_status,
             tags_filter=parse_repeatable_tags_to_dict(tags) if tags else None,
             page_size=page_size,
             max_items=None if interactive else effective_max,

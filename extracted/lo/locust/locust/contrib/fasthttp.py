@@ -10,6 +10,7 @@ import re
 import socket
 import time
 import traceback
+import zlib
 from base64 import b64encode
 from contextlib import contextmanager
 from http.cookiejar import CookieJar
@@ -84,6 +85,7 @@ FAILURE_EXCEPTIONS = (
     SSLError,
     Timeout,
     HTTPConnectionClosed,
+    zlib.error,
 )
 
 
@@ -254,7 +256,7 @@ class FastHttpSession:
 
         if not allow_redirects:
             old_redirect_response_codes = self.client.redirect_resonse_codes
-            self.client.redirect_resonse_codes = []
+            self.client.redirect_resonse_codes = frozenset()
 
         start_perf_counter = time.perf_counter()
         # send request, and catch any exceptions
@@ -282,9 +284,9 @@ class FastHttpSession:
         else:
             try:
                 request_meta["response_length"] = len(response.content) if response.content else 0
-            except HTTPParseError as e:
+            except (HTTPParseError, *FAILURE_EXCEPTIONS) as e:
                 request_meta["response_time"] = (time.perf_counter() - start_perf_counter) * 1000
-                request_meta["exception"] = e
+                request_meta["exception"] = e  # type: ignore
                 if catch_response:
                     return ResponseContextManager(response, self.request_event, request_meta, catch_response)
                 else:
@@ -672,6 +674,7 @@ class LocustUserAgent(UserAgent):
     response_type = FastResponse
     request_type = FastRequest
     valid_response_codes = frozenset([200, 201, 202, 203, 204, 205, 206, 207, 208, 226, 301, 302, 303, 304, 307, 308])
+    redirect_resonse_codes = frozenset([301, 302, 303, 307, 308])
 
     def __init__(self, client_pool: HTTPClientPool | None = None, **kwargs):
         super().__init__(**kwargs)
@@ -707,10 +710,10 @@ class ResponseContextManager(FastResponse):
     _entered = False
 
     def __init__(self, response, request_event, request_meta, catch_response: bool):
-        # copy data from response to this object
-        # I wanted to change this to the approach from the HttpUser's ResponseContentManager.from_request,
-        # but it was such a mess
-        self.__dict__ = response.__dict__
+        # copy data from response to this object (use update to avoid sharing
+        # the dict reference, which creates a GC-reference cycle that Python 3.13+
+        # can collect mid-request — see #3388)
+        self.__dict__.update(response.__dict__)
         try:
             self._cached_content = response._cached_content
         except AttributeError:

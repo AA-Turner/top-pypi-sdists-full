@@ -26,14 +26,14 @@ static Py_ssize_t sizeof_PyGC_Head;
 
 #define INTERNAL_MODULE "_testinternalcapi"
 
-static void lazy_init_hv_cli_prod(void)
+static int lazy_init_hv_cli_prod(void)
 {
     if (sizeof_PyGC_Head)
-        return;
+        return 0;
 
     if (PyLong_AsLong(PySys_GetObject("hexversion")) == PY_VERSION_HEX) {
         sizeof_PyGC_Head = sizeof(PyGC_Head);
-        return;
+        return 0;
     }
 
     PyObject *_testcapimodule, *_testcapi_SIZEOF_PYGC_HEAD = NULL;
@@ -53,11 +53,16 @@ static void lazy_init_hv_cli_prod(void)
 
     Py_DECREF(_testcapimodule);
     Py_DECREF(_testcapi_SIZEOF_PYGC_HEAD);
-    return;
+    return 0;
 
 Err:
     Py_XDECREF(_testcapimodule);
     Py_XDECREF(_testcapi_SIZEOF_PYGC_HEAD);
+
+    if (!PyErr_ExceptionMatches(PyExc_Exception))
+        return -1;
+    if (PyErr_ExceptionMatches(PyExc_MemoryError))
+        return -1;
 
     PyErr_Clear();
     sizeof_PyGC_Head = sizeof(PyGC_Head);
@@ -65,29 +70,37 @@ Err:
                      "Unable to determine sizeof(PyGC_Head) from "
                      INTERNAL_MODULE ".SIZEOF_PYGC_HEAD, assuming %zd",
                      sizeof_PyGC_Head);
+
+    if (PyErr_Occurred()) /* PyErr_WarnFormat may raise */
+        return -1;
+
+    return 0;
 }
 
 typedef struct {
-    PyObject_VAR_HEAD
+    NYTUPLELIKE_HEAD
     NyHeapViewObject *hv;
     PyObject *memo;
 } ProdObject;
+NYTUPLELIKE_ASSERT(ProdObject, hv);
 
 static PyObject *
 hv_cli_prod_memoized_kind(ProdObject * self, PyObject *kind)
 {
-    PyObject *result = PyDict_GetItem(self->memo, kind);
-    if (!result) {
-        if (PyErr_Occurred())
-            goto Err;
-        if (PyDict_SetItem(self->memo, kind, kind) == -1)
-            goto Err;
-        result = kind;
-    }
-    Py_INCREF(result);
-    return result;
-Err:
-    return 0;
+    PyObject *result;
+    int r;
+
+    r = PyDict_GetItemRef(self->memo, kind, &result);
+    if (r == -1)
+        return NULL;
+    if (result)
+        return result;
+
+    if (PyDict_SetItem(self->memo, kind, kind) == -1)
+        return NULL;
+    /* Caller assumes it owns both kind and the return value */
+    Py_INCREF(kind);
+    return kind;
 }
 
 static PyObject *
@@ -118,9 +131,9 @@ hv_cli_prod_classify(ProdObject *self, PyObject *obj)
     if (!tb)
         goto Err;
 
-    if (PySequence_Check(tb) && PySequence_Length(tb)) {
+    if (PySequence_Check(tb) && PySequence_Length(tb) > 0) {
         kind = PySequence_GetItem(tb, 0);
-    } else {
+    } else if (!PyErr_Occurred()) {
         kind = Py_None;
         Py_INCREF(Py_None);
     }
@@ -212,7 +225,8 @@ hv_cli_prod(NyHeapViewObject *self, PyObject *args)
                           &PyDict_Type, &memo))
         return NULL;
 
-    lazy_init_hv_cli_prod();
+    if (lazy_init_hv_cli_prod() < 0)
+        return NULL;
 
     s = NYTUPLELIKE_NEW(ProdObject);
     if (!s)

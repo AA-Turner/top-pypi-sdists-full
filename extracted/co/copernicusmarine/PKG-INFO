@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: copernicusmarine
-Version: 2.4.0
+Version: 2.4.1
 Summary: Command line interface and Python API for accessing Copernicus Marine data and related services.
 License-Expression: EUPL-1.2
 License-File: LICENSE.txt

@@ -217,6 +217,14 @@ class TestRequests:
         assert r.history[0].status_code == 302
         assert r.history[0].is_redirect
 
+    def test_redirect_history_no_self_reference(self, httpbin):
+        r = requests.get(httpbin("redirect", "3"))
+        assert r.status_code == 200
+        assert len(r.history) == 3
+        for i, resp in enumerate(r.history):
+            assert resp not in resp.history
+            assert resp.history == r.history[:i]
+
     def test_HTTP_307_ALLOW_REDIRECT_POST(self, httpbin):
         r = requests.post(
             httpbin("redirect-to"),
@@ -578,7 +586,7 @@ class TestRequests:
             ("http://doesnotexist.google.com", ConnectionError),
             # Connecting to an invalid port should raise a ConnectionError
             ("http://localhost:1", ConnectionError),
-            # Inputing a URL that cannot be parsed should raise an InvalidURL error
+            # Inputting a URL that cannot be parsed should raise an InvalidURL error
             ("http://fe80::5054:ff:fe5a:fc0", InvalidURL),
         ),
     )
@@ -729,7 +737,7 @@ class TestRequests:
 
         try:
             # Should use netrc
-            # Make sure that we don't use the example.com credentails
+            # Make sure that we don't use the example.com credentials
             # for the request
             r = requests.get(url)
             assert r.status_code == 200
@@ -2571,6 +2579,7 @@ class RedirectSession(SessionRedirectMixin):
     def build_response(self):
         request = self.calls[-1].args[0]
         r = requests.Response()
+        r.url = request.url
 
         try:
             r.status_code = int(self.redirects.pop(0))

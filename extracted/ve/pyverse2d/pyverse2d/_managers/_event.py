@@ -7,14 +7,18 @@ from ..abc import Manager
 from ._context import ContextManager
 
 from pyglet.window import Window as PygletWindow
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, ClassVar
 
 if TYPE_CHECKING:
     from .._rendering import Window
 
 # ======================================== MANAGER ========================================
 class EventManager(Manager):
-    """Gestionnaire des events pyglet"""
+    """Gestionnaire des events pyglet
+    
+    Args:
+        context_manager: ``Manager`` gérant le contexte d'initialisation
+    """
     __slots__ = (
         # Clavier
         "_on_key_press",
@@ -40,9 +44,9 @@ class EventManager(Manager):
         "_on_move",
     )
 
-    _ID: str = "event"
+    _ID: ClassVar[str] = "event"
 
-    ConsumeFlag = object()
+    ConsumeFlag: ClassVar[object] = object()
 
     def __init__(self, context_manager: ContextManager):
         # Initialisation du gestionnaire
@@ -238,13 +242,23 @@ class _EventSlot:
         self._manager = manager
 
     def __call__(self, callback: Callable, priority: int = 0) -> Callable:
-        """Abonne un callback"""
+        """Abonne un callback
+        
+        Args:
+            callback: fonction à appeler à l'action
+            priority: priorité d'appel
+        """
         self.subscribe(callback, priority)
         return callback
 
     @profile_section("manager.event.subscribe")
     def subscribe(self, callback: Callable, priority: int = 0) -> None:
-        """Abonne un callback"""
+        """Abonne un callback
+        
+        Args:
+            callback: fonction à appeler à l'action
+            priority: priorité d'appel
+        """
         sub = _Subscription(callback, priority)
         for i, s in enumerate(self._subs):
             if priority > s.priority:
@@ -254,7 +268,11 @@ class _EventSlot:
 
     @profile_section("manager.event.unsubscribe")
     def unsubscribe(self, callback: Callable) -> None:
-        """Désabonne un callback"""
+        """Désabonne un callback
+        
+        Args:
+            callback: action à retirer
+        """
         for s in self._subs:
             if s.callback == callback:
                 self._subs.remove(s)

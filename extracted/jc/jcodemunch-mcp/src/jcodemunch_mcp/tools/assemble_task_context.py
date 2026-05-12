@@ -5,8 +5,7 @@ Given a task description, auto-classifies into one of six intents
 appropriate sequence of underlying tools, then greedy-packs the results
 into a single source-attributed capsule under a token budget.
 
-F-15 differentiation vs. vexp's ``run_pipeline`` and code-review-graph's
-``get_minimal_context_tool``:
+Key properties of the orchestration:
   - Intent classification is explainable (returns ``intent_detected`` +
     ``intent_confidence`` + matched keywords)
   - Each capsule entry tagged with ``source_tool`` so the agent can see
@@ -26,7 +25,7 @@ import time
 from typing import Optional
 
 from ..storage import IndexStore, record_savings, estimate_savings, cost_avoided
-from ._utils import resolve_repo
+from ._utils import index_status_to_tool_error, resolve_repo
 from .get_context_bundle import _count_tokens
 
 logger = logging.getLogger(__name__)
@@ -208,7 +207,7 @@ def assemble_task_context(
     store = IndexStore(base_path=storage_path)
     index = store.load_index(owner, name)
     if not index:
-        return {"error": f"Repository not indexed: {owner}/{name}"}
+        return index_status_to_tool_error(store.inspect_index(owner, name))
 
     # ── Intent classification ──────────────────────────────────────────
     if intent is None:

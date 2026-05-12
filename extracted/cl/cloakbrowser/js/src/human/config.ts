@@ -70,6 +70,11 @@ export interface HumanConfig {
 
 export type HumanPreset = 'default' | 'careful';
 
+export type HumanActionOptions = Partial<HumanConfig> & {
+  timeout?: number;
+  human_config?: Partial<HumanConfig>;
+};
+
 // ---------------------------------------------------------------------------
 // Default preset
 // ---------------------------------------------------------------------------

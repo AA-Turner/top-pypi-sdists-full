@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: broadbean
-Version: 0.14.0
+Version: 0.15.0
 Summary: Package for easily generating and manipulating signal pulses.
 Maintainer-email: QCoDeS Core Developers <qcodes-support@microsoft.com>
 License: MIT
@@ -10,32 +10,31 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.9
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.12.1
 Requires-Dist: matplotlib
 Requires-Dist: schema
-Requires-Dist: versioningit>=2.0.1
+Requires-Dist: versioningit>=2.2.1
 Provides-Extra: test
-Requires-Dist: pytest>=6.2.2; extra == "test"
+Requires-Dist: pytest>=9.0.0; extra == "test"
 Requires-Dist: pytest-cov>=3.0.0; extra == "test"
 Requires-Dist: coverage[toml]>=6.2; extra == "test"
-Requires-Dist: black>=22.3.0; extra == "test"
 Requires-Dist: mypy>=0.960; extra == "test"
 Requires-Dist: types-pytz>=2021.3.0; extra == "test"
-Requires-Dist: jupyter>=1.0.0; extra == "test"
 Requires-Dist: hypothesis>=5.49.0; extra == "test"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Requires-Dist: furo; extra == "docs"
 Requires-Dist: nbsphinx; extra == "docs"
 Requires-Dist: sphinx-jsonschema; extra == "docs"
+Requires-Dist: ipykernel; extra == "docs"
+Dynamic: license-file
 
 ## Broadbean aka QCoDeS Pulse Builder
 
@@ -67,7 +66,7 @@ The name: The broad bean is one of my favourite pulses.
 
 ### Formal requirements
 
-The broadbean package only works with python 3.9+
+The broadbean package only works with python 3.11+.
 
 ### Installation
 In general, refer to [broadbeans documentation](https://qcodes.github.io/broadbean/start/index.html#installation)

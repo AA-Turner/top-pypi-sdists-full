@@ -14,7 +14,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
+#include <concepts>
 #include <cstdlib>
 
 namespace dwave::optimization::functional {

@@ -1,5 +1,17 @@
-import { describe, it, expect } from "vitest";
-import { COUNTRY_LOCALE_MAP, resolveProxyIp } from "../src/geoip.js";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { COUNTRY_LOCALE_MAP, maybeResolveGeoip, resolveProxyGeo, resolveProxyIp } from "../src/geoip.js";
+
+const tempDirs: string[] = [];
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  delete process.env.CLOAKBROWSER_GEOIP_TIMEOUT_SECONDS;
+  delete process.env.CLOAKBROWSER_CACHE_DIR;
+  for (const dir of tempDirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+});
 
 describe("resolveProxyIp", () => {
   it("returns literal IPv4 from proxy URL", async () => {
@@ -37,6 +49,51 @@ describe("resolveProxyIp", () => {
     expect(await resolveProxyIp("http://10.50.96.5:8888")).toBe("10.50.96.5");
   });
 });
+
+describe("maybeResolveGeoip", () => {
+  it("does not apply the GeoIP resolution timeout to first-use database download", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cloak-geoip-download-"));
+    tempDirs.push(cacheDir);
+    process.env.CLOAKBROWSER_CACHE_DIR = cacheDir;
+    process.env.CLOAKBROWSER_GEOIP_TIMEOUT_SECONDS = "0.001";
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array([1, 2, 3]));
+          controller.close();
+        },
+      }),
+    } as Response);
+
+    const result = await resolveProxyGeo("http://203.0.113.10:8080");
+
+    expect(result).toEqual({ timezone: null, locale: null, exitIp: null });
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(fetchSpy.mock.calls[0][1]).toEqual({ redirect: "follow" });
+  });
+
+  it("returns quickly when GeoIP resolution times out", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cloak-geoip-timeout-"));
+    tempDirs.push(cacheDir);
+    process.env.CLOAKBROWSER_CACHE_DIR = cacheDir;
+    process.env.CLOAKBROWSER_GEOIP_TIMEOUT_SECONDS = "0.025";
+
+    const start = performance.now();
+    const result = await maybeResolveGeoip({
+      geoip: true,
+      proxy: "http://203.0.113.10:8080",
+      timezone: "Europe/Paris",
+      locale: "fr-FR",
+    });
+    const elapsed = performance.now() - start;
+
+    expect(result).toEqual({ timezone: "Europe/Paris", locale: "fr-FR", exitIp: undefined });
+    expect(elapsed).toBeLessThan(500);
+  });
+});
+
 
 describe("COUNTRY_LOCALE_MAP", () => {
   it("contains common countries", () => {

@@ -30,22 +30,22 @@ class OptimizationParameter(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Optimizer.Parameters.OptimizationParameter) -> bool:
         """
         Indicates whether the current object is equal to another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
         """
         ...
 

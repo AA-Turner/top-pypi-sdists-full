@@ -16,6 +16,8 @@ from ._sat_graph import generate_derivation_graph
 from reasoning_core.template import Task, DevTask, Problem, Config
 import ast
 from reasoning_core.template import TimeoutException
+from itertools import combinations
+from math import comb
 
 
 def extract_problem_from_graph(G: nx.DiGraph, node_id_str: str, max_length_proof: int):
@@ -165,7 +167,10 @@ def perturb_list(input_l: list, base_domain: list, n_perturbations: int = 1) -> 
     return lst
 
 def prove_conjecture(axioms: list[str], conjecture: str,
-                        time_limit_seconds: str ="30", verb: bool = False):
+                        time_limit_seconds: str ="30", verb: bool = False,
+                        disprove_first: bool = False,
+                        disprove_time_limit_seconds = None,
+                        log_errors: bool = True):
     """
     Uses Vampire to prove or disprove a conjecture given a set of axioms.
     Returns True (provable), False (disprovable/countersatisfiable), or an error string.
@@ -195,9 +200,22 @@ def prove_conjecture(axioms: list[str], conjecture: str,
             print("-------------------------------------------------")
 
 
-        vampire_command_proove = [ "-t", str(time_limit_seconds)]
+        prove_limit = str(time_limit_seconds)
+        disprove_limit = str(disprove_time_limit_seconds or time_limit_seconds)
+        vampire_command_proove = ["-t", prove_limit]
+        vampire_command_disproove = ["-t", disprove_limit, "-sa", "fmb"]
 
-        vampire_command_disproove = ["-t", str(time_limit_seconds),"-sa", "fmb"]
+        result_proove = None
+        result_disproove = None
+
+        if disprove_first:
+            result_disproove = get_prover_session().run_prover('vampire', vampire_command_disproove, temp_f.name)
+
+            if verb == True:
+                print(f"output disproove vampire :  {result_disproove.stdout} ")
+
+            if "Finite Model Found!" in result_disproove.stdout or "% SZS status CounterSatisfiable" in result_disproove.stdout:
+                return False
 
         result_proove = get_prover_session().run_prover('vampire',vampire_command_proove,temp_f.name)
 
@@ -209,19 +227,21 @@ def prove_conjecture(axioms: list[str], conjecture: str,
         if "% SZS status CounterSatisfiable" in result_proove.stdout :
             return False
 
-        result_disproove = get_prover_session().run_prover('vampire',vampire_command_disproove,temp_f.name)
+        if result_disproove is None:
+            result_disproove = get_prover_session().run_prover('vampire',vampire_command_disproove,temp_f.name)
     
         if verb == True:
             print(f"output disproove vampire :  {result_disproove.stdout} ")
 
-        if "% Finite Model Found!" in result_disproove.stdout :
-            return False 
+        if "Finite Model Found!" in result_disproove.stdout or "% SZS status CounterSatisfiable" in result_disproove.stdout:
+            return False
         if "% Time limit reached!" in result_proove.stdout and "% Time limit reached!" in result_disproove.stdout  :
             return f"ERROR : TIME LIMIT in both tentative to proove AND to disproove"
-        print(f"[prove_conjecture] vampire failed:"
-              f"\n  prove: rc={result_proove.returncode} stdout={result_proove.stdout[:200]!r} stderr={result_proove.stderr[:200]!r}"
-              f"\n  disprove: rc={result_disproove.returncode} stdout={result_disproove.stdout[:200]!r} stderr={result_disproove.stderr[:200]!r}",
-              file=sys.stderr)
+        if log_errors:
+            print(f"[prove_conjecture] vampire failed:"
+                  f"\n  prove: rc={result_proove.returncode} stdout={result_proove.stdout[:200]!r} stderr={result_proove.stderr[:200]!r}"
+                  f"\n  disprove: rc={result_disproove.returncode} stdout={result_disproove.stdout[:200]!r} stderr={result_disproove.stderr[:200]!r}",
+                  file=sys.stderr)
         return f"ERROR : {result_proove.stderr}{result_disproove.stderr}"
         
 
@@ -242,10 +262,10 @@ DOMAIN_MAP = {
 }
 
 def get_random_tptp_axioms(
-    axiom_archive=AXIOM_ARCHIVE_PATH, 
-    prefixes=None, 
+    axiom_archive=AXIOM_ARCHIVE_PATH,
+    prefixes=None,
     cache_dir=dirs.user_cache_dir ):
-    
+
     try:
         with gzip.open(axiom_archive, 'rt', encoding='utf-8') as f:
             data = json.load(f)
@@ -262,7 +282,11 @@ def get_random_tptp_axioms(
     chosen_key = random.choice(keys)
     content = data[chosen_key]
 
-    os.makedirs(cache_dir, exist_ok=True)
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+        tempfile.TemporaryFile(dir=cache_dir).close()
+    except OSError:
+        cache_dir = tempfile.gettempdir()
 
     temp_file = tempfile.NamedTemporaryFile(
         mode='w+', 
@@ -302,7 +326,7 @@ class ConjectureEntailment(Task):
         from reasoning_core.utils.udocker_process import initialize_prover_session
         initialize_prover_session()
 
-    def _initialize_graph(self):    
+    def _initialize_graph(self):
         for _ in range(100):
             axiom_file_path, axiom_file_name = get_random_tptp_axioms(prefixes=self.config.domains)
 
@@ -337,14 +361,17 @@ class ConjectureEntailment(Task):
             useful_axioms_formula = [self.graph.nodes[node]['data'].full_cnf_clause for node in useful_axioms]
             if random.random() < self.config.positive_problem_ratio:
                 hypotheses = correct_hypotheses
-                if prove_conjecture(hypotheses, theorem) is not True:
+                try:
+                    if prove_conjecture(hypotheses, theorem, time_limit_seconds="15") is not True:
+                        continue
+                except TimeoutError:
                     continue
-                answer = True 
+                answer = True
             else:
                 distraction_pool = list(set(self.all_formulas) - {theorem})
                 hypotheses = perturb_list(correct_hypotheses, distraction_pool ,self.config.perturbation)
                 try:
-                    answer = prove_conjecture(hypotheses, theorem)
+                    answer = prove_conjecture(hypotheses, theorem, time_limit_seconds="15")
                 except TimeoutError:
                     continue
 
@@ -370,7 +397,7 @@ class ConjectureEntailment(Task):
             f"Domain: {domain_name}\n\n"
             f"Premises:\n{hypotheses_text}\n\n"
             f"Conjecture: `{metadata['conjecture']}`\n\n"
-            f"Output only `True` (provable) or `False` (not provable)."
+            f"The answer is `True` (provable) or `False` (not provable)."
         )
     
     def score_answer(self, answer, entry):
@@ -391,7 +418,7 @@ class SelectionConfig(Config):
         self.num_distractors += c
 
 
-class TheoremPremiseSelection(DevTask):
+class TheoremPremiseSelection(Task):
     """
     A task that generates problems where one must select the essential hypotheses
     required to prove a given conjecture from a larger pool of axioms.
@@ -404,6 +431,7 @@ class TheoremPremiseSelection(DevTask):
         initialize_prover_session()
 
     _initialize_graph = ConjectureEntailment._initialize_graph
+    max_pool_validation_checks = 512
 
     def _reprove_with_minimal(self, hypotheses: list) -> nx.DiGraph:
             """
@@ -440,12 +468,43 @@ class TheoremPremiseSelection(DevTask):
             else:
                 continue 
 
-            is_provable = prove_conjecture(list(temp_set), conjecture)
+            is_provable = prove_conjecture(
+                list(temp_set),
+                conjecture,
+                time_limit_seconds="15",
+                disprove_first=True,
+                disprove_time_limit_seconds="2",
+            )
             
             if is_provable is True:
                 essential_hypotheses.remove(h)
                 
         return list(essential_hypotheses)
+
+    def _has_no_smaller_answer(self, pool: list[str], answer: list[str], theorem: str) -> bool:
+        pool_norm = [normalize_formula(h) for h in pool]
+        if len(pool_norm) != len(set(pool_norm)):
+            return False
+
+        n, k = len(pool), len(answer)
+        checks = 1 if k == 1 else comb(n, k - 1)
+        if checks > self.max_pool_validation_checks:
+            return False
+
+        # By monotonicity, any smaller proof extends to one with exactly k-1 premises.
+        candidate_indices = [()] if k == 1 else combinations(range(n), k - 1)
+        for idxs in candidate_indices:
+            result = prove_conjecture(
+                [pool[i] for i in idxs],
+                theorem,
+                time_limit_seconds="2",
+                disprove_first=True,
+                disprove_time_limit_seconds="2",
+                log_errors=False,
+            )
+            if result is not False:
+                return False
+        return True
 
     def generate(self):
         self._initialize_graph()
@@ -466,17 +525,27 @@ class TheoremPremiseSelection(DevTask):
             
             try:
                 # Verify superset (optimization)
-                if prove_conjecture(superset, theorem) is not True: continue
-                
+                if prove_conjecture(superset, theorem, time_limit_seconds="15") is not True: continue
+
                 minimal = self.find_minimal_hypotheses(superset, theorem)
-                
+
                 # Verify minimal (safety)
-                if not minimal or prove_conjecture(minimal, theorem) is not True: continue
+                if not minimal or prove_conjecture(minimal, theorem, time_limit_seconds="15") is not True: continue
             except TimeoutException:
                 raise TimeoutException
             except Exception:
                 continue
-            # 2. RE-PROVE for Clean CoT (Forward Derivation)
+            # 2. Create Distractors & Pool
+            distractor_pool = list(set(self.all_formulas) - set(minimal) - {theorem})
+            if len(distractor_pool) < self.config.num_distractors: continue
+
+            distractors = random.sample(distractor_pool, self.config.num_distractors)
+            pool = minimal + distractors
+            random.shuffle(pool)
+            if not self._has_no_smaller_answer(pool, minimal, theorem):
+                continue
+
+            # 3. RE-PROVE for Clean CoT (Forward Derivation)
             clean_graph = self._reprove_with_minimal(minimal)
             
             # Locate theorem node in new graph
@@ -488,15 +557,7 @@ class TheoremPremiseSelection(DevTask):
                     target_node = n
                     break
             
-            if not target_node: continue 
-
-            # 3. Create Distractors & Pool
-            distractor_pool = list(set(self.all_formulas) - set(minimal) - {theorem})
-            if len(distractor_pool) < self.config.num_distractors: continue 
-            
-            distractors = random.sample(distractor_pool, self.config.num_distractors)
-            pool = minimal + distractors
-            random.shuffle(pool)
+            if not target_node: continue
 
             # 4. Generate CoT
             # Map ONLY minimal premises to their pool indices.
@@ -556,7 +617,7 @@ class TheoremPremiseSelection(DevTask):
             f"### Question\n"
             f"Which is the smallest set of numbered premises from the pool that is sufficient to prove the theorem, without using the fundamental axioms from the context?\n\n"
             f"### Response Format\n"
-            f"Your answer must be **only** a list of numbers, sorted in increasing order. For example: `[2, 5, 8]`."
+            f"The answer is a list of numbers, sorted in increasing order. For example: `[2, 5, 8]`."
         )
 
 
@@ -659,22 +720,28 @@ class ProofReconstruction(Task):
         proof_nodes.add(theorem_node_id)
         proof_graph = self.graph.subgraph(proof_nodes)
 
-        all_clauses_in_proof = [data['data'].clause_formula for _, data in proof_graph.nodes(data=True)]
-        random.shuffle(all_clauses_in_proof)
-        theorem_formula = self.graph.nodes[theorem_node_id]['data'].clause_formula
+        # 1. Shuffle node IDs and create a strict Node-to-Index dictionary
+        node_order = list(proof_graph.nodes())
+        random.shuffle(node_order)
+        node_to_idx = {n: i + 1 for i, n in enumerate(node_order)}
+        
+        all_clauses_in_proof = [proof_graph.nodes[n]['data'].clause_formula for n in node_order]
+        
+        # 2. Reject ambiguous graphs where duplicate formulas exist (unfair to the LLM)
+        if len(set(all_clauses_in_proof)) != len(all_clauses_in_proof):
+            return None
 
+        theorem_formula = self.graph.nodes[theorem_node_id]['data'].clause_formula
         proof_structure_indices = []
 
+        # 3. Build the output strings securely using the dictionary mapping
         for node_id in proof_graph.nodes():
             parents = list(proof_graph.predecessors(node_id))
             if parents:  
-                child_formula = proof_graph.nodes[node_id]['data'].clause_formula
-                parent_formulas = [proof_graph.nodes(data=True)[p]['data'].clause_formula for p in parents]
+                child_idx = node_to_idx[node_id]
+                parent_indices = sorted([node_to_idx[p] for p in parents])
                 
-                child_idx = all_clauses_in_proof.index(child_formula) + 1
-                parent_indices = sorted([all_clauses_in_proof.index(p) + 1 for p in parent_formulas])
-    
-                proof_structure_indices.append(f"{child_idx} <- {', '.join(map(str, parent_indices))}")
+                proof_structure_indices.append(f"{child_idx} <- {parent_indices[0]}, {parent_indices[1]}")
 
         proof_structure_ids = [f"{node} <- {', '.join(sorted(list(proof_graph.predecessors(node))))}" for node in proof_graph.nodes() if proof_graph.in_degree(node) > 0]
         
@@ -709,7 +776,7 @@ class ProofReconstruction(Task):
             f"- All other clauses derive from exactly 2 parents\n"
             f"- Clauses can be reused as parents\n\n"
             f"Shuffled clauses:\n{clauses_text}\n\n"
-            f"Output derivations for derived clauses only, one per line: CHILD <- PARENT_1, PARENT_2\n"
+            f"The answer is the list of derivations for derived clauses, one per line: CHILD <- PARENT_1, PARENT_2\n"
             f"Example: 5 <- 2, 4\n"
         )
     

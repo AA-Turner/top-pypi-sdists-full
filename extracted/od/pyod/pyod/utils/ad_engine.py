@@ -22,6 +22,7 @@ from pyod.utils._quality_metrics import (
     compute_feature_importance,
     compute_quality,
     feature_contributions,
+    label_metrics,
     select_best_detector,
 )
 from pyod.utils._kb_router import (
@@ -151,6 +152,31 @@ class ADEngine:
                 return False
         return True
 
+    def _with_contamination(self, detector_name: str,
+                            params: dict) -> dict:
+        """Ensure plan params expose an explicit contamination value (TA2).
+
+        The MCP `plan_detection` -> `build_detector` chain serializes the
+        plan to JSON. When `params` does not include `contamination`, the
+        emitted code snippet inherits the detector class's own default,
+        which is invisible to MCP-only agents. Always include a value
+        sourced from the KB `default_params` when the KB confirms the
+        detector accepts a `contamination` kwarg; otherwise leave params
+        unchanged so we do not paper over detectors that use a different
+        threshold mechanism.
+        """
+        if 'contamination' in params:
+            return dict(params)
+        algo = self.kb.get_algorithm(detector_name)
+        if algo is None:
+            return dict(params)
+        kb_default = algo.get('default_params', {}).get('contamination')
+        if kb_default is None:
+            return dict(params)
+        out = dict(params)
+        out['contamination'] = kb_default
+        return out
+
     def plan_detection(self, profile: dict, priority: str = 'balanced',
                        constraints: dict | None = None) -> dict:
         """Plan a detection pipeline.
@@ -208,7 +234,8 @@ class ADEngine:
                     note='no_valid_plan')
 
             return make_plan(
-                detector_name=fallback_name, params={},
+                detector_name=fallback_name,
+                params=self._with_contamination(fallback_name, {}),
                 reason='Fallback: no routing rule matched or all '
                        'candidates excluded',
                 evidence=['ADBench'], confidence=0.5,
@@ -217,7 +244,8 @@ class ADEngine:
         best = valid[0]
         alternatives = [make_plan(
             detector_name=r['detector'],
-            params=r.get('params', {}),
+            params=self._with_contamination(
+                r['detector'], r.get('params', {})),
             preset=r.get('preset'),
             reason=r.get('_reason', ''),
             evidence=r.get('_evidence', []),
@@ -226,7 +254,8 @@ class ADEngine:
 
         return make_plan(
             detector_name=best['detector'],
-            params=best.get('params', {}),
+            params=self._with_contamination(
+                best['detector'], best.get('params', {})),
             preset=best.get('preset'),
             reason=best.get('_reason', ''),
             evidence=best.get('_evidence', []),
@@ -422,7 +451,9 @@ class ADEngine:
 
     def explain_findings(self, result: dict,
                          indices: list[int] | None = None,
-                         top_k: int = 5, X: Any = None) -> list[dict]:
+                         top_k: int = 5, X: Any = None,
+                         feature_names: list[str] | None = None
+                         ) -> list[dict]:
         """Explain why specific samples were flagged as anomalies.
 
         Parameters
@@ -435,10 +466,20 @@ class ADEngine:
             Number of top anomalies to explain if indices is None.
         X : array-like or None
             Original data for feature-level explanations.
+        feature_names : list of str or None
+            Optional feature labels in column order, threaded through
+            to ``feature_contributions`` so each contributing feature
+            has a human-readable name. When omitted, names default to
+            ``f'feature_{column_index}'``.
 
         Returns
         -------
         explanations : list of dict
+            Each entry has ``'index'``, ``'score'``, ``'percentile'``,
+            ``'label'``, ``'narrative'``. When ``X`` is provided, also
+            includes ``'contributing_features'``: a list of dicts with
+            ``'feature'``, ``'name'``, ``'value'``, ``'mean'``,
+            ``'z_score'``, and ``'direction'``.
         """
         top_k = max(0, int(top_k))
         scores = result['scores_train']
@@ -478,7 +519,8 @@ class ADEngine:
             }
 
             if X is not None:
-                contribs = feature_contributions(X, idx, scores)
+                contribs = feature_contributions(
+                    X, idx, scores, feature_names=feature_names)
                 if contribs is not None:
                     entry['contributing_features'] = contribs
 
@@ -833,6 +875,7 @@ class ADEngine:
 
         # Compute consensus from successful detectors
         successful = [r for r in results if r['status'] == 'success']
+        failed = [r for r in results if r['status'] == 'error']
         state.consensus = compute_consensus(successful)
 
         if state.consensus is None:
@@ -841,6 +884,30 @@ class ADEngine:
                 'reason': 'All %d detectors failed. Check data format '
                           'or try a different detector family.'
                           % len(results),
+            }
+        elif failed:
+            failed_names = [r['detector_name'] for r in failed]
+            successful_names = [r['detector_name'] for r in successful]
+            substitutes = self._suggest_substitutes(
+                state.profile,
+                exclude=failed_names + successful_names,
+                n_needed=len(failed_names))
+            state.next_action = {
+                'action': 'recover_detector_failure',
+                'reason': '%d/%d detectors failed (%s); consensus '
+                          'currently uses %d detector(s).'
+                          % (len(failed_names), len(results),
+                             ', '.join(failed_names),
+                             state.consensus['n_detectors']),
+                'failed_detectors': failed_names,
+                'suggested_replacements': substitutes,
+                'suggestion': "iterate(state, {'action': 'recover'}) "
+                              "to substitute failed detectors with %s, "
+                              "or call analyze(state) to proceed with the "
+                              "%d successful detector(s)."
+                              % (substitutes if substitutes
+                                 else '<no substitutes available>',
+                                 state.consensus['n_detectors']),
             }
         elif state.consensus['n_detectors'] == 1:
             state.next_action = {
@@ -860,6 +927,37 @@ class ADEngine:
             '%d/%d detectors succeeded'
             % (len(successful), len(results))))
         return state
+
+    def _suggest_substitutes(self, profile: dict, exclude: list,
+                             n_needed: int) -> list:
+        """Suggest substitute detector names for failed slots.
+
+        Calls ``plan_detection`` with ``exclude_detectors`` set to the
+        union of failed and already-running detector names, then takes
+        the top ``n_needed`` names from ``best + alternatives``. Best
+        effort: returns ``[]`` if planning raises or yields no
+        candidates.
+        """
+        if n_needed <= 0:
+            return []
+        try:
+            plan = self.plan_detection(
+                profile,
+                constraints={'exclude_detectors': list(exclude)})
+        except Exception as exc:
+            logger.warning(
+                'plan_detection failed during substitute '
+                'suggestion with %s: %s',
+                type(exc).__name__, exc)
+            return []
+        candidates = []
+        if plan and plan.get('detector_name'):
+            candidates.append(plan['detector_name'])
+        for alt in plan.get('alternatives', []) if plan else []:
+            name = alt.get('detector_name')
+            if name and name not in candidates:
+                candidates.append(name)
+        return candidates[:n_needed]
 
     def analyze(self, state: InvestigationState) -> InvestigationState:
         """Analyze detection results with quality assessment.
@@ -1006,6 +1104,11 @@ class ADEngine:
         parsed with confidence; ambiguous feedback triggers
         ``'confirm_with_user'``.
 
+        Most actions require phase ``'analyzed'``. The ``'recover'``
+        action also accepts phase ``'detected'`` so the agent can
+        substitute failed detectors immediately after ``run()``
+        without first calling ``analyze()``.
+
         Parameters
         ----------
         state : InvestigationState
@@ -1015,7 +1118,15 @@ class ADEngine:
         -------
         state : InvestigationState
         """
-        self._require_phase(state, 'analyzed')
+        action = feedback.get('action') if isinstance(feedback, dict) else None
+        if action == 'recover':
+            if state.phase not in ('detected', 'analyzed'):
+                raise ValueError(
+                    "Recover requires phase 'detected' or "
+                    "'analyzed', got '%s'. Call run() first."
+                    % state.phase)
+        else:
+            self._require_phase(state, 'analyzed')
         if isinstance(feedback, dict):
             return apply_structured_feedback(
                 state, feedback, self.kb, self.plan_detection, make_plan)
@@ -1120,6 +1231,220 @@ class ADEngine:
 
         return '\n'.join(lines)
 
+    # ------------------------------------------------------------------
+    # Contamination diagnostics (O5 narrowed)
+    # ------------------------------------------------------------------
+
+    _CONTAMINATION_DIAGNOSTIC_PERCENTILES: tuple[int, ...] = (
+        50, 75, 90, 95, 99)
+
+    def contamination_diagnostics(
+            self,
+            state: InvestigationState,
+            threshold_sweep: list[float] | None = None) -> dict:
+        """Diagnostic helper for contamination calibration.
+
+        Reports the contamination value the run actually used, the
+        actual flagged rate from the consensus, the score-percentile
+        distribution, and (optionally) a threshold sweep showing what
+        fraction would be flagged at each candidate contamination
+        value. The agent can use these numbers to choose a sensible
+        next contamination before iterating.
+
+        This helper does NOT estimate contamination automatically and
+        does NOT mutate state. It is purely a read-only diagnostic the
+        agent uses to inform a subsequent
+        `engine.iterate(state, {'action': 'adjust_contamination',
+        'value': <rate>})` call.
+
+        Parameters
+        ----------
+        state : InvestigationState
+            Must be in the 'analyzed' phase.
+        threshold_sweep : list of float or None
+            Optional sequence of candidate contamination values in
+            (0, 1). For each value c, the result includes the
+            corresponding threshold (the (1 - c) quantile of consensus
+            scores) and the resulting flagged rate. Use this to preview
+            how the flagged set would change before deciding to
+            iterate. Values outside (0, 1) are skipped.
+
+        Returns
+        -------
+        diagnostics : dict
+            Keys:
+
+            - ``effective_contamination`` (float or None): contamination
+              value from the primary plan's params, or ``None`` if the
+              plan has no contamination set.
+            - ``flagged_rate`` (float): actual fraction flagged by the
+              consensus labels.
+            - ``score_percentiles`` (dict[int, float]): consensus-score
+              percentiles at the 50th, 75th, 90th, 95th, and 99th.
+            - ``threshold_sweep`` (list of dict, optional): present only
+              when ``threshold_sweep`` was passed; each entry has
+              ``contamination``, ``threshold``, and ``flagged_rate``.
+        """
+        self._require_phase(state, 'analyzed')
+
+        primary_plan = state.plans[0] if state.plans else {}
+        effective = primary_plan.get('params', {}).get('contamination')
+
+        if state.consensus is None:
+            diagnostics: dict = {
+                'effective_contamination': effective,
+                'flagged_rate': 0.0,
+                'score_percentiles': {},
+            }
+            if threshold_sweep:
+                diagnostics['threshold_sweep'] = []
+            return diagnostics
+
+        scores = state.consensus['scores']
+        labels = state.consensus['labels']
+        n = len(labels)
+        flagged_rate = float(labels.sum()) / n if n > 0 else 0.0
+
+        score_percentiles = {
+            p: float(np.percentile(scores, p))
+            for p in self._CONTAMINATION_DIAGNOSTIC_PERCENTILES
+        }
+
+        diagnostics = {
+            'effective_contamination': effective,
+            'flagged_rate': flagged_rate,
+            'score_percentiles': score_percentiles,
+        }
+
+        if threshold_sweep:
+            sweep_results = []
+            for c in threshold_sweep:
+                if not (0.0 < c < 1.0):
+                    # Skip invalid candidates rather than raise; this
+                    # is a lenient diagnostic, not a strict validator.
+                    continue
+                threshold = float(np.quantile(scores, 1.0 - c))
+                n_flagged = int((scores > threshold).sum())
+                sweep_results.append({
+                    'contamination': float(c),
+                    'threshold': threshold,
+                    'flagged_rate': (
+                        n_flagged / n if n > 0 else 0.0),
+                })
+            diagnostics['threshold_sweep'] = sweep_results
+
+        return diagnostics
+
+    # ------------------------------------------------------------------
+    # Hindsight validation (O8)
+    # ------------------------------------------------------------------
+
+    def validate(self,
+                 state: InvestigationState,
+                 y: Any) -> dict:
+        """Hindsight validation of consensus and per-detector results.
+
+        Computes label-based metrics from `y` against the consensus
+        labels and each successful detector, plus a
+        consensus-vs-best-detector diagnostic so the agent can see
+        whether consensus actually helped.
+
+        Pure functional; does not mutate state. Use after `analyze`
+        when held-out labels become available (e.g., a labeled cohort
+        opened post-hoc for hindsight evaluation). For routine
+        unsupervised detection runs, this method is unnecessary.
+
+        Parameters
+        ----------
+        state : InvestigationState
+            Must be in the 'analyzed' phase.
+        y : array-like, shape (n_samples,)
+            Held-out binary labels (0 = inlier, 1 = anomaly). Length
+            must match the consensus.
+
+        Returns
+        -------
+        validation : dict
+            Keys:
+
+            - ``consensus`` (dict): label_metrics for the consensus
+              labels and scores.
+            - ``per_detector`` (dict[str, dict]): label_metrics per
+              successful detector, keyed by detector name.
+            - ``best_detector`` (dict or None): label_metrics for the
+              detector picked by `analyze` as best (or None when
+              `state.analysis` does not name one).
+            - ``consensus_vs_best`` (dict): comparison summary with
+              keys ``consensus_f1``, ``best_detector_f1`` (or None),
+              and ``consensus_helped`` (True if consensus F1 is at
+              least the best-detector F1; None when no best detector).
+            - ``false_positives`` (list[int]): row indices flagged by
+              consensus but inlier in `y`.
+            - ``false_negatives`` (list[int]): row indices not flagged
+              by consensus but anomaly in `y`.
+
+        Raises
+        ------
+        ValueError
+            If `state` is not in 'analyzed' phase, if the consensus is
+            missing (all detectors failed), or if `len(y)` does not
+            match the consensus length.
+        """
+        self._require_phase(state, 'analyzed')
+        if state.consensus is None:
+            raise ValueError(
+                "Cannot validate: state.consensus is None (all "
+                "detectors failed). Use iterate() to recover first.")
+
+        y_arr = np.asarray(y).astype(int)
+        consensus_labels = state.consensus['labels']
+        consensus_scores = state.consensus['scores']
+        n = len(consensus_labels)
+        if len(y_arr) != n:
+            raise ValueError(
+                f"y has {len(y_arr)} samples but the consensus has "
+                f"{n}; lengths must match.")
+
+        consensus_metrics = label_metrics(
+            y_arr, consensus_labels, consensus_scores)
+
+        fp_indices = np.where(
+            (consensus_labels == 1) & (y_arr == 0))[0].tolist()
+        fn_indices = np.where(
+            (consensus_labels == 0) & (y_arr == 1))[0].tolist()
+
+        per_detector: dict[str, dict] = {}
+        for r in state.results:
+            if r.get('status') == 'success':
+                per_detector[r['detector_name']] = label_metrics(
+                    y_arr, r['labels_train'], r['scores_train'])
+
+        best_metrics = None
+        if state.analysis and 'best_detector' in state.analysis:
+            best_name = state.analysis['best_detector']
+            best_metrics = per_detector.get(best_name)
+
+        if best_metrics is not None:
+            consensus_helped = (
+                consensus_metrics['f1'] >= best_metrics['f1'])
+            best_f1 = best_metrics['f1']
+        else:
+            consensus_helped = None
+            best_f1 = None
+
+        return {
+            'consensus': consensus_metrics,
+            'per_detector': per_detector,
+            'best_detector': best_metrics,
+            'consensus_vs_best': {
+                'consensus_f1': consensus_metrics['f1'],
+                'best_detector_f1': best_f1,
+                'consensus_helped': consensus_helped,
+            },
+            'false_positives': [int(i) for i in fp_indices],
+            'false_negatives': [int(i) for i in fn_indices],
+        }
+
     def investigate(self, X: Any, data_type: str | None = None,
                     priority: str = 'balanced') -> InvestigationState:
         """One-shot investigation: start → plan → run → analyze.
@@ -1184,10 +1509,96 @@ class ADEngine:
             raise ValueError("Unknown detector '%s'" % name)
         return {'name': name, **algo}
 
+    # Maps a data_type to (benchmark name, ranking key) for
+    # `compare_detectors` when the KB benchmark's top-level ranking
+    # already uses PyOD detector names (e.g., ADBench `overall_top_5`).
+    _COMPARE_BENCHMARK_RANKINGS: dict[str, tuple[str, str]] = {
+        'tabular': ('ADBench', 'overall_top_5'),
+    }
+
+    # Maps a data_type to benchmark-rank keys stored on each shipped
+    # detector's `benchmark_rank` metadata. Used when the benchmark's
+    # top-level ranking lists paper method names that do not match the
+    # PyOD detector names (e.g., TSB-AD lists "POLY", "KShapeAD", which
+    # do not match the shipped `KShape`, `MatrixProfile`, etc.). Lower
+    # rank value = better. When a detector carries multiple matching
+    # keys, the minimum (best) rank wins.
+    _COMPARE_BENCHMARK_RANK_KEYS: dict[str, tuple[str, ...]] = {
+        'time_series': ('TSB_AD_overall', 'TSB_AD_overall_iforest'),
+    }
+
+    def _benchmark_ranked_detectors(self, data_type: str,
+                                    top_k: int) -> list[str] | None:
+        """Return up to `top_k` shipped detector names for `data_type`,
+        ranked by the modality-specific benchmark from the KB.
+
+        Two ranking sources are consulted in order. First, when
+        `_COMPARE_BENCHMARK_RANKINGS` lists the data_type, use the
+        benchmark's top-level overall ranking and filter to shipped
+        detectors. Second, when `_COMPARE_BENCHMARK_RANK_KEYS` lists
+        the data_type, read each shipped detector's `benchmark_rank`
+        metadata and sort ascending by best rank. In both modes,
+        detectors without an applicable rank are appended in catalog
+        order to fill `top_k`. Returns `None` when no applicable
+        ranking exists, signalling the caller to fall back to catalog
+        order. Used by `compare_detectors` (TA1).
+        """
+        bench_lookup = self._COMPARE_BENCHMARK_RANKINGS.get(data_type)
+        if bench_lookup is not None:
+            bench_name, ranking_key = bench_lookup
+            bench = self.kb.benchmarks.get(bench_name)
+            if not bench:
+                return None
+            ranked = bench.get('rankings', {}).get(ranking_key, [])
+            if not ranked:
+                return None
+            shipped_dicts = self.list_detectors(data_type=data_type)
+            shipped_set = {d['name'] for d in shipped_dicts}
+            ranked_shipped = [n for n in ranked if n in shipped_set]
+            if not ranked_shipped:
+                return None
+            remaining = [d['name'] for d in shipped_dicts
+                         if d['name'] not in ranked_shipped]
+            return (ranked_shipped + remaining)[:top_k]
+
+        rank_keys = self._COMPARE_BENCHMARK_RANK_KEYS.get(data_type)
+        if rank_keys is None:
+            return None
+        shipped_dicts = self.list_detectors(data_type=data_type)
+        ranked_pairs: list[tuple[int, str]] = []
+        unranked: list[str] = []
+        for detector in shipped_dicts:
+            ranks = detector.get('benchmark_rank', {})
+            values = [ranks[key] for key in rank_keys if key in ranks]
+            if values:
+                ranked_pairs.append((min(values), detector['name']))
+            else:
+                unranked.append(detector['name'])
+        if not ranked_pairs:
+            return None
+        ranked_names = [name for _, name in sorted(ranked_pairs)]
+        return (ranked_names + unranked)[:top_k]
+
     def compare_detectors(self, names: list[str] | None = None,
                           data_type: str | None = None,
                           top_k: int = 3) -> list[dict]:
         """Compare detectors.
+
+        When `names` is provided, returns explanations for those
+        detectors in input order.
+
+        When `names` is omitted and `data_type` has a benchmark-backed
+        ranking in the KB, returns up to `top_k` detectors ranked by
+        that benchmark, then appends remaining shipped detectors in
+        catalog order until `top_k` is reached. Two ranking sources are
+        supported: top-level `overall_top_5` for benchmarks whose names
+        match PyOD detector names (currently `tabular` via ADBench);
+        per-detector `benchmark_rank` metadata when the benchmark lists
+        paper method names (currently `time_series` via TSB-AD, sorted
+        ascending by the best matching rank key). For modalities
+        without an applicable ranking (`graph`, `text`, `image`,
+        `multimodal`) or when no `data_type` is given, falls back to
+        the catalog order from `list_detectors`.
 
         Parameters
         ----------
@@ -1204,6 +1615,10 @@ class ADEngine:
         """
         if names:
             return [self.explain_detector(n) for n in names]
+        if data_type:
+            ranked = self._benchmark_ranked_detectors(data_type, top_k)
+            if ranked is not None:
+                return [self.explain_detector(n) for n in ranked]
         detectors = self.list_detectors(data_type=data_type)
         return detectors[:top_k]
 

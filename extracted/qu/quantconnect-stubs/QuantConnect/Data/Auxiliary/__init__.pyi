@@ -411,22 +411,22 @@ class MapFileRow(System.Object, System.IEquatable[QuantConnect_Data_Auxiliary_Ma
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified System.Object is equal to the current System.Object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Data.Auxiliary.MapFileRow) -> bool:
         """
         Indicates whether the current object is equal to another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified System.Object is equal to the current System.Object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
         """
         ...
 
@@ -1251,18 +1251,6 @@ class MappingExtensions(System.Object):
 
     @staticmethod
     @overload
-    def resolve_map_file(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_config: QuantConnect.Data.SubscriptionDataConfig) -> QuantConnect.Data.Auxiliary.MapFile:
-        """
-        Helper method to resolve the mapping file to use.
-        
-        :param map_file_provider: The map file provider
-        :param data_config: The configuration to fetch the map file for
-        :returns: The mapping file to use.
-        """
-        ...
-
-    @staticmethod
-    @overload
     def resolve_map_file(map_file_resolver: QuantConnect.Data.Auxiliary.MapFileResolver, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], data_type: str = None) -> QuantConnect.Data.Auxiliary.MapFile:
         """
         Helper method to resolve the mapping file to use.
@@ -1270,6 +1258,18 @@ class MappingExtensions(System.Object):
         :param map_file_resolver: The map file resolver
         :param symbol: The symbol that we want to map
         :param data_type: The string data type name if any
+        :returns: The mapping file to use.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def resolve_map_file(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_config: QuantConnect.Data.SubscriptionDataConfig) -> QuantConnect.Data.Auxiliary.MapFile:
+        """
+        Helper method to resolve the mapping file to use.
+        
+        :param map_file_provider: The map file provider
+        :param data_config: The configuration to fetch the map file for
         :returns: The mapping file to use.
         """
         ...

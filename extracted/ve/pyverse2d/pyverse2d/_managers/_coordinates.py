@@ -8,6 +8,7 @@ from ..abc import Manager
 
 from pyglet.math import Mat4
 from contextlib import contextmanager
+from typing import ClassVar
 
 from ._context import ContextManager
 
@@ -19,7 +20,11 @@ class NoContextError(RuntimeError):
 
 # ======================================== MANAGER ========================================
 class CoordinatesManager(Manager):
-    """Gestionnaire global des conversions de coordonnées"""
+    """Gestionnaire global des conversions de coordonnées
+    
+    Args:
+        context_manager: ``Manager`` gérant le contexte d'initialisation
+    """
     __slots__ = (
         "_viewport", "_camera", "_temporary_camera",
         "_context_applied",
@@ -27,7 +32,7 @@ class CoordinatesManager(Manager):
         "_pipeline", "_inv_pipeline",
     )
 
-    _ID: str = "coordinates"
+    _ID: ClassVar[str] = "coordinates"
 
     def __init__(self, context_manager: ContextManager) -> None:
         # Initialisation du gestionnaire
@@ -192,7 +197,13 @@ class CoordinatesManager(Manager):
     
     # ======================================== TRANSFORMATIONS ========================================
     def homogeneous(self, x: float, y: float, vector: bool = False) -> tuple[float, float, float, float]:
-        """Rend un objet mathématique homogène en 4D"""
+        """Rend un objet mathématique homogène en 4D
+
+        Args:
+            x: position horizontale
+            y: position verticale
+            vector: ignore la translation
+        """
         return (x, y, 0, 0) if vector else (x, y, 0, 1)
     
     # ======================================== INTERFACE ========================================

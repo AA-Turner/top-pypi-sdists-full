@@ -180,7 +180,7 @@ def job_cli() -> None:
     required=False,
     default=None,
     type=str,
-    help="Named compute configuration to use for the job. This defaults to the compute configuration of the workspace.",
+    help="Named compute configuration to use for the job. When running in a workspace, this defaults to the compute configuration of the workspace.",
 )
 @click.option(
     "--image-uri",

@@ -23,9 +23,13 @@ def _make_run(returncode: int = 0, stdout: str = "", stderr: str = ""):
 
 # ── BootstrapOptions / BootstrapResult ────────────────────────────────
 
-def test_bootstrap_options_defaults():
-    from sage.core.bootstrap import BootstrapOptions
-    opts = BootstrapOptions()
+def test_bootstrap_options_defaults(monkeypatch):
+    # Force the high-disk tier so the test is deterministic regardless of
+    # what the host's free disk actually is. Without this, on a 30GB-free
+    # machine the picker selects qwen2.5-coder-7b and the assertion fails.
+    from sage.core import bootstrap
+    monkeypatch.setattr(bootstrap, "_free_gb_at", lambda _p: 200.0)
+    opts = bootstrap.BootstrapOptions()
     assert opts.pull_models is True
     assert opts.set_default is True
     assert opts.prewarm is True
@@ -88,11 +92,14 @@ def test_phase_pull_skipped_without_ollama(monkeypatch):
 def test_phase_pull_skips_already_installed(monkeypatch):
     from sage.core import bootstrap
 
+    # Force high-disk tier so opts.ollama_models is deterministic.
+    monkeypatch.setattr(bootstrap, "_free_gb_at", lambda _p: 200.0)
     monkeypatch.setattr(bootstrap, "_have_cmd", lambda c: True)
 
     class _Resp:
         def json(self): return {"models": [
             {"name": "qwen3-coder-next:latest"},
+            {"name": "qwen2.5-coder-7b:latest"},
             {"name": "llama3.2:latest"},
             {"name": "nomic-embed-text:latest"},
         ]}
@@ -440,6 +447,142 @@ def test_run_bootstrap_phase_exception_marked_failed(monkeypatch):
     result = bootstrap.run_bootstrap(opts)
     failed = [p for p in result.phases if p.status == "failed"]
     assert any("kaboom" in p.detail for p in failed)
+
+
+# ── Ensure-Ollama-running helper (Bug 3) ───────────────────────────────
+
+
+class _OllamaResponses:
+    """Cycle through scripted httpx.get responses for tests."""
+
+    def __init__(self, script):
+        self._script = list(script)
+        self._idx = 0
+
+    def __call__(self, url, *args, **kwargs):
+        i = min(self._idx, len(self._script) - 1)
+        self._idx += 1
+        entry = self._script[i]
+        if isinstance(entry, type) and issubclass(entry, Exception):
+            raise entry("simulated")
+        resp = types.SimpleNamespace(status_code=entry)
+        resp.json = lambda: {"models": []}
+        return resp
+
+
+def test_ensure_ollama_running_returns_true_when_already_up(monkeypatch):
+    from sage.core import bootstrap
+
+    fake_httpx = types.SimpleNamespace(get=_OllamaResponses([200]))
+    monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+    popen_calls = []
+    monkeypatch.setattr(bootstrap.subprocess, "Popen",
+                        lambda *a, **kw: popen_calls.append((a, kw)) or types.SimpleNamespace(pid=12345))
+
+    assert bootstrap._ensure_ollama_running() is True
+    assert popen_calls == []
+
+
+def test_ensure_ollama_running_starts_daemon_then_succeeds(monkeypatch):
+    from sage.core import bootstrap
+
+    fake_httpx = types.SimpleNamespace(get=_OllamaResponses([ConnectionError, 200]))
+    monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+    monkeypatch.setattr(bootstrap, "_have_cmd", lambda c: True)
+    popen_calls = []
+    monkeypatch.setattr(bootstrap.subprocess, "Popen",
+                        lambda *a, **kw: popen_calls.append(a) or types.SimpleNamespace(pid=12345))
+    monkeypatch.setattr(bootstrap.time, "sleep", lambda s: None)
+
+    assert bootstrap._ensure_ollama_running(timeout=2.0) is True
+    assert len(popen_calls) == 1
+    argv = popen_calls[0][0]
+    assert argv[0] == "ollama"
+    assert "serve" in argv
+
+
+def test_ensure_ollama_running_returns_false_when_daemon_never_ready(monkeypatch):
+    from sage.core import bootstrap
+
+    fake_httpx = types.SimpleNamespace(get=_OllamaResponses([ConnectionError]))
+    monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+    monkeypatch.setattr(bootstrap, "_have_cmd", lambda c: True)
+    monkeypatch.setattr(bootstrap.subprocess, "Popen",
+                        lambda *a, **kw: types.SimpleNamespace(pid=12345))
+    monkeypatch.setattr(bootstrap.time, "sleep", lambda s: None)
+
+    assert bootstrap._ensure_ollama_running(timeout=0.5) is False
+
+
+def test_ensure_ollama_running_returns_false_when_ollama_not_installed(monkeypatch):
+    from sage.core import bootstrap
+
+    fake_httpx = types.SimpleNamespace(get=_OllamaResponses([ConnectionError]))
+    monkeypatch.setitem(sys.modules, "httpx", fake_httpx)
+    monkeypatch.setattr(bootstrap, "_have_cmd", lambda c: False)
+    popen_calls = []
+    monkeypatch.setattr(bootstrap.subprocess, "Popen",
+                        lambda *a, **kw: popen_calls.append(a) or types.SimpleNamespace(pid=12345))
+    monkeypatch.setattr(bootstrap.time, "sleep", lambda s: None)
+
+    assert bootstrap._ensure_ollama_running(timeout=1.0) is False
+    assert popen_calls == []
+
+
+def test_phase_prewarm_starts_ollama_if_needed(monkeypatch):
+    from sage.core import bootstrap
+    from sage.config import SageConfig
+
+    # `phase_prewarm` calls load_config() with no args, which uses the
+    # frozen default CONFIG_PATH from import time. Patch load_config itself
+    # so the test doesn't depend on the host's ~/.sage/config.json.
+    monkeypatch.setattr(
+        "sage.config.load_config",
+        lambda *a, **kw: SageConfig(default_model="ollama:llama3.2"),
+    )
+
+    ensure_calls = []
+    monkeypatch.setattr(
+        bootstrap, "_ensure_ollama_running",
+        lambda timeout=15.0: ensure_calls.append(timeout) or True,
+    )
+
+    prewarm_calls = []
+    monkeypatch.setattr(
+        "sage.core.keep_alive.prewarm",
+        lambda model, **kw: prewarm_calls.append(model) or True,
+    )
+
+    opts = bootstrap.BootstrapOptions()
+    status, _detail = bootstrap.phase_prewarm(opts)
+    assert status == "ok"
+    assert ensure_calls, "phase_prewarm must call _ensure_ollama_running"
+    assert prewarm_calls == ["llama3.2"]
+
+
+def test_phase_build_rag_index_starts_ollama_if_needed(tmp_path, monkeypatch):
+    from sage.core import bootstrap
+
+    ensure_calls = []
+    monkeypatch.setattr(
+        bootstrap, "_ensure_ollama_running",
+        lambda timeout=15.0: ensure_calls.append(timeout) or True,
+    )
+
+    class _FakeIndex:
+        def __init__(self, _cwd):
+            pass
+
+        def reindex(self):
+            return {"files_seen": 1, "chunks_added": 1, "vec_backend": "sqlite-vec"}
+
+    monkeypatch.setattr("sage.core.rag.RAGIndex", _FakeIndex)
+
+    (tmp_path / "x.py").write_text("def f():\n    pass\n")
+    opts = bootstrap.BootstrapOptions(cwd=tmp_path)
+    status, _detail = bootstrap.phase_build_rag_index(opts)
+    assert status == "ok"
+    assert ensure_calls, "phase_build_rag_index must call _ensure_ollama_running"
 
 
 # ── CLI integration ───────────────────────────────────────────────────

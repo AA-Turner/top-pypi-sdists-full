@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: clevercsv
-Version: 0.8.4
+Version: 0.8.5
 Summary: A Python package for handling messy CSV files
-Home-page: https://github.com/alan-turing-institute/CleverCSV
-Author: Gertjan van den Burg
-Author-email: gertjanvandenburg@gmail.com
+Author-email: Gertjan van den Burg <gertjanvandenburg@gmail.com>
 License: MIT
-Classifier: License :: OSI Approved :: MIT License
+Project-URL: homepage, https://github.com/alan-turing-institute/CleverCSV/
+Project-URL: documentation, https://clevercsv.readthedocs.io/en/latest/
+Project-URL: changelog, https://github.com/alan-turing-institute/CleverCSV/blob/master/CHANGELOG.md
+Keywords: csv
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -17,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -24,46 +26,28 @@ Requires-Dist: chardet>=3.0
 Requires-Dist: regex>=2018.11
 Requires-Dist: packaging>=23.0
 Provides-Extra: full
-Requires-Dist: wilderness>=0.1.5; extra == "full"
 Requires-Dist: faust-cchardet>=2.1.18; extra == "full"
 Requires-Dist: pandas>=1.0.0; extra == "full"
 Requires-Dist: tabview>=1.4; extra == "full"
+Requires-Dist: wilderness>=0.1.5; extra == "full"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: m2r2; extra == "docs"
 Requires-Dist: furo; extra == "docs"
-Provides-Extra: tests
-Requires-Dist: wilderness>=0.1.5; extra == "tests"
-Requires-Dist: faust-cchardet>=2.1.18; extra == "tests"
-Requires-Dist: pandas>=1.0.0; extra == "tests"
-Requires-Dist: tabview>=1.4; extra == "tests"
+Provides-Extra: test
+Requires-Dist: clevercsv[full]; extra == "test"
+Requires-Dist: pytest>=2.6; extra == "test"
 Provides-Extra: dev
-Requires-Dist: sphinx; extra == "dev"
-Requires-Dist: m2r2; extra == "dev"
-Requires-Dist: furo; extra == "dev"
-Requires-Dist: wilderness>=0.1.5; extra == "dev"
-Requires-Dist: faust-cchardet>=2.1.18; extra == "dev"
-Requires-Dist: pandas>=1.0.0; extra == "dev"
-Requires-Dist: tabview>=1.4; extra == "dev"
-Requires-Dist: green; extra == "dev"
+Requires-Dist: clevercsv[docs]; extra == "dev"
+Requires-Dist: clevercsv[test]; extra == "dev"
 Requires-Dist: pytest>=2.6; extra == "dev"
 Requires-Dist: termcolor; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
+Requires-Dist: setuptools; extra == "dev"
+Requires-Dist: build; extra == "dev"
 Provides-Extra: precommit
 Requires-Dist: wilderness>=0.1.5; extra == "precommit"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
-
 
 <p align="center">
         <img width="60%" src="https://raw.githubusercontent.com/alan-turing-institute/CleverCSV/eea72549195e37bd4347d87fd82bc98be2f1383d/.logo.png">

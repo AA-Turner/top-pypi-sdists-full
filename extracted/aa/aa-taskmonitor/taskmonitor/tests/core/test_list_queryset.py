@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.test import TestCase
 
 from taskmonitor.core.list_queryset import ListAsQuerySet
@@ -168,6 +169,41 @@ class TestFilter(TestCase):
         # when
         result = qs.filter(app_name="alpha", priority=3)
         self.assertEqual(result, [t2, t3])
+
+    def test_filter_single_args(self):
+        # given
+        t1 = QueuedTaskFactory.build(app_name="alpha", name="one")
+        t2 = QueuedTaskFactory.build(app_name="alpha", name="two")
+        t3 = QueuedTaskFactory.build(app_name="alpha", name="three")
+        data = [t1, t2, t3]
+        qs = ListAsQuerySet(data, model=QueuedTask)
+        # when
+        result = qs.filter(Q(name="two"))
+        # then
+        self.assertEqual(result, [t2])
+
+    def test_filter_multiple_args(self):
+        # given
+        t1 = QueuedTaskFactory.build(app_name="alpha", name="one")
+        t2 = QueuedTaskFactory.build(app_name="alpha", name="two")
+        t3 = QueuedTaskFactory.build(app_name="bravo", name="two")
+        data = [t1, t2, t3]
+        qs = ListAsQuerySet(data, model=QueuedTask)
+        # when
+        result = qs.filter(Q(name="two"), Q(app_name="alpha"))
+        # then
+        self.assertEqual(result, [t2])
+
+    def test_filter_args_with_values(self):
+        # given
+        t1 = QueuedTaskFactory.build(app_name="alpha", priority=1)
+        t2 = QueuedTaskFactory.build(app_name="alpha", priority=3)
+        data = [t1, t2]
+        qs = ListAsQuerySet(data, model=QueuedTask)
+        # when
+        result = qs.filter(Q(priority="3"))
+        # then
+        self.assertEqual(result, [t2])
 
     def test_filter_kwargs_with_contains(self):
         # given

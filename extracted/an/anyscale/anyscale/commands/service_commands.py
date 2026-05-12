@@ -210,6 +210,7 @@ def _read_name_from_config_file(path: str):
     required=False,
     default=None,
     type=str,
+    hidden=True,
     help="Defines the traffic and capacity percents per version. Capacity defaults to traffic.",
 )
 @click.option(
@@ -223,7 +224,7 @@ def _read_name_from_config_file(path: str):
     required=False,
     default=None,
     type=str,
-    help="Unique name for the service version. This can only be used for single version deployments. For multi-version deployments, specify version names in the config files and --versions.",
+    help="Unique name for the service version.",
 )
 @click.option(
     "--connection",
@@ -289,9 +290,7 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
 
             config = ServiceConfig.from_yaml(config_file[0])
         elif len(config_file) > 1:
-            raise click.ClickException(
-                "Multiple config files can be provided only when deploying multiple versions with --versions."
-            )
+            raise click.ClickException("Multiple config files cannot be provided.")
         else:
             # when config_file is not provided.
             if import_path is None:

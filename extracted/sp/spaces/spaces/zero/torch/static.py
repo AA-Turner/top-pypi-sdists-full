@@ -5,23 +5,26 @@ from types import SimpleNamespace as _SimpleNamespace
 
 import torch as _torch
 
-from ...config import Config
+from ..config import get_config
 
 
 def compute_base_free_memory(total_memory: int):
     pytorch_base_memory = 309002240 # TODO: fine-grain per: torch-version x GPU(-MIG) model
-    return total_memory - pytorch_base_memory - Config.zerogpu_cuda_reserved_memory
+    return total_memory - pytorch_base_memory
 
-CUDA_DEVICE_NAME = Config.zerogpu_cuda_device_name
-CUDA_TOTAL_MEMORY = Config.zerogpu_cuda_total_memory
+
+zerogpu_config = get_config()
+
+CUDA_DEVICE_NAME = zerogpu_config['model']
+CUDA_TOTAL_MEMORY = zerogpu_config['memory']
 CUDA_MEM_GET_INFO = (compute_base_free_memory(CUDA_TOTAL_MEMORY), CUDA_TOTAL_MEMORY)
-CUDA_DEVICE_CAPABILITY = (Config.zerogpu_cuda_capability_major, Config.zerogpu_cuda_capability_minor)
+CUDA_DEVICE_CAPABILITY = (zerogpu_config['sm_major'], zerogpu_config['sm_minor'])
 CUDA_DEVICE_PROPERTIES = _SimpleNamespace(
     name=CUDA_DEVICE_NAME,
     major=CUDA_DEVICE_CAPABILITY[0],
     minor=CUDA_DEVICE_CAPABILITY[1],
     total_memory=CUDA_TOTAL_MEMORY,
-    multi_processor_count=Config.zerogpu_cuda_multi_processor_count,
+    multi_processor_count=zerogpu_config['sm_count'],
     # TODO: L2_cache_size
 )
 

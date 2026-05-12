@@ -779,10 +779,6 @@ class DefaultInterpolatedStringHandler:
         ...
 
     @overload
-    def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
-        ...
-
-    @overload
     def append_formatted(self, value: System.ReadOnlySpan[str]) -> None:
         ...
 
@@ -796,6 +792,10 @@ class DefaultInterpolatedStringHandler:
 
     @overload
     def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> None:
+        ...
+
+    @overload
+    def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
         ...
 
     def append_literal(self, value: str) -> None:
@@ -1118,15 +1118,15 @@ class SwitchExpressionException(System.InvalidOperationException):
         ...
 
     @overload
-    def __init__(self, unmatched_value: typing.Any) -> None:
-        ...
-
-    @overload
     def __init__(self) -> None:
         ...
 
     @overload
     def __init__(self, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, unmatched_value: typing.Any) -> None:
         ...
 
     @overload

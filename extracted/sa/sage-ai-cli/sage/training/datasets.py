@@ -38,7 +38,7 @@ from pathlib import Path
 
 from sage.training.corpus import TrainingExample
 
-__all__ = ["ExternalDataset", "DATASETS", "DatasetMirror"]
+__all__ = ["ExternalDataset", "DATASETS", "DatasetMirror", "LocalDatasetStore"]
 
 
 @dataclass(frozen=True)
@@ -117,6 +117,318 @@ DATASETS: tuple[ExternalDataset, ...] = (
         fields=("instruction", "", "output"),
         max_examples=80000,
         estimated_size_mb=70,
+    ),
+    # ── Expanded corpus (sage-improvement v2) ────────────────────────
+    # Adds well-known evaluation + training sets to broaden language
+    # coverage and bring competitive-programming reasoning into the mix.
+    # All entries are permissively licensed and live on HuggingFace.
+    ExternalDataset(
+        name="humaneval",
+        description="164 Python problems with hidden unit tests — gold standard eval",
+        license="mit",
+        languages=("python",),
+        huggingface_id="openai_humaneval",
+        split="test",  # humaneval has only a test split, no train
+        fields=("prompt", "test", "canonical_solution"),
+        max_examples=164,
+        estimated_size_mb=1,
+    ),
+    ExternalDataset(
+        name="humanevalpack",
+        description="HumanEval extended to JS/TS/Java/Go/C++/Rust",
+        license="mit",
+        languages=("python", "javascript", "typescript", "java", "go", "cpp", "rust"),
+        huggingface_id="bigcode/humanevalpack",
+        fields=("prompt", "test", "canonical_solution"),
+        max_examples=1320,
+        estimated_size_mb=4,
+    ),
+    ExternalDataset(
+        name="apps",
+        description="10,000 competitive-programming problems with solutions",
+        license="mit",
+        languages=("python",),
+        huggingface_id="codeparrot/apps",
+        fields=("question", "solutions", "input_output"),
+        max_examples=10000,
+        estimated_size_mb=600,
+    ),
+    ExternalDataset(
+        name="ds1000",
+        description="1k data-science problems from Numpy/Pandas/SciPy/Sklearn",
+        license="cc-by-4.0",
+        languages=("python",),
+        huggingface_id="xlangai/DS-1000",
+        fields=("prompt", "test", "code_context"),
+        max_examples=1000,
+        estimated_size_mb=8,
+    ),
+    ExternalDataset(
+        name="stack-edu-python-2pct",
+        description="2% slice of The Stack v2 (educational filter) — Python",
+        license="other",  # OpenRAIL-M (permits research + commercial use)
+        languages=("python",),
+        huggingface_id="bigcode/the-stack-smol",
+        split="train",
+        fields=("content", "language", "lang"),
+        max_examples=50000,
+        estimated_size_mb=350,
+    ),
+    ExternalDataset(
+        name="codecontests",
+        description="13k problems from Codeforces with multi-language solutions",
+        license="apache-2.0",
+        languages=("python", "cpp", "java"),
+        huggingface_id="deepmind/code_contests",
+        split="train",
+        fields=("description", "public_tests", "solutions"),
+        max_examples=13000,
+        estimated_size_mb=550,
+    ),
+    ExternalDataset(
+        name="leetcode-solutions",
+        description="LeetCode problems + solutions across many languages",
+        license="mit",
+        languages=("python", "javascript", "java", "cpp", "go"),
+        huggingface_id="greengerong/leetcode",
+        fields=("content", "lang", "code"),
+        max_examples=2300,
+        estimated_size_mb=12,
+    ),
+    ExternalDataset(
+        name="commitpackft",
+        description="Filtered git-commit dataset for instruction tuning",
+        license="mit",
+        languages=("multilang",),
+        huggingface_id="bigcode/commitpackft",
+        fields=("old_contents", "subject", "new_contents"),
+        max_examples=100000,
+        estimated_size_mb=400,
+    ),
+    ExternalDataset(
+        name="oss-instruct-multilang",
+        description="OSS-Instruct extended sample covering JS/TS/Go/Rust/Java",
+        license="mit",
+        languages=("javascript", "typescript", "go", "rust", "java"),
+        huggingface_id="ise-uiuc/Magicoder-Evol-Instruct-110K",
+        fields=("instruction", "", "response"),
+        max_examples=110000,
+        estimated_size_mb=180,
+    ),
+    # ── Reasoning datasets (critical for algorithmic thinking) ────────
+    ExternalDataset(
+        name="gsm8k",
+        description="Grade-school math word problems — gold standard reasoning eval",
+        license="mit",
+        languages=("multilang",),  # math reasoning, language-agnostic
+        huggingface_id="gsm8k",
+        split="train",
+        fields=("question", "", "answer"),
+        max_examples=8500,
+        estimated_size_mb=4,
+    ),
+    ExternalDataset(
+        name="math",
+        description="12.5k competition math problems w/ step-by-step solutions",
+        license="mit",
+        languages=("multilang",),
+        huggingface_id="hendrycks/competition_math",
+        split="train",
+        fields=("problem", "level", "solution"),
+        max_examples=12500,
+        estimated_size_mb=15,
+    ),
+    ExternalDataset(
+        name="openr1-math",
+        description="DeepSeek-R1-style chain-of-thought math reasoning traces",
+        license="apache-2.0",
+        languages=("multilang",),
+        huggingface_id="open-r1/OpenR1-Math-220k",
+        fields=("problem", "", "solution"),
+        max_examples=220000,
+        estimated_size_mb=350,
+    ),
+    ExternalDataset(
+        name="natural-reasoning",
+        description="Meta's reasoning-focused corpus — multi-step problem solving",
+        license="cc-by-nc-4.0",
+        languages=("multilang",),
+        huggingface_id="facebook/natural_reasoning",
+        fields=("question", "", "response"),
+        max_examples=100000,
+        estimated_size_mb=180,
+    ),
+    # ── Instruction-tuning / chat datasets (assistant behavior) ────────
+    ExternalDataset(
+        name="oasst1",
+        description="OpenAssistant Conversations — human-ranked chat data",
+        license="apache-2.0",
+        languages=("multilang",),
+        huggingface_id="OpenAssistant/oasst1",
+        fields=("text", "role", "parent_id"),
+        max_examples=88000,
+        estimated_size_mb=70,
+    ),
+    ExternalDataset(
+        name="ultrachat-200k",
+        description="200k multi-turn synthetic conversations (UltraChat slice)",
+        license="mit",
+        languages=("multilang",),
+        huggingface_id="HuggingFaceH4/ultrachat_200k",
+        split="train_sft",
+        fields=("prompt", "", "messages"),
+        max_examples=200000,
+        estimated_size_mb=320,
+    ),
+    ExternalDataset(
+        name="orca-mini",
+        description="Orca-style reasoning traces sampled from larger Orca corpora",
+        license="mit",
+        languages=("multilang",),
+        huggingface_id="Open-Orca/SlimOrca-Dedup",
+        fields=("conversations", "", ""),
+        max_examples=363000,
+        estimated_size_mb=480,
+    ),
+    ExternalDataset(
+        name="tulu-mix",
+        description="Tulu instruction mix (FLAN + ShareGPT + CoT + coding + safety)",
+        license="odc-by-1.0",
+        languages=("multilang",),
+        huggingface_id="allenai/tulu-v2-sft-mixture",
+        fields=("messages", "dataset", ""),
+        max_examples=326000,
+        estimated_size_mb=550,
+    ),
+    # ── Code-focused pretraining (sage's bread and butter) ─────────────
+    ExternalDataset(
+        name="starcoderdata-sample",
+        description="StarCoder pretraining slice — permissive GitHub code",
+        license="other",  # OpenRAIL-M permits research + commercial
+        languages=("multilang",),
+        huggingface_id="bigcode/starcoderdata",
+        split="train",
+        fields=("content", "lang", ""),
+        max_examples=200000,
+        estimated_size_mb=900,
+    ),
+    ExternalDataset(
+        name="the-stack-v2-dedup-python",
+        description="The Stack v2 dedup — Python slice (BigCode)",
+        license="other",
+        languages=("python",),
+        huggingface_id="bigcode/the-stack-v2-dedup",
+        split="train",
+        fields=("content", "lang", "path"),
+        max_examples=80000,
+        estimated_size_mb=400,
+    ),
+    # ── High-quality curated corpora ────────────────────────────────────
+    ExternalDataset(
+        name="dolma-sample",
+        description="Allen AI's high-quality pretraining corpus (sample slice)",
+        license="odc-by-1.0",
+        languages=("multilang",),
+        huggingface_id="allenai/dolma",
+        split="train",
+        fields=("text", "id", "source"),
+        max_examples=50000,
+        estimated_size_mb=380,
+    ),
+    # ── Large-corpus slices (relevant subsets, not full TB-scale) ──────
+    # Rationale: sage fine-tunes a pretrained model, so we want
+    # representative slices of these landmark corpora, not full mirrors.
+    # Full Pile=886GB / FineWeb=15TB / Common Crawl=250TB — impractical
+    # to mirror, and the gain over a sized slice is marginal for a
+    # coding fine-tune. Users wanting from-scratch pretraining can pull
+    # the full HF dataset directly.
+    ExternalDataset(
+        name="the-pile-code-slice",
+        description="The Pile — GitHub + StackExchange portion (code-focused slice)",
+        license="mit",
+        languages=("multilang",),
+        huggingface_id="monology/pile-uncopyrighted",
+        split="train",
+        fields=("text", "meta", ""),
+        max_examples=400000,
+        estimated_size_mb=3500,
+    ),
+    ExternalDataset(
+        name="fineweb-edu-sample",
+        description="FineWeb-Edu (high-quality educational web text) — 10B-token sample",
+        license="odc-by-1.0",
+        languages=("multilang",),
+        huggingface_id="HuggingFaceFW/fineweb-edu",
+        split="train",
+        fields=("text", "id", "url"),
+        max_examples=500000,
+        estimated_size_mb=4200,
+    ),
+    ExternalDataset(
+        name="redpajama-github",
+        description="RedPajama-v1 GitHub subset — open-source LLaMA training data",
+        license="apache-2.0",
+        languages=("multilang",),
+        huggingface_id="togethercomputer/RedPajama-Data-1T-Sample",
+        split="train",
+        fields=("text", "meta", ""),
+        max_examples=200000,
+        estimated_size_mb=2800,
+    ),
+    ExternalDataset(
+        name="c4-en-sample",
+        description="C4 (Colossal Clean Crawled Corpus) — English slice used in T5",
+        license="odc-by-1.0",
+        languages=("multilang",),
+        huggingface_id="allenai/c4",
+        split="train",
+        fields=("text", "url", "timestamp"),
+        max_examples=200000,
+        estimated_size_mb=1500,
+    ),
+    ExternalDataset(
+        name="wikipedia-en",
+        description="English Wikipedia — context for reasoning, RAG, fact-checking",
+        license="cc-by-sa-3.0",
+        languages=("multilang",),
+        huggingface_id="wikimedia/wikipedia",
+        split="20231101.en",
+        fields=("text", "title", "url"),
+        max_examples=100000,
+        estimated_size_mb=900,
+    ),
+    ExternalDataset(
+        name="arxiv-cs",
+        description="arXiv CS-section abstracts/papers — reasoning + scientific writing",
+        license="cc0-1.0",
+        languages=("multilang",),
+        huggingface_id="ccdv/arxiv-classification",
+        split="train",
+        fields=("text", "labels", ""),
+        max_examples=50000,
+        estimated_size_mb=450,
+    ),
+    ExternalDataset(
+        name="stackexchange-programming",
+        description="StackExchange Q&A — programming subsections (curated)",
+        license="cc-by-sa-4.0",
+        languages=("multilang",),
+        huggingface_id="HuggingFaceH4/stack-exchange-preferences",
+        split="train",
+        fields=("question", "answers", "metadata"),
+        max_examples=100000,
+        estimated_size_mb=350,
+    ),
+    ExternalDataset(
+        name="openwebtext-sample",
+        description="OpenWebText — open recreation of OpenAI's WebText (slice)",
+        license="cc0-1.0",
+        languages=("multilang",),
+        huggingface_id="Skylion007/openwebtext",
+        split="train",
+        fields=("text", "", ""),
+        max_examples=100000,
+        estimated_size_mb=800,
     ),
 )
 
@@ -273,3 +585,73 @@ class DatasetMirror:
             except Exception as exc:
                 report["failed"].append((ds.name, f"{type(exc).__name__}: {exc}"))
         return report
+
+
+# ── Local-only retrieval (no GCS dependency) ────────────────────────────
+
+
+@dataclass
+class LocalDatasetStore:
+    """Read-only access to datasets mirrored under ~/.sage/datasets/.
+
+    Used by the fine-tune harness to load training pairs WITHOUT needing
+    GCS or HuggingFace at training time — once a dataset is pulled
+    (either by `mirror_all_datasets.py --local-only` or by GCS-backed
+    pull), the fine-tune flow only reads local files. This makes sage
+    independent of third-party services at training time.
+    """
+
+    root: Path = field(default_factory=lambda: Path.home() / ".sage" / "datasets")
+
+    def path_for(self, name: str) -> Path:
+        return self.root / name / "normalized.jsonl"
+
+    def is_present(self, name: str) -> bool:
+        p = self.path_for(name)
+        return p.is_file() and p.stat().st_size > 0
+
+    def available(self) -> list[str]:
+        """List the dataset names currently mirrored to disk."""
+        if not self.root.is_dir():
+            return []
+        out: list[str] = []
+        for child in sorted(self.root.iterdir()):
+            if not child.is_dir():
+                continue
+            if (child / "normalized.jsonl").is_file():
+                out.append(child.name)
+        return out
+
+    def iter_examples(self, name: str):
+        """Yield example dicts from a mirrored dataset's normalized.jsonl."""
+        import json as _json
+        path = self.path_for(name)
+        if not path.is_file():
+            return
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    yield _json.loads(line)
+                except _json.JSONDecodeError:
+                    continue
+
+    def count_examples(self, name: str) -> int:
+        if not self.is_present(name):
+            return 0
+        with self.path_for(name).open(encoding="utf-8") as f:
+            return sum(1 for _line in f if _line.strip())
+
+    def summary(self) -> dict:
+        """Quick stats across all mirrored datasets — used by `sage train`."""
+        out = {"datasets": [], "total_examples": 0, "total_size_bytes": 0}
+        for name in self.available():
+            p = self.path_for(name)
+            count = self.count_examples(name)
+            size = p.stat().st_size
+            out["datasets"].append({"name": name, "examples": count, "bytes": size})
+            out["total_examples"] += count
+            out["total_size_bytes"] += size
+        return out

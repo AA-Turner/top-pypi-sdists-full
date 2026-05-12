@@ -145,11 +145,13 @@ class RunnerRouteMixin:
         def _serialize_decl_columns(decl):
             return _serialize_collection_columns(decl.columns)
 
-        def _resolve_widget(node: dict) -> dict:
-            if node.get("type") == "table" and "collection_ref" in node:
+        def _resolve_table_widget(node: dict) -> dict:
+            if "collection_ref" in node:
                 ref = node["collection_ref"]
                 decl = collections.get(ref)
-                resolved: dict = {"type": "table", "collection": ref}
+                resolved = dict(node)
+                resolved.pop("collection_ref", None)
+                resolved["collection"] = ref
                 if decl:
                     cols = _serialize_decl_columns(decl)
                     if cols:
@@ -162,13 +164,18 @@ class RunnerRouteMixin:
                         resolved["paginate"] = decl.paginate
                     resolved["scope"] = decl.scope
                 return resolved
-            if node.get("type") == "table" and "collection" in node:
+            if "collection" in node:
                 coll_name = node.get("collection")
                 decl = collections.get(coll_name) if coll_name else None
                 if decl:
                     node = dict(node)
                     node["scope"] = decl.scope
                 return node
+            return node
+
+        def _resolve_widget(node: dict) -> dict:
+            if node.get("type") == "table":
+                return _resolve_table_widget(node)
             if node.get("type") in _SETTING_WIDGET_TYPES and "setting" in node:
                 sname = node["setting"]
                 sdecl = settings.get(sname)
@@ -180,6 +187,12 @@ class RunnerRouteMixin:
                         node["setting_default"] = sdecl.default
                     if sdecl.options:
                         node["options"] = list(sdecl.options)
+                return node
+            if node.get("type") in {"table_browser", "table_group"} and isinstance(
+                node.get("items"), list
+            ):
+                node = dict(node)
+                node["items"] = [_resolve_widget(c) for c in node["items"]]
                 return node
             if "children" in node and isinstance(node["children"], list):
                 node = dict(node)

@@ -162,6 +162,8 @@ declare module "@capsule/page" {
     error: string | null;
     data<T = unknown>(name: string, initial?: T): T;
     allData<T = Record<string, unknown>>(): T;
+    set<T = unknown>(name: string, value: T): Promise<T>;
+    publish<T = unknown>(name: string, value: T): Promise<T>;
     action(name: string): ActionState;
     chat(): ChatState;
     integrations(): {

@@ -6,13 +6,24 @@ from typing import Any
 
 import numpy as np
 
+import cv2
+
 from boxmot.configs import get_mode_default
 from boxmot.engine.results import Results
 from boxmot.engine.workflow_results import TrackRunResult
+from boxmot.trackers.track_results import TrackResults
 from boxmot.trackers.tracker_zoo import TRACKER_MAPPING, create_tracker, get_tracker_config
-from boxmot.utils.mot_utils import convert_to_mmot_obb_format, convert_to_mot_format
+from boxmot.utils.mot_utils import convert_to_mmot_obb_format, convert_to_mot_format, write_mot_results
+from boxmot.utils.rich.reporting import primary_model_ref as _primary_model_ref
+from boxmot.utils.rich.pipeline import PipelineTracker
+from boxmot.utils.rich.track_reporting import (
+    TRACK_RUN_STEP,
+    TRACK_SETUP_STEP,
+    TrackWorkflowReporter,
+)
 from boxmot.utils.timing import TimingStats, wrap_tracker_reid
 from boxmot.utils.torch_utils import select_device
+import boxmot.utils.rich.ui as ui
 from boxmot.engine.workflow_support import (
     build_detector_from_spec,
     build_tracker_from_spec,
@@ -21,14 +32,9 @@ from boxmot.engine.workflow_support import (
     resolve_output_fps,
     resolve_track_output_dir,
     save_video,
-    suppress_boxmot_logs,
+    tracker_name_from_spec,
 )
-
-
-def _primary_model_ref(value):
-    if isinstance(value, (list, tuple)):
-        return value[0] if value else None
-    return value
+from boxmot.utils.misc import suppress_boxmot_logs
 
 
 def _is_live_source(source: Any) -> bool:
@@ -64,6 +70,7 @@ class TrackerRuntime:
         evolve_param_dict: dict | None = None,
         target_id: int | None = None,
         timing_stats: TimingStats | None = None,
+        reid_preprocess: str | None = None,
     ) -> "TrackerRuntime":
         normalized_tracker = str(tracker_name).lower()
         if normalized_tracker not in TRACKER_MAPPING:
@@ -78,6 +85,7 @@ class TrackerRuntime:
             half=half,
             per_class=per_class,
             evolve_param_dict=evolve_param_dict,
+            reid_preprocess=reid_preprocess,
         )
         if target_id is not None:
             tracker.target_id = target_id
@@ -98,12 +106,12 @@ class TrackerRuntime:
 
     @staticmethod
     def format_for_mot(tracks: np.ndarray, frame_idx: int) -> np.ndarray:
-        arr = TrackerRuntime._ensure_2d_tracks(tracks)
-        if arr.size == 0:
+        tr = TrackResults(TrackerRuntime._ensure_2d_tracks(tracks))
+        if tr.size == 0:
             return np.empty((0, 0), dtype=np.float32)
-        if arr.shape[1] >= 9:
-            return convert_to_mmot_obb_format(arr, frame_idx)
-        return convert_to_mot_format(arr, frame_idx)
+        if tr.is_obb:
+            return convert_to_mmot_obb_format(tr, frame_idx)
+        return convert_to_mot_format(tr, frame_idx)
 
     @property
     def names(self):
@@ -170,13 +178,8 @@ def _should_consume_result(args) -> bool:
 
 
 def _consume_run(result: TrackRunResult) -> None:
-    previous_cache_results = getattr(result.results, "_cache_results", True)
-    try:
-        result.results._cache_results = False
-        for _ in result.results:
-            pass
-    finally:
-        result.results._cache_results = previous_cache_results
+    for _ in result.results:
+        pass
     result.refresh()
 
 
@@ -202,7 +205,8 @@ class TrackingSession:
 
     @staticmethod
     def initialize_trackers(predictor, args):
-        tracker_name = str(getattr(args, "tracker", "")).lower()
+        tracker_spec = getattr(args, "tracker", "")
+        tracker_name = tracker_name_from_spec(tracker_spec, required=True)
         if tracker_name not in TRACKER_MAPPING:
             available = ", ".join(sorted(TRACKER_MAPPING))
             raise ValueError(f"'{tracker_name}' is not supported. Supported ones are {available}")
@@ -213,16 +217,20 @@ class TrackingSession:
 
         batch_size = int(getattr(getattr(predictor, "dataset", None), "bs", 1) or 1)
         predictor.trackers = [
-            TrackerRuntime.create(
-                tracker_name=tracker_name,
-                reid_weights=reid_weights,
-                device=select_device(getattr(predictor, "device", "cpu")),
+            build_tracker_from_spec(
+                tracker_spec,
+                device=getattr(predictor, "device", "cpu"),
                 half=bool(getattr(args, "half", False)),
-                per_class=bool(getattr(args, "per_class", False)),
-                target_id=getattr(args, "target_id", None),
+                tracker_backend=getattr(args, "tracker_backend", None),
+                reid_weights=reid_weights,
+                reid_preprocess=getattr(args, "reid_preprocess", None),
             )
             for _ in range(batch_size)
         ]
+        target_id = getattr(args, "target_id", None)
+        if target_id is not None:
+            for tracker in predictor.trackers:
+                setattr(tracker, "target_id", target_id)
         return predictor.trackers
 
     def run(self):
@@ -244,6 +252,7 @@ class TrackingSession:
             save_txt=bool(getattr(self.args, "save_txt", False)),
             show=bool(getattr(self.args, "show", False)),
             verbose=bool(getattr(self.args, "verbose", False)),
+            tracker_backend=getattr(self.args, "tracker_backend", None),
         )
         if getattr(self.args, "show", False):
             result.show()
@@ -271,7 +280,9 @@ def _build_tracker(args, tracker_spec: Any):
         spec,
         device=getattr(args, "device", get_mode_default("track", "device")),
         half=bool(getattr(args, "half", get_mode_default("track", "half"))),
+        tracker_backend=getattr(args, "tracker_backend", None),
         reid_weights=reid_weights,
+        reid_preprocess=getattr(args, "reid_preprocess", None),
     )
 
 
@@ -296,25 +307,68 @@ def run_track(
     tracker_spec: Any = None,
     classes: list[int] | None = None,
     drawer=None,
+    pipeline: PipelineTracker | None = None,
 ) -> TrackRunResult:
     source = getattr(args, "source", get_mode_default("track", "source"))
     verbose = bool(getattr(args, "verbose", get_mode_default("track", "verbose")))
 
-    with suppress_boxmot_logs(not verbose, level="WARNING"):
+    with suppress_boxmot_logs((not verbose) or pipeline is not None, level="WARNING"):
         detector_runtime = detector if detector is not None else _build_detector(args, detector_spec, classes)
         tracker_runtime = tracker if tracker is not None else _build_tracker(args, tracker_spec)
         reid_runtime = reid if reid is not None else _build_reid(args, tracker_runtime, reid_spec, tracker_spec)
 
-    run = Results(source, detector_runtime, reid_runtime, tracker_runtime, verbose=verbose, drawer=drawer)
+    if pipeline is not None:
+        pipeline.advance("Starting tracker...")
+
+    run = Results(
+        source,
+        detector_runtime,
+        reid_runtime,
+        tracker_runtime,
+        verbose=verbose and pipeline is None,
+        drawer=drawer,
+        progress_callback=pipeline.callback() if pipeline is not None else None,
+    )
 
     output_dir = resolve_track_output_dir(Path(getattr(args, "project", "runs")), source)
     text_path = output_dir / "tracks.txt" if bool(getattr(args, "save_txt", False)) else None
     video_path = output_dir / "tracks.mp4" if bool(getattr(args, "save", False)) else None
 
-    if text_path is not None:
-        run.save(text_path)
-    if video_path is not None:
-        save_video(run, video_path, fps=resolve_output_fps(source))
+    show = bool(getattr(args, "show", False))
+    needs_iteration = text_path is not None or video_path is not None or show
+
+    if needs_iteration:
+        if text_path is not None:
+            text_path.parent.mkdir(parents=True, exist_ok=True)
+            if text_path.exists():
+                text_path.unlink()
+        video_writer = None
+        video_fps = resolve_output_fps(source) if video_path is not None else 30.0
+        if video_path is not None:
+            video_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            for frame_result in run:
+                if text_path is not None:
+                    write_mot_results(text_path, frame_result.to_mot())
+                if video_path is not None:
+                    rendered = frame_result.render()
+                    if video_writer is None:
+                        h, w = rendered.shape[:2]
+                        video_writer = cv2.VideoWriter(
+                            str(video_path),
+                            cv2.VideoWriter_fourcc(*"mp4v"),
+                            video_fps,
+                            (w, h),
+                        )
+                    video_writer.write(rendered)
+                if show:
+                    if not frame_result.show():
+                        break
+        finally:
+            if video_writer is not None:
+                video_writer.release()
+            if show:
+                cv2.destroyAllWindows()
 
     result = TrackRunResult(
         source=source,
@@ -322,18 +376,26 @@ def run_track(
         video_path=video_path,
         text_path=text_path,
     )
-    if bool(getattr(args, "show", False)):
-        result.show()
-    elif _should_consume_result(args):
+    if not needs_iteration and _should_consume_result(args):
         _consume_run(result)
+    if pipeline is not None:
+        result.refresh()
+        pipeline.complete_step()
+        if int(result.summary.get("frames", 0)) > 0:
+            pipeline.set_detail_renderable("Summary", result.renderable())
+        else:
+            pipeline.update("No frames processed.")
     return result
 
 
 def main(args):
-    return run_track(
-        args,
-        detector_spec=_primary_model_ref(getattr(args, "detector", None)),
-        reid_spec=_primary_model_ref(getattr(args, "reid", None)),
-        tracker_spec=getattr(args, "tracker", None),
-        classes=getattr(args, "classes", None),
-    )
+    pipeline = TrackWorkflowReporter(args).pipeline()
+    with pipeline:
+        return run_track(
+            args,
+            detector_spec=_primary_model_ref(getattr(args, "detector", None)),
+            reid_spec=_primary_model_ref(getattr(args, "reid", None)),
+            tracker_spec=getattr(args, "tracker", None),
+            classes=getattr(args, "classes", None),
+            pipeline=pipeline,
+        )

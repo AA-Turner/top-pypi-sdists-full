@@ -49,27 +49,15 @@ class NotifyCollectionChangedEventArgs(System.EventArgs):
         ...
 
     @overload
+    def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction) -> None:
+        ...
+
+    @overload
     def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, changed_item: typing.Any) -> None:
         ...
 
     @overload
     def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, changed_item: typing.Any, index: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, new_item: typing.Any, old_item: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, new_item: typing.Any, old_item: typing.Any, index: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, changed_item: typing.Any, index: int, old_index: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction) -> None:
         ...
 
     @overload
@@ -81,11 +69,23 @@ class NotifyCollectionChangedEventArgs(System.EventArgs):
         ...
 
     @overload
+    def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, new_item: typing.Any, old_item: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, new_item: typing.Any, old_item: typing.Any, index: int) -> None:
+        ...
+
+    @overload
     def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, new_items: System.Collections.IList, old_items: System.Collections.IList) -> None:
         ...
 
     @overload
     def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, new_items: System.Collections.IList, old_items: System.Collections.IList, starting_index: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, action: System.Collections.Specialized.NotifyCollectionChangedAction, changed_item: typing.Any, index: int, old_index: int) -> None:
         ...
 
     @overload

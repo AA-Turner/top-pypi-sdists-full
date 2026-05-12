@@ -136,7 +136,7 @@ class ReasoningGraph:
 
 #### Bounded Generation ####
 
-    def generate_bounded_rung1_and_rung2(self, seed=None):
+    def generate_bonded_rung1_and_rung2(self, seed=None):
         """Generate matched Rung1 and Rung2 queries from the same seed."""
         rng = random.Random(seed)
         variables = list(self.bn.nodes())
@@ -170,7 +170,7 @@ class ReasoningGraph:
 
     def generate_bonded_rung1(self, seed=None):
         """Builds Rung1 using precomputed aligned data."""
-        self.generate_bounded_rung1_and_rung2(seed)
+        self.generate_bonded_rung1_and_rung2(seed)
 
         self.reset_inference()
         self.target = self._r1_target
@@ -179,7 +179,7 @@ class ReasoningGraph:
 
     def generate_bonded_rung2(self, seed=None):
         """Builds Rung2 using precomputed aligned data."""
-        self.generate_bounded_rung1_and_rung2(seed)
+        self.generate_bonded_rung1_and_rung2(seed)
 
         self.reset_inference()
         self.target = self._r2_target
@@ -310,7 +310,7 @@ class Rung12Config(Config):
         Whether to accept problem where no computationn only retriavial skills are necessary (mainly usefull for law level problems).
     is_verbose : bool
         Whether to use a more humanlike description of the system, or a less verbose one that describe the Bayesian Network by listing all the conditional probabilities.
-    """
+    """ 
     n_nodes: int = 3
     max_domain_size: int = 2
     edge_prob: float = 0.5
@@ -400,7 +400,9 @@ class Rung(ABC):
         self._generate_specific_problem(n_round)
         
         answer, specific_metadata = self._calculate_answer_and_metadata(n_round)
+
         cot = self.reason_graph.ie.generate_natural_language_proof(scientific_notation=self.config.cot_scientific_notation, precision=n_round, concise=self.config.concise_cot)
+
         while nan in set(eval(answer).values()): #Create another scenario if this one is probabilistically impossible.
             if self.config.graph_seed != None:
                 self.config.graph_seed += 1
@@ -414,7 +416,7 @@ class Rung(ABC):
         bif_data = writer.write_string()
 
         if 'nan' in cot: #case where the problem is tricky for concise Cot solving
-            cot = None
+            cot = ""
         
         metadata = {
             "target_var_values": target_vals,
@@ -442,7 +444,7 @@ class Rung(ABC):
             f"System:\n{system_description}\n"
             f"Observed conditions:\n{metadata['scenario']}\n"
             f"Task: Compute probability distribution for {target} (possible values: {values}).\n\n"
-            f"Output: Python dict mapping each value to its probability, rounded to {n_round} decimals.\n"
+            f"The answer is a Python dict mapping each value to its probability, rounded to {n_round} decimals.\n"
             f"Example: {{0: {round(0.123456789,n_round)}, 1: {round(0.876543211,n_round)}}}"
         )
 

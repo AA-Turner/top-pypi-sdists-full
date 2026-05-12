@@ -12,6 +12,8 @@ from packaging import version
 from typing_extensions import assert_never
 
 from ..config import Config
+from . import config
+from . import default_gpu_size
 from . import utils
 from .api import APIClient
 from .api import GPUSize
@@ -119,12 +121,18 @@ def schedule(
         message = f"Falling back to IP-based quotas ({token_error})"
         info("ZeroGPU client warning", message, level='warning')
 
+    zerogpu_config = config.get_config()
+    gpu_size = gpu_size if gpu_size is not None else default_gpu_size
+    duration_seconds = duration.seconds if duration is not None else DEFAULT_SCHEDULE_DURATION
+    if gpu_size != 'xlarge':
+        duration_seconds *= zerogpu_config['duration_factor']
+
     res, meta = api_client().schedule(
         cgroup_path=utils.self_cgroup_device_path(),
         task_id=task_id,
         token=token,
         token_version=2 if GRADIO_HANDSHAKE else 1,
-        duration_seconds=duration.seconds if duration is not None else None,
+        duration_seconds=round(duration_seconds),
         gpu_size=gpu_size,
     )
 

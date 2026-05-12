@@ -44,11 +44,11 @@ class StreamingContext:
         ...
 
     @overload
-    def __init__(self, state: System.Runtime.Serialization.StreamingContextStates, additional: typing.Any) -> None:
+    def __init__(self, state: System.Runtime.Serialization.StreamingContextStates) -> None:
         ...
 
     @overload
-    def __init__(self, state: System.Runtime.Serialization.StreamingContextStates) -> None:
+    def __init__(self, state: System.Runtime.Serialization.StreamingContextStates, additional: typing.Any) -> None:
         ...
 
     def equals(self, obj: typing.Any) -> bool:

@@ -733,7 +733,7 @@ primary_version:
         default=None,
         repr=False,
         metadata={
-            "docstring": "All active versions of the service. For multi-version services, this contains all versions with their traffic weights."
+            "docstring": "All active versions of the service with their traffic weights."
         },
     )
 

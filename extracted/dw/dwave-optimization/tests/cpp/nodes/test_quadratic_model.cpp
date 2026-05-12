@@ -129,7 +129,7 @@ TEST_CASE("QuadraticModelNode") {
             WHEN("We update the elements of the binary node and propagate") {
                 // Change to {1, 1, 1, 1, 1}
                 for (int i = 0; i < binary_node_ptr->size(); i++) {
-                    binary_node_ptr->set(state, i);
+                    binary_node_ptr->set_value(state, i, 1);
                 }
 
                 binary_node_ptr->propagate(state);
@@ -143,7 +143,7 @@ TEST_CASE("QuadraticModelNode") {
                     // Change to {0, 0, 0, 0, 0}
                     binary_node_ptr->commit(state);
                     for (int i = 0; i < binary_node_ptr->size(); i++) {
-                        binary_node_ptr->unset(state, i);
+                        binary_node_ptr->set_value(state, i, 0);
                     }
 
                     binary_node_ptr->propagate(state);
@@ -158,18 +158,20 @@ TEST_CASE("QuadraticModelNode") {
             WHEN("We update the binary node many times with relatively small effective change") {
                 // Change to {1, 1, 1, 1, 1}
                 for (int i = 0; i < binary_node_ptr->size(); i++) {
-                    binary_node_ptr->set(state, i);
-                    binary_node_ptr->unset(state, i);
+                    binary_node_ptr->set_value(state, i, 1);
+                    binary_node_ptr->set_value(state, i, 0);
                     binary_node_ptr->flip(state, i);
-                    binary_node_ptr->set(state, i);
+                    binary_node_ptr->set_value(state, i, 1);
                 }
 
                 binary_node_ptr->propagate(state);
                 qnode_ptr->propagate(state);
 
                 THEN("The number of updates in the binary node is longer than its length") {
-                    CHECK(binary_node_ptr->diff(state).size() >
-                          static_cast<size_t>(binary_node_ptr->size()));
+                    CHECK(
+                        binary_node_ptr->diff(state).size() >
+                        static_cast<size_t>(binary_node_ptr->size())
+                    );
                 }
 
                 THEN("The state of the quadratic node is changed accordingly") {
@@ -241,8 +243,10 @@ TEST_CASE("QuadraticModelNode") {
                 qnode_ptr->propagate(state);
 
                 THEN("The number of updates in the binary node is longer than its length") {
-                    CHECK(list_node_ptr->diff(state).size() >
-                          static_cast<size_t>(list_node_ptr->size()));
+                    CHECK(
+                        list_node_ptr->diff(state).size() >
+                        static_cast<size_t>(list_node_ptr->size())
+                    );
                 }
 
                 THEN("The state of the quadratic node is changed accordingly") {

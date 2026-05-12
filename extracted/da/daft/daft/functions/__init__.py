@@ -91,7 +91,8 @@ from .similarity import (
     jaccard_similarity,
 )
 
-from .file_ import file, file_path, file_size, video_file, audio_file, guess_mime_type
+from .image_file_ import image_file_metadata, decode_image_file
+from .file_ import file, file_path, file_size, video_file, audio_file, image_file, guess_mime_type
 
 from .image import (
     resize,
@@ -111,6 +112,7 @@ from .list import (
     value_counts,
     chunk,
     list_join,
+    list_flatten,
     list_count,
     list_sum,
     list_mean,
@@ -147,6 +149,7 @@ from .misc import (
     coalesce,
     get,
     map_get,
+    map_keys,
     slice,
     when,
 )
@@ -336,6 +339,7 @@ __all__ = [
     "day_of_year",
     "decode",
     "decode_image",
+    "decode_image_file",
     "decompress",
     "degrees",
     "dense_rank",
@@ -374,6 +378,8 @@ __all__ = [
     "ilike",
     "image_attribute",
     "image_channel",
+    "image_file",
+    "image_file_metadata",
     "image_hash",
     "image_height",
     "image_mode",
@@ -401,6 +407,7 @@ __all__ = [
     "list_count",
     "list_distinct",
     "list_filter",
+    "list_flatten",
     "list_join",
     "list_map",
     "list_max",
@@ -421,6 +428,7 @@ __all__ = [
     "make_timestamp",
     "make_timestamp_ltz",
     "map_get",
+    "map_keys",
     "max",
     "mean",
     "median",

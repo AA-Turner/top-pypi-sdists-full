@@ -87,6 +87,17 @@ class AgmetGeo(base.BaseGeo):
         self.logo_geoglam = self.dir_metadata / "images" / self.parser.get(
             "AGMET", "logo_geoglam"
         )
+        # When True, county-level filenames get the admin_1 (state) appended:
+        # {region}_{state}.png — needed where ADM2_NAME collides across states
+        # (e.g. Kiowa in CO/KS/OK).  Default off for backward compatibility.
+        self.filename_with_state = self.parser.getboolean(
+            "AGMET", "filename_with_state", fallback=False
+        )
+        # When True, the two corner logos are drawn on the figure.  Set False
+        # to suppress them entirely (e.g. for partner-branded reports).
+        self.show_logos = self.parser.getboolean(
+            "AGMET", "show_logos", fallback=True
+        )
 
     @staticmethod
     def _expand_eo_plot(eo_plot_raw, plot_snow_thickness=False):
@@ -509,6 +520,64 @@ def _create_district_title(obj, cal_region):
     return f"{cal_region_name} ({country_name})\n{crop_name} {obj.plot_season}"
 
 
+def _lookup_state_for_region(region, region_id, boundary_gdf):
+    """Return admin_1 (state) name for a county, or None if not resolvable.
+
+    Prefers ADM_ID match; falls back to ADM2_NAME match only when unambiguous.
+    """
+    if boundary_gdf is None or boundary_gdf.empty:
+        return None
+    adm1_col = next(
+        (c for c in ["ADM1_NAME", "ADMIN1", "name1"] if c in boundary_gdf.columns),
+        None,
+    )
+    if adm1_col is None:
+        return None
+    if region_id is not None and "ADM_ID" in boundary_gdf.columns:
+        m = boundary_gdf[boundary_gdf["ADM_ID"].astype(str) == str(region_id)]
+        if not m.empty:
+            return str(m[adm1_col].iloc[0])
+    adm2_col = next(
+        (c for c in ["ADM2_NAME", "ADMIN2"] if c in boundary_gdf.columns),
+        None,
+    )
+    if adm2_col is None:
+        return None
+    m = boundary_gdf[
+        boundary_gdf[adm2_col].astype(str).str.lower().str.replace("_", " ")
+        == str(region).replace("_", " ").lower()
+    ]
+    if len(m) >= 1:
+        # When multiple rows match by name (e.g. counties sharing ADM2_NAME
+        # across states), pick the first deterministically and warn. Returning
+        # None here would silently collapse filenames — the very collision the
+        # filename_with_state feature exists to prevent.
+        if len(m) > 1:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Ambiguous county name {region!r} matches {len(m)} rows in "
+                f"boundary file; picking {m[adm1_col].iloc[0]!r} for filename. "
+                f"Add an id_col to geobase.txt for this shapefile to disambiguate."
+            )
+        return str(m[adm1_col].iloc[0])
+    return None
+
+
+def _build_county_fname(region, region_id, with_state, boundary_gdf):
+    """Compose the per-region plot filename.
+
+    Returns ``{region}_{state}.png`` when ``with_state`` is True and a state can
+    be resolved; otherwise the legacy ``{region}.png``.
+    """
+    if not with_state:
+        return f"{region}.png"
+    state = _lookup_state_for_region(region, region_id, boundary_gdf)
+    if not state:
+        return f"{region}.png"
+    state_slug = state.lower().replace(" ", "_")
+    return f"{region}_{state_slug}.png"
+
+
 def _process_combination(obj, country, scale, crop, growing_season):
     """Process a single (country, scale, crop, growing_season) combination.
 
@@ -529,7 +598,10 @@ def _process_combination(obj, country, scale, crop, growing_season):
 
         boundary_path = obj.dir_boundary_files / obj.parser.get(obj.country, "boundary_file")
         if boundary_path.exists():
-            gdf = gpd.read_file(boundary_path, engine="pyogrio")
+            # Shared loader: applies config-driven rename (FIPS→ADM_ID etc.),
+            # Tanzania short-name fix, drops would-be-duplicate columns.
+            from geocif.utils import load_country_boundary_gdf
+            gdf = load_country_boundary_gdf(obj.parser, boundary_path)
             adm0_col = next((c for c in ["ADM0_NAME", "ADMIN0", "name0"] if c in gdf.columns), None)
             if adm0_col:
                 mask = gdf[adm0_col].str.lower().str.replace("_", " ") == country_norm
@@ -574,8 +646,21 @@ def _process_combination(obj, country, scale, crop, growing_season):
         ###############################################################
         # Loop 1: Admin-level plots (one per region)
         ###############################################################
-        for region in obj.list_regions:
+        # Iterate by (region, region_id) so counties that share a name across
+        # states (e.g. Kiowa in CO/KS/OK) get one plot per FIPS, not merged.
+        region_pairs = (
+            obj.df_ccs[["region", "region_id"]]
+            .drop_duplicates()
+            .itertuples(index=False, name=None)
+        )
+        for region, region_id in region_pairs:
             obj.setup_region(region, plot_season, "region")
+            # Narrow further by region_id (df_region currently holds all
+            # rows for the name, which is wrong when names collide).
+            obj.df_region = obj.df_region[
+                obj.df_region["region_id"] == region_id
+            ].copy()
+            obj.region_id = region_id
 
             # Skip regions with no crop calendar data
             if pd.isna(obj.date_planting):
@@ -601,6 +686,10 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 if not vals.empty:
                     region_pct = vals.iloc[0]
 
+            fname = _build_county_fname(
+                obj.region, obj.region_id, obj.filename_with_state, boundary_gdf
+            )
+
             plot.AgmetPlotter(
                 obj.df_region,
                 obj.eo_plot,
@@ -610,12 +699,14 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 logos=[obj.logo_harvest, obj.logo_geoglam],
                 dir_out=obj.dir_agmet / obj.scale_short,
                 sup_title=sup_title,
-                fname=f"{obj.region}.png",
+                fname=fname,
                 production_pct=region_pct,
                 country=obj.country,
                 region=obj.region,
+                region_id=obj.region_id,
                 boundary_gdf=boundary_gdf,
                 admin_level=obj.scale,
+                show_logos=obj.show_logos,
             ).plot()
 
         ###############################################################
@@ -731,6 +822,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     boundary_gdf=boundary_gdf,
                     highlight_gdf=highlight_gdf,
                     admin_level=obj.scale,
+                    show_logos=obj.show_logos,
                 ).plot()
 
 

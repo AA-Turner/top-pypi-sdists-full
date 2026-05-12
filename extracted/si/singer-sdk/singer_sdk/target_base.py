@@ -43,7 +43,7 @@ if t.TYPE_CHECKING:
 _MAX_PARALLELISM = 8
 
 
-class Target(BaseSingerReader, metaclass=abc.ABCMeta):
+class Target(BaseSingerReader, abc.ABC):
     """Abstract base class for targets.
 
     The `Target` class manages config information and is responsible for processing the
@@ -200,11 +200,11 @@ class Target(BaseSingerReader, metaclass=abc.ABCMeta):
         Args:
             stream_name: Name of the stream.
 
-        Raises:
-            ValueError: If no :class:`singer_sdk.sinks.Sink` class is defined.
-
         Returns:
             The sink class to be used with the stream.
+
+        Raises:
+            ValueError: If no :class:`singer_sdk.sinks.Sink` class is defined.
         """
         if self.default_sink_class:
             return self.default_sink_class
@@ -560,7 +560,7 @@ class Target(BaseSingerReader, metaclass=abc.ABCMeta):
         about_format: str | None = None,
         config: _ConfigInput | None = None,
         file_input: t.IO[str] | None = None,
-    ) -> None:
+    ) -> None:  # ty:ignore[invalid-method-override]
         """Invoke the target.
 
         Args:

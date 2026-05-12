@@ -15,7 +15,7 @@ from typing import Protocol, overload
 
 from pgqueuer.domain import models
 from pgqueuer.domain.settings import DBSettings
-from pgqueuer.domain.types import CronEntrypoint
+from pgqueuer.domain.types import CronEntrypoint, SortOrder
 from pgqueuer.ports.driver import Driver
 
 
@@ -28,16 +28,12 @@ class QueryBuilderEnvironmentPort(Protocol):
 @dataclasses.dataclass
 class EntrypointExecutionParameter:
     """
-    Job execution parameters like retry, concurrency.
+    Job execution parameters passed to dequeue.
 
     Attributes:
-        retry_after (timedelta): Time to wait before retrying.
-        serialized (bool): Whether execution is serialized.
-        concurrency_limit (int): Max number of concurrent executions.
+        concurrency_limit (int): Max number of concurrent executions (0 = unlimited).
     """
 
-    retry_after: timedelta
-    serialized: bool
     concurrency_limit: int
 
 
@@ -55,6 +51,7 @@ class QueueRepositoryPort(Protocol):
         entrypoints: dict[str, EntrypointExecutionParameter],
         queue_manager_id: uuid.UUID,
         global_concurrency_limit: int | None,
+        heartbeat_timeout: timedelta,
     ) -> list[models.Job]: ...
 
     @overload
@@ -100,6 +97,19 @@ class QueueRepositoryPort(Protocol):
         ],
     ) -> None: ...
 
+    async def retry_job(
+        self,
+        job: models.Job,
+        delay: timedelta,
+        traceback_record: models.TracebackRecord | None,
+    ) -> None: ...
+
+    async def requeue_jobs(self, ids: list[models.JobId]) -> None: ...
+
+    async def list_failed_jobs(
+        self, limit: int = 100, order: SortOrder = "DESC"
+    ) -> list[models.Job]: ...
+
     async def clear_queue(self, entrypoint: str | list[str] | None = None) -> None: ...
 
     async def queue_size(self) -> list[models.QueueStatistics]: ...
@@ -114,7 +124,7 @@ class QueueRepositoryPort(Protocol):
 
     async def log_statistics(
         self,
-        tail: int | None,
+        limit: int | None,
         last: timedelta | None = None,
     ) -> list[models.LogStatistics]: ...
 
@@ -130,6 +140,10 @@ class QueueRepositoryPort(Protocol):
 
     async def clear_statistics_log(self, entrypoint: str | list[str] | None = None) -> None:
         """Clear statistics log entries."""
+        ...
+
+    async def next_deferred_eta(self, entrypoints: list[str]) -> timedelta | None:
+        """Return time until the soonest deferred job becomes eligible, or None."""
         ...
 
 
@@ -155,7 +169,7 @@ class ScheduleRepositoryPort(Protocol):
 
     async def update_schedule_heartbeat(self, ids: set[models.ScheduleId]) -> None: ...
 
-    async def peak_schedule(self) -> list[models.Schedule]: ...
+    async def peek_schedule(self) -> list[models.Schedule]: ...
 
     async def delete_schedule(
         self,
@@ -173,8 +187,6 @@ class ScheduleRepositoryPort(Protocol):
 
 class NotificationPort(Protocol):
     """Abstraction over PostgreSQL NOTIFY for inter-process signalling."""
-
-    async def notify_entrypoint_rps(self, entrypoint_count: dict[str, int]) -> None: ...
 
     async def notify_job_cancellation(self, ids: list[models.JobId]) -> None: ...
 
@@ -207,3 +219,7 @@ class SchemaManagementPort(Protocol):
     async def table_has_index(self, table: str, index: str) -> bool: ...
 
     async def has_user_defined_enum(self, key: str, enum: str) -> bool: ...
+
+    async def has_function(self, function: str) -> bool: ...
+
+    async def has_trigger(self, trigger: str) -> bool: ...

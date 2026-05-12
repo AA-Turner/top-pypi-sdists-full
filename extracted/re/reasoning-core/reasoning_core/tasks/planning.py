@@ -6,7 +6,6 @@ from unified_planning.exceptions import UPException
 from unified_planning.io import PDDLReader, PDDLWriter
 from unified_planning.engines import PlanGenerationResult
 from pyparsing import ParseException
-import timeout_decorator
 import random
 import re
 import math
@@ -20,7 +19,6 @@ from itertools import permutations, chain
 import time
 from functools import wraps
 from traceback import format_exc
-from timeout_decorator.timeout_decorator import TimeoutError
 import warnings
 from easydict import EasyDict as edict
 from random import choice
@@ -51,6 +49,7 @@ def shutup():
     warnings.filterwarnings("ignore", message=".*not support custom heuristic*")
     warnings.filterwarnings("ignore", message=".*cannot establish whether*")
     warnings.filterwarnings("ignore", message=".*does not support timeout")
+    logging.disable(logging.INFO) 
 
 
 def combinations(lst):
@@ -515,14 +514,12 @@ class Planning(Task):
 
 
     def prompt(self, meta):
-        txt = meta.problem_english.strip()
-        txt += "\n\n[OUTPUT]"
-        
+        txt = meta.problem_english.strip()       
         if random.random() < self.config.hint_proba:
             txt += f"\nHint: Reference solution has {meta.na} actions (but it may not be optimal)."
         txt += (
-            "\nReturn only the plan."
-            "\nFormat: Multiple lines, one action per line: action(obj1, obj2)"
+            "\nThe answer is the plan."
+            "\nAnswer format: Multiple lines, one action per line: action(obj1, obj2)"
         )
         return txt
 

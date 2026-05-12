@@ -512,16 +512,6 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """
-        Added a default constructor for JSON Deserialization:
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, time: typing.Union[datetime.datetime, datetime.date], group_order_manager: QuantConnect.Orders.GroupOrderManager, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         New order constructor
@@ -551,6 +541,16 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         :param time: Time the order was placed
         :param tag: User defined data tag for this order
         :param properties: The order properties for this order
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Added a default constructor for JSON Deserialization:
+        
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -648,11 +648,6 @@ class OptionExerciseOrder(QuantConnect.Orders.Order):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         New option exercise order constructor. We model option exercising as an underlying asset long/short order with strike equal to limit price.
@@ -664,6 +659,11 @@ class OptionExerciseOrder(QuantConnect.Orders.Order):
         :param tag: User defined data tag for this order
         :param properties: The order properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Added a default constructor for JSON Deserialization:"""
         ...
 
     def clone(self) -> QuantConnect.Orders.Order:
@@ -1585,11 +1585,6 @@ class OrderEvent(System.Object):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Order Event empty constructor required for json converter"""
-        ...
-
-    @overload
     def __init__(self, order_id: int, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], utc_time: typing.Union[datetime.datetime, datetime.date], status: QuantConnect.Orders.OrderStatus, direction: QuantConnect.Orders.OrderDirection, fill_price: float, fill_quantity: float, order_fee: QuantConnect.Orders.Fees.OrderFee, message: str = ...) -> None:
         """
         Order Event Constructor.
@@ -1604,6 +1599,11 @@ class OrderEvent(System.Object):
         :param order_fee: The order fee
         :param message: Message from the exchange
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Order Event empty constructor required for json converter"""
         ...
 
     @overload
@@ -1799,11 +1799,6 @@ class StopLimitOrder(QuantConnect.Orders.Order):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         New Stop Market Order constructor -
@@ -1816,6 +1811,11 @@ class StopLimitOrder(QuantConnect.Orders.Order):
         :param tag: User defined data tag for this order
         :param properties: The order properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON Deserialization:"""
         ...
 
     def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
@@ -1978,11 +1978,6 @@ class ComboOrder(QuantConnect.Orders.Order, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, time: typing.Union[datetime.datetime, datetime.date], group_order_manager: QuantConnect.Orders.GroupOrderManager, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         New market order constructor
@@ -1994,6 +1989,11 @@ class ComboOrder(QuantConnect.Orders.Order, metaclass=abc.ABCMeta):
         :param tag: User defined data tag for this order
         :param properties: The order properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Added a default constructor for JSON Deserialization:"""
         ...
 
     def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
@@ -2014,11 +2014,6 @@ class ComboLimitOrder(QuantConnect.Orders.ComboOrder):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], group_order_manager: QuantConnect.Orders.GroupOrderManager, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         New limit order constructor
@@ -2031,6 +2026,11 @@ class ComboLimitOrder(QuantConnect.Orders.ComboOrder):
         :param tag: User defined data tag for this order
         :param properties: The order properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Added a default constructor for JSON Deserialization:"""
         ...
 
     def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
@@ -2206,11 +2206,6 @@ class ComboMarketOrder(QuantConnect.Orders.ComboOrder):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, time: typing.Union[datetime.datetime, datetime.date], group_order_manager: QuantConnect.Orders.GroupOrderManager, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         New market order constructor
@@ -2222,6 +2217,11 @@ class ComboMarketOrder(QuantConnect.Orders.ComboOrder):
         :param tag: User defined data tag for this order
         :param properties: The order properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Added a default constructor for JSON Deserialization:"""
         ...
 
     def clone(self) -> QuantConnect.Orders.Order:
@@ -2365,11 +2365,6 @@ class LimitOrder(QuantConnect.Orders.Order):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         New limit order constructor
@@ -2381,6 +2376,11 @@ class LimitOrder(QuantConnect.Orders.Order):
         :param tag: User defined data tag for this order
         :param properties: The order properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Added a default constructor for JSON Deserialization:"""
         ...
 
     def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
@@ -2556,11 +2556,6 @@ class MarketOrder(QuantConnect.Orders.Order):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, time: typing.Union[datetime.datetime, datetime.date], price: float, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         New market order constructor
@@ -2585,6 +2580,11 @@ class MarketOrder(QuantConnect.Orders.Order):
         :param tag: User defined data tag for this order
         :param properties: The order properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Added a default constructor for JSON Deserialization:"""
         ...
 
     def clone(self) -> QuantConnect.Orders.Order:
@@ -2715,11 +2715,6 @@ class StopMarketOrder(QuantConnect.Orders.Order):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         New Stop Market Order constructor -
@@ -2731,6 +2726,11 @@ class StopMarketOrder(QuantConnect.Orders.Order):
         :param tag: User defined data tag for this order
         :param properties: The order properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON Deserialization:"""
         ...
 
     def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
@@ -2857,11 +2857,6 @@ class MarketOnCloseOrder(QuantConnect.Orders.Order):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Intiializes a new instance of the MarketOnCloseOrder class."""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         Intiializes a new instance of the MarketOnCloseOrder class.
@@ -2872,6 +2867,11 @@ class MarketOnCloseOrder(QuantConnect.Orders.Order):
         :param tag: A user defined tag for the order
         :param properties: The order properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Intiializes a new instance of the MarketOnCloseOrder class."""
         ...
 
     def clone(self) -> QuantConnect.Orders.Order:
@@ -2977,18 +2977,6 @@ class OrderSizing(System.Object):
 
     @staticmethod
     @overload
-    def get_unordered_quantity(algorithm: QuantConnect.Interfaces.IAlgorithm, target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget) -> float:
-        """
-        Gets the remaining quantity to be ordered to reach the specified target quantity.
-        
-        :param algorithm: The algorithm instance
-        :param target: The portfolio target
-        :returns: The signed remaining quantity to be ordered.
-        """
-        ...
-
-    @staticmethod
-    @overload
     def get_unordered_quantity(algorithm: QuantConnect.Interfaces.IAlgorithm, target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget, security: QuantConnect.Securities.Security, account_for_fees: bool = False) -> float:
         """
         Gets the remaining quantity to be ordered to reach the specified target quantity.
@@ -2998,6 +2986,18 @@ class OrderSizing(System.Object):
         :param security: The target security
         :param account_for_fees: True for taking into account the fee's in the order quantity.
         False, otherwise.
+        :returns: The signed remaining quantity to be ordered.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_unordered_quantity(algorithm: QuantConnect.Interfaces.IAlgorithm, target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget) -> float:
+        """
+        Gets the remaining quantity to be ordered to reach the specified target quantity.
+        
+        :param algorithm: The algorithm instance
+        :param target: The portfolio target
         :returns: The signed remaining quantity to be ordered.
         """
         ...
@@ -3072,13 +3072,13 @@ class ApiOrderResponse(QuantConnect.Api.StringRepresentation):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """ApiOrderResponse empty constructor"""
+    def __init__(self, order: QuantConnect.Orders.Order, events: typing.List[QuantConnect.Orders.Serialization.SerializedOrderEvent], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """Creates an instance of an ApiOrderResponse class using the given arguments"""
         ...
 
     @overload
-    def __init__(self, order: QuantConnect.Orders.Order, events: typing.List[QuantConnect.Orders.Serialization.SerializedOrderEvent], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
-        """Creates an instance of an ApiOrderResponse class using the given arguments"""
+    def __init__(self) -> None:
+        """ApiOrderResponse empty constructor"""
         ...
 
 
@@ -3413,11 +3413,6 @@ class MarketOnOpenOrder(QuantConnect.Orders.Order):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Intiializes a new instance of the MarketOnOpenOrder class."""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         Intiializes a new instance of the MarketOnOpenOrder class.
@@ -3428,6 +3423,11 @@ class MarketOnOpenOrder(QuantConnect.Orders.Order):
         :param tag: A user defined tag for the order
         :param properties: The order properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Intiializes a new instance of the MarketOnOpenOrder class."""
         ...
 
     def clone(self) -> QuantConnect.Orders.Order:
@@ -3710,11 +3710,6 @@ class TrailingStopOrder(QuantConnect.Orders.StopMarketOrder):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, trailing_amount: float, trailing_as_percentage: bool, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         New Trailing Stop Market Order constructor
@@ -3745,6 +3740,11 @@ class TrailingStopOrder(QuantConnect.Orders.StopMarketOrder):
         :param tag: User defined data tag for this order
         :param properties: The properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON Deserialization:"""
         ...
 
     def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
@@ -3824,11 +3824,6 @@ class ComboLegLimitOrder(QuantConnect.Orders.ComboOrder):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], group_order_manager: QuantConnect.Orders.GroupOrderManager, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
         New limit order constructor
@@ -3841,6 +3836,11 @@ class ComboLegLimitOrder(QuantConnect.Orders.ComboOrder):
         :param tag: User defined data tag for this order
         :param properties: The order properties for this order
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Added a default constructor for JSON Deserialization:"""
         ...
 
     def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:

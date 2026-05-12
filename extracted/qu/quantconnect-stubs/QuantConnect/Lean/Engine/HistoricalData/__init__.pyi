@@ -163,17 +163,6 @@ class MappedSynchronizingHistoryProvider(QuantConnect.Lean.Engine.HistoricalData
     """
 
     @overload
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Sequence[QuantConnect.Data.Slice]:
-        """
-        Gets the history for the requested securities
-        
-        :param requests: The historical data requests
-        :param slice_time_zone: The time zone used when time stamping the slice instances
-        :returns: An enumerable of the slices of data covering the span specified in each request.
-        """
-        ...
-
-    @overload
     def get_history(self, request: QuantConnect.Data.HistoryRequest) -> typing.Sequence[QuantConnect.Data.BaseData]:
         """
         Gets historical data for a single resolved history request.
@@ -181,6 +170,17 @@ class MappedSynchronizingHistoryProvider(QuantConnect.Lean.Engine.HistoricalData
         
         :param request: The resolved history request.
         :returns: The historical data.
+        """
+        ...
+
+    @overload
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Sequence[QuantConnect.Data.Slice]:
+        """
+        Gets the history for the requested securities
+        
+        :param requests: The historical data requests
+        :param slice_time_zone: The time zone used when time stamping the slice instances
+        :returns: An enumerable of the slices of data covering the span specified in each request.
         """
         ...
 

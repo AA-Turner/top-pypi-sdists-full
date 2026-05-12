@@ -12,11 +12,9 @@ class QueueExecutionMode(Enum):
 
 ###### Events ######
 Channel = NewType("Channel", str)
-PGChannel = Channel  # TODO: Deprecate
 OPERATIONS = Literal["insert", "update", "delete", "truncate"]
 EVENT_TYPES = Literal[
     "table_changed_event",
-    "requests_per_second_event",
     "cancellation_event",
     "health_check_event",
 ]
@@ -31,7 +29,11 @@ JOB_STATUS = Literal[
     "canceled",
     "deleted",
     "exception",
+    "failed",
 ]
+
+OnFailure = Literal["delete", "hold"]
+SortOrder = Literal["ASC", "DESC"]
 
 
 ###### Schedules ######

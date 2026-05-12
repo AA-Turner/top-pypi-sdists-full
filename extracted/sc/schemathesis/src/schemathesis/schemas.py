@@ -16,10 +16,11 @@ from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 
 from schemathesis import transport
 from schemathesis.config import GenerationConfig, ProjectConfig
-from schemathesis.core import NOT_SET, NotSet, media_types
+from schemathesis.core import NOT_SET, Body, NotSet, media_types
 from schemathesis.core.adapter import OperationParameter, ResponsesContainer
 from schemathesis.core.errors import IncorrectUsage, InvalidSchema
 from schemathesis.core.failures import FailureGroup
+from schemathesis.core.jsonschema.types import JsonSchemaObject
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER
 from schemathesis.core.result import Ok, Result
 from schemathesis.core.spec import CoverageCapabilities
@@ -77,7 +78,7 @@ def get_full_path(base_path: str, path: str) -> str:
 
 @dataclass(eq=False)
 class BaseSchema(Mapping):
-    raw_schema: dict[str, Any]
+    raw_schema: JsonSchemaObject
     config: ProjectConfig
     location: str | None = None
     filter_set: FilterSet = field(default_factory=FilterSet)
@@ -92,6 +93,10 @@ class BaseSchema(Mapping):
         # auth on an operation the spec declares public; subsequent generations consult it instead of
         # mutating the parsed spec. Empty for schemas whose adapter doesn't run inference.
         self._inferred_security: dict[str, list[Mapping[str, list[str]]]] = {}
+        # Set by the startup probe when the server's URL decoder rejects backslash/control chars
+        # in path strings; path generation sanitizes those chars to avoid wasting budget on
+        # requests the app never sees.
+        self._path_decoder_strict: bool = False
 
     @property
     def specification(self) -> Specification:
@@ -404,7 +409,7 @@ class BaseSchema(Mapping):
         headers: dict[str, Any] | CaseInsensitiveDict | None = None,
         cookies: dict[str, Any] | None = None,
         query: dict[str, Any] | None = None,
-        body: list | dict[str, Any] | str | int | float | bool | bytes | NotSet = NOT_SET,
+        body: Body = NOT_SET,
         media_type: str | None = None,
         multipart_content_types: dict[str, str] | None = None,
         meta: CaseMetadata | None = None,
@@ -529,14 +534,16 @@ class BaseSchema(Mapping):
             base_url += "/"
         return unquote(urljoin(base_url, quote(path)))
 
-    def prepare_request_body(
-        self, body: list | dict[str, Any] | str | int | float | bool | bytes | NotSet
-    ) -> list | dict[str, Any] | str | int | float | bool | bytes | NotSet:
+    def prepare_request_body(self, body: Body) -> Body:
         """Apply spec-specific transformations to a generated body before sending."""
         return body
 
     def adapt_to_null_byte_in_header_failure(self) -> None:
         """React to the engine probe finding that null bytes in headers crash the app under test."""
+
+    def adapt_to_path_decoder_rejection(self) -> None:
+        """React to the engine probe finding that the app rejects unsafe characters in URL paths."""
+        self._path_decoder_strict = True
 
     def get_custom_format_strategies(
         self, generation_config: GenerationConfig, mode: GenerationMode
@@ -910,7 +917,7 @@ class APIOperation(Generic[P, R, S]):
         headers: dict[str, Any] | CaseInsensitiveDict | None = None,
         cookies: dict[str, Any] | None = None,
         query: dict[str, Any] | None = None,
-        body: list | dict[str, Any] | str | int | float | bool | bytes | NotSet = NOT_SET,
+        body: Body = NOT_SET,
         media_type: str | None = None,
         multipart_content_types: dict[str, str] | None = None,
         _meta: CaseMetadata | None = None,

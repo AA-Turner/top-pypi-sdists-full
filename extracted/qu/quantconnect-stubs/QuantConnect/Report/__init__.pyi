@@ -530,21 +530,21 @@ class DrawdownCollection(System.Object):
         ...
 
     @overload
+    def __init__(self, periods: int) -> None:
+        """
+        Creates an instance with a default collection (no items) and the top N worst drawdowns
+        
+        :param periods: 
+        """
+        ...
+
+    @overload
     def __init__(self, strategy_series: typing.Any, periods: int) -> None:
         """
         Creates an instance from the given drawdowns and the top N worst drawdowns
         
         :param strategy_series: Equity curve with both live and backtesting merged
         :param periods: Periods this collection contains
-        """
-        ...
-
-    @overload
-    def __init__(self, periods: int) -> None:
-        """
-        Creates an instance with a default collection (no items) and the top N worst drawdowns
-        
-        :param periods: 
         """
         ...
 

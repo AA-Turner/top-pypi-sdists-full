@@ -2,7 +2,7 @@
 # Minimum requirements for the build system to execute.
 # PEP 508 specifications for PEP 518.
 requires = [
-    "setuptools >= 61.0.0",
+    "setuptools >= 80.3.0",
     "setuptools_scm[toml]>=6.2",
     "wheel",
 ]
@@ -11,11 +11,12 @@ build-backend="setuptools.build_meta"
 [project]
 name = "SQLAlchemy-JSONField"
 description = "SQLALchemy JSONField implementation for storing dicts at SQL"
-requires-python = ">=3.7.0"
+requires-python = ">=3.9.0"
 keywords = ["sql", "sqlalchemy", "json", "jsonfield", "development"]
-license={text="Apache-2.0"}  # Use SPDX classifier
+license="Apache-2.0"  # Use SPDX classifier
+license-files=["LICENSE"]
 readme = {file = "README.rst", content-type = "text/x-rst"}
-authors=[{name="Alexey Stepanov", email="penguinolog@gmail.com"}]
+authors=[{name="Aleksei Stepanov", email="penguinolog@gmail.com"}]
 dynamic = ["version", "classifiers", "dependencies"]
 
 [project.urls]
@@ -26,7 +27,6 @@ dynamic = ["version", "classifiers", "dependencies"]
 sqlalchemy_jsonfield=[
   "py.typed",
   "*.pyi",
-  "*/*.pyi"
 ]
 
 [tool.setuptools.packages.find]
@@ -48,11 +48,6 @@ universal = 0
 
 [tool.setuptools_scm]
 write_to = "sqlalchemy_jsonfield/_version.py"
-
-[tool.black]
-line-length = 120
-safe = true
-target-version = ["py37", "py38"]
 
 [tool.isort]
 line_length = 120
@@ -140,9 +135,10 @@ pretty_print = true
 
 [tool.ruff]
 line-length = 120
-show-source = true
-target-version = "py38"
+output-format = "full"
+target-version = "py39"
 
+[tool.ruff.lint]
 extend-select = [
   "E",
   "W",  # also pycodestyle warnings
@@ -151,7 +147,7 @@ extend-select = [
   "FA",  # from __future__ import annotations
   "DTZ",  # flake8-datetimez
   "SLOT",  # flake8-slots
-  "TCH",  # flake8-type-checking
+  "TC",  # flake8-type-checking
   "PTH",  # flake8-use-pathlib
   "S",  # flake8-bandit
   "A",  # flake8-builtins
@@ -159,6 +155,7 @@ extend-select = [
   "ISC",  # flake8-implicit-str-concat
   "RET", "SIM", "C4",  # flake8-return, flake8-simplify, flake8-comprehensions
   "ICN", "PGH",  # flake8-import-conventions, pygrep-hooks
+  "TID",  # flake8-tidy-imports
   "Q",  # quotes
   "FLY",  # Flynt
   "FURB",  # Refurb
@@ -166,26 +163,31 @@ extend-select = [
 ]
 extend-ignore = [
   # refactor rules (too many statements/arguments/branches)
-  "PLR0904", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR2004",
+  "PLR0904", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR0917", "PLR2004",
   "PLR6301",  # "maybe staticmethod"
-  "PLW3201",  # Bad or misspelled dunder method name `__pretty_repr__`
   "RET504",  # Unnecessary variable assignment before return statement
   "SIM108",  # Use ternary operator,
   "TRY003",  # long messages prepare outside, ...
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "test_*.py" = ["SIM117", "PTH107", "PTH110", "PTH118"]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 force-single-line = true
 known-third-party = ["logwrap", "paramiko", "tenacity", "pyyaml", "ruamel.yaml", "psutil"]
 
-[tool.ruff.pydocstyle]
+[tool.ruff.lint.pylint]
+allow-dunder-method-names = ["__pretty_repr__", "__pretty_str__", "__rich_repr__"]
+
+[tool.ruff.lint.pydocstyle]
 convention = "pep257"
 
+[tool.ruff.format]
+docstring-code-format = true
+
 [tool.refurb]
-python_version = "3.8"
+python_version = "3.9"
 enable_all = true
 ignore = ["FURB120"]
 
@@ -193,7 +195,7 @@ ignore = ["FURB120"]
 extension-pkg-whitelist = ["lxml.etree"]
 ignore = ["CVS", "_version.py"]
 jobs = 0
-py-version = "3.8"
+py-version = "3.9"
 
 load-plugins = [
   "pylint.extensions.docparams",

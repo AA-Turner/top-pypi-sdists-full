@@ -1,12 +1,12 @@
 Metadata-Version: 2.1
 Name: cvprac
-Version: 1.4.2
+Version: 2.0.0
 Summary: Arista Cloudvision(R) Portal Rest API Client written in python
 Home-page: https://github.com/aristanetworks/cvprac
 Author: Arista Networks, Inc.
 Author-email: eosplus-dev@arista.com
 License: BSD-3
-Download-URL: https://github.com/aristanetworks/cvprac/tarball/1.4.2
+Download-URL: https://github.com/aristanetworks/cvprac/tarball/2.0.0
 Keywords: networking CloudVision development rest api
 Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
@@ -206,8 +206,8 @@ generic in this sense. If you are using the cvaas\_token parameter
 please convert to api\_token because the cvaas\_token parameter will be
 deprecated in the future.
 
-Please note that the correct regional URL where the CVaaS tenant is deployed must be used. The following are the
-cluster URLs used in production:
+Please note that the correct regional URL where the CVaaS tenant is deployed must be used. The following
+are some examples of the cluster URLs used in production, a full list can be found on [helpcenter](https://www.arista.io/help/articles/b3ZlcnZpZXcuQWxsLmRlcGxveW1lbnQ=#Y3ZhYXNEZXBsb3ltZW50-region):
 
 | Region | URL |
 |--------|-----|
@@ -221,6 +221,7 @@ cluster URLs used in production:
 !!! Warning
 
     URLs without `www` are not supported.
+
 
 ### CVP Version Handling
 

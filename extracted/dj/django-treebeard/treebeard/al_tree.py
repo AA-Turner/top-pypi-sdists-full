@@ -2,7 +2,7 @@
 
 from django.core import serializers
 from django.db import models, transaction
-from django.db.models import Max, Min
+from django.db.models import Exists, Max, Min, OuterRef
 from django.utils.translation import gettext_noop as _
 
 from treebeard.exceptions import InvalidMoveToDescendant, NodeAlreadySaved
@@ -50,7 +50,7 @@ class AL_Node(Node):
 
         newobj._cached_depth = 1
         if not cls.node_order_by:
-            max = cls.tree_model().objects.filter(parent__isnull=True).aggregate(max=Max("sib_order"))["max"] or 0
+            max = cls.tree_model().objects.filter(parent=None).aggregate(max=Max("sib_order"))["max"] or 0
             newobj.sib_order = max + 1
         newobj.save()
         return newobj
@@ -58,7 +58,7 @@ class AL_Node(Node):
     @classmethod
     def get_root_nodes(cls):
         """:returns: A queryset containing the root nodes in the tree."""
-        return cls.tree_model().objects.filter(parent__isnull=True)
+        return cls.tree_model().objects.filter(parent=None)
 
     def get_depth(self, update=False):
         """
@@ -100,10 +100,10 @@ class AL_Node(Node):
             # following the 'parent' relation
             if self.parent_id is None:
                 return None
-            else:
-                return self.__class__.objects.get(pk=self.parent_id)
-        else:
-            return self.parent
+
+            return self.__class__.objects.get(pk=self.parent_id)
+
+        return self.parent
 
     def get_ancestors(self):
         """
@@ -111,21 +111,11 @@ class AL_Node(Node):
             starting by the root node and descending to the parent.
         """
         ancestors = []
-        if self._meta.proxy_for_model:
-            # the current node is a proxy model; our result set
-            # should use the same proxy model, so we need to
-            # explicitly fetch instances of that model
-            # when following the 'parent' relation
-            cls = self.__class__
-            node = self
-            while node.parent_id:
-                node = cls.objects.get(pk=node.parent_id)
-                ancestors.insert(0, node)
-        else:
-            node = self.parent
-            while node:
-                ancestors.insert(0, node)
-                node = node.parent
+        # We use node.get_parent() instead of .parent because the method does handling of proxy models
+        node = self.get_parent()
+        while node:
+            ancestors.insert(0, node)
+            node = node.get_parent()
         return ancestors
 
     def get_root(self):
@@ -134,6 +124,15 @@ class AL_Node(Node):
         if ancestors:
             return ancestors[0]
         return self
+
+    def is_root(self):
+        return self.parent_id is None
+
+    def is_sibling_of(self, node):
+        return self.parent_id == node.parent_id
+
+    def is_child_of(self, node):
+        return self.parent_id == node.pk
 
     def is_descendant_of(self, node):
         """
@@ -205,10 +204,14 @@ class AL_Node(Node):
     @classmethod
     def _get_tree_recursively(cls, results, parent, depth):
         if parent:
-            nodes = parent.get_children()
+            qs = parent.get_children() if parent.node_has_children else cls.objects.none()
         else:
-            nodes = cls.get_root_nodes()
-        for node in nodes:
+            qs = cls.get_root_nodes()
+
+        # Annotate nodes with `node_has_children`, so that we can avoid unnecessary
+        # queries to fetch children on leaf nodes
+        qs = qs.annotate(node_has_children=Exists(cls.tree_model().objects.filter(parent=OuterRef("pk"))))
+        for node in qs:
             node._cached_depth = depth
             results.append(node)
             cls._get_tree_recursively(results, node, depth + 1)
@@ -221,6 +224,7 @@ class AL_Node(Node):
         """
         if parent:
             depth = parent.get_depth() + 1
+            parent.node_has_children = parent.get_children().exists()
             results = [parent]
         else:
             depth = 1
@@ -233,12 +237,11 @@ class AL_Node(Node):
         :returns: A *list* of all the node's descendants, doesn't
             include the node itself if `include_self` is False
         """
-        if include_self:
-            return self.__class__.get_tree(self)
-        return self.__class__.get_tree(parent=self)[1:]
+        tree = self.tree_model().get_tree(self)
+        return tree if include_self else tree[1:]
 
     def get_descendant_count(self):
-        """:returns: the number of descendants of a nodee"""
+        """:returns: the number of descendants of a node"""
         return len(self.get_descendants())
 
     def get_siblings(self):
@@ -281,15 +284,6 @@ class AL_Node(Node):
         return pos == "last-sibling" or (pos == "right" and target == target.get_last_sibling())
 
     @classmethod
-    def _make_hole_in_db(cls, min, target_node):
-        qset = cls.tree_model().objects.filter(sib_order__gte=min)
-        if target_node.is_root():
-            qset = qset.filter(parent__isnull=True)
-        else:
-            qset = qset.filter(parent=target_node.parent)
-        qset.update(sib_order=models.F("sib_order") + 1)
-
-    @classmethod
     def _make_hole_and_get_sibling_order(cls, pos, target_node):
         siblings = target_node.get_siblings()
         siblings = {
@@ -300,16 +294,17 @@ class AL_Node(Node):
         sib_order = {"left": target_node.sib_order, "right": target_node.sib_order + 1, "first-sibling": 1}[pos]
         min = siblings.aggregate(min=Min("sib_order"))["min"] or 0
         if min:
-            cls._make_hole_in_db(min, target_node)
+            cls.tree_model().objects.filter(sib_order__gte=min, parent_id=target_node.parent_id).update(
+                sib_order=models.F("sib_order") + 1
+            )
         return sib_order
 
     @classmethod
     def _get_new_sibling_order(cls, pos, target_node):
         if cls._is_target_pos_the_last_sibling(pos, target_node):
-            sib_order = target_node.get_last_sibling().sib_order + 1
-        else:
-            sib_order = cls._make_hole_and_get_sibling_order(pos, target_node)
-        return sib_order
+            return target_node.get_last_sibling().sib_order + 1
+
+        return cls._make_hole_and_get_sibling_order(pos, target_node)
 
     @transaction.atomic
     def move(self, target, pos=None):
@@ -349,23 +344,12 @@ class AL_Node(Node):
             or (pos in ("right", "last-sibling") and target == target.get_last_sibling())
             or (pos == "first-sibling" and target == target.get_first_sibling())
         ):
-            # special cases, not actually moving the node so no need to UPDATE
+            # special cases, not actually moving the node, so nothing to do
             return
 
-        if pos == "sorted-sibling":
-            if parent:
-                self.parent = parent
-            else:
-                self.parent = target.parent
-        else:
-            if sib_order:
-                self.sib_order = sib_order
-            else:
-                self.sib_order = self.__class__._get_new_sibling_order(pos, target)
-            if parent:
-                self.parent = parent
-            else:
-                self.parent = target.parent
+        self.parent = parent or target.parent
+        if pos != "sorted-sibling":  # sorted-sibling delegates to node_order_by
+            self.sib_order = sib_order or self.__class__._get_new_sibling_order(pos, target)
 
         self.save()
 

@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+from collections.abc import MutableMapping
 from contextlib import suppress
 from datetime import timedelta
 from typing import Callable
 
 import croniter
 
-from pgqueuer.adapters.persistence import queries
-from pgqueuer.core import executors, helpers, logconfig, tm
+from pgqueuer.core import executors, logconfig, tm
 from pgqueuer.domain import models
+from pgqueuer.domain.types import ScheduleId
 from pgqueuer.ports import RepositoryPort
-from pgqueuer.ports.driver import Driver
 
 
 @dataclasses.dataclass
@@ -20,47 +20,31 @@ class SchedulerManager:
     """
     Scheduler class responsible for managing and scheduling jobs using cron expressions.
 
-    This class registers job executors, maintains a schedule registry, and facilitates running
-    scheduled tasks based on cron expressions. The Scheduler interacts with the database to
-    manage task execution and state, and also handles asynchronous task management.
-
     Attributes:
-        connection (db.Driver): The database driver used for database operations.
-        shutdown (asyncio.Event): Event to signal when the Scheduler is shutting down.
-        queries (queries.Queries): Instance for executing database queries.
+        queries (RepositoryPort): Repository for schedule operations. The underlying
+            database driver is accessed via ``queries.driver``.
+        resources (MutableMapping): Shared resources propagated to scheduled task contexts.
         registry (dict[models.CronExpressionEntrypoint, executors.AbstractScheduleExecutor]):
             Registered job executors mapped to cron entrypoints and expressions.
     """
 
-    connection: Driver
+    queries: RepositoryPort
+    resources: MutableMapping = dataclasses.field(default_factory=dict)
     shutdown: asyncio.Event = dataclasses.field(
         init=False,
         default_factory=asyncio.Event,
     )
-    queries: RepositoryPort = dataclasses.field(default=None)  # type: ignore[assignment]
     registry: dict[models.CronExpressionEntrypoint, executors.AbstractScheduleExecutor] = (
         dataclasses.field(
             init=False,
             default_factory=dict,
         )
     )
+    active_heartbeat_ids: set[ScheduleId] = dataclasses.field(
+        init=False,
+        default_factory=set,
+    )
 
-    def __post_init__(self) -> None:
-        """
-        Initialize the Scheduler after dataclass fields have been set.
-
-        Sets up the  instance using the provided database connection
-        when no queries instance was injected.
-        """
-        if self.queries is None:
-            self.queries = queries.Queries(self.connection)
-
-    # TODO: Propagate shared 'resources' mapping into scheduled job execution.
-    # Consider approaches:
-    #   A) Allow schedule functions to optionally accept (schedule, resources)
-    #      via arity inspection (backward compatible).
-    #   B) Introduce a ScheduleContext dataclass with a .resources field mirroring job Context.
-    # Current workaround: users close over PgQueuer.resources when defining scheduled functions.
     def schedule(
         self,
         entrypoint: str,
@@ -71,7 +55,8 @@ class SchedulerManager:
         ]
         | None = None,
         clean_old: bool = False,
-    ) -> Callable[[executors.AsyncCrontab], executors.AsyncCrontab]:
+        accepts_context: bool = False,
+    ) -> Callable[[executors.ScheduleCrontab], executors.ScheduleCrontab]:
         """
         Register a new job with a cron schedule.
 
@@ -94,7 +79,7 @@ class SchedulerManager:
         if not croniter.croniter.is_valid(expression):
             raise ValueError(f"Invalid cron expression: {expression}")
 
-        expression = models.CronExpression(helpers.normalize_cron_expression(expression))
+        expression = models.CronExpression(" ".join(croniter.croniter(expression).expressions))
         entrypoint = models.CronEntrypoint(entrypoint)
 
         key = models.CronExpressionEntrypoint(
@@ -108,18 +93,14 @@ class SchedulerManager:
 
         executor_factory = executor_factory or executors.ScheduleExecutor
 
-        def register(func: executors.AsyncCrontab) -> executors.AsyncCrontab:
+        def register(func: executors.ScheduleCrontab) -> executors.ScheduleCrontab:
             self.registry[key] = executor_factory(
                 executors.ScheduleExecutorFactoryParameters(
                     entrypoint=entrypoint,
                     expression=expression,
                     func=func,
                     clean_old=clean_old,
-                    # Deprecated -- still passed so custom executors
-                    # keep working during the deprecation window.
-                    connection=self.connection,
-                    queries=self.queries,
-                    shutdown=self.shutdown,
+                    accepts_context=accepts_context,
                 )
             )
             return func
@@ -153,8 +134,9 @@ class SchedulerManager:
 
         async with (
             tm.TaskManager() as task_manager,
-            self.connection,
+            self.queries.driver,
         ):
+            task_manager.add(asyncio.create_task(self._heartbeat_loop()))
             while not self.shutdown.is_set():
                 scheduled = await self.queries.fetch_schedule(
                     {k: v.next_in() for k, v in self.registry.items()}
@@ -170,7 +152,6 @@ class SchedulerManager:
                                     )
                                 ],
                                 schedule,
-                                task_manager,
                             ),
                         )
                     )
@@ -192,7 +173,6 @@ class SchedulerManager:
         self,
         executor: executors.AbstractScheduleExecutor,
         schedule: models.Schedule,
-        task_manager: tm.TaskManager,
     ) -> None:
         """
         Dispatch a scheduled job for execution.
@@ -202,25 +182,17 @@ class SchedulerManager:
                 responsible for running the job.
             schedule (models.Schedule): The schedule object containing details
                 of the job to be executed.
-            task_manager (tm.TaskManager): The task manager to manage the
-                execution tasks.
         """
         logconfig.logger.debug(
             "Dispatching entrypoint/expression: %s/%s",
             schedule.entrypoint,
             schedule.expression,
         )
-        shutdown = asyncio.Event()
 
-        async def heartbeat() -> None:
-            while not shutdown.is_set() and not self.shutdown.is_set():
-                await self.queries.update_schedule_heartbeat({schedule.id})
-                await asyncio.sleep(1)
-
-        task_manager.add(asyncio.create_task(heartbeat()))
-
+        self.active_heartbeat_ids.add(schedule.id)
+        context = models.ScheduleContext(resources=self.resources)
         try:
-            await executor.execute(schedule)
+            await executor.execute(schedule, context)
         except Exception:
             logconfig.logger.exception(
                 "Exception while processing entrypoint/expression: %s/%s",
@@ -234,7 +206,20 @@ class SchedulerManager:
                 schedule.expression,
             )
         finally:
-            shutdown.set()
+            self.active_heartbeat_ids.discard(schedule.id)
             await asyncio.shield(
                 self.queries.set_schedule_queued({schedule.id}),
             )
+
+    async def _heartbeat_loop(self) -> None:
+        """Send batched heartbeat updates for all active schedules."""
+        while not self.shutdown.is_set():
+            if self.active_heartbeat_ids:
+                await self.queries.update_schedule_heartbeat(
+                    set(self.active_heartbeat_ids),
+                )
+            with suppress(TimeoutError, asyncio.TimeoutError):
+                await asyncio.wait_for(
+                    self.shutdown.wait(),
+                    timeout=1.0,
+                )

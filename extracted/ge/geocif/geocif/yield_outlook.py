@@ -62,8 +62,6 @@ def _load_shapefiles(parser):
         dg: Combined GeoDataFrame with 'Country Region' merge column.
         dict_config: Per country_crop config dict with method, crops, models, etc.
     """
-    from geoprepare.georegion import get_boundary_col_mapping
-
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
     dir_boundary_files = Path(parser.get("PATHS", "dir_boundary_files"))
     pool_countries = parser.getboolean("ML", "pool_countries", fallback=False)
@@ -85,23 +83,12 @@ def _load_shapefiles(parser):
                 "admin_zone": admin_zone,
             }
 
-        # Load shapefile
+        # Load + standardize shapefile via shared helper (Tanzania fix etc.)
+        from geocif.utils import load_country_boundary_gdf
         shp_file = parser.get(country, "boundary_file")
-        dg_country = gpd.read_file(
-            dir_boundary_files / shp_file,
-            engine="pyogrio",
+        dg_country = load_country_boundary_gdf(
+            parser, dir_boundary_files / shp_file
         )
-
-        # Rename columns using config-driven mapping
-        rename = get_boundary_col_mapping(parser, shp_file)
-        targets = set(rename.values())
-        sources = set(rename.keys())
-        conflicting = [
-            c for c in dg_country.columns if c in targets and c not in sources
-        ]
-        if conflicting:
-            dg_country = dg_country.drop(columns=conflicting)
-        dg_country = dg_country.rename(columns=rename)
 
         if "ADM0_NAME" not in dg_country.columns:
             dg_country.loc[:, "ADM0_NAME"] = country.title().replace("_", " ")
@@ -1065,15 +1052,82 @@ def _plot_feature_selection_by_stage(df_features, country, crop, model, dir_outl
         f"Feature selection plots saved: {dir_plots}, CSV: {dir_csvs}"
     )
 
-    # --- Lead-time value heatmap (FLDAS + S2S leads only) ---
+    # --- Lead-time value heatmap (FLDAS + S2S leads, one row per lead) ---
     _plot_lead_time_value(df_long, stages_sorted, friendly_labels, n_pre,
                           base_title, country, crop, model, dir_plots, dir_csvs)
+
+    # --- Variable-level heatmaps: aggregate leads, one row per variable ---
+    # Separate heatmaps per source so the variable names (FLDAS soil moisture/
+    # precip/temp/evap/TWS vs S2S t2m/tprate) stay legible.
+    for source in ("FLDAS", "S2S"):
+        _plot_variable_value_by_source(
+            df_long, stages_sorted, friendly_labels, n_pre,
+            base_title, country, crop, model, dir_plots, dir_csvs, source,
+        )
+
+
+def _render_feature_heatmap(
+    df_pivot, row_labels, stages_sorted, friendly_labels, n_pre,
+    *, title, cbar_label, output_path,
+):
+    """Render a (rows x stages) heatmap with the project's standard styling.
+
+    Shared by ``_plot_lead_time_value`` and ``_plot_variable_value_by_source``.
+    Zero-count cells render as white; non-zero cells are annotated with the
+    integer count; a dashed vertical line separates pre-season from in-season.
+    """
+    import matplotlib.pyplot as plt
+
+    with plt.style.context(["science", "no-latex"]):
+        fig, ax = plt.subplots(figsize=(
+            max(10, len(stages_sorted) * 0.9),
+            max(3, len(row_labels) * 0.6),
+        ))
+        data = df_pivot.values.astype(float)
+        masked = np.ma.masked_where(data == 0, data)
+        vmax = max(data.max(), 1)
+        cmap_heat = plt.cm.get_cmap("YlGnBu").copy()
+        cmap_heat.set_bad(color="white")
+
+        im = ax.imshow(masked, aspect="auto", cmap=cmap_heat,
+                       vmin=1, vmax=vmax, interpolation="nearest")
+
+        ax.set_xticks(range(len(df_pivot.columns)))
+        ax.set_xticklabels(
+            [friendly_labels[stages_sorted.index(s)] for s in df_pivot.columns],
+            rotation=45, ha="right", fontsize=8,
+        )
+        ax.set_yticks(range(len(row_labels)))
+        ax.set_yticklabels(row_labels, fontsize=8)
+        ax.tick_params(axis="both", which="both", length=0)
+
+        for i in range(len(row_labels) + 1):
+            ax.axhline(y=i - 0.5, color="#e0e0e0", linewidth=0.5)
+        for j in range(len(df_pivot.columns) + 1):
+            ax.axvline(x=j - 0.5, color="#e0e0e0", linewidth=0.5)
+
+        for i in range(len(row_labels)):
+            for j in range(len(df_pivot.columns)):
+                val = data[i, j]
+                if val > 0:
+                    ax.text(j, i, str(int(val)), ha="center", va="center",
+                            fontsize=7,
+                            color="white" if val > vmax / 2 else "black")
+
+        if 0 < n_pre < len(df_pivot.columns):
+            ax.axvline(x=n_pre - 0.5, color="gray", linestyle="--", linewidth=1.2)
+
+        ax.set_title(title)
+        plt.colorbar(im, ax=ax, label=cbar_label, shrink=0.8)
+        plt.tight_layout()
+
+        fig.savefig(output_path, dpi=250, bbox_inches="tight")
+        plt.close(fig)
 
 
 def _plot_lead_time_value(df_long, stages_sorted, friendly_labels, n_pre,
                           base_title, country, crop, model, dir_plots, dir_csvs):
     """Heatmap showing which FLDAS/S2S lead times are selected at each stage."""
-    import matplotlib.pyplot as plt
     import re
 
     # Filter to FLDAS/S2S features only
@@ -1093,7 +1147,6 @@ def _plot_lead_time_value(df_long, stages_sorted, friendly_labels, n_pre,
     if df_fc.empty:
         return
 
-    # Pivot: count per (stage, lead)
     df_pivot = (
         df_fc.groupby(["Stage Name", "Lead"])
         .size()
@@ -1112,62 +1165,91 @@ def _plot_lead_time_value(df_long, stages_sorted, friendly_labels, n_pre,
     sorted_leads = sorted(df_pivot.index, key=_lead_sort)
     df_pivot = df_pivot.loc[sorted_leads]
 
-    with plt.style.context(["science", "no-latex"]):
-        fig, ax = plt.subplots(figsize=(max(10, len(stages_sorted) * 0.9), 6))
-
-        data = df_pivot.values.astype(float)
-        masked = np.ma.masked_where(data == 0, data)
-        vmax = max(data.max(), 1)
-        cmap_heat = plt.cm.get_cmap("YlGnBu").copy()
-        cmap_heat.set_bad(color="white")
-
-        im = ax.imshow(masked, aspect="auto", cmap=cmap_heat, vmin=1, vmax=vmax,
-                        interpolation="nearest")
-
-        ax.set_xticks(range(len(df_pivot.columns)))
-        ax.set_xticklabels(
-            [friendly_labels[stages_sorted.index(s)] for s in df_pivot.columns],
-            rotation=45, ha="right", fontsize=8
-        )
-        ax.set_yticks(range(len(sorted_leads)))
-        ax.set_yticklabels(sorted_leads, fontsize=8)
-        ax.tick_params(axis="both", which="both", length=0)
-
-        # Gridlines
-        for i in range(len(sorted_leads) + 1):
-            ax.axhline(y=i - 0.5, color="#e0e0e0", linewidth=0.5)
-        for j in range(len(df_pivot.columns) + 1):
-            ax.axvline(x=j - 0.5, color="#e0e0e0", linewidth=0.5)
-
-        # Annotate
-        for i in range(len(sorted_leads)):
-            for j in range(len(df_pivot.columns)):
-                val = data[i, j]
-                if val > 0:
-                    ax.text(j, i, str(int(val)), ha="center", va="center",
-                            fontsize=7, color="white" if val > vmax / 2 else "black")
-
-        if 0 < n_pre < len(df_pivot.columns):
-            ax.axvline(x=n_pre - 0.5, color="gray", linestyle="--", linewidth=1.2)
-
-        ax.set_title(f"Forecast Lead Times Selected — {base_title}")
-        plt.colorbar(im, ax=ax, label="# times selected", shrink=0.8)
-        plt.tight_layout()
-
-        fig.savefig(dir_plots / f"lead_time_heatmap_{country}_{crop}_{model}.png",
-                    dpi=250, bbox_inches="tight")
-        plt.close(fig)
+    _render_feature_heatmap(
+        df_pivot, sorted_leads, stages_sorted, friendly_labels, n_pre,
+        title=f"Forecast Lead Times Selected — {base_title}",
+        cbar_label="# times selected",
+        output_path=dir_plots / f"lead_time_heatmap_{country}_{crop}_{model}.png",
+    )
 
     # CSV
     df_lead_csv = (
         df_fc.groupby(["Stage Name", "Lead"])
-        .agg(Count=("Feature", "size"), Variables=("Feature", lambda x: "; ".join(sorted(set(x)))))
+        .agg(Count=("Feature", "size"),
+             Variables=("Feature", lambda x: "; ".join(sorted(set(x)))))
         .reset_index()
     )
     stage_order = {s: i for i, s in enumerate(stages_sorted)}
     df_lead_csv["_order"] = df_lead_csv["Stage Name"].map(stage_order)
     df_lead_csv = df_lead_csv.sort_values(["_order", "Lead"]).drop(columns="_order")
     df_lead_csv.to_csv(dir_csvs / f"lead_time_by_stage_{country}_{crop}_{model}.csv", index=False)
+
+
+def _plot_variable_value_by_source(df_long, stages_sorted, friendly_labels, n_pre,
+                                   base_title, country, crop, model,
+                                   dir_plots, dir_csvs, source):
+    """Heatmap: leads summed per variable, one row per variable, for one source.
+
+    ``source`` is "FLDAS" or "S2S".  Reveals which physical variables (soil
+    moisture / precip / temperature / evap / TWS for FLDAS; t2m / tprate
+    for S2S) the model leans on as the season progresses, irrespective of
+    which lead horizon supplied them.
+    """
+    import re
+
+    df_src = df_long[df_long["CID Type"] == source].copy()
+    if df_src.empty:
+        return
+
+    # Capture the variable name between the source tag and the LEAD suffix.
+    var_re = re.compile(rf"{source}_(.+?)_LEAD\d+")
+
+    def _parse_var(feat):
+        m = var_re.search(feat)
+        return m.group(1) if m else None
+
+    df_src["Variable"] = df_src["Feature"].apply(_parse_var)
+    df_src = df_src.dropna(subset=["Variable"])
+    if df_src.empty:
+        return
+
+    df_pivot = (
+        df_src.groupby(["Stage Name", "Variable"])
+        .size()
+        .reset_index(name="Count")
+        .pivot_table(index="Variable", columns="Stage Name",
+                     values="Count", fill_value=0)
+    )
+    df_pivot = df_pivot[[s for s in stages_sorted if s in df_pivot.columns]]
+    df_pivot = df_pivot.sort_index()
+
+    _render_feature_heatmap(
+        df_pivot, list(df_pivot.index), stages_sorted, friendly_labels, n_pre,
+        title=f"{source} Variables Selected (all leads aggregated) — {base_title}",
+        cbar_label="# times selected (summed across leads)",
+        output_path=dir_plots /
+            f"variable_{source.lower()}_heatmap_{country}_{crop}_{model}.png",
+    )
+
+    # CSV: include which leads contributed, for traceability
+    lead_re = re.compile(r"LEAD\d+")
+
+    def _leads(features):
+        leads = {lead_re.search(f).group() for f in features if lead_re.search(f)}
+        return "; ".join(sorted(leads))
+
+    df_var_csv = (
+        df_src.groupby(["Stage Name", "Variable"])
+        .agg(Count=("Feature", "size"), Leads=("Feature", _leads))
+        .reset_index()
+    )
+    stage_order = {s: i for i, s in enumerate(stages_sorted)}
+    df_var_csv["_order"] = df_var_csv["Stage Name"].map(stage_order)
+    df_var_csv = df_var_csv.sort_values(["_order", "Variable"]).drop(columns="_order")
+    df_var_csv.to_csv(
+        dir_csvs / f"variable_{source.lower()}_by_stage_{country}_{crop}_{model}.csv",
+        index=False,
+    )
 
 
 def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
@@ -1640,14 +1722,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             _use_cids = ast.literal_eval(parser.get("DEFAULT", "use_cids", fallback="['all']"))
         except (ValueError, SyntaxError):
             _use_cids = ["all"]
-        _has_forecast = (
-            "all" in _use_cids
-            or any(c in ("FLDAS", "S2S") for c in _use_cids)
-        )
-        _forecast_only = (
-            "all" not in _use_cids
-            and all(c in ("FLDAS", "S2S") for c in _use_cids)
-        )
+        from geocif.utils import is_forecast_only, has_forecast
+        _has_forecast = has_forecast(_use_cids)
+        _forecast_only = is_forecast_only(_use_cids)
 
         if run_time_steps == "auto":
             if _forecast_only:

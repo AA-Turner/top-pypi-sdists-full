@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from pydantic import ValidationError
 from rapidata.api_client.lazy_model import LazyValidatedModel
@@ -30,7 +30,8 @@ class UpdateBenchmarkEndpointInput(LazyValidatedModel):
     """ # noqa: E501
     name: Optional[StrictStr] = Field(default=None, description="The new name of the benchmark.")
     is_public: Optional[StrictBool] = Field(default=None, description="Whether the benchmark should be public (only admins can change this).", alias="isPublic")
-    __properties: ClassVar[List[str]] = ["name", "isPublic"]
+    initial_boost_level: Optional[StrictInt] = Field(default=None, description="Initial boost level applied to the campaign of every run created from this benchmark.  Admins may set any value the validator allows (0-10) or null to clear the  override; non-admins are restricted to  0.. and may not clear  it. Both restrictions are enforced by  with a 403 on  violation.", alias="initialBoostLevel")
+    __properties: ClassVar[List[str]] = ["name", "isPublic", "initialBoostLevel"]
 
     # model_config is inherited from LazyValidatedModel
 
@@ -67,6 +68,11 @@ class UpdateBenchmarkEndpointInput(LazyValidatedModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if initial_boost_level (nullable) is None
+        # and model_fields_set contains the field
+        if self.initial_boost_level is None and "initial_boost_level" in self.model_fields_set:
+            _dict['initialBoostLevel'] = None
+
         return _dict
 
     @classmethod
@@ -80,7 +86,8 @@ class UpdateBenchmarkEndpointInput(LazyValidatedModel):
 
         _data = {
             "name": obj.get("name"),
-            "isPublic": obj.get("isPublic")
+            "isPublic": obj.get("isPublic"),
+            "initialBoostLevel": obj.get("initialBoostLevel")
         }
         try:
             _obj = cls.model_validate(_data)

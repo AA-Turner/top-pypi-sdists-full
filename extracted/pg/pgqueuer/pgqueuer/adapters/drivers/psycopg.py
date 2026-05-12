@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from typing_extensions import Self
 
+from pgqueuer.core import logconfig
 from pgqueuer.core.tm import TaskManager
 from pgqueuer.ports.driver import Driver, SyncDriver
 
@@ -78,12 +79,17 @@ class PsycopgDriver(Driver):
         await cursor.execute(query, args or None)
         return cursor.statusmessage or ""
 
+    async def notify(self, channel: str, payload: str) -> None:
+        await self.execute("SELECT pg_notify($1, $2)", channel, payload)
+
     async def add_listener(
         self,
         channel: str,
         callback: Callable[[str | bytes | bytearray], None],
     ) -> None:
-        await self._connection.execute(f"LISTEN {channel};")
+        if not channel.isidentifier():
+            raise ValueError(f"Invalid channel name: {channel!r}")
+        await self._connection.execute(f"LISTEN {channel}")
 
         async def notify_watcher() -> None:
             while not self.shutdown.is_set():
@@ -91,7 +97,13 @@ class PsycopgDriver(Driver):
                     timeout=1.0,
                     stop_after=1,
                 ):
-                    callback(note.payload)
+                    try:
+                        callback(note.payload)
+                    except Exception:
+                        logconfig.logger.exception(
+                            "Unhandled error in NOTIFY callback for channel %s",
+                            channel,
+                        )
 
         self._tm.add(
             asyncio.create_task(

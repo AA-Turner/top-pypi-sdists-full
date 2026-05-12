@@ -1654,6 +1654,36 @@ _ptk_app: object | None = None  # Captured on the main thread for bg invalidatio
 _validation_gen: int = 0  # Generation token — incremented on each new input
 
 
+def _is_plugin_mode():
+    """True when XonshLexer should fall back to optimistic tokens
+    instead of marking unknown ``$VAR`` / commands / ``@()`` names as
+    Error.
+
+    Two triggers:
+
+    * **No live session** — the lexer is loaded as a pygments entry
+      point by Sphinx, nbconvert, jupyter console, etc., none of which
+      call ``xonsh.main.setup()``.  ``XSH.commands_cache`` is None,
+      ``XSH.env`` is the mock ``{}`` set by ``XonshLexer.__init__``,
+      ``XSH.ctx`` is None — every runtime check fails by default and
+      the rendered output ends up flooded with red Error markers.
+
+    * **Explicit opt-in via** ``XonshLexer.docs_mode`` — covers the
+      case where xonsh *is* fully bootstrapped (so ``commands_cache``
+      is set) but the lexer is still being used for offline rendering
+      rather than a live prompt: typically a Sphinx ``conf.py`` that
+      imports xonsh modules during configuration, after which
+      ``XSH.env`` is the build host's environment and any ``$VAR``
+      not present there (``$LD_LIBRARY_PATH``, project-specific vars,
+      …) would otherwise be marked as Error in the rendered docs.
+
+    Typo-detection Error tokens are an interactive-shell feature; when
+    the renderer is offline there is no user to react to the red
+    underline, so the markers add visual noise without value.
+    """
+    return XonshLexer.docs_mode or getattr(XSH, "commands_cache", None) is None
+
+
 @events.on_pre_prompt
 def _clear_cmd_caches(**kwargs):
     global _validation_gen
@@ -1830,6 +1860,9 @@ def _at_bracket_name_cb(_, match):
     name = match.group()
     if _at_bracket_check:
         _at_bracket_check = False
+        if _is_plugin_mode():
+            yield match.start(), Name, name
+            return
         ctx = getattr(XSH, "ctx", None) or {}
         found = name in ctx or hasattr(builtins, name) or iskeyword(name)
         yield match.start(), Name if found else Error, name
@@ -1849,7 +1882,7 @@ def _env_var_cb(_, match):
     text = match.group()
     name = text[1:]  # strip leading $
     env = getattr(XSH, "env", None)
-    found = env is not None and name in env
+    found = (env is not None and name in env) or _is_plugin_mode()
     yield match.start(), Name.Variable if found else Error, text
 
 
@@ -1858,7 +1891,8 @@ def subproc_cmd_callback(_, match):
     otherwise fallback to fallback lexer.
     """
     cmd = match.group()
-    yield match.start(), Name.Builtin if _command_is_valid(cmd) else Error, cmd
+    valid = _is_plugin_mode() or _command_is_valid(cmd)
+    yield match.start(), Name.Builtin if valid else Error, cmd
 
 
 def subproc_arg_callback(_, match):
@@ -1884,6 +1918,12 @@ class XonshLexer(Python3Lexer):
     name = "Xonsh lexer"
     aliases = ["xonsh", "xsh"]
     filenames = ["*.xsh", "*xonshrc"]
+
+    # Class-level opt-in for offline renderers (Sphinx conf.py,
+    # nbconvert wrappers, …): when True, callbacks bypass the live-env
+    # checks and emit the optimistic token instead of Error.  See
+    # ``_is_plugin_mode`` for the full rationale.
+    docs_mode: bool = False
 
     def __init__(self, *args, **kwargs):
         # If the lexer is loaded as a pygment plugin, we have to mock
@@ -2062,7 +2102,18 @@ class XonshLexer(Python3Lexer):
 
     def get_tokens_unprocessed(self, text, **_):
         """Check first command, then call super.get_tokens_unprocessed
-        with root or subproc state"""
+        with root or subproc state.
+
+        Plugin mode (no live session — Sphinx, nbconvert, jupyter) keeps
+        the original strict check here on purpose: ``_command_is_valid``
+        rejects keywords, so a Python source line like ``from foo import
+        bar`` correctly falls through to root state and is highlighted as
+        Python.  Treating *every* leading token as a valid command would
+        switch the lexer into ``subproc`` state for any input whose first
+        non-whitespace character matches ``COMMAND_TOKEN_RE`` (including
+        ``#`` for plain comments), wrecking highlighting for the rest of
+        the file.
+        """
         start = 0
         state = ("root",)
         m = re.match(rf"(\s*)({COMMAND_TOKEN_RE})", text)

@@ -6,11 +6,26 @@ from ..abc import Manager
 
 from ._context import ContextManager
 
-from typing import Any, Callable, TypeAlias, Type, ClassVar
+from typing import Any, Callable, TypeAlias, Type, ClassVar, Iterable
 
 # ======================================== LISTENER ========================================
 class Listener:
-    """Représente un listener d'entrée utilisateur"""
+    """Représente un listener d'entrée utilisateur
+    
+    Args:
+        callback: fonction d'action
+        args: arguments à passer au callback
+        kwargs: arguments nommés à passer au callback
+        priority: priorité d'appel
+        remove_fn: token de suppression
+        up: action au relâchement
+        once: suppression automatique à l'action
+        repeat: répétition au maintient
+        give_key: passer la clé de l'action au callback
+        exclude: clés ignorés *(si when_any)*
+        any_of: clés valides *(si when_all_of)*
+        keys: clés requies *(si when_all)*
+    """
     __slots__ = (
         "callback", "args", "kwargs",
         "up", "condition", "once", "repeat", "priority", "give_key", "exclude",
@@ -21,7 +36,7 @@ class Listener:
     def __init__(
             self,
             callback: Callable,
-            args: list,
+            args: Iterable,
             kwargs: dict,
             priority: int,
             remove_fn: Callable,
@@ -35,21 +50,24 @@ class Listener:
             any_of: set = None,
             keys: set = None,
         ):
-        self.callback = callback
-        self.args = args
-        self.kwargs = kwargs
-        self.priority = priority
-        self.up = up
-        self.condition = condition
-        self.once = once
-        self.repeat = repeat
-        self.give_key = give_key
-        self.exclude = exclude or set()
-        self.any_of = any_of or set()
-        self.keys = keys or set()
-        self._enabled = True
-        self._active = True
-        self._remove_fn = remove_fn
+        # Attribut publiques
+        self.callback: Callable = callback
+        self.args: list = args
+        self.kwargs: dict = kwargs
+        self.priority: int = priority
+        self.up: bool = up
+        self.condition: Callable[[], bool] = condition
+        self.once: bool = once
+        self.repea: bool = repeat
+        self.give_key: bool = give_key
+        self.exclude: set = exclude or set()
+        self.any_of: set = any_of or set()
+        self.keys: set = keys or set()
+
+        # Attributs internes
+        self._enabled: bool = True
+        self._active: bool = True
+        self._remove_fn: Callable[[], Any] = remove_fn
 
     # ======================================== PREDICATES ========================================
     def is_enabled(self) -> bool:
@@ -77,7 +95,11 @@ class Listener:
 
     # ======================================== HELPERS ========================================
     def _fire(self, event_id: int = None) -> None:
-        """Appelle le callback avec les arguments enregistrés"""
+        """Appelle le callback avec les arguments enregistrés
+        
+        Args:
+            event_id: identifiant de l'événement
+        """
         kw = dict(self.kwargs)
         if self.give_key and event_id is not None:
             kw["key"] = event_id
@@ -87,7 +109,11 @@ class Listener:
 
 # ======================================== GESTIONNAIRE ========================================
 class InputsManager(Manager):
-    """Gestionnaire des entrées utilisateur"""
+    """Gestionnaire des entrées utilisateur
+    
+    Args:
+        context_manager: ``Manager`` gérant le contexte d'initialisation
+    """
     __slots__ = (
         "_listeners", "_any_listeners", "_any_of_listeners", "_all_of_listeners",
         "_triggered_combos",
@@ -96,7 +122,7 @@ class InputsManager(Manager):
     _ID: ClassVar[str] = "inputs"
 
     Input: TypeAlias = int
-    Listener: ClassVar[Type[Listener]] = Listener
+    Listener: Type[Listener] = Listener
 
     def __init__(self, context_manager: ContextManager):
         # Initialisation du gestionnaire
@@ -474,6 +500,7 @@ class InputsManager(Manager):
 
 # ======================================== EXPORTS ========================================
 __all__ = [
-    "InputsManager",
     "Listener",
+
+    "InputsManager",
 ]

@@ -17,6 +17,8 @@ from cpython.object cimport (
     PyObject_RichCompare,
 )
 
+from pandas._libs.tslibs.offsets cimport to_offset
+
 import numpy as np
 
 cimport numpy as cnp
@@ -482,12 +484,14 @@ def array_to_timedelta64(
                 if item == NPY_NAT:
                     ival = NPY_NAT
                 else:
-                    ival = _numeric_to_td64ns(item, parsed_unit, int_reso)
+                    # GH#65150 match the pattern in tslib.pyx: update creso
+                    #  first, then convert using creso as the output resolution.
                     item_reso = int_reso
-
                     state.update_creso(item_reso)
                     if infer_reso:
                         creso = state.creso
+
+                    ival = _numeric_to_td64ns(item, parsed_unit, creso)
 
             elif is_float_object(item):
                 int_item = int(item)
@@ -499,20 +503,19 @@ def array_to_timedelta64(
                     if item == NPY_NAT:
                         ival = NPY_NAT
                     else:
-                        ival = _numeric_to_td64ns(item, parsed_unit, int_reso)
                         item_reso = int_reso
-
                         state.update_creso(item_reso)
                         if infer_reso:
                             creso = state.creso
-                else:
-                    ival = _numeric_to_td64ns(item, parsed_unit, NPY_FR_ns)
 
+                        ival = _numeric_to_td64ns(item, parsed_unit, creso)
+                else:
                     item_reso = NPY_FR_ns
-                    int_reso = NPY_FR_ns
                     state.update_creso(item_reso)
                     if infer_reso:
                         creso = state.creso
+
+                    ival = _numeric_to_td64ns(item, parsed_unit, creso)
 
             else:
                 raise TypeError(f"Invalid type for timedelta scalar: {type(item)}")
@@ -2321,17 +2324,24 @@ class Timedelta(_Timedelta):
     @cython.cdivision(True)
     def _round(self, freq, mode):
         cdef:
-            int64_t result, unit
+            int64_t result, nanos
             ndarray[int64_t] arr
+        freq_arg = freq
+        freq = to_offset(freq, is_period=False)
+        nanos = get_unit_for_round(freq, self._creso)
+        if nanos == 0:
+            if freq.nanos == 0:
+                raise ValueError("Division by zero in rounding")
 
-        unit = get_unit_for_round(freq, self._creso)
+            # e.g. self.unit == "s" and sub-second freq
+            return self
 
         arr = np.array([self._value], dtype="i8")
         try:
-            result = round_nsint64(arr, mode, unit)[0]
+            result = round_nsint64(arr, mode, nanos)[0]
         except OverflowError as err:
             raise OutOfBoundsTimedelta(
-                f"Cannot round {self} to freq={freq} without overflow"
+                f"Cannot round {self} to freq={freq_arg} without overflow"
             ) from err
         return Timedelta._from_value_and_reso(result, self._creso)
 

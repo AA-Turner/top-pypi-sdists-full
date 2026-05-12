@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nutpie
-Version: 0.16.9
+Version: 0.16.10
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

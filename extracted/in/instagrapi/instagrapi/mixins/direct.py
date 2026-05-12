@@ -6,7 +6,12 @@ import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from instagrapi.exceptions import ClientError, ClientNotFoundError, DirectThreadNotFound
+from instagrapi.exceptions import (
+    ClientError,
+    ClientNotFoundError,
+    DirectMessageNotFound,
+    DirectThreadNotFound,
+)
 from instagrapi.extractors import (
     extract_direct_media,
     extract_direct_message,
@@ -21,7 +26,8 @@ from instagrapi.types import (
     Media,
     UserShort,
 )
-from instagrapi.utils import dumps
+from instagrapi.utils.serialization import dumps
+from instagrapi.utils.video import read_video_metadata, read_video_metadata_with_moviepy
 
 SELECTED_FILTERS = ("flagged", "unread")
 SEARCH_MODES = ("raven", "universal")
@@ -34,6 +40,15 @@ SEND_ATTRIBUTES_MEDIA = (
     "feed_contextual_profile",
 )
 BOXES = ("general", "primary")
+
+
+def _direct_id_list(ids) -> List[int]:
+    if ids is None:
+        return []
+    if isinstance(ids, (int, str)):
+        return [int(ids)]
+    return [int(item) for item in ids]
+
 
 try:
     from typing import Literal
@@ -180,6 +195,22 @@ class DirectMixin:
             threads = threads[:amount]
         return threads
 
+    def direct_requests(self, amount: int = 20) -> List[DirectThread]:
+        """
+        Get Direct message request threads, also known as pending inbox or invitations.
+
+        Parameters
+        ----------
+        amount: int, optional
+            Maximum number of threads to return, default is 20
+
+        Returns
+        -------
+        List[DirectThread]
+            A list of objects of DirectThread
+        """
+        return self.direct_pending_inbox(amount)
+
     def direct_pending_chunk(self, cursor: str = None) -> Tuple[List[DirectThread], str]:
         """
         Get direct threads of Pending inbox. Chunk
@@ -234,6 +265,22 @@ class DirectMixin:
             with_signature=False,
         )
         return result.get("status", "") == "ok"
+
+    def direct_request_approve(self, thread_id: int) -> bool:
+        """
+        Approve a Direct message request thread.
+
+        Parameters
+        ----------
+        thread_id: int
+            ID of thread to approve
+
+        Returns
+        -------
+        bool
+            A boolean value
+        """
+        return self.direct_pending_approve(thread_id)
 
     def direct_spam_inbox(self, amount: int = 20) -> List[DirectThread]:
         """
@@ -357,6 +404,36 @@ class DirectMixin:
         assert self.user_id, "Login required"
         return self.direct_thread(thread_id, amount).messages
 
+    def direct_message(self, thread_id: int, message_id: int, amount: int = 20) -> DirectMessage:
+        """
+        Get a Direct message from a thread by message id.
+
+        Parameters
+        ----------
+        thread_id: int
+            Unique identifier of a Direct Message thread
+
+        message_id: int
+            Unique identifier of a Direct Message item
+
+        amount: int, optional
+            Maximum number of latest messages to scan, default is 20
+
+        Returns
+        -------
+        DirectMessage
+            An object of DirectMessage
+        """
+        message_id = str(message_id)
+        for message in self.direct_messages(thread_id, amount):
+            if message.id == message_id:
+                return message
+        raise DirectMessageNotFound(
+            f"Direct message {message_id} not found in thread {thread_id}",
+            thread_id=thread_id,
+            message_id=message_id,
+        )
+
     def direct_answer(self, thread_id: int, text: str) -> DirectMessage:
         """
         Post a message on a Direct Message thread
@@ -410,6 +487,8 @@ class DirectMixin:
             An object of DirectMessage
         """
         assert self.user_id, "Login required"
+        user_ids = _direct_id_list(user_ids)
+        thread_ids = _direct_id_list(thread_ids)
         assert (user_ids or thread_ids) and not (user_ids and thread_ids), (
             "Specify user_ids or thread_ids, but not both"
         )
@@ -634,26 +713,18 @@ class DirectMixin:
     def _direct_video_metadata(self, path: Path) -> Tuple[int, int, float]:
         width, height, duration_sec = 720, 1280, 1.0
         try:
-            import moviepy.editor as mp
-        except ImportError:
+            metadata = read_video_metadata(path)
+        except Exception:
             try:
-                import moviepy as mp
+                metadata = read_video_metadata_with_moviepy(path)
             except ImportError:
                 return width, height, duration_sec
-
-        video = None
-        try:
-            video = mp.VideoFileClip(str(path))
-            width, height = video.size
-            duration_sec = float(video.duration or duration_sec)
-        except Exception:  # noqa: BLE001
-            return width, height, duration_sec
-        finally:
-            if video:
-                video.close()
-        return width, height, duration_sec
+            except Exception:  # noqa: BLE001
+                return width, height, duration_sec
+        return metadata.width, metadata.height, metadata.duration or duration_sec
 
     def _direct_thread_id_from_user_ids(self, user_ids: List[int], media_kind: str) -> int:
+        user_ids = _direct_id_list(user_ids)
         thread = self.direct_thread_by_participants(user_ids)
         thread_id = thread.get("thread_v2_id") or thread.get("thread_id")
         if not thread_id and isinstance(self.last_json, dict):
@@ -703,6 +774,8 @@ class DirectMixin:
             An object of DirectMessage.
         """
         assert self.user_id, "Login required"
+        user_ids = _direct_id_list(user_ids)
+        thread_ids = _direct_id_list(thread_ids)
         assert (user_ids or thread_ids) and not (user_ids and thread_ids), (
             "Specify user_ids or thread_ids, but not both"
         )
@@ -917,6 +990,8 @@ class DirectMixin:
             An object of DirectMessage.
         """
         assert self.user_id, "Login required"
+        user_ids = _direct_id_list(user_ids)
+        thread_ids = _direct_id_list(thread_ids)
         assert (user_ids or thread_ids) and not (user_ids and thread_ids), (
             "Specify user_ids or thread_ids, but not both"
         )
@@ -1071,6 +1146,8 @@ class DirectMixin:
             An object of DirectMessage
         """
         assert self.user_id, "Login required"
+        user_ids = _direct_id_list(user_ids)
+        thread_ids = _direct_id_list(thread_ids)
         assert (user_ids or thread_ids) and not (user_ids and thread_ids), (
             "Specify user_ids or thread_ids, but not both"
         )
@@ -1146,6 +1223,8 @@ class DirectMixin:
             An object of DirectMessage
         """
         assert self.user_id, "Login required"
+        user_ids = _direct_id_list(user_ids)
+        thread_ids = _direct_id_list(thread_ids)
         assert (user_ids or thread_ids) and not (user_ids and thread_ids), (
             "Specify user_ids or thread_ids, but not both"
         )
@@ -1193,6 +1272,7 @@ class DirectMixin:
             Dict with User's presences
         """
         assert self.user_id, "Login Required"
+        user_ids = _direct_id_list(user_ids)
         data = {
             "_uuid": self.uuid,
             "subscriptions_off": "false",
@@ -1358,6 +1438,7 @@ class DirectMixin:
             Some information about thread.
             List of UserShort under "users" key
         """
+        user_ids = _direct_id_list(user_ids)
         recipient_users = dumps([int(uid) for uid in user_ids])
         result = self.private_request(
             "direct_v2/threads/get_by_participants/",
@@ -1433,6 +1514,44 @@ class DirectMixin:
         )
         return result.get("status", "") == "ok"
 
+    def direct_thread_create(self, user_ids: List[int], title: str = "") -> str:
+        """
+        Create a group Direct thread.
+
+        Parameters
+        ----------
+        user_ids: List[int]
+            List of unique identifiers of users to add to the group thread.
+            Instagram group threads require at least two recipients besides
+            the authenticated user.
+        title: str, optional
+            Initial group thread title.
+
+        Returns
+        -------
+        str
+            Created Direct thread id.
+        """
+        assert self.user_id, "Login required"
+        user_ids = _direct_id_list(user_ids)
+        assert len(user_ids) >= 2, "Group threads require at least two recipient user_ids"
+
+        result = self.private_request(
+            "direct_v2/create_group_thread/",
+            data={
+                "_uuid": self.uuid,
+                "_uid": str(self.user_id),
+                "client_context": self.generate_mutation_token(),
+                "is_partnership_folder": "false",
+                "recipient_users": dumps([int(uid) for uid in user_ids]),
+                "thread_title": title,
+            },
+        )
+        thread_id = result.get("thread_id") or result.get("thread", {}).get("thread_id")
+        if not thread_id:
+            raise ClientError("Create group thread response missing thread_id", **result)
+        return str(thread_id)
+
     def direct_media_share(
         self,
         media_id: str,
@@ -1462,6 +1581,7 @@ class DirectMixin:
         assert self.user_id, "Login required"
         token = self.generate_mutation_token()
         media_id = self.media_id(media_id)
+        user_ids = _direct_id_list(user_ids)
         recipient_users = dumps([[int(uid) for uid in user_ids]])
         kwargs = {
             "recipient_users": recipient_users,
@@ -1515,6 +1635,8 @@ class DirectMixin:
             An object of DirectMessage
         """
         assert self.user_id, "Login required"
+        user_ids = _direct_id_list(user_ids)
+        thread_ids = _direct_id_list(thread_ids)
         assert (user_ids or thread_ids) and not (user_ids and thread_ids), (
             "Specify user_ids or thread_ids, but not both"
         )
@@ -1589,6 +1711,24 @@ class DirectMixin:
         data.pop("device_id", None)
         result = self.private_request(f"direct_v2/threads/{thread_id}/items/{message_id}/delete/", data=data)
         return result["status"] == "ok"
+
+    def direct_message_unsend(self, thread_id: int, message_id: int) -> bool:
+        """
+        Unsend a message from a Direct thread.
+
+        Parameters
+        ----------
+        thread_id: int
+            Id of thread
+        message_id: int
+            Id of message
+
+        Returns
+        -------
+        bool
+            A boolean value
+        """
+        return self.direct_message_delete(thread_id, message_id)
 
     def direct_thread_mute(self, thread_id: int, revert: bool = False) -> bool:
         """
@@ -1681,6 +1821,8 @@ class DirectMixin:
             An object of DirectMessage
         """
         assert self.user_id, "Login required"
+        user_ids = _direct_id_list(user_ids)
+        thread_ids = _direct_id_list(thread_ids)
         assert (user_ids or thread_ids) and not (user_ids and thread_ids), (
             "Specify user_ids or thread_ids, but not both"
         )

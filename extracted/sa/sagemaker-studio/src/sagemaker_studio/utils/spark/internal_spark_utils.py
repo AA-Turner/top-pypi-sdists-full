@@ -12,7 +12,7 @@ stage = _utils._get_datazone_stage()
 logger = logging.getLogger("SparkConnect")
 
 DEFAULT_SPARK_PROPS = {
-    "hive.metastore.client.factory.class": "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory",
+    "spark.hive.metastore.client.factory.class": "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory",
     "spark.hadoop.fs.s3.credentialsResolverClass": "com.amazonaws.glue.accesscontrol.AWSLakeFormationCredentialResolver",
     "spark.hadoop.fs.s3.useDirectoryHeaderAsFolderObject": "true",
     "spark.hadoop.fs.s3.folderObject.autoAction.disabled": "true",

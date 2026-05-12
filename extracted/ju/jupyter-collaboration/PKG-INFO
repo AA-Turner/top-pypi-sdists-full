@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter-collaboration
-Version: 4.3.0
+Version: 4.4.0
 Summary: JupyterLab/Jupyter Notebook 7+ Real Time Collaboration extension (metapackage)
 Project-URL: Documentation, https://jupyterlab-realtime-collaboration.readthedocs.io/
 Project-URL: Repository, https://github.com/jupyterlab/jupyter-collaboration
@@ -77,15 +77,15 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
-Requires-Dist: jupyter-collaboration-ui<3,>=2.3.0
-Requires-Dist: jupyter-docprovider<3,>=2.3.0
-Requires-Dist: jupyter-server-ydoc<3,>=2.3.0
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Requires-Dist: jupyter-collaboration-ui<3,>=2.4.0
+Requires-Dist: jupyter-docprovider<3,>=2.4.0
+Requires-Dist: jupyter-server-ydoc<3,>=2.4.0
 Requires-Dist: jupyterlab<5.0.0,>=4.4.0
 Description-Content-Type: text/markdown
 

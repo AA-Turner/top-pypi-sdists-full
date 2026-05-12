@@ -111,22 +111,6 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         ...
 
     @overload
-    def get_fundamental(self, symbols: typing.List[QuantConnect.Symbol], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
-        """
-        Get fundamental data from given symbols
-        
-        
-        Please use the 'UniverseHistory()' API
-        
-        :param symbols: The symbols to retrieve fundamental data for
-        :param selector: Selects a value from the Fundamental data to filter the request output
-        :param start: The start date of selected data
-        :param end: The end date of selected data
-        :returns: Enumerable collection of DataDictionaries, one dictionary for each day there is data.
-        """
-        ...
-
-    @overload
     def get_fundamental(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
         """
         Get fundamental data for a given symbol
@@ -139,6 +123,22 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         :param start: The start date of selected data
         :param end: The end date of selected data
         :returns: Enumerable collection of DataDictionaries, one Dictionary for each day there is data.
+        """
+        ...
+
+    @overload
+    def get_fundamental(self, symbols: typing.List[QuantConnect.Symbol], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Sequence[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
+        """
+        Get fundamental data from given symbols
+        
+        
+        Please use the 'UniverseHistory()' API
+        
+        :param symbols: The symbols to retrieve fundamental data for
+        :param selector: Selects a value from the Fundamental data to filter the request output
+        :param start: The start date of selected data
+        :param end: The end date of selected data
+        :returns: Enumerable collection of DataDictionaries, one dictionary for each day there is data.
         """
         ...
 

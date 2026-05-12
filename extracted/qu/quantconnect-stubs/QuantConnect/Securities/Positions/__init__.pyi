@@ -317,22 +317,22 @@ class PositionGroupKey(System.Object, System.IEquatable[QuantConnect_Securities_
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Securities.Positions.PositionGroupKey) -> bool:
         """
         Indicates whether the current object is equal to another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
         """
         ...
 
@@ -1436,22 +1436,22 @@ class PositionGroupBuyingPowerModel(System.Object, QuantConnect.Securities.Posit
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Securities.Positions.IPositionGroupBuyingPowerModel) -> bool:
         """
         Indicates whether the current object is equal to another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
         """
         ...
 

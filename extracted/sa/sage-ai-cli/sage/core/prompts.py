@@ -15,6 +15,7 @@ __all__ = [
     "CHAIN_OF_THOUGHT_INSTRUCTIONS",
     "LOCAL_AGENT_SYSTEM_PROMPT_TEMPLATE",
     "build_agent_system_prompt",
+    "build_stack_context",
     "platform_context_section",
 ]
 
@@ -113,6 +114,16 @@ You are SAGE, an elite autonomous coding AI agent designed to outperform advance
 
 **ANTI-FABRICATION RULE**: You MUST read files BEFORE making claims about them. Do NOT generate numbered lists of issues/recommendations UNTIL you have executed READ: commands and seen the actual file contents. Fabricated analysis will be REJECTED.
 
+**FIRST-TURN GROUNDING RULE (critical for reasoning models)**: When the user's first prompt asks you to build, fix, analyze, or implement anything, your VERY FIRST output line after any internal thinking MUST be a real tool command — `READ:`, `SEARCH:`, or `RUN:`. Do NOT respond with:
+- A numbered plan of what you intend to do
+- "Let me start by...", "First, I need to..." prose
+- Clarifying questions without first running at least one `READ:` to verify the project state
+- A list of files you "would" inspect
+
+If you don't know what to read first, run `READ: package.json` OR `READ: pyproject.toml` OR `READ: Cargo.toml` OR `READ: go.mod` OR `RUN: ls -la` to discover the project. Then narrow down with `SEARCH:`. Only AFTER you've seen real file contents may you produce analysis or proposals. Responses that violate this rule on turn 1 will be retried.
+
+{stack_context}
+
 {chain_of_thought}
 
 # 0A. TASK MODE (READ FIRST — RESOLVES CONFLICTS WITH OTHER SECTIONS)
@@ -135,13 +146,14 @@ This is an **interactive coding agent** for the open project (like Claude Code).
 You MUST use EXACTLY this syntax for all tool operations. NO OTHER FORMATS ARE ACCEPTED.
 
 ## CORRECT TOOL SYNTAX (MANDATORY):
+**Use commands appropriate to the detected stack (see PROJECT STACK above) — the examples below are illustrative.**
 ```
-READ: path/to/file.py
-SEARCH: *.py
+READ: path/to/file.<ext>
+SEARCH: *.<ext>
 SEARCH: def function_name
-RUN: pytest tests/ -v
-FILE: path/to/file.py
-```python
+RUN: <project_test_command>
+FILE: path/to/file.<ext>
+```language
 # Your code here
 ```
 ```
@@ -162,24 +174,21 @@ FILE: path/to/file.py
 5. Use FILE: followed by a code block to write/create files
 6. Commands are CASE-SENSITIVE: READ: not Read: or read:
 
-## Example Correct Response:
+## Example Correct Response (illustrative — use commands matching your stack):
 ```
 Let me analyze the codebase first.
 
-READ: sage/main.py
-SEARCH: def test_
+READ: <project_manifest>     # package.json / pyproject.toml / Cargo.toml / etc.
+SEARCH: <test_pattern>       # def test_ for Python, *.test.ts for Node, fn test_ for Rust
 
-Based on what I found, here's the test file:
+Based on what I found, here's the test file (using the detected stack's conventions):
 
-FILE: sage/tests/test_example.py
-```python
-def test_example():
-    assert 1 + 1 == 2
-```
+FILE: <path/in/correct/extension>
+...code in the detected language...
 
 Now let me run it:
 
-RUN: pytest sage/tests/test_example.py -v
+RUN: <project_test_command>  # see PROJECT STACK section for the exact command
 ```
 
 # 0. FILESYSTEM + PATH INTELLIGENCE (CRITICAL)
@@ -226,7 +235,7 @@ You MUST follow this loop until the task is COMPLETELY finished:
 12. Verify → Final integration test passes
 
 ## SELF-VERIFICATION CHECKLIST (Run after every task):
-- [ ] All tests pass (RUN: pytest -v or project test command)
+- [ ] All tests pass (RUN: the project's test command — see PROJECT STACK)
 - [ ] Code follows project patterns
 - [ ] No new warnings or errors
 - [ ] Edge cases handled
@@ -301,7 +310,7 @@ TDD is REQUIRED whenever you write or change production code. Skip TDD entirely 
 ## TDD Rules (MANDATORY)
 * NEVER write implementation code before writing a failing test
 * Write ONE test at a time, then make it pass
-* Run tests after EVERY code change: `RUN: pytest -v` or `RUN: npm test`
+* Run tests after EVERY code change using the detected stack's test command (see PROJECT STACK)
 * If you catch yourself writing implementation first, STOP and write the test
 * Tests MUST fail initially (if they pass immediately, your test is wrong)
 * Treat test failures as blocking - do not proceed until tests pass
@@ -326,20 +335,20 @@ TDD is REQUIRED whenever you write or change production code. Skip TDD entirely 
 * Java: JUnit
 
 ## TDD Example Flow (WITH PROJECT STRUCTURE DISCOVERY)
+The flow below shows the *structure* of TDD. Substitute test-file patterns
+and the RUN command for your detected stack (see PROJECT STACK section above).
 ```
-1. SEARCH: test_*.py  (FIRST: discover where tests actually live!)
-   # Output shows: sage/tests/test_core.py, sage/tests/test_utils.py
-   # This tells you tests go in sage/tests/, NOT tests/
+1. SEARCH: <test_pattern>     (FIRST: discover where tests actually live!)
+   # e.g. test_*.py for Python, *.test.ts for Node, fn test_ for Rust
 
-2. SEARCH: *.py  (discover source code structure)
-   # Output shows: sage/core/engine.py, sage/main.py
-   # This tells you source goes in sage/, NOT src/
+2. SEARCH: <source_pattern>   (discover source code structure)
+   # e.g. *.py / *.ts / *.rs
 
-3. RUN: pytest sage/tests/ -v  (use ACTUAL test path)
-4. FILE: sage/tests/test_feature.py  (use ACTUAL test directory!)
-5. RUN: pytest sage/tests/test_feature.py -v  (confirm FAIL - RED)
-6. FILE: sage/feature.py  (use ACTUAL source directory!)
-7. RUN: pytest sage/tests/test_feature.py -v  (confirm PASS - GREEN)
+3. RUN: <project_test_cmd>    (run existing suite as baseline)
+4. FILE: <test_path>          (use ACTUAL test directory + correct extension)
+5. RUN: <project_test_cmd>    (confirm FAIL - RED)
+6. FILE: <source_path>        (use ACTUAL source directory + correct extension)
+7. RUN: <project_test_cmd>    (confirm PASS - GREEN)
 8. Refactor if needed, keeping tests green
 ```
 
@@ -705,20 +714,17 @@ Placeholder code will be AUTOMATICALLY REJECTED by the validation system.
 ### CLI INVESTIGATION IS MANDATORY
 You are an expert at debugging using CLI commands. ALWAYS use RUN: commands to investigate:
 
-**BEFORE ANY CODE CHANGES:**
+**BEFORE ANY CODE CHANGES** (substitute commands for your stack — see PROJECT STACK):
 ```
-RUN: pytest -v                    # See what tests exist and their status
-RUN: pytest --collect-only        # See all available tests
-RUN: python -c "from module import x; print(x)"  # Test imports work
-RUN: ls -la path/to/directory     # Verify files exist
-RUN: cat path/to/file.py          # Quick file inspection
+RUN: <project_test_cmd>           # See what tests exist and their status
+RUN: ls -la path/to/directory     # Verify files exist (universal)
+RUN: cat path/to/file.<ext>       # Quick file inspection (universal)
 ```
 
 **WHEN TESTS FAIL:**
 ```
-RUN: pytest tests/test_failing.py -v --tb=long  # Get full traceback
-RUN: pytest tests/test_failing.py::test_specific -v  # Run single test
-RUN: python -c "import module; module.function()"  # Test function directly
+RUN: <project_test_cmd> -- --verbose    # Get full traceback / verbose output
+RUN: <project_test_cmd> -- <test_name>  # Run a single failing test
 ```
 
 **WHEN CI/CD FAILS:**
@@ -880,7 +886,7 @@ Use `RUN:` for AWS operations:
 After completing code changes, you MUST handle the full deployment cycle:
 
 1. **Verify changes**: `RUN: git status` and `RUN: git diff`
-2. **Run tests**: `RUN: pytest` or project-specific test command
+2. **Run tests**: use the detected stack's test command (see PROJECT STACK)
 3. **Stage and commit**: `RUN: git add -A && git commit -m "type: description"`
 4. **Push to remote**: `RUN: git push`
 5. **Monitor CI**: `RUN: gh run watch` — WAIT for CI to complete
@@ -908,8 +914,9 @@ Before making ANY change:
 
 ### Self-Correction Loop (MANDATORY)
 After writing code, ALWAYS verify:
-1. `RUN: python -m py_compile file.py` — syntax check for Python files
-2. `RUN: pytest tests/ -v` — run full test suite
+1. `RUN: <syntax_check>` — syntax check appropriate to stack
+   (Python: `python -m py_compile file.py`; Node: `tsc --noEmit`; Rust: `cargo check`)
+2. `RUN: <project_test_cmd>` — run full test suite (see PROJECT STACK)
 3. If errors occur: READ the error, DIAGNOSE the root cause, FIX it, RE-RUN
 4. Never move on while tests are failing
 
@@ -923,10 +930,10 @@ When you encounter an error:
 6. **Run full suite** — ensure you didn't break anything else
 
 ### Quality Gates (Check ALL before completing)
-- [ ] All tests pass (`RUN: pytest -v` or `RUN: npm test`)
-- [ ] No syntax errors (`RUN: python -m py_compile *.py` or build command)
-- [ ] No lint errors (`RUN: ruff check .` or `RUN: eslint .` if available)
-- [ ] No type errors (`RUN: mypy .` or `RUN: tsc --noEmit` if available)
+- [ ] All tests pass (RUN: the detected test command — see PROJECT STACK)
+- [ ] No syntax errors (RUN: stack-appropriate check: `python -m py_compile`, `tsc --noEmit`, `cargo check`)
+- [ ] No lint errors (RUN: `ruff check .` for Python, `eslint .` for Node, `cargo clippy` for Rust)
+- [ ] No type errors (RUN: `mypy .` for Python, `tsc --noEmit` for TS, `cargo check` for Rust)
 - [ ] Code follows existing project patterns
 - [ ] New code has corresponding tests
 - [ ] Edge cases are handled
@@ -934,7 +941,7 @@ When you encounter an error:
 ### Incremental Verification
 Don't wait until the end to test. After each significant change:
 1. Save the file (FILE: block)
-2. Run relevant test (`RUN: pytest tests/test_specific.py -v`)
+2. Run the relevant test using the detected stack's test command
 3. Fix any failures immediately
 4. Only then proceed to next change
 
@@ -970,6 +977,14 @@ LOCAL_AGENT_SYSTEM_PROMPT_TEMPLATE = """\
 You are SAGE, an autonomous coding agent working in: {cwd}
 
 **CRITICAL TOOL FORMAT**: Use ONLY `READ: path`, `SEARCH: pattern`, `RUN: command`, `FILE: path` syntax. NEVER use XML tags, function calls, or other formats. Wrong formats will be REJECTED.
+
+**FIRST-TURN GROUNDING RULE (critical for reasoning models like qwen3, deepseek-r1)**: When the user's first prompt asks you to build, fix, analyze, or implement anything, your VERY FIRST output line after any internal thinking MUST be a real tool command — `READ:`, `SEARCH:`, or `RUN:`. Do NOT respond with:
+- A numbered plan of what you intend to do
+- "Let me start by...", "First, I need to..." prose
+- Clarifying questions without first running `READ:` on a project file
+- A list of files you "would" inspect
+
+If you don't know what to read first, run one of: `READ: package.json`, `READ: pyproject.toml`, `READ: Cargo.toml`, `READ: go.mod`, or `RUN: ls -la`. THEN do your analysis. Anything inside `<think>` or `<thinking>` tags is fine — but the response that follows MUST start with a real tool. Responses that violate this on turn 1 will be retried.
 
 ## CRITICAL: MATCH THE USER'S LANGUAGE AND FRAMEWORK
 **Before writing ANY code, identify the language/framework from the user's request.**
@@ -1117,30 +1132,23 @@ When given multiple items to fix:
 - Tests without assertions: `def test_x(): pass` — MUST assert something
 - Placeholder comments: "# TODO", "# implement this", "# if needed"
 - Repetitive stub functions — write ONLY what's needed
-- Code you haven't tested — RUN: pytest after every FILE: block
+- Code you haven't tested — RUN: the project test command after every FILE: block
 
 If unsure, READ: existing files first. Write MINIMAL, WORKING code.
 
-## Example TDD workflow
+## Example TDD workflow (structure only — use commands matching detected stack)
 User: "Add a hello function"
 
-READ: src/utils.py
-(see existing code)
+READ: <source_file_for_utility_module>   # existing utils file in your stack
+(see existing code, conventions, and imports)
 
-FILE: tests/test_hello.py
-```python
-from src.utils import hello
-def test_hello():
-    assert hello("world") == "Hello, world!"
-```
+FILE: <test_path_for_your_stack>
+...test code using your stack's framework (Jest/pytest/cargo test/etc.)...
 
-FILE: src/utils.py
-```python
-def hello(name):
-    return f"Hello, {{name}}!"
-```
+FILE: <source_path_for_your_stack>
+...implementation in your stack's language...
 
-RUN: python -m pytest tests/test_hello.py -v
+RUN: <project_test_cmd> -- <test_file>   # see PROJECT STACK section
 """
 
 
@@ -1239,24 +1247,475 @@ def platform_context_section() -> str:
     )
 
 
+_STACK_SECTION_HEADER = "# PROJECT STACK (DETECTED FROM CWD)"
+
+
+def _stack_profile(cwd: Path) -> dict:
+    """Look at the cwd and return a dict describing the stack.
+
+    Returns keys: name, language, package_manager, test_cmd, build_cmd,
+    install_cmd, has_existing_tests, file_extensions, manifest. `name`
+    is "unknown" when no manifest is present so the prompt can tell the
+    model to ask rather than default to a language.
+    """
+    profile: dict = {
+        "name": "unknown",
+        "language": "",
+        "package_manager": "",
+        "test_cmd": "",
+        "build_cmd": "",
+        "install_cmd": "",
+        "has_existing_tests": False,
+        "file_extensions": [],
+        "manifest": "",
+    }
+    cwd = Path(cwd)
+    if not cwd.exists() or not cwd.is_dir():
+        return profile
+
+    pkg_json = cwd / "package.json"
+    pyproject = cwd / "pyproject.toml"
+    cargo = cwd / "Cargo.toml"
+    go_mod = cwd / "go.mod"
+    gemfile = cwd / "Gemfile"
+    pom = cwd / "pom.xml"
+
+    if pkg_json.exists():
+        try:
+            import json as _json
+            data = _json.loads(pkg_json.read_text("utf-8"))
+        except Exception:
+            data = {}
+        deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+        scripts = data.get("scripts", {})
+        framework = ""
+        if "react" in deps:
+            framework = "React"
+        elif "next" in deps:
+            framework = "Next.js"
+        elif "@nestjs/core" in deps:
+            framework = "NestJS"
+        elif "express" in deps:
+            framework = "Express"
+        is_ts = (cwd / "tsconfig.json").exists() or "typescript" in deps
+        lang = "TypeScript" if is_ts else "JavaScript"
+        profile.update({
+            "name": framework or f"Node.js ({lang})",
+            "language": lang,
+            "package_manager": "pnpm" if (cwd / "pnpm-lock.yaml").exists()
+                               else ("yarn" if (cwd / "yarn.lock").exists() else "npm"),
+            "test_cmd": scripts.get("test") and f"{('pnpm' if (cwd / 'pnpm-lock.yaml').exists() else ('yarn' if (cwd / 'yarn.lock').exists() else 'npm'))} test"
+                        or ("jest" if "jest" in deps else ""),
+            "build_cmd": scripts.get("build") and "npm run build",
+            "install_cmd": "pnpm install" if (cwd / "pnpm-lock.yaml").exists()
+                            else ("yarn install" if (cwd / "yarn.lock").exists() else "npm install"),
+            "file_extensions": [".tsx", ".ts", ".jsx", ".js"] if is_ts else [".jsx", ".js"],
+            "manifest": "package.json",
+        })
+    elif pyproject.exists() or (cwd / "setup.py").exists() or (cwd / "requirements.txt").exists():
+        profile.update({
+            "name": "Python",
+            "language": "Python",
+            "package_manager": "pip",
+            "test_cmd": "pytest -v",
+            "build_cmd": "python -m build",
+            "install_cmd": "pip install -e .",
+            "file_extensions": [".py"],
+            "manifest": "pyproject.toml" if pyproject.exists() else (
+                "setup.py" if (cwd / "setup.py").exists() else "requirements.txt"
+            ),
+        })
+    elif cargo.exists():
+        profile.update({
+            "name": "Rust",
+            "language": "Rust",
+            "package_manager": "cargo",
+            "test_cmd": "cargo test",
+            "build_cmd": "cargo build --release",
+            "install_cmd": "cargo build",
+            "file_extensions": [".rs"],
+            "manifest": "Cargo.toml",
+        })
+    elif go_mod.exists():
+        profile.update({
+            "name": "Go",
+            "language": "Go",
+            "package_manager": "go modules",
+            "test_cmd": "go test ./...",
+            "build_cmd": "go build ./...",
+            "install_cmd": "go mod download",
+            "file_extensions": [".go"],
+            "manifest": "go.mod",
+        })
+    elif gemfile.exists():
+        profile.update({
+            "name": "Ruby",
+            "language": "Ruby",
+            "package_manager": "bundler",
+            "test_cmd": "bundle exec rspec",
+            "build_cmd": "",
+            "install_cmd": "bundle install",
+            "file_extensions": [".rb"],
+            "manifest": "Gemfile",
+        })
+    elif pom.exists() or (cwd / "build.gradle").exists() or (cwd / "build.gradle.kts").exists():
+        is_gradle = (cwd / "build.gradle").exists() or (cwd / "build.gradle.kts").exists()
+        profile.update({
+            "name": "Java/Kotlin",
+            "language": "Java",
+            "package_manager": "gradle" if is_gradle else "maven",
+            "test_cmd": "./gradlew test" if is_gradle else "mvn test",
+            "build_cmd": "./gradlew build" if is_gradle else "mvn package",
+            "install_cmd": "./gradlew assemble" if is_gradle else "mvn install",
+            "file_extensions": [".java", ".kt"],
+            "manifest": "build.gradle" if is_gradle else "pom.xml",
+        })
+    elif any(cwd.glob("*.csproj")) or any(cwd.glob("*.sln")) or any(cwd.glob("*.fsproj")):
+        csproj = next(cwd.glob("*.csproj"), None) or next(cwd.glob("*.sln"), None) or next(cwd.glob("*.fsproj"))
+        is_fsharp = csproj.suffix == ".fsproj"
+        profile.update({
+            "name": "F# / .NET" if is_fsharp else "C# / .NET",
+            "language": "F#" if is_fsharp else "C#",
+            "package_manager": "nuget",
+            "test_cmd": "dotnet test",
+            "build_cmd": "dotnet build --configuration Release",
+            "install_cmd": "dotnet restore",
+            "file_extensions": [".fs"] if is_fsharp else [".cs"],
+            "manifest": csproj.name,
+        })
+    elif (cwd / "composer.json").exists():
+        profile.update({
+            "name": "PHP",
+            "language": "PHP",
+            "package_manager": "composer",
+            "test_cmd": "vendor/bin/phpunit",
+            "build_cmd": "",
+            "install_cmd": "composer install",
+            "file_extensions": [".php"],
+            "manifest": "composer.json",
+        })
+    elif (cwd / "Package.swift").exists() or any(cwd.glob("*.xcodeproj")):
+        profile.update({
+            "name": "Swift",
+            "language": "Swift",
+            "package_manager": "spm",
+            "test_cmd": "swift test",
+            "build_cmd": "swift build --configuration release",
+            "install_cmd": "swift package resolve",
+            "file_extensions": [".swift"],
+            "manifest": "Package.swift" if (cwd / "Package.swift").exists() else "*.xcodeproj",
+        })
+    elif (cwd / "mix.exs").exists():
+        profile.update({
+            "name": "Elixir",
+            "language": "Elixir",
+            "package_manager": "hex",
+            "test_cmd": "mix test",
+            "build_cmd": "mix compile",
+            "install_cmd": "mix deps.get",
+            "file_extensions": [".ex", ".exs"],
+            "manifest": "mix.exs",
+        })
+    elif (cwd / "deno.json").exists() or (cwd / "deno.jsonc").exists():
+        manifest = "deno.json" if (cwd / "deno.json").exists() else "deno.jsonc"
+        profile.update({
+            "name": "Deno (TypeScript)",
+            "language": "TypeScript",
+            "package_manager": "deno",
+            "test_cmd": "deno test",
+            "build_cmd": "deno compile",
+            "install_cmd": "deno cache",
+            "file_extensions": [".ts", ".tsx", ".js"],
+            "manifest": manifest,
+        })
+
+    # Detect whether the project already has tests
+    test_indicators = [
+        cwd / "tests",
+        cwd / "test",
+        cwd / "__tests__",
+        cwd / "spec",
+    ]
+    profile["has_existing_tests"] = any(p.exists() and p.is_dir() for p in test_indicators)
+    if not profile["has_existing_tests"]:
+        # Glob for common test-file patterns at any depth
+        for pattern in ("**/test_*.py", "**/*.test.js", "**/*.test.ts",
+                        "**/*.test.jsx", "**/*.test.tsx", "**/*.spec.js",
+                        "**/*.spec.ts", "**/*_test.go"):
+            try:
+                if next(cwd.glob(pattern), None) is not None:
+                    profile["has_existing_tests"] = True
+                    break
+            except (OSError, ValueError):
+                continue
+    return profile
+
+
+def build_stack_context(cwd: Path) -> str:
+    """Render a markdown section telling the model what stack to use.
+
+    The section is injected into the system prompt so the model stops
+    defaulting to Python regardless of the actual project. For unknown
+    projects (no manifest), the section instructs the model to ASK
+    instead of guessing.
+    """
+    profile = _stack_profile(cwd)
+
+    if profile["name"] == "unknown":
+        return (
+            f"{_STACK_SECTION_HEADER}\n"
+            "- No project manifest was found in the current working directory "
+            "(no package.json, pyproject.toml, Cargo.toml, go.mod, Gemfile, "
+            "pom.xml, build.gradle).\n"
+            "- The project stack is UNDETECTED.\n"
+            "- **Do NOT default to Python.** Read the user's message carefully for "
+            "stack hints (e.g. 'React and Node.js', 'I want a Rust CLI').\n"
+            "- If the user's stack preference is unclear, **ask the user** before "
+            "generating any code. Do not assume a language.\n"
+            "- For greenfield prototypes, build a working spike first (one end-to-end "
+            "happy path) BEFORE adding a full test suite. The standard TDD "
+            "RED→GREEN→REFACTOR loop is appropriate when the project already has "
+            "tests, not when there is no project yet.\n"
+        )
+
+    lines = [
+        _STACK_SECTION_HEADER,
+        f"- Detected stack: **{profile['name']}**",
+        f"- Primary language: {profile['language']}",
+        f"- Manifest file: `{profile['manifest']}`",
+    ]
+    if profile["package_manager"]:
+        lines.append(f"- Package manager: {profile['package_manager']}")
+    if profile["install_cmd"]:
+        lines.append(f"- Install dependencies: `{profile['install_cmd']}`")
+    if profile["test_cmd"]:
+        lines.append(f"- Run tests: `{profile['test_cmd']}`")
+    if profile["build_cmd"]:
+        lines.append(f"- Build: `{profile['build_cmd']}`")
+    if profile["file_extensions"]:
+        lines.append(f"- Primary file extensions: {', '.join(profile['file_extensions'])}")
+    lines.append(f"- Existing test suite: {'yes' if profile['has_existing_tests'] else 'no'}")
+    lines.append("")
+    lines.append(
+        "**You MUST use the detected stack.** Do NOT generate code in a "
+        "different language (e.g. Python tests for a Node project, or vice "
+        "versa). The test command above is the canonical way to verify the "
+        f"project — use `RUN: {profile['test_cmd'] or '<project test command>'}` "
+        "rather than guessing."
+    )
+    lines.append("")
+    lines.append("## DETECT-FIRST RULE (mandatory before any FILE: action)")
+    lines.append(
+        f"- Before writing ANY new file, you MUST `READ: {profile['manifest']}` "
+        "first to confirm the dependency versions and scripts. Only then emit "
+        "FILE: blocks targeting files consistent with the detected stack."
+    )
+    lines.append("- A FILE: block whose extension doesn't match this stack's "
+                 f"extensions ({', '.join(profile['file_extensions']) or 'see manifest'}) "
+                 "indicates you misread the stack — STOP and re-read the manifest.")
+    lines.append("")
+    if profile["has_existing_tests"]:
+        lines.append("## TEST DISCIPLINE")
+        lines.append(
+            "- This project already has tests. Standard TDD RED→GREEN→REFACTOR "
+            "applies for changes touching tested behavior."
+        )
+    else:
+        lines.append("## TEST DISCIPLINE (no existing tests)")
+        lines.append(
+            "- This project has no existing test files. For greenfield work, "
+            "**build a working spike first** (one happy path that runs end-to-end), "
+            "THEN add tests for critical paths. Do not block on writing a failing "
+            "test for code that has no surrounding scaffolding yet."
+        )
+    lines.append("")
+    lines.append("## VERIFICATION GATE (before claiming the task is done)")
+    lines.append(
+        f"- You MUST RUN: {profile['test_cmd'] or '<project test command>'} "
+        "and confirm exit code 0 BEFORE claiming the task is complete. "
+        "Do NOT declare 'done' without showing the test command's output."
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _memory_section(cwd: Path) -> str:
+    """Pull persisted session memories into the system prompt.
+
+    Scans both project-local `<cwd>/.sage/memory/` and user-wide
+    `~/.sage/memory/` — project-local wins when keys conflict because
+    project-specific facts are more relevant to the current task.
+    """
+    try:
+        from sage.core.memory import MemoryStore
+        sections: list[str] = []
+        for root in (cwd / ".sage", Path.home() / ".sage"):
+            if not root.is_dir():
+                continue
+            store = MemoryStore(root)
+            rendered = store.format_for_prompt(max_chars=4000)
+            if rendered:
+                sections.append(rendered)
+        if not sections:
+            return ""
+        # If both stores have content, take the project-local one and add
+        # a brief pointer to user-wide. Avoids duplication while keeping
+        # both signals discoverable.
+        return "\n" + sections[0] + "\n"
+    except Exception:
+        return ""
+
+
+def _browser_tool_hint(cwd: Path) -> str:
+    """If the project is a frontend stack AND BrowserTool is available,
+    tell the model it can use BROWSER actions to verify UI changes.
+
+    Always emits the hint section (even when browser isn't installed)
+    so the model knows the capability exists — the install instructions
+    point to enabling it.
+    """
+    try:
+        profile = _stack_profile(cwd)
+    except Exception:
+        return ""
+    frontend_langs = {"JavaScript", "TypeScript"}
+    is_frontend = profile.get("language") in frontend_langs
+    if not is_frontend:
+        return ""
+    try:
+        from sage.core.browser import BrowserTool
+        available = BrowserTool.is_available()
+    except Exception:
+        available = False
+    if available:
+        body = (
+            "## BROWSER TOOL (frontend verification)\n"
+            "- For visual changes, you can verify the result with the BROWSER tool:\n"
+            "  `RUN: python -c \"from sage.core.browser import BrowserTool; "
+            "t=BrowserTool(); t.navigate('http://localhost:5173'); "
+            "print(t.text_content('h1')); t.close()\"`\n"
+            "- Use this to confirm rendered DOM matches expectations after a FILE: change.\n"
+        )
+    else:
+        body = (
+            "## BROWSER TOOL (frontend verification — optional)\n"
+            "- A Playwright-based BrowserTool is available in `sage.core.browser` IF the "
+            "user has installed Playwright (`pip install playwright && playwright install chromium`).\n"
+            "- Without it, skip browser verification — rely on the project's test runner.\n"
+        )
+    return "\n" + body
+
+
+def _language_idioms_section(cwd: Path) -> str:
+    """Auto-embed the matching language specialist's idiom guidance.
+
+    When a project's stack is detected, the engine doesn't need to wait
+    for the model to emit `DELEGATE_PYTHON: ...` — the language-specific
+    rules are critical for the FIRST response too. We inline the
+    specialist's idiom section so the model writes idiomatic code on
+    turn 1.
+    """
+    try:
+        from sage.core.specialists import pick_language_specialist
+        profile = _stack_profile(cwd)
+        spec = pick_language_specialist(profile)
+    except Exception:
+        return ""
+    if spec is None:
+        return ""
+    return (
+        f"\n## {spec.name.upper()} IDIOMS (project stack detected)\n"
+        + spec.system_prompt
+        + "\n"
+    )
+
+
+def _web_tools_section() -> str:
+    """Tell the model about WEB_FETCH / SEARCH_WEB so it can use them.
+
+    These tools exist in `sage.core.tools` but the prompt never mentioned
+    them — meaning the model never tried to use them. Now sage can pull
+    documentation, fetch a URL, or look something up online when the
+    user asks about a library/API it doesn't know.
+    """
+    return (
+        "\n## INTERNET ACCESS (use when the user asks about a library, API, "
+        "framework, or fact you're unsure about)\n"
+        "- `WEB_FETCH: <url>` — fetch a single URL and ingest the content as "
+        "context. Use for known doc URLs (e.g. `WEB_FETCH: https://react.dev/learn`).\n"
+        "- `SEARCH_WEB: <query>` — web search; results returned as snippets. "
+        "Use when you don't know the exact URL.\n"
+        "- Prefer official docs (.dev, .org, mozilla, github.io) over blog "
+        "posts. Always READ: a project file before fetching the web — local "
+        "code is more reliable than guessed-at versions.\n"
+    )
+
+
+def _specialists_section() -> str:
+    """List the available DELEGATE_<DOMAIN> sub-agents."""
+    try:
+        from sage.core.specialists import default_specialists
+        specs = default_specialists()
+    except Exception:
+        return ""
+    if not specs:
+        return ""
+    lines = ["## SPECIALIST SUB-AGENTS (delegate focused work)"]
+    for s in specs:
+        lines.append(
+            f"- `DELEGATE_{s.domain.upper()}: <task>` — {s.name} specialist "
+            f"(domain: {s.domain})"
+        )
+    lines.append(
+        "When a request is squarely in one domain, prefer DELEGATE — the "
+        "specialist has a focused system prompt and returns a concise summary."
+    )
+    return "\n" + "\n".join(lines) + "\n"
+
+
 def build_agent_system_prompt(cwd: Path, is_local: bool, enhanced: bool = True) -> str:
     """Build the system prompt, always injecting runtime platform context.
 
     The platform section tells the model the exact OS, shell, and commands
-    available — so it generates correct RUN: blocks without guessing.
+    available — so it generates correct RUN: blocks without guessing. The
+    stack-context section tells the model what programming language and
+    test/build commands to use — preventing the "writes Python in a Node
+    project" failure mode. Memory + browser-tool + specialist sections
+    wire D13/D11/D12 abstractions into the prompt so the model can use them.
     """
     platform_section = platform_context_section()
+    stack_section = (
+        build_stack_context(cwd)
+        + _language_idioms_section(cwd)
+        + _memory_section(cwd)
+        + _browser_tool_hint(cwd)
+        + _web_tools_section()
+        + _specialists_section()
+    )
 
     if is_local:
+        # LOCAL template predates stack injection. Prepend the stack section
+        # so the model sees it BEFORE the rest of the template — attention
+        # is recency-weighted within the prompt body, but the leading section
+        # has structural priority for instructions.
+        body = LOCAL_AGENT_SYSTEM_PROMPT_TEMPLATE.format(cwd=cwd)
         return (
-            LOCAL_AGENT_SYSTEM_PROMPT_TEMPLATE.format(cwd=cwd)
+            stack_section
+            + "\n"
+            + body
             + platform_section
             + _monorepo_web_workspace_note(cwd)
         )
 
     chain_of_thought = CHAIN_OF_THOUGHT_INSTRUCTIONS if enhanced else ""
+    # Inject stack_context via the {stack_context} placeholder near the top
+    # of the template. This puts it BEFORE the hardcoded pytest examples
+    # so the model's pattern matching sees the detected stack first.
     return (
-        AGENT_SYSTEM_PROMPT_TEMPLATE.format(cwd=cwd, chain_of_thought=chain_of_thought)
+        AGENT_SYSTEM_PROMPT_TEMPLATE.format(
+            cwd=cwd,
+            chain_of_thought=chain_of_thought,
+            stack_context=stack_section,
+        )
         + platform_section
         + _monorepo_web_workspace_note(cwd)
     )

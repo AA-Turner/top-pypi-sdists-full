@@ -587,22 +587,22 @@ class SecurityDatabaseKey(System.Object, System.IEquatable[QuantConnect_Securiti
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Securities.SecurityDatabaseKey) -> bool:
         """
         Indicates whether the current object is equal to another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
         """
         ...
 
@@ -707,18 +707,6 @@ class MarketHoursDatabase(QuantConnect.Securities.BaseSecurityDatabase[QuantConn
         ...
 
     @overload
-    def get_entry(self, market: str, symbol: str, security_type: QuantConnect.SecurityType) -> QuantConnect.Securities.MarketHoursDatabase.Entry:
-        """
-        Gets the entry for the specified market/symbol/security-type
-        
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
-        :param symbol: The particular symbol being traded
-        :param security_type: The security type of the symbol
-        :returns: The entry matching the specified market/symbol/security-type.
-        """
-        ...
-
-    @overload
     def get_entry(self, market: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], security_type: QuantConnect.SecurityType) -> QuantConnect.Securities.MarketHoursDatabase.Entry:
         """
         Gets the entry for the specified market/symbol/security-type
@@ -731,12 +719,14 @@ class MarketHoursDatabase(QuantConnect.Securities.BaseSecurityDatabase[QuantConn
         ...
 
     @overload
-    def get_exchange_hours(self, configuration: QuantConnect.Data.SubscriptionDataConfig) -> QuantConnect.Securities.SecurityExchangeHours:
+    def get_entry(self, market: str, symbol: str, security_type: QuantConnect.SecurityType) -> QuantConnect.Securities.MarketHoursDatabase.Entry:
         """
-        Convenience method for retrieving exchange hours from market hours database using a subscription config
+        Gets the entry for the specified market/symbol/security-type
         
-        :param configuration: The subscription data config to get exchange hours for
-        :returns: The configure exchange hours for the specified configuration.
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param symbol: The particular symbol being traded
+        :param security_type: The security type of the symbol
+        :returns: The entry matching the specified market/symbol/security-type.
         """
         ...
 
@@ -749,6 +739,16 @@ class MarketHoursDatabase(QuantConnect.Securities.BaseSecurityDatabase[QuantConn
         :param symbol: The particular symbol being traded
         :param security_type: The security type of the symbol
         :returns: The exchange hours for the specified security.
+        """
+        ...
+
+    @overload
+    def get_exchange_hours(self, configuration: QuantConnect.Data.SubscriptionDataConfig) -> QuantConnect.Securities.SecurityExchangeHours:
+        """
+        Convenience method for retrieving exchange hours from market hours database using a subscription config
+        
+        :param configuration: The subscription data config to get exchange hours for
+        :returns: The configure exchange hours for the specified configuration.
         """
         ...
 
@@ -3103,11 +3103,6 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         ...
 
     @overload
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, config: QuantConnect.Data.SubscriptionDataConfig, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types_provider: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, cache: QuantConnect.Securities.SecurityCache) -> None:
-        """Construct a new security vehicle based on the user options."""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types_provider: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, cache: QuantConnect.Securities.SecurityCache) -> None:
         """Construct a new security vehicle based on the user options."""
         ...
@@ -3120,6 +3115,11 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         
         This codeEntityType is protected.
         """
+        ...
+
+    @overload
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, config: QuantConnect.Data.SubscriptionDataConfig, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types_provider: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, cache: QuantConnect.Securities.SecurityCache) -> None:
+        """Construct a new security vehicle based on the user options."""
         ...
 
     @overload
@@ -3922,21 +3922,21 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         ...
 
     @overload
-    def cancel_open_orders(self) -> typing.List[QuantConnect.Orders.OrderTicket]:
-        """
-        Cancels all open orders for all symbols
-        
-        :returns: List containing the cancelled order tickets.
-        """
-        ...
-
-    @overload
     def cancel_open_orders(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], tag: str = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
         """
         Cancels all open orders for the specified symbol
         
         :param symbol: The symbol whose orders are to be cancelled
         :param tag: Custom order tag
+        :returns: List containing the cancelled order tickets.
+        """
+        ...
+
+    @overload
+    def cancel_open_orders(self) -> typing.List[QuantConnect.Orders.OrderTicket]:
+        """
+        Cancels all open orders for all symbols
+        
         :returns: List containing the cancelled order tickets.
         """
         ...
@@ -4014,22 +4014,22 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         ...
 
     @overload
-    def get_open_orders_remaining_quantity(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> float:
-        """
-        Gets the remaining quantity to be filled from open orders, i.e. order size minus quantity filled
-        
-        :param filter: Filters the order tickets to be included in the aggregate quantity remaining to be filled
-        :returns: Total quantity that hasn't been filled yet for all orders that were not filtered.
-        """
-        ...
-
-    @overload
     def get_open_orders_remaining_quantity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> float:
         """
         Gets the remaining quantity to be filled from open orders for a Symbol, i.e. order size minus quantity filled
         
         :param symbol: Symbol to get the remaining quantity of currently open orders
         :returns: Total quantity that hasn't been filled yet for orders matching the Symbol.
+        """
+        ...
+
+    @overload
+    def get_open_orders_remaining_quantity(self, filter: typing.Callable[[QuantConnect.Orders.OrderTicket], bool] = None) -> float:
+        """
+        Gets the remaining quantity to be filled from open orders, i.e. order size minus quantity filled
+        
+        :param filter: Filters the order tickets to be included in the aggregate quantity remaining to be filled
+        :returns: Total quantity that hasn't been filled yet for all orders that were not filtered.
         """
         ...
 
@@ -4877,6 +4877,10 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symb
         ...
 
     @overload
+    def get_margin_remaining(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], direction: QuantConnect.Orders.OrderDirection = ...) -> float:
+        ...
+
+    @overload
     def get_margin_remaining(self, total_portfolio_value: float) -> float:
         """
         Gets the remaining margin on the account in the account's currency
@@ -4884,10 +4888,6 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symb
         
         :param total_portfolio_value: The total portfolio value total_portfolio_value
         """
-        ...
-
-    @overload
-    def get_margin_remaining(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], direction: QuantConnect.Orders.OrderDirection = ...) -> float:
         ...
 
     def has_sufficient_buying_power_for_order(self, orders: typing.List[QuantConnect.Orders.Order]) -> QuantConnect.Securities.HasSufficientBuyingPowerForOrderResult:
@@ -4938,15 +4938,6 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symb
         ...
 
     @overload
-    def remove(self, pair: System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.SecurityHolding]) -> bool:
-        """
-        Remove this keyvalue pair from the portfolio.
-        
-        :param pair: Key value pair of dictionary
-        """
-        ...
-
-    @overload
     def remove(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
         """
         Remove this symbol from the portfolio.
@@ -4962,6 +4953,15 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symb
         
         :param key: The key object of the element to remove.
         :returns: true if the element is successfully found and removed; otherwise, false.
+        """
+        ...
+
+    @overload
+    def remove(self, pair: System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.SecurityHolding]) -> bool:
+        """
+        Remove this keyvalue pair from the portfolio.
+        
+        :param pair: Key value pair of dictionary
         """
         ...
 
@@ -5466,6 +5466,16 @@ class SecurityDefinitionSymbolResolver(System.Object):
         ...
 
     @overload
+    def composite_figi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """
+        Converts a Lean Symbol to its composite FIGI representation
+        
+        :param symbol: The Lean Symbol
+        :returns: The composite Financial Instrument Global Identifier (FIGI) corresponding to the given Lean Symbol.
+        """
+        ...
+
+    @overload
     def composite_figi(self, composite_figi: str, trading_date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Symbol:
         """
         Converts an asset's composite FIGI into a Lean Symbol
@@ -5478,12 +5488,12 @@ class SecurityDefinitionSymbolResolver(System.Object):
         ...
 
     @overload
-    def composite_figi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+    def cusip(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
         """
-        Converts a Lean Symbol to its composite FIGI representation
+        Converts a Lean Symbol to its CUSIP number
         
         :param symbol: The Lean Symbol
-        :returns: The composite Financial Instrument Global Identifier (FIGI) corresponding to the given Lean Symbol.
+        :returns: The Committee on Uniform Securities Identification Procedures (CUSIP) number corresponding to the given Lean Symbol.
         """
         ...
 
@@ -5499,16 +5509,6 @@ class SecurityDefinitionSymbolResolver(System.Object):
         """
         ...
 
-    @overload
-    def cusip(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """
-        Converts a Lean Symbol to its CUSIP number
-        
-        :param symbol: The Lean Symbol
-        :returns: The Committee on Uniform Securities Identification Procedures (CUSIP) number corresponding to the given Lean Symbol.
-        """
-        ...
-
     @staticmethod
     def get_instance(data_provider: QuantConnect.Interfaces.IDataProvider = None, securities_definition_key: str = None) -> QuantConnect.Securities.SecurityDefinitionSymbolResolver:
         """
@@ -5517,6 +5517,16 @@ class SecurityDefinitionSymbolResolver(System.Object):
         :param data_provider: Data provider used to obtain symbol mappings data
         :param securities_definition_key: Location to read the securities definition data from
         :returns: The single instance of the symbol resolver.
+        """
+        ...
+
+    @overload
+    def isin(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """
+        Converts a Lean Symbol to its ISIN representation
+        
+        :param symbol: The Lean Symbol
+        :returns: The International Securities Identification Number (ISIN) corresponding to the given Lean Symbol.
         """
         ...
 
@@ -5532,22 +5542,22 @@ class SecurityDefinitionSymbolResolver(System.Object):
         """
         ...
 
-    @overload
-    def isin(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """
-        Converts a Lean Symbol to its ISIN representation
-        
-        :param symbol: The Lean Symbol
-        :returns: The International Securities Identification Number (ISIN) corresponding to the given Lean Symbol.
-        """
-        ...
-
     @staticmethod
     def reset() -> None:
         """
         Resets the security definition symbol resolver, forcing a reload when reused.
         Called in tests where multiple algorithms are run sequentially,
         and we need to guarantee that every test starts with the same environment.
+        """
+        ...
+
+    @overload
+    def sedol(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """
+        Converts a Lean Symbol to its SEDOL representation
+        
+        :param symbol: The Lean Symbol
+        :returns: The Stock Exchange Daily Official List (SEDOL) security identifier corresponding to the given Lean Symbol.
         """
         ...
 
@@ -5560,16 +5570,6 @@ class SecurityDefinitionSymbolResolver(System.Object):
         :param trading_date: The date that the stock was trading at with the SEDOL provided. This is used
         to get the ticker of the symbol on this date.
         :returns: The Lean Symbol corresponding to the SEDOL on the trading date provided.
-        """
-        ...
-
-    @overload
-    def sedol(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """
-        Converts a Lean Symbol to its SEDOL representation
-        
-        :param symbol: The Lean Symbol
-        :returns: The Stock Exchange Daily Official List (SEDOL) security identifier corresponding to the given Lean Symbol.
         """
         ...
 
@@ -7108,6 +7108,17 @@ class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDa
         ...
 
     @overload
+    def contains_key(self, market: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], security_type: QuantConnect.SecurityType) -> bool:
+        """
+        Check whether an entry exists for the specified market/symbol/security-type
+        
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param symbol: The particular symbol being traded (Symbol class)
+        :param security_type: The security type of the symbol
+        """
+        ...
+
+    @overload
     def contains_key(self, key: QuantConnect.Securities.SecurityDatabaseKey) -> bool:
         """
         Determines if the database contains the specified key
@@ -7127,17 +7138,6 @@ class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDa
         
         :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
         :param symbol: The particular symbol being traded
-        :param security_type: The security type of the symbol
-        """
-        ...
-
-    @overload
-    def contains_key(self, market: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], security_type: QuantConnect.SecurityType) -> bool:
-        """
-        Check whether an entry exists for the specified market/symbol/security-type
-        
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
-        :param symbol: The particular symbol being traded (Symbol class)
         :param security_type: The security type of the symbol
         """
         ...
@@ -7923,18 +7923,6 @@ class IndicatorVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatility
         ...
 
     @overload
-    def __init__(self, indicator: QuantConnect.Indicators.IIndicator) -> None:
-        """
-        Initializes a new instance of the IVolatilityModel using
-        the specified indicator. The indicator
-        is assumed to but updated externally from this model, such as being registered
-        into the consolidator system.
-        
-        :param indicator: The auto-updating indicator
-        """
-        ...
-
-    @overload
     def __init__(self, indicator: QuantConnect.Indicators.IIndicator, indicator_update: typing.Callable[[QuantConnect.Securities.Security, QuantConnect.Data.BaseData, QuantConnect.Indicators.IIndicator], typing.Any]) -> None:
         """
         Initializes a new instance of the IVolatilityModel using
@@ -7944,6 +7932,18 @@ class IndicatorVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatility
         
         :param indicator: The auto-updating indicator
         :param indicator_update: Function delegate used to update the indicator on each call to update
+        """
+        ...
+
+    @overload
+    def __init__(self, indicator: QuantConnect.Indicators.IIndicator) -> None:
+        """
+        Initializes a new instance of the IVolatilityModel using
+        the specified indicator. The indicator
+        is assumed to but updated externally from this model, such as being registered
+        into the consolidator system.
+        
+        :param indicator: The auto-updating indicator
         """
         ...
 

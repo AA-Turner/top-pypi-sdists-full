@@ -41,6 +41,7 @@ from ._redis import (
 from ._result_store import ResultStorage
 from ._uuid7 import uuid7
 from .execution import (
+    Disposition,
     Execution,
     TaskFunction,
 )
@@ -276,6 +277,9 @@ class Docket(DocketSnapshotMixin):
     ) -> Callable[P, Awaitable[Execution]]:
         """Add a task to the Docket.
 
+        If a task with the same key is already scheduled or running, this is
+        a no-op; use `replace()` to overwrite.
+
         Args:
             function: The task function to add.
             when: The time to schedule the task.
@@ -291,6 +295,9 @@ class Docket(DocketSnapshotMixin):
     ) -> Callable[..., Awaitable[Execution]]:
         """Add a task to the Docket.
 
+        If a task with the same key is already scheduled or running, this is
+        a no-op; use `replace()` to overwrite.
+
         Args:
             function: The name of a task to add.
             when: The time to schedule the task.
@@ -305,10 +312,22 @@ class Docket(DocketSnapshotMixin):
     ) -> Callable[..., Awaitable[Execution]]:
         """Add a task to the Docket.
 
+        If a task with the same key is already scheduled or running, this is
+        a no-op; use `replace()` to overwrite.
+
         Args:
             function: The task to add.
             when: The time to schedule the task.
             key: The key to schedule the task under.
+
+        Returns:
+            A callable that, when invoked with the task's arguments, returns
+            an :class:`Execution`. The returned execution's ``disposition``
+            reports the outcome of the scheduling attempt:
+            ``Disposition.SCHEDULED`` if the task was placed,
+            ``Disposition.ALREADY_SCHEDULED`` if a task with the same key was
+            already known and the prior schedule was preserved, or
+            ``Disposition.STRUCK`` if a strike rule blocked the call.
         """
         function_name: str | None = None
         if isinstance(function, str):
@@ -342,7 +361,7 @@ class Docket(DocketSnapshotMixin):
                     **execution.specific_labels(),
                     "code.function.name": execution.function_name,
                 },
-            ):
+            ) as span:
                 # Check if task is stricken before scheduling
                 if self.strike_list.is_stricken(execution):
                     logger.warning(
@@ -358,13 +377,19 @@ class Docket(DocketSnapshotMixin):
                             "docket.where": "docket",
                         },
                     )
+                    execution.disposition = Disposition.STRUCK
+                    span.set_attribute(
+                        "docket.disposition", execution.disposition.value
+                    )
                     return execution
 
                 # Schedule atomically (includes state record write)
                 await execution.schedule(replace=False)
+                span.set_attribute("docket.disposition", execution.disposition.value)
 
             TASKS_ADDED.add(1, {**self.labels(), **execution.general_labels()})
-            TASKS_SCHEDULED.add(1, {**self.labels(), **execution.general_labels()})
+            if execution.disposition is Disposition.SCHEDULED:
+                TASKS_SCHEDULED.add(1, {**self.labels(), **execution.general_labels()})
 
             return execution
 
@@ -412,6 +437,13 @@ class Docket(DocketSnapshotMixin):
             function: The task to replace.
             when: The time to schedule the task.
             key: The key to schedule the task under.
+
+        Returns:
+            A callable that, when invoked with the task's arguments, returns
+            an :class:`Execution`. The returned execution's ``disposition`` is
+            ``Disposition.SCHEDULED`` if the task was placed (overwriting any
+            prior schedule for ``key``), or ``Disposition.STRUCK`` if a strike
+            rule blocked the call.
         """
         function_name: str | None = None
         if isinstance(function, str):
@@ -439,7 +471,7 @@ class Docket(DocketSnapshotMixin):
                     **execution.specific_labels(),
                     "code.function.name": execution.function_name,
                 },
-            ):
+            ) as span:
                 # Check if task is stricken before scheduling
                 if self.strike_list.is_stricken(execution):
                     logger.warning(
@@ -455,10 +487,15 @@ class Docket(DocketSnapshotMixin):
                             "docket.where": "docket",
                         },
                     )
+                    execution.disposition = Disposition.STRUCK
+                    span.set_attribute(
+                        "docket.disposition", execution.disposition.value
+                    )
                     return execution
 
                 # Schedule atomically (includes state record write)
                 await execution.schedule(replace=True)
+                span.set_attribute("docket.disposition", execution.disposition.value)
 
             TASKS_REPLACED.add(1, {**self.labels(), **execution.general_labels()})
             TASKS_CANCELLED.add(1, {**self.labels(), **execution.general_labels()})
@@ -476,7 +513,7 @@ class Docket(DocketSnapshotMixin):
                 **execution.specific_labels(),
                 "code.function.name": execution.function_name,
             },
-        ):
+        ) as span:
             # Check if task is stricken before scheduling
             if self.strike_list.is_stricken(execution):
                 logger.warning(
@@ -492,12 +529,16 @@ class Docket(DocketSnapshotMixin):
                         "docket.where": "docket",
                     },
                 )
+                execution.disposition = Disposition.STRUCK
+                span.set_attribute("docket.disposition", execution.disposition.value)
                 return
 
             # Schedule atomically (includes state record write)
             await execution.schedule(replace=False)
+            span.set_attribute("docket.disposition", execution.disposition.value)
 
-        TASKS_SCHEDULED.add(1, {**self.labels(), **execution.general_labels()})
+        if execution.disposition is Disposition.SCHEDULED:
+            TASKS_SCHEDULED.add(1, {**self.labels(), **execution.general_labels()})
 
     async def cancel(self, key: str) -> None:
         """Cancel a previously scheduled task on the Docket.
@@ -655,12 +696,18 @@ class Docket(DocketSnapshotMixin):
         - From the stream (using stored message ID)
         - From the queue (scheduled tasks)
         - Cleans up all associated metadata keys
+
+        Dependencies that park tasks on side channels (e.g. ConcurrencyLimit's
+        waiter streams) clean up via the state-transition pub/sub channel
+        published by ``Docket.cancel`` -- Docket itself stays unaware of any
+        dependency-specific storage.
         """
         if self._cancel_task_script is None:
             self._cancel_task_script = cast(
                 _cancel_task,
                 redis.register_script(
-                    # KEYS: stream_key, known_key, parked_key, queue_key, stream_id_key, runs_key
+                    # KEYS: stream_key, known_key, parked_key, queue_key,
+                    #       stream_id_key, runs_key, progress_key
                     # ARGV: task_key, completed_at
                     """
                     local stream_key = KEYS[1]
@@ -670,6 +717,7 @@ class Docket(DocketSnapshotMixin):
                     local queue_key = KEYS[4]
                     local stream_id_key = KEYS[5]
                     local runs_key = KEYS[6]
+                    local progress_key = KEYS[7]
                     local task_key = ARGV[1]
                     local completed_at = ARGV[2]
 
@@ -689,6 +737,12 @@ class Docket(DocketSnapshotMixin):
                     -- Clean up legacy keys and parked data
                     redis.call('DEL', known_key, parked_key, stream_id_key)
                     redis.call('ZREM', queue_key, task_key)
+
+                    -- Drop the per-task progress hash that ``Execution.claim``
+                    -- creates -- without a TTL of its own, it would otherwise
+                    -- leak when a task is cancelled after being claimed but
+                    -- before it completes (e.g. parked on a side channel).
+                    redis.call('DEL', progress_key)
 
                     -- Clear scheduling markers so add() can reschedule this key
                     redis.call('HDEL', runs_key, 'known', 'stream_id')
@@ -718,6 +772,7 @@ class Docket(DocketSnapshotMixin):
                 self.queue_key,
                 self.stream_id_key(key),
                 task_runs_key,
+                self.key(f"progress:{key}"),
             ],
             args=[key, completed_at],
         )

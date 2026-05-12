@@ -140,7 +140,6 @@ PRESETS: dict[PresetName, Theme] = {
         muted="#969696",
         danger="#f87171",
         success="#86efac",
-        radius="md",
         font_sans=_DEFAULT_FONT_SANS,
     ),
     "light": Theme(
@@ -154,7 +153,6 @@ PRESETS: dict[PresetName, Theme] = {
         muted="#6b665b",
         danger="#dc2626",
         success="#16a34a",
-        radius="md",
         font_sans=_DEFAULT_FONT_SANS,
     ),
     "midnight": Theme(
@@ -168,7 +166,6 @@ PRESETS: dict[PresetName, Theme] = {
         muted="#94a3b8",
         danger="#f87171",
         success="#34d399",
-        radius="md",
         font_sans=_DEFAULT_FONT_SANS,
     ),
     "warm": Theme(
@@ -182,7 +179,6 @@ PRESETS: dict[PresetName, Theme] = {
         muted="#78716c",
         danger="#b91c1c",
         success="#15803d",
-        radius="lg",
         font_sans=_DEFAULT_FONT_SANS,
     ),
 }

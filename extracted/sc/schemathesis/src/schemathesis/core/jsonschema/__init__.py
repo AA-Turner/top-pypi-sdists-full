@@ -17,14 +17,14 @@ from .bundler import (
     unbundle_path,
 )
 from .keywords import ALL_KEYWORDS
-from .types import get_type
+from .types import JsonSchema, get_type
 
 # Support lookahead/lookbehind assertions common in ECMA-262 patterns,
 # with a large size limit to handle schemas with large quantifiers (e.g., {1,51200})
 FANCY_REGEX_OPTIONS = jsonschema_rs.FancyRegexOptions(size_limit=1_000_000_000)
 
 
-def _is_valid_uuid(value: Any) -> bool:
+def _is_valid_uuid(value: object) -> bool:
     if not isinstance(value, str):
         return True
     try:
@@ -40,7 +40,102 @@ def _is_valid_uuid(value: Any) -> bool:
 DRAFT4_SUPPLEMENTAL_FORMATS: dict[str, Callable[[Any], bool]] = {"uuid": _is_valid_uuid}
 
 
-def make_validator(schema: Any, validator_cls: type) -> jsonschema_rs.Validator:
+# Format names that each `jsonschema_rs` validator class actually validates (after
+# the supplemental `uuid` registration for Draft 4 above). Anything outside the
+# matching set is annotation-only under that draft: negative-format generation
+# cannot produce a value the validator considers wrong, so callers should skip.
+VALIDATED_FORMATS_BY_DRAFT: dict[type[jsonschema_rs.Validator], frozenset[str]] = {
+    jsonschema_rs.Draft4Validator: frozenset(
+        {"date", "date-time", "email", "hostname", "idn-email", "ipv4", "ipv6", "regex", "time", "uri", "uuid"}
+    ),
+    jsonschema_rs.Draft6Validator: frozenset(
+        {
+            "date",
+            "date-time",
+            "email",
+            "hostname",
+            "idn-email",
+            "ipv4",
+            "ipv6",
+            "json-pointer",
+            "regex",
+            "time",
+            "uri",
+            "uri-reference",
+            "uri-template",
+        }
+    ),
+    jsonschema_rs.Draft7Validator: frozenset(
+        {
+            "date",
+            "date-time",
+            "email",
+            "hostname",
+            "idn-email",
+            "idn-hostname",
+            "ipv4",
+            "ipv6",
+            "iri",
+            "iri-reference",
+            "json-pointer",
+            "regex",
+            "relative-json-pointer",
+            "time",
+            "uri",
+            "uri-reference",
+            "uri-template",
+        }
+    ),
+    jsonschema_rs.Draft201909Validator: frozenset(
+        {
+            "date",
+            "date-time",
+            "duration",
+            "email",
+            "hostname",
+            "idn-email",
+            "idn-hostname",
+            "ipv4",
+            "ipv6",
+            "iri",
+            "iri-reference",
+            "json-pointer",
+            "regex",
+            "relative-json-pointer",
+            "time",
+            "uri",
+            "uri-reference",
+            "uri-template",
+            "uuid",
+        }
+    ),
+    jsonschema_rs.Draft202012Validator: frozenset(
+        {
+            "date",
+            "date-time",
+            "duration",
+            "email",
+            "hostname",
+            "idn-email",
+            "idn-hostname",
+            "ipv4",
+            "ipv6",
+            "iri",
+            "iri-reference",
+            "json-pointer",
+            "regex",
+            "relative-json-pointer",
+            "time",
+            "uri",
+            "uri-reference",
+            "uri-template",
+            "uuid",
+        }
+    ),
+}
+
+
+def make_validator(schema: JsonSchema, validator_cls: type) -> jsonschema_rs.Validator:
     """Build a validator with project-wide kwargs: format/pattern checks and Draft 4 supplements."""
     kwargs: dict[str, Any] = {"validate_formats": True, "pattern_options": FANCY_REGEX_OPTIONS}
     if validator_cls is jsonschema_rs.Draft4Validator:
@@ -48,12 +143,12 @@ def make_validator(schema: Any, validator_cls: type) -> jsonschema_rs.Validator:
     return validator_cls(schema, **kwargs)
 
 
-def make_validator_for(schema: Any) -> jsonschema_rs.Validator:
+def make_validator_for(schema: JsonSchema) -> jsonschema_rs.Validator:
     """Like `make_validator`, but auto-detects the draft from `$schema` (defaults to Draft 2020-12)."""
     return make_validator(schema, jsonschema_rs.validator_cls_for(schema))
 
 
-def schema_with_bundle(schema: Any, root_schema: Any) -> Any:
+def schema_with_bundle(schema: JsonSchema, root_schema: JsonSchema) -> JsonSchema:
     """Splice `x-bundled` from `root_schema` into `schema` so nested `$ref`s resolve at the per-schema root."""
     if not isinstance(schema, dict) or not isinstance(root_schema, dict):
         return schema
@@ -73,7 +168,7 @@ def maybe_resolve_bundled(schema: dict[str, Any]) -> dict[str, Any]:
     return target if isinstance(target, dict) else schema
 
 
-def is_valid(value: Any, schema: dict[str, Any]) -> bool:
+def is_valid(value: object, schema: JsonSchema) -> bool:
     """Return True if value satisfies schema, False if it does not.
 
     Returns True on any validation error so that values that cannot be checked
@@ -92,6 +187,7 @@ __all__ = [
     "Bundler",
     "BundleError",
     "DRAFT4_SUPPLEMENTAL_FORMATS",
+    "VALIDATED_FORMATS_BY_DRAFT",
     "FANCY_REGEX_OPTIONS",
     "is_valid",
     "make_validator",

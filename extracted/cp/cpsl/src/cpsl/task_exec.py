@@ -24,7 +24,6 @@ from .clients.capsule import (
     GetUserIntegrationsRequest,
     NotifySessionRequest,
     RunnerServiceStub,
-    SaveSessionDataRequest,
     SessionServiceStub,
 )
 from .constants import DEFAULT_CHANNEL_TYPE, HISTORY_FETCH_COUNT, KV_COLLECTION, CollectionDecl
@@ -94,7 +93,13 @@ def _subprocess_entry(
     try:
         from .app import App
         from .channel import Channel as _GrpcChannel
-        from .session import Session, SessionChannel, UserInfo, session_data_json
+        from .session import (
+            Session,
+            SessionChannel,
+            UserInfo,
+            _track_data_value,
+        )
+        from .session_state import commit_session_data, session_data_snapshot
 
         gw = os.environ.get("CAPSULE_GATEWAY_HOST", "localhost:1980")
         token = os.environ.get("CAPSULE_RUNNER_TOKEN") or None
@@ -237,6 +242,8 @@ def _subprocess_entry(
         async def _run() -> None:
             session = None
             runtime_session = None
+            task_data_dirty = False
+            base_session_data: dict[str, Any] = {}
             if session_id:
                 session = Session(
                     id=session_id,
@@ -261,8 +268,6 @@ def _subprocess_entry(
                 if resp.channel_type:
                     session.channel = SessionChannel(type=resp.channel_type)
                 if resp.data_json:
-                    from .session import _track_data_value
-
                     session.data = _track_data_value(
                         json.loads(resp.data_json), session._notify_data_changed
                     )
@@ -287,6 +292,7 @@ def _subprocess_entry(
                     session.integrations = {
                         ic.type: _parse_integration_credential(ic) for ic in resp.integrations
                     }
+                base_session_data = session_data_snapshot(session.data)
 
                 async def _task_reply(msg: Message) -> None:
                     rid = str(uuid.uuid4())
@@ -313,32 +319,27 @@ def _subprocess_entry(
                     )
 
                 def _task_data_changed() -> None:
-                    session_stub.save_session_data(
-                        SaveSessionDataRequest(
-                            session_id=session_id,
-                            data_json=session_data_json(session.data),
-                        )
+                    nonlocal task_data_dirty
+                    task_data_dirty = True
+
+                def _task_data_flush() -> None:
+                    nonlocal task_data_dirty, base_session_data
+                    if not task_data_dirty:
+                        return
+                    commit = commit_session_data(
+                        session_id=session_id,
+                        data=session.data,
+                        base_snapshot=base_session_data,
+                        save_session_data=session_stub.save_session_data,
                     )
-                    rid = str(uuid.uuid4())
-                    session_stub.notify_session(
-                        NotifySessionRequest(
-                            app_id=app_id,
-                            session_id=session_id,
-                            request_id=rid,
-                            block_json=json.dumps(
-                                {
-                                    "id": f"widget_update_{session_id}",
-                                    "type": "widget_update",
-                                    "payload": {"reason": "data", "session_id": session_id},
-                                }
-                            ),
-                            external_delivery=False,
-                        )
-                    )
+                    session.data = _track_data_value(commit.data, session._notify_data_changed)
+                    base_session_data = commit.data
+                    task_data_dirty = False
 
                 session._reply_callback = _task_reply
                 session._block_callback = _task_block
                 session._data_change_callback = _task_data_changed
+                session._data_flush_callback = _task_data_flush
                 _bind_runtime_session(session)
                 runtime_session = session
             else:
@@ -367,13 +368,14 @@ def _subprocess_entry(
                 if identity_token is not None:
                     reset_active_identity(identity_token)
 
-            if session and session.id:
-                session_stub.save_session_data(
-                    SaveSessionDataRequest(
-                        session_id=session.id,
-                        data_json=session_data_json(session.data),
-                    )
+            if session and session.id and task_data_dirty:
+                commit = commit_session_data(
+                    session_id=session.id,
+                    data=session.data,
+                    base_snapshot=base_session_data,
+                    save_session_data=session_stub.save_session_data,
                 )
+                session.data = _track_data_value(commit.data, session._notify_data_changed)
 
         asyncio.run(_run())
         result_conn.send(("ok", None))

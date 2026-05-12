@@ -422,7 +422,10 @@ def pre_validate_content(filepath: str, content: str) -> tuple[bool, str]:
     """Pre-validate content before writing to disk.
 
     Catches both structural errors (syntax) and semantic regressions (e.g. a
-    model replacing import.meta.env with process.env in a Vite file).
+    model replacing import.meta.env with process.env in a Vite file). Also
+    rejects placeholder code (empty function bodies, TODO comments,
+    `raise NotImplementedError`, `todo!()`, etc.) so the model is forced
+    to write complete implementations instead of stubs.
 
     Args:
         filepath: Path to the file being written
@@ -431,6 +434,18 @@ def pre_validate_content(filepath: str, content: str) -> tuple[bool, str]:
     Returns:
         Tuple of (is_valid, error_message)
     """
+    # Anti-placeholder + prose-mass + protocol-leak + json-poison checks.
+    # Done FIRST so sage rejects obviously-bad model output before doing any
+    # syntax parsing (which would also flag stub code, but with worse error
+    # messages).
+    try:
+        from sage.core.content_validator import validate_content as _content_check
+        result = _content_check(filepath, content)
+        if not result.ok:
+            return False, result.reason or "rejected by content validator"
+    except Exception:
+        pass  # don't let validator crashes block legitimate writes
+
     # Python files — check syntax
     if filepath.endswith(".py"):
         is_valid, error = validate_python_syntax(content, filepath)

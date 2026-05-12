@@ -214,6 +214,8 @@ class Table(_Widget):
         data: Named data source (alternative to ``collection``).
         rows: Inline list of ``{"col": value}`` dicts.
         columns: Column names to display (and their order).
+        label: Optional display label used when the table appears in a
+            ``TableBrowser``. The collection remains the data source.
         scope: Scope for dynamic collection metadata when ``collection`` is a string.
         sortable: Enable column sorting in the UI.
         filterable: Show a filter bar above the table.
@@ -229,6 +231,7 @@ class Table(_Widget):
         data: str | None = None,
         rows: list[dict[str, Any]] | None = None,
         columns: list[str | ColumnDef] | None = None,
+        label: str | None = None,
         scope: Literal["app", "user", "owner", "session"] | None = None,
         sortable: bool = False,
         filterable: bool = False,
@@ -260,6 +263,7 @@ class Table(_Widget):
         self.data = data
         self.rows = rows
         self.columns = columns
+        self.label = label
         self.scope = scope
         self.sortable = sortable
         self.filterable = filterable
@@ -274,6 +278,8 @@ class Table(_Widget):
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {"type": self._type}
+        if self.label is not None:
+            d["label"] = self.label
         if self.collection is not None:
             has_overrides = (
                 self.columns or self.scope or self.sortable or self.filterable or self.paginate
@@ -306,6 +312,62 @@ class Table(_Widget):
         if self.paginate > 0:
             d["paginate"] = self.paginate
         return d
+
+
+class TableGroup(_Widget):
+    """Named folder for collection-backed tables inside a ``TableBrowser``."""
+
+    _type = "table_group"
+
+    def __init__(self, label: str, items: list[Table | TableGroup]) -> None:
+        if not label:
+            raise ValueError("TableGroup label is required")
+        self.label = label
+        self.items = list(items)
+        for item in self.items:
+            _validate_table_browser_item(item)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": self._type,
+            "label": self.label,
+            "items": [item.to_dict() for item in self.items],
+        }
+
+
+class TableBrowser(_Widget):
+    """Hierarchical browser for collection-backed ``Table`` widgets."""
+
+    _type = "table_browser"
+
+    def __init__(
+        self,
+        items: list[Table | TableGroup],
+        *,
+        title: str | None = None,
+    ) -> None:
+        self.items = list(items)
+        self.title = title
+        for item in self.items:
+            _validate_table_browser_item(item)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
+            "type": self._type,
+            "items": [item.to_dict() for item in self.items],
+        }
+        if self.title is not None:
+            d["title"] = self.title
+        return d
+
+
+def _validate_table_browser_item(item: Table | TableGroup) -> None:
+    if isinstance(item, TableGroup):
+        return
+    if not isinstance(item, Table):
+        raise TypeError("TableBrowser items must be Table or TableGroup instances")
+    if item.collection is None:
+        raise ValueError("TableBrowser only supports collection-backed Table widgets")
 
 
 class Chart(_Widget):

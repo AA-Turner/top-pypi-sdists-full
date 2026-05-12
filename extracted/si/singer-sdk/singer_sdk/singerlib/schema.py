@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import typing as t
 from dataclasses import KW_ONLY, dataclass
 
@@ -48,6 +49,7 @@ STANDARD_KEYS = [
     "oneOf",
     # JSON Schema extensions
     "x-sql-datatype",
+    "x-sql-datatype-properties",
 ]
 
 
@@ -91,13 +93,14 @@ class Schema:
     contentEncoding: str | None = None  # noqa: N815
     # JSON Schema extensions
     x_sql_datatype: str | None = None
+    x_sql_datatype_properties: dict[str, t.Any] | None = None
 
     deprecated: bool | None = None
     oneOf: t.Any | None = None  # noqa: N815
 
     _: KW_ONLY
 
-    def to_dict(self) -> dict[str, t.Any]:
+    def to_dict(self) -> _SchemaDict:
         """Return the raw JSON Schema as a (possibly nested) dict.
 
         Returns:
@@ -212,18 +215,41 @@ class Schema:
         return cls(**kwargs)
 
 
-class _SchemaKey:
-    ref = "$ref"
-    items = "items"
-    properties = "properties"
-    pattern_properties = "patternProperties"
-    any_of = "anyOf"
-    all_of = "allOf"
-    one_of = "oneOf"
+# Keywords whose value is a single schema dict.
+_SINGLE_SCHEMA_KEYWORDS: tuple[str, ...] = (
+    "items",
+    "propertyNames",
+    "contains",
+    "not",
+    "if",
+    "then",
+    "else",
+)
+
+# Keywords whose value is a list of schema dicts.
+_ARRAY_SCHEMA_KEYWORDS: tuple[str, ...] = (
+    "anyOf",
+    "allOf",
+    "oneOf",
+    "prefixItems",
+)
+
+# Keywords whose value is a dict mapping keys to schema dicts.
+_MAP_SCHEMA_KEYWORDS: tuple[str, ...] = (
+    "properties",
+    "patternProperties",
+)
+
+# Keywords whose value is a schema dict OR a boolean (must guard with isinstance).
+_OPTIONAL_SCHEMA_KEYWORDS: tuple[str, ...] = (
+    "additionalProperties",
+    "unevaluatedProperties",
+    "unevaluatedItems",
+)
 
 
 def resolve_schema_references(
-    schema: dict[str, t.Any],
+    schema: _SchemaDict,
     refs: dict[str, _SchemaDict] | None = None,
 ) -> dict:
     """Resolves and replaces json-schema $refs with the appropriate dict.
@@ -244,19 +270,19 @@ def resolve_schema_references(
     registry: Registry = Registry()
     schema_resource = DRAFT202012.create_resource(schema)
     registry = registry.with_resource("", schema_resource)
-    registry = registry.with_resources(
-        [(k, DRAFT202012.create_resource(v)) for k, v in refs.items()]
-    )
+    registry = registry.with_resources([
+        (k, DRAFT202012.create_resource(v)) for k, v in refs.items()
+    ])
 
     resolver = registry.resolver()
     return _resolve_schema_references(schema, resolver)
 
 
-def _resolve_schema_references(  # noqa: C901, PLR0912
-    schema: dict[str, t.Any],
+def _resolve_schema_references(  # noqa: C901
+    schema: _SchemaDict,
     resolver: Resolver,
-    visited_refs: tuple[str, ...] | None = None,
-) -> dict[str, t.Any]:
+    visited_refs: tuple[str, ...] = (),
+) -> _SchemaDict:
     """Recursively resolve schema references while handling circular references.
 
     Args:
@@ -268,67 +294,37 @@ def _resolve_schema_references(  # noqa: C901, PLR0912
     Returns:
         The schema with all references resolved
     """
-    if visited_refs is None:
-        visited_refs = ()
-
-    if _SchemaKey.ref in schema:
-        reference_path = schema.pop(_SchemaKey.ref, None)
+    if "$ref" in schema:
+        reference_path = schema.pop("$ref")
         if reference_path in visited_refs:
-            # We've already seen this reference in the current call stack, return
-            # the schema as-is to prevent infinite recursion
             return schema
-
-        # Add this reference to the current call stack
-        new_visited_refs = (*visited_refs, reference_path)
-        resolved = resolver.lookup(reference_path)
-        schema.update(resolved.contents)
-        return _resolve_schema_references(schema, resolver, new_visited_refs)
-
-    if _SchemaKey.properties in schema:
-        for k, val in schema[_SchemaKey.properties].items():
-            schema[_SchemaKey.properties][k] = _resolve_schema_references(
-                val,
-                resolver,
-                visited_refs,
-            )
-
-    if _SchemaKey.pattern_properties in schema:
-        for k, val in schema[_SchemaKey.pattern_properties].items():
-            schema[_SchemaKey.pattern_properties][k] = _resolve_schema_references(
-                val,
-                resolver,
-                visited_refs,
-            )
-
-    if _SchemaKey.items in schema:
-        schema[_SchemaKey.items] = _resolve_schema_references(
-            schema[_SchemaKey.items],
+        schema.update(resolver.lookup(reference_path).contents)
+        return _resolve_schema_references(
+            schema,
             resolver,
-            visited_refs,
+            (*visited_refs, reference_path),
         )
 
-    if _SchemaKey.any_of in schema:
-        for i, element in enumerate(schema[_SchemaKey.any_of]):
-            schema[_SchemaKey.any_of][i] = _resolve_schema_references(
-                element,
-                resolver,
-                visited_refs,
-            )
+    recurse = functools.partial(
+        _resolve_schema_references,
+        resolver=resolver,
+        visited_refs=visited_refs,
+    )
 
-    if _SchemaKey.all_of in schema:
-        for i, element in enumerate(schema[_SchemaKey.all_of]):
-            schema[_SchemaKey.all_of][i] = _resolve_schema_references(
-                element,
-                resolver,
-                visited_refs,
-            )
+    for kw in _SINGLE_SCHEMA_KEYWORDS:
+        if kw in schema:
+            schema[kw] = recurse(schema[kw])
 
-    if _SchemaKey.one_of in schema:
-        for i, element in enumerate(schema[_SchemaKey.one_of]):
-            schema[_SchemaKey.one_of][i] = _resolve_schema_references(
-                element,
-                resolver,
-                visited_refs,
-            )
+    for kw in _ARRAY_SCHEMA_KEYWORDS:
+        if kw in schema:
+            schema[kw] = [recurse(el) for el in schema[kw]]
+
+    for kw in _MAP_SCHEMA_KEYWORDS:
+        if kw in schema:
+            schema[kw] = {k: recurse(v) for k, v in schema[kw].items()}
+
+    for kw in _OPTIONAL_SCHEMA_KEYWORDS:
+        if kw in schema and isinstance(schema[kw], dict):
+            schema[kw] = recurse(schema[kw])
 
     return schema

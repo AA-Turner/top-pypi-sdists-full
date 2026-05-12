@@ -8,6 +8,8 @@ from pierre_storage.client import GitStorage, create_client
 from pierre_storage.errors import ApiError, RefUpdateError
 from pierre_storage.types import (
     BaseRepo,
+    BlameLine,
+    BlameResult,
     BranchInfo,
     CommitInfo,
     CommitMetadata,
@@ -25,6 +27,7 @@ from pierre_storage.types import (
     FilteredFile,
     GetBranchDiffResult,
     GetCommitDiffResult,
+    GetCommitResult,
     GitStorageOptions,
     Op,
     OP_NO_FORCE_PUSH,
@@ -67,6 +70,8 @@ __all__ = [
     "RefUpdateError",
     # Types
     "BaseRepo",
+    "BlameLine",
+    "BlameResult",
     "BranchInfo",
     "CommitMetadata",
     "CreateBranchResult",
@@ -84,6 +89,7 @@ __all__ = [
     "FilteredFile",
     "GetBranchDiffResult",
     "GetCommitDiffResult",
+    "GetCommitResult",
     "GrepFileMatch",
     "GrepLine",
     "GrepResult",

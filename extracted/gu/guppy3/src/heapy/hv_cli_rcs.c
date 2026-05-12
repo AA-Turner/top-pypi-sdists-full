@@ -21,29 +21,32 @@ referrers, collected in an immutable NodeSet object. Arguments:\n\
 
 typedef struct {
     /* Mimics a tuple - xxx should perhaps make a proper object/use tuple macros?! */
-    PyObject_VAR_HEAD
+    NYTUPLELIKE_HEAD
     NyHeapViewObject *hv;
     NyObjectClassifierObject *cli;
     NyNodeGraphObject *rg;
     NyNodeSetObject *norefer;
     PyObject *memo;
 } RetclasetObject;
+NYTUPLELIKE_ASSERT(RetclasetObject, hv);
 
 static PyObject *
 hv_cli_rcs_fast_memoized_kind(RetclasetObject * self, PyObject *kind)
 {
-    PyObject *result = PyDict_GetItem(self->memo, kind);
-    if (!result) {
-        if (PyErr_Occurred())
-            goto Err;
-        if (PyDict_SetItem(self->memo, kind, kind) == -1)
-            goto Err;
-        result = kind;
-    }
-    Py_INCREF(result);
-    return result;
-Err:
-    return 0;
+    PyObject *result;
+    int r;
+
+    r = PyDict_GetItemRef(self->memo, kind, &result);
+    if (r == -1)
+        return NULL;
+    if (result)
+        return result;
+
+    if (PyDict_SetItem(self->memo, kind, kind) == -1)
+        return NULL;
+    /* Caller assumes it owns both kind and the return value */
+    Py_INCREF(kind);
+    return kind;
 }
 
 typedef struct {

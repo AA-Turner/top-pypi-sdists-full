@@ -20,7 +20,30 @@ from pathlib import Path
 
 from sage.config import SageConfig
 
-__all__ = ["resolve_draft_model_path", "speculative_kwargs"]
+__all__ = ["resolve_draft_model_path", "speculative_for_ollama", "speculative_kwargs"]
+
+
+def speculative_for_ollama(cfg: SageConfig) -> str | None:
+    """Return the bare draft model name to bake into an Ollama Modelfile,
+    or None when speculative is disabled or targets a different backend.
+
+    Ollama enables speculative decoding via `PARAMETER draft_model <name>`
+    in the Modelfile at create time — not via request-time options. Sage's
+    `train` command bakes Modelfiles, so this helper produces the value to
+    insert there. We accept either an explicit `ollama:<name>` prefix or
+    a bare name (the bare form is interpreted as Ollama for convenience).
+    A `llama_cpp:` prefix means the draft is for the llama_cpp path —
+    irrelevant to Ollama, return None.
+    """
+    spec = (cfg.speculative_draft_model or "").strip()
+    if not spec:
+        return None
+    if ":" in spec:
+        provider, name = spec.split(":", 1)
+        if provider != "ollama":
+            return None
+        return name or None
+    return spec
 
 
 def resolve_draft_model_path(cfg: SageConfig) -> Path | None:

@@ -18,7 +18,7 @@ from pyglet.graphics import Group
 import os
 
 # ======================================== CONSTANTS ========================================
-_UNSET = object()   # élément non défini
+_UNSET: object = object()   # élément non défini
 
 # ======================================== SPRITE RENDERER ========================================
 class PygletSpriteRenderer:

@@ -129,12 +129,15 @@ cdef class _Graph:
     def add_constraint(self, ArraySymbol value):
         """Add a constraint to the model.
 
+        For a solution to the model to be :term:`feasible <feasible state>`, the
+        :term:`constraint` must be satisfied.
+
         Args:
             value: Value that must evaluate to True for the state
                 of the model to be feasible.
 
         Returns:
-            The constraint symbol.
+            The symbol associated with the constraint.
 
         Examples:
             This example adds a single constraint to a model.
@@ -145,8 +148,9 @@ cdef class _Graph:
             >>> c = model.constant(5)
             >>> constraint_sym = model.add_constraint(i <= c)
 
-            The returned constraint symbol can be assigned and evaluated
-            for a model state:
+            The returned constraint symbol (a
+            :class:`~dwave.optimization.symbols.LessEqual` for this example) can
+            be assigned, and evaluated for, a model state:
 
             >>> with model.lock():
             ...     model.states.resize(1)
@@ -157,6 +161,10 @@ cdef class _Graph:
             ...     i.set_state(0, 6) # Infeasible state
             ...     print(constraint_sym.state(0))
             0.0
+
+        See Also:
+            :meth:`.feasible`, :meth:`.iter_constraints`,
+            :meth:`.num_constraints`, :meth:`.objective`,
         """
         if value is None:
             raise ValueError("value cannot be None")
@@ -165,13 +173,16 @@ cdef class _Graph:
         return value
 
     def decision_state_size(self):
-        r"""Return an estimate of the size, in bytes, of a model's decision states.
+        r"""Estimate the size, in bytes, of a model's decision states.
 
-        For more details, see :meth:`.state_size()`.
-        This method differs by counting the state of only the decision variables.
+        For more details, see the :meth:`.state_size()` method. This method
+        differs by counting the states of only the decision variables.
+
+        Returns:
+            int: Estimated state size of the model's decision variables.
 
         Examples:
-            This example estimates the size of a model state.
+            This example estimates the size of a model's decision state.
             In this example a single value is added to a :math:`5\times4` array.
             The output of the addition is also a :math:`5\times4` array.
             Each element of each array requires :math:`8` bytes to represent
@@ -190,14 +201,13 @@ cdef class _Graph:
             160
 
         See also:
-            :meth:`Symbol.state_size()` An estimate of the size of a symbol's
-            state.
+            :meth:`Symbol.state_size()` Estimates the size of a symbol’s state
 
-            :meth:`ArraySymbol.state_size()` An estimate of the size of an array
-            symbol's state.
+            :meth:`ArraySymbol.state_size()` Estimates the size of an array
+            symbol's state
 
-            :meth:`Model.state_size()` An estimate of the size of a model's
-            decision states.
+            :meth:`Model.state_size()` Estimates the size of all of a model's
+            states
         """
         return sum(sym.state_size() for sym in self.iter_decisions())
 
@@ -215,7 +225,8 @@ cdef class _Graph:
         Args:
             file:
                 File pointer to a readable, seekable file-like object encoding
-                a model. Strings are interpreted as a file name.
+                a model. Strings are interpreted as a file name. Files are not
+                rewound to the beginning.
             substitute:
                 A mapping of symbol substitutions to make when loading the file.
                 The keys are strings giving the node class name to be substituted.
@@ -229,8 +240,26 @@ cdef class _Graph:
         Returns:
             A model.
 
+        Examples:
+
+            This example serializes a model to a
+            `buffered I/O <https://docs.python.org/3/library/io.html#binary-i-o>`_
+            object, then creates a new model from that object.
+
+            >>> from dwave.optimization.generators import flow_shop_scheduling
+            ...
+            >>> processing_times = [[10, 5, 7], [20, 10, 15]]
+            >>> model = flow_shop_scheduling(processing_times=processing_times)
+            >>> my_file = model.to_file()
+            ...
+            >>> from dwave.optimization import Model
+            >>> new_model = Model.from_file(my_file)
+
         See also:
             :meth:`.into_file`, :meth:`.to_file`
+
+            :meth:`~dwave.optimization.states.States.from_file` Restores states
+            from a file
 
         .. versionchanged:: 0.6.0
             Add the ``substitute`` and ``lock`` keyword-only arguments.
@@ -372,13 +401,20 @@ cdef class _Graph:
                 interpreted as a file name.
             max_num_states:
                 Maximum number of states to serialize along with the model.
-                The number of states serialized is
-                ``min(model.states.size(), max_num_states)``.
+                The number of states serialized is the minimum between
+                :meth:`~dwave.optimization.states.States.size` and the specified
+                ``max_num_states`` value.
             only_decision:
                 If ``True``, only decision variables are serialized.
                 If ``False``, all symbols are serialized.
             version:
                 A 2-tuple indicating which serialization version to use.
+
+        See also:
+            :meth:`.from_file`, :meth:`.to_file`
+
+            :meth:`~dwave.optimization.states.States.into_file` Saves states to
+            an existing file
 
         Format Specification (Version 1.0):
 
@@ -442,10 +478,6 @@ cdef class _Graph:
         Format Specification (Version 0.1):
 
             Prior to version 1.0, states were saved differently.
-            See :meth:`States.into_file()`.
-
-        See also:
-            :meth:`.from_file`, :meth:`.to_file`
 
         .. versionchanged:: 0.5.2
             Added the ``version`` keyword-only argument.
@@ -582,6 +614,15 @@ cdef class _Graph:
 
         No new symbols can be added to a locked model.
 
+        Returns:
+            bool: True if the model is locked.
+
+        Examples:
+            >>> from dwave.optimization.model import Model
+            >>> model = Model()
+            >>> model.is_locked()
+            False
+
         See also:
             :meth:`.lock`, :meth:`.unlock`
         """
@@ -589,6 +630,9 @@ cdef class _Graph:
 
     def iter_constraints(self):
         """Iterate over all constraints in the model.
+
+        Yields:
+            Symbols associated with the constraints.
 
         Examples:
             This example adds a single constraint to a model and iterates over it.
@@ -598,13 +642,23 @@ cdef class _Graph:
             >>> i = model.integer()
             >>> c = model.constant(5)
             >>> _ = model.add_constraint(i <= c)
-            >>> constraints = next(model.iter_constraints())
+            >>> constraint = next(model.iter_constraints())
+            >>> print(type(constraint))
+            <class 'dwave.optimization.symbols.binaryop.LessEqual'>
+
+        See Also:
+            :meth:`iter_decisions`, :meth:`.iter_symbols`,
+            :meth:`.num_constraints`
         """
         for ptr in self._graph.constraints():
             yield symbol_from_ptr(self, ptr)
 
     def iter_decisions(self):
         """Iterate over all decision variables in the model.
+
+        Yields:
+            Decision variables; for example, an
+            :class:`~dwave.optimization.symbols.IntegerVariable` symbol.
 
         Examples:
             This example adds a single decision symbol to a model and iterates over it.
@@ -615,12 +669,19 @@ cdef class _Graph:
             >>> c = model.constant(5)
             >>> _ = model.add_constraint(i <= c)
             >>> decisions = next(model.iter_decisions())
+
+        See Also:
+            :meth:`iter_constraints`, :meth:`iter_symbols`,
+            :meth:`.num_decisions`
         """
         for ptr in self._graph.decisions():
             yield symbol_from_ptr(self, ptr)
 
     def iter_inputs(self):
         """Iterate over all inputs in the model.
+
+        Yields:
+            :class:`~dwave.optimization.symbols.Input` symbols.
 
         Examples:
             This example iterates over a model's inputs.
@@ -634,12 +695,18 @@ cdef class _Graph:
             2
 
         .. versionadded:: 0.6.2
+
+        See Also:
+            :meth:`iter_decisions`, :meth:`iter_symbols`, :meth:`.num_inputs`
         """
         for ptr in self._graph.inputs():
             yield symbol_from_ptr(self, ptr)
 
     def iter_symbols(self):
         """Iterate over all symbols in the model.
+
+        Yields:
+            :class:`~dwave.optimization.model.Symbol`: Symbols of the model.
 
         Examples:
             This example iterates over a model's symbols.
@@ -649,6 +716,10 @@ cdef class _Graph:
             >>> i = model.integer(1, lower_bound=10)
             >>> c = model.constant([[2, 3], [5, 6]])
             >>> symbol_1, symbol_2 = model.iter_symbols()
+
+        See Also:
+            :meth:`.iter_constraints`, :meth:`.iter_decisions`,
+            :meth:`.num_symbols`
         """
         # Because nodes() is a span of unique_ptr, we can't just iterate over
         # it cythonically. Cython would try to do a copy/move assignment.
@@ -670,14 +741,15 @@ cdef class _Graph:
     def minimize(self, ArraySymbol value):
         """Set the objective value to minimize.
 
-        Optimization problems have an objective and/or constraints. The objective
-        expresses one or more aspects of the problem that should be minimized
-        (equivalent to maximization when multiplied by a minus sign). For example,
-        an optimized itinerary might minimize the value of distance traveled or
-        cost of transportation or travel time.
+        Optimization problems have an :term:`objective` and/or
+        :term:`constraints <constraint>`. The objective expresses one or more
+        aspects of the problem that should be minimized (equivalent to
+        maximization when multiplied by a minus sign). For example, an optimized
+        itinerary might minimize the value of distance traveled or cost of
+        transportation or travel time.
 
         Args:
-            value: Value for which to minimize the cost function.
+            value: Value of the cost function to minimize.
 
         Examples:
             This example minimizes a simple polynomial, :math:`y = i^2 - 4i`,
@@ -689,6 +761,9 @@ cdef class _Graph:
             >>> c = model.constant(4)
             >>> y = i*i - c*i
             >>> model.minimize(y)
+
+        See Also:
+            :meth:`.feasible`, :meth:`.objective`
         """
         if value is None:
             raise ValueError("value cannot be None")
@@ -699,7 +774,10 @@ cdef class _Graph:
         self._graph.set_objective(value.array_ptr)
 
     cpdef Py_ssize_t num_constraints(self) noexcept:
-        """Number of constraints in the model.
+        """Return the number of constraints in the model.
+
+        Returns:
+            int: Number of constraints.
 
         Examples:
             This example checks the number of constraints in the model after
@@ -713,14 +791,21 @@ cdef class _Graph:
             >>> _ = model.add_constraint(c[1] <= i)
             >>> model.num_constraints()
             2
+
+        See Also:
+            :meth:`.feasible`, :meth:`.iter_constraints`,
+            :meth:`.num_decisions`, :meth:`.num_symbols`
         """
         return self._graph.num_constraints()
 
     cpdef Py_ssize_t num_decisions(self) noexcept:
-        """Number of independent decision nodes in the model.
+        """Return the number of decision variables in the model.
 
         An array-of-integers symbol, for example, counts as a single
-        decision node.
+        decision symbol.
+
+        Returns:
+            int: Number of independent decision symbols.
 
         Examples:
             This example checks the number of decisions in a model after
@@ -732,11 +817,18 @@ cdef class _Graph:
             >>> i = model.integer(20, upper_bound=100)
             >>> model.num_decisions()
             1
+
+        See Also:
+            :meth:`iter_decisions`, :meth:`num_constraints`, :meth:`num_symbols`
         """
         return self._graph.num_decisions()
 
     def num_edges(self):
-        """Number of edges in the directed acyclic graph for the model.
+        """Return the number of edges in the model's graph.
+
+        Returns:
+            int: Number of edges in the :term:`directed acyclic graph` for the
+            model.
 
         Examples:
             This example minimizes the sum of a single constant symbol and
@@ -750,6 +842,9 @@ cdef class _Graph:
             >>> model.minimize(c + i)
             >>> model.num_edges()
             2
+
+        See Also:
+            :meth:`.num_nodes`, :meth:`.num_symbols`
         """
         cdef Py_ssize_t num_edges = 0
         for i in range(self._graph.num_nodes()):
@@ -757,11 +852,11 @@ cdef class _Graph:
         return num_edges
 
     cpdef Py_ssize_t num_inputs(self) noexcept:
-        """Number of input nodes on the model.
+        """Return the number of input symbols in the model.
 
-        See also:
-            :meth:`.num_symbols`
-            :class:`~dwave.optimization.symbols.Input`
+        Returns:
+            int: Number of :class:`~dwave.optimization.symbols.Input` symbols in
+            the model.
 
         Examples:
             This example adds two inputs and a constant to a model and
@@ -774,19 +869,25 @@ cdef class _Graph:
             >>> model.num_inputs()
             2
 
+        See also:
+            :class:`~dwave.optimization.symbols.Input`
+
+            :meth:`iter_inputs`, :meth:`.num_symbols`
+
         .. versionadded:: 0.6.2
         """
         return self._graph.num_inputs()
 
     cpdef Py_ssize_t num_nodes(self) noexcept:
-        """Number of nodes in the directed acyclic graph for the model.
+        """Return the number of nodes in the model's graph.
 
-        See also:
-            :meth:`.num_symbols`
+        Returns:
+            int: Number of nodes in the :term:`directed acyclic graph` for the
+            model.
 
         Examples:
-            This example add a single (size 20) decision symbol and
-            a single (size 3) constant symbol checks the number of
+            This example adds a single (size 20) decision symbol and
+            a single (size 3) constant symbol, and checks the number of
             nodes in the model.
 
             >>> from dwave.optimization.model import Model
@@ -795,21 +896,24 @@ cdef class _Graph:
             >>> i = model.integer(20, upper_bound=100)
             >>> model.num_nodes()
             2
+
+        See also:
+            :meth:`num_edges`, :meth:`.num_symbols`
         """
         return self._graph.num_nodes()
 
     cpdef Py_ssize_t num_symbols(self) noexcept:
-        """Number of symbols tracked by the model.
+        """Return the number of symbols in the model.
 
-        Equivalent to the number of nodes in the directed acyclic
-        graph for the model.
+        Equivalent to the number of nodes in the :term:`directed acyclic graph`
+        for the model.
 
-        See also:
-            :meth:`.num_nodes`
+        Returns:
+            int: Number of symbols in the model.
 
         Examples:
-            This example add a single (size 20) decision symbol and
-            a single (size 3) constant symbol checks the number of
+            This example adds a single (size 20) decision symbol and
+            a single (size 3) constant symbol, and checks the number of
             symbols in the model.
 
             >>> from dwave.optimization.model import Model
@@ -818,6 +922,9 @@ cdef class _Graph:
             >>> i = model.integer(20, upper_bound=100)
             >>> model.num_symbols()
             2
+
+        See also:
+            :meth:`.iter_symbols`, :meth:`.num_nodes`
         """
         return self.num_nodes()
 
@@ -826,18 +933,19 @@ cdef class _Graph:
 
         A symbol is considered unused if all of the following are true :
 
-        * It is not a decision.
-        * It is not an ancestor of the objective.
-        * It is not an ancestor of a constraint.
-        * It has no :class:`ArraySymbol` object(s) referring to it. See examples
-          below.
+        *   It is not a decision.
+        *   It is not an ancestor of the objective.
+        *   It is not an ancestor of a constraint.
+        *   It has no :class:`ArraySymbol` object(s) referring to it.
+
+        See examples below.
 
         Returns:
-            The number of symbols removed.
+            int: Number of symbols removed.
 
         Examples:
-            In this example we create a mix of unused and used symbols. Then
-            the unused symbols are removed with ``remove_unused_symbols()``.
+            This example creates a mix of unused and used symbols, and then
+            removes the unused symbols.
 
             >>> from dwave.optimization import Model
             >>> model = Model()
@@ -852,10 +960,9 @@ cdef class _Graph:
             >>> model.num_symbols()
             2
 
-            In this example we create a mix of unused and used symbols.
-            However, unlike the previous example, we assign the unused symbol
-            to a name in the namespace. This prevents the symbol from being
-            removed.
+            This example creates a mix of unused and used symbols; however,
+            unlike in the previous example, the unused symbol is assigned to a
+            name in the namespace, preventing from being removed.
 
             >>> from dwave.optimization import Model
             >>> model = Model()
@@ -869,13 +976,15 @@ cdef class _Graph:
             >>> model.num_symbols()
             3
 
+        See Also:
+            :meth:`iter_symbols`, :meth:`.num_symbols`
         """
         if self.is_locked():
             raise ValueError("cannot remove symbols from a locked model")
         return self._graph.remove_unused_nodes()
 
     def state_size(self):
-        r"""Return an estimate of the size, in bytes, of a model state.
+        r"""Return an estimate of the size, in bytes, of a model's state.
 
         For a model encoding several array operations, the state of each array
         must be held in memory. This method returns an estimate of the total
@@ -884,8 +993,11 @@ cdef class _Graph:
         The number of bytes returned by this method is only an estimate. Some
         symbols hold additional information that is not accounted for.
 
+        Returns:
+            int: Size of the state for the model.
+
         Examples:
-            This example estimates the size of a model state.
+            This example estimates the size of a model's state.
             In this example a single value is added to a :math:`5\times4` array.
             The output of the addition is also a :math:`5\times4` array.
             Each element of each array requires :math:`8` bytes to represent
@@ -902,26 +1014,38 @@ cdef class _Graph:
             328
 
         See also:
-            :meth:`Symbol.state_size()` An estimate of the size of a symbol's
-            state.
+            :meth:`Symbol.state_size()` Estimates the size of a symbol's state
 
-            :meth:`ArraySymbol.state_size()` An estimate of the size of an array
-            symbol's state.
+            :meth:`ArraySymbol.state_size()` Estimates the size of an array
+            symbol's state
 
-            :meth:`Model.decision_state_size()` An estimate of the size of a
-            model's decision states.
+            :meth:`Model.decision_state_size()` Estimates the size of a
+            model's decision states
 
-            :ref:`opt_solver_nl_properties` The properties of the
+            :ref:`opt_solver_nl_properties` Properties of the
             `Leap <https://cloud.dwavesys.com/leap/>`_ service's
-            quantum-classical hybrid nonlinear solver. Including limits on
+            quantum-classical hybrid nonlinear solver, including limits on
             the maximum state size of a model.
         """
         return sum(sym.state_size() for sym in self.iter_symbols())
 
     def unlock(self):
-        """Release a lock, decrementing the lock count.
+        """Release a lock and decrement the lock count.
 
-        Symbols can be added to unlocked models only.
+        Symbols can be added to unlocked models only. Unlocked models do not
+        allow access to methods such as
+        :meth:`~dwave.optimization.model.ArraySymbol.state` and
+        :meth:`~dwave.optimization.model.Symbol.topological_index` for
+        successor (non-decision) variables.
+
+        Examples:
+            This example checks the status of a model.
+
+            >>> from dwave.optimization.model import Model
+            >>> model = Model()
+            >>> i = model.integer(20, upper_bound=100)
+            >>> model.is_locked()
+            False
 
         See also:
             :meth:`.is_locked`, :meth:`.lock`
@@ -940,8 +1064,10 @@ cdef class _Graph:
 cdef class Symbol:
     """Base class for symbols.
 
-    Each symbol corresponds to a node in the directed acyclic graph representing
-    the problem.
+    :ref:`Symbols <opt_model_construction_nl_symbols>` are a model's decision
+    variables, intermediate variables, constants, and mathematical operations.
+    Each symbol corresponds to a node in the :term:`directed acyclic graph`
+    representing the problem.
     """
     def __init__(self, *args, **kwargs):
         # disallow direct construction of symbols, they should be constructed
@@ -972,16 +1098,35 @@ cdef class Symbol:
     def equals(self, other):
         """Compare whether two symbols are identical.
 
-        Args:
-            other: A symbol for comparison.
-
         Equal symbols represent the same quantity in the model.
+
+        Args:
+            other (:class:`.Symbol`): A symbol for comparison.
+
+        Returns:
+            bool: True if the symbols are identical.
 
         Note that comparing symbols across models is expensive.
 
+        Examples:
+            This example creates two symbols that are the sum of the same two
+            :class:`~dwave.optimization.symbols.IntegerVariable` symbols
+            and a third that is the difference between them, and checks
+            equality.
+
+            >>> from dwave.optimization import Model
+            >>> model = Model()
+            >>> i = model.integer(3)
+            >>> j = model.integer(3)
+            >>> a = i + j
+            >>> b = i + j
+            >>> c = i - j
+            >>> print(a.equals(a), a.equals(b), a.equals(c))
+            True True False
+
         See Also:
-            :meth:`Symbol.maybe_equals`: an alternative for equality testing
-            that can return false positives but is faster.
+            :meth:`~Symbol.maybe_equals`: A faster alternative for equality
+            testing but that can return false positives.
         """
         cdef Py_ssize_t maybe = self.maybe_equals(other)
         if maybe != 1:
@@ -1049,10 +1194,23 @@ cdef class Symbol:
         """Return the initialization status of the indexed state.
 
         Args:
-            index: Index of the queried state.
+            index (int, optional, default=0): Index of the queried state.
 
         Returns:
-            True if the state is initialized.
+            bool: True if the state is initialized.
+
+        Examples:
+            >>> from dwave.optimization import Model
+            >>> model = Model()
+            >>> i = model.integer(3, lower_bound=0, upper_bound=20)
+            >>> with model.lock():
+            ...     model.states.resize(5)
+            ...     i.set_state(1, [2, 4, 15])
+            ...     print(i.has_state(0), i.has_state(1))
+            False True
+
+        See Also:
+            :meth:`reset_state`
         """
         if not self.model.is_locked() and self.node_ptr.topological_index() < 0:
             raise TypeError("the state of an intermediate variable cannot be accessed without "
@@ -1068,7 +1226,8 @@ cdef class Symbol:
         cdef Py_ssize_t num_states = states.size()
 
         if not -num_states <= index < num_states:
-            raise ValueError(f"index out of range: {index}")
+            raise ValueError(f"state index {index} out of bounds. "
+                              "Initialize the state with model.states.resize(...).")
         if index < 0:  # allow negative indexing
             index += num_states
 
@@ -1086,11 +1245,13 @@ cdef class Symbol:
 
         This identity is unique to the underlying node, rather than the identity
         of the Python object representing it.
-        Therefore, ``symdol.id()`` is not the same as ``id(symbol)``!
+        Therefore, ``symbol.id()`` is not the same as ``id(symbol)``!
+
+        Returns:
+            int: Identity of the underlying node.
 
         Examples:
             >>> from dwave.optimization import Model
-            ...
             >>> model = Model()
             >>> a = model.binary()
             >>> aa, = model.iter_symbols()
@@ -1104,10 +1265,11 @@ cdef class Symbol:
             >>> seen = {x.id()}
 
         See Also:
-            :meth:`.shares_memory`: ``a.shares_memory(b)`` is equivalent to ``a.id() == b.id()``.
-            
-            :meth:`.equals`: ``a.equals(b)`` will return ``True`` if ``a.id() == b.id()``. Though
-            the inverse is not necessarily true.
+            *   :meth:`.shares_memory`: ``a.shares_memory(b)`` is equivalent to
+                ``a.id() == b.id()``.
+            *   :meth:`.equals`: ``a.equals(b)`` returns ``True`` if
+                ``a.id() == b.id()``; the inverse is not necessarily true.
+            *   :meth:`~Symbol.maybe_equals`
 
         """
         # We refer to the node_ptr, which is not necessarily the address of the
@@ -1137,10 +1299,13 @@ cdef class Symbol:
     def iter_predecessors(self):
         """Iterate over a symbol's predecessors in the model.
 
+        Yields:
+            The symbol's predecessors.
+
         Examples:
             This example constructs a :math:`b = \sum a` model, where :math:`a`
             is a multiplication of two symbols, and iterates over the
-            predecessor's of :math:`b` (which is just :math:`a`).
+            predecessors of :math:`b` (which is just :math:`a`).
 
             >>> from dwave.optimization.model import Model
             >>> model = Model()
@@ -1150,6 +1315,18 @@ cdef class Symbol:
             >>> b = a.sum()
             >>> a.equals(next(b.iter_predecessors()))
             True
+
+            .. figure:: /_images/iter_predecessors.svg
+               :width: 500 px
+               :name: dwave-optimization-iter-predecessors-example
+               :alt: Image of the model constructed in this example
+
+               Visualization of the model as a :term:`directed acyclic graph`.
+               See the :func:`~dwave.optimization.model.Model.to_networkx`
+               function for information on visualizing models.
+
+        See Also:
+            :meth:`.iter_successors`
         """
         cdef vector[cppNode*].const_iterator it = self.node_ptr.predecessors().begin()
         cdef vector[cppNode*].const_iterator end = self.node_ptr.predecessors().end()
@@ -1160,10 +1337,12 @@ cdef class Symbol:
     def iter_successors(self):
         """Iterate over a symbol's successors in the model.
 
+        Yields:
+            The symbol's successors.
+
         Examples:
-            This example constructs iterates over the successor symbols
-            of a :class:`~dwave.optimization.symbols.DisjointLists`
-            symbol.
+            This example constructs a :math:`y = x + 5` model and iterates over
+            the successors of :math:`x` (which is just :math:`y`).
 
             >>> from dwave.optimization.model import Model
             >>> model = Model()
@@ -1171,6 +1350,18 @@ cdef class Symbol:
             >>> y = x + 5
             >>> y.equals(next(x.iter_successors()))
             True
+
+            .. figure:: /_images/iter_successors.svg
+               :width: 500 px
+               :name: dwave-optimization-iter-successors-example
+               :alt: Image of the model constructed in this example
+
+               Visualization of the model as a :term:`directed acyclic graph`.
+               See the :func:`~dwave.optimization.model.Model.to_networkx`
+               function for information on visualizing models.
+
+        See Also:
+            :meth:`.iter_predecessors`
         """
         cdef vector[cppNode.SuccessorView].const_iterator it = self.node_ptr.successors().begin()
         cdef vector[cppNode.SuccessorView].const_iterator end = self.node_ptr.successors().end()
@@ -1180,17 +1371,19 @@ cdef class Symbol:
 
     def maybe_equals(self, other):
         """Compare to another symbol.
-        
+
         This method exists because a complete equality test can be expensive.
 
         Args:
-            other: Another symbol in the model's directed acyclic graph.
+            other (:class:`.Symbol`): Another symbol in the model's
+                :term:`directed acyclic graph`.
 
-        Returns: integer
-            Supported return values are:
+        Returns:
+            int: Supported return values are the following.
 
             *   ``0``---Not equal (with certainty)
-            *   ``1``---Might be equal (no guarantees); a complete equality test is necessary
+            *   ``1``---Might be equal (no guarantees); a complete equality test
+                is necessary
             *   ``2``---Are equal (with certainty)
 
         Examples:
@@ -1209,7 +1402,7 @@ cdef class Symbol:
             0
 
         See Also:
-            :meth:`.equals`: a more expensive form of equality testing.
+            :meth:`.equals`: A guaranteed but more expensive equality test.
         """
         cdef Py_ssize_t NOT = 0
         cdef Py_ssize_t MAYBE = 1
@@ -1247,7 +1440,7 @@ cdef class Symbol:
         """Reset the state of a symbol and any successor symbols.
 
         Args:
-            index: Index of the state to reset.
+            index (int): Index of the state to reset.
 
         Examples:
             This example sets two states on a symbol with two successor symbols
@@ -1271,6 +1464,9 @@ cdef class Symbol:
             After reset:
             state 0: [0. 1. 2. 3. 4.] and []
             state 1: [3. 4.] and [0. 1. 2.]
+
+        See Also:
+            :meth:`has_state`
         """
         cdef States states = self.model.states
 
@@ -1293,10 +1489,13 @@ cdef class Symbol:
         """Determine if two symbols share memory.
 
         Args:
-            other: Another symbol.
+            other (:class:`.Symbol`): Another symbol.
 
         Returns:
-            True if the two symbols share memory.
+            bool: True if the two symbols share memory.
+
+        See Also:
+            :meth:`id`
         """
         cdef Symbol other_
         try:
@@ -1322,9 +1521,12 @@ cdef class Symbol:
         symbols hold additional information that is not accounted for.
 
         For most symbols, which are arrays, this method is
-        subclassed by the :class:`~dwave.optimization.model.ArraySymbol
+        subclassed by the :class:`~dwave.optimization.model.ArraySymbol`
         class's :meth:`~dwave.optimization.model.ArraySymbol.state_size`
         method.
+
+        Returns:
+            int: Estimated size in bytes.
 
         See also:
             :meth:`ArraySymbol.state_size()` An estimate of the size of an array
@@ -1332,15 +1534,25 @@ cdef class Symbol:
 
             :meth:`Model.state_size()` An estimate of the size of a model's
             state.
-
-            
         """
         return 0
 
     def topological_index(self):
-        """Topological index of the symbol.
+        """Return the topological index of the symbol.
 
-        Return ``None`` if the model is not topologically sorted.
+        Returns:
+            int or None: Value of the symbol's topological index if the
+            model is topologically sorted; otherwise ``None``.
+
+        Examples:
+            >>> from dwave.optimization import Model
+            >>> model = Model()
+            >>> c1 = model.constant([5])
+            >>> c1.topological_index() is None
+            True
+            >>> with model.lock():
+            ...     print(c1.topological_index() is None)
+            False
         """
         index = self.node_ptr.topological_index()
         return index if index >= 0 else None
@@ -1618,106 +1830,185 @@ cdef class ArraySymbol(Symbol):
         return dwave.optimization.mathematical.divide(self, rhs)
 
     def all(self, *, axis=None, initial=_NoValue):
-        """Create an :class:`~dwave.optimization.symbols.All` symbol.
-
-        Test whether all of the elements in the array evaluate to ``True``.
+        r"""Create a symbol that tests whether all array elements evaluate to True.
 
         Args:
-            axis (int or tuple[int, ...], optional):
+            axis (int or tuple[int, ...], optional, default=None):
                 Axis or axes along which the operation is performed.
-                If ``None``, the reduction is performed over all dimensions.
-                If ``tuple[int, ...]``, the reduction is performed along the
+                If unspecified, reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, reduction is performed along the
                 specified axes.
 
                 .. versionadded:: 0.6.8
 
             initial (float or None, optional):
-                The starting value for the reduction.
-                If `None` is given, the first element of the reduction is used.
+                This argument is ignored.
 
                 .. versionadded:: 0.6.8
 
-        See Also:
-            :class:`~dwave.optimization.symbols.All` equivalent class.
+        Returns:
+            :class:`~dwave.optimization.symbols.All`: A successor symbol that
+            returns True if all elements of the predecessor symbol are True.
+
+        Examples:
+            This example tests the columns of a :math:`2 \times 3` array.
+
+            >>> from dwave.optimization import Model
+            >>> model = Model()
+            >>> x = model.binary((2, 3))
+            >>> all_x = x.all(axis=0)
+            >>> with model.lock():
+            ...     model.states.resize(1)
+            ...     x.set_state(0, [[True, False, True], [True, True, False]])
+            ...     print(all_x.state())
+            [1. 0. 0.]
+
+        See also:
+            *   :class:`~dwave.optimization.symbols.All`: Generated symbol
+            *   :func:`~dwave.optimization.model.ArraySymbol.any`
+            *   :func:`~numpy.all`: :doc:`NumPy <numpy:index>` function
+
         """
         from dwave.optimization.symbols import All  # avoid circular import
         return All(self, axis=axis, initial=_NoValue)
 
     def any(self, *, axis=None, initial=False):
-        """Create an :class:`~dwave.optimization.symbols.Any` symbol.
-
-        The new symbol returns True when any elements evaluate to True.
+        r"""Create a symbol that tests whether any array element evaluates to True.
 
         Args:
-            axis (int or tuple[int, ...], optional):
+            axis (int or tuple[int, ...], optional, default=None):
                 Axis or axes along which the operation is performed.
-                If ``None``, the reduction is performed over all dimensions.
-                If ``tuple[int, ...]``, the reduction is performed along the
+                If unspecified, reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, reduction is performed along the
                 specified axes.
 
                 .. versionadded:: 0.6.8
 
             initial (float or None, optional):
-                The starting value for the reduction.
-                If `None` is given, the first element of the reduction is used.
+                This argument is ignored.
 
                 .. versionadded:: 0.6.8
 
-        See Also:
-            :class:`~dwave.optimization.symbols.Any` equivalent class.
+        Returns:
+            :class:`~dwave.optimization.symbols.Any`: A successor symbol that
+            returns True when any element of the predecessor symbol is True.
 
         .. versionadded:: 0.4.1
+
+        Examples:
+            This example tests the rows of a :math:`2 \times 3` array.
+
+            >>> from dwave.optimization import Model
+            >>> model = Model()
+            >>> x = model.binary((2, 3))
+            >>> any_x = x.any(axis=1)
+            >>> with model.lock():
+            ...     model.states.resize(1)
+            ...     x.set_state(0, [[False, False, False], [True, False, False]])
+            ...     print(any_x.state())
+            [0. 1.]
+
+        See also:
+            *   :class:`~dwave.optimization.symbols.Any`: Generated symbol
+            *   :func:`~dwave.optimization.model.ArraySymbol.all`
+            *   :func:`~numpy.any`: :doc:`NumPy <numpy:index>` function
         """
         from dwave.optimization.symbols import Any  # avoid circular import
         return Any(self, axis=axis, initial=_NoValue)
 
     def copy(self):
-        """Return an array symbol that is a copy of the array.
+        """Create a duplicating symbol.
 
-        See Also:
-            :class:`~dwave.optimization.symbols.Copy` Equivalent class.
+        Returns:
+            :class:`~dwave.optimization.symbols.Copy`: A successor symbol that
+            maintains an identical copy of the values of the predecessor symbol,
+            using contiguous memory for performance.
 
         .. versionadded:: 0.5.1
+
+        Examples:
+            >>> from dwave.optimization import Model
+            >>> model = Model()
+            >>> x = model.binary((2, 2))
+            >>> y = x.copy()
+            >>> with model.lock():
+            ...     model.states.resize(1)
+            ...     x.set_state(0, [[False, False], [True, False]])
+            ...     print((y.state() == x.state()).all())
+            True
+
+        See Also:
+            *   :class:`~dwave.optimization.symbols.Copy`: Generated symbol
+            *   :func:`~numpy.copy`: :doc:`NumPy <numpy:index>` function
         """
         from dwave.optimization.symbols import Copy  # avoid circular import
         return Copy(self)
 
     def flatten(self):
-        """Return an array symbol collapsed into one dimension.
+        """Create a symbol with the array reshaped to one dimension.
 
-        Equivalent to ``symbol.reshape(-1)``.
+        Returns:
+            :class:`~dwave.optimization.symbols.Reshape`: A successor symbol
+            that is equivalent to ``symbol.reshape(-1)``, with the predecessor
+            symbol's array collapsed into one dimension.
+
+        .. versionadded:: 0.5.1
+
+        Examples:
+            >>> from dwave.optimization import Model
+            >>> model = Model()
+            >>> x = model.binary((2, 2))
+            >>> y = x.flatten()
+            >>> with model.lock():
+            ...     model.states.resize(1)
+            ...     x.set_state(0, [[False, False], [True, False]])
+            ...     print(x.state()[1,0] == y.state()[2] == True)
+            True
+
+        See also:
+            *   :class:`~dwave.optimization.symbols.Reshape`: generated symbol
+            *   :func:`~dwave.optimization.model.ArraySymbol.reshape`
+            *   :meth:`~numpy.ndarray.flatten`: :doc:`NumPy <numpy:index>`
+                method
         """
         return self.reshape(-1)
 
     def info(self):
-        """Information about the values and size of the array symbol.
+        r"""Return information about the values and size of the symbol.
 
-        Symbols sometimes need to know information about their predecessor(s)
-        in order to determine whether they define a valid operation. For example,
-        a :class:`~dwave.optimization.symbols.Divide` symbol does not permit its
-        denominator to be 0.
+        Symbols might need information about their predecessor(s) to determine
+        whether they define a valid operation. For example,
+        a :class:`~dwave.optimization.symbols.Divide` symbol does not permit a
+        denominator with zero in its possible values.
 
-        This method returns a :func:`~dataclasses.dataclass` with the following fields
+        Returns:
+            :func:`~dataclasses.dataclass`: A :func:`~dataclasses.dataclass`
+            object with the following fields:
 
-        * ``min``: A lower bound (inclusive) on the values of the array.
-        * ``max``: An upper bound (inclusive) on the values of the array.
-        * ``integral``: Whether or not the values in the array will always be integral.
-        * ``size``: The size of the array. If the array has a fixed size it will
-          be an ``int``. If the array has a dynamic size, this will instead
-          be another :func:`~dataclasses.dataclass` with the following fields
+            *   ``min``: Lower bound (inclusive) on the array values.
+            *   ``max``: Upper bound (inclusive) on the array values.
+            *   ``integral``: Whether or not the array values are always integral.
+            *   ``size``: Size of the array, as one of the following values:
 
-          * ``multiplier``, ``symbol``, and ``offset``: The size of the array
-            will be `multiplier * (size of symbol) + offset`. If the size of
-            the array symbol is not a linear function of another symbol, the
-            ``symbol`` field will just the ``self``.
-          * ``min``: A lower bound (inclusive) on the size of the array. Will be
-            ``None`` is the bound is not known.
-          * ``max``: An upper bound (inclusive) on the size of the array. Will be
-            ``None`` is the bound is not known.
+                -   Integer if the array has a fixed size.
+                -   :func:`~dataclasses.dataclass` object if the array has a
+                    dynamic size. This object has the following fields:
+
+                    *   ``multiplier``, ``symbol``, and ``offset``: Size of the
+                        array is
+                        :math:`multiplier \times \text{(size of } symbol \text{)} + offset`.
+                        If the size of the array symbol is not a linear function
+                        of another symbol, the ``symbol`` field is ``self``.
+                    *   ``min``: Lower bound (inclusive) on the array size or
+                        ``None`` if the bound is uknown.
+                    *   ``max``: Upper bound (inclusive) on the array size or
+                        ``None`` if the bound is unknown.
+
+        .. versionadded:: 0.6.8
 
         Examples:
-            A constant symbol will have ``min``, ``max``, ``integral``, and
-            ``size`` determined by the array.
+            For a :class:`~dwave.optimization.symbols.Constant` symbol, ``min``,
+            ``max``, ``integral``, and ``size`` are determined by the array.
 
             >>> import numpy as np
             >>> from dwave.optimization import Model
@@ -1727,9 +2018,10 @@ cdef class ArraySymbol(Symbol):
             >>> c.info()
             ArrayInfo(min=0.0, max=4.5, integral=False, size=10)
 
-            A set symbol is dynamic so its size cannot be expressed as an
-            integer. However, its size is not derived from another symbol
-            so its size is derived from itself.
+            Because a :class:`~dwave.optimization.symbols.SetVariable` symbol is
+            dynamic, its size is not expressed as an integer. And because its
+            size is not derived from another symbol, its size is derived from
+            itself.
 
             >>> s = model.set(10)
             >>> s.info()  # doctest: +ELLIPSIS
@@ -1746,8 +2038,8 @@ cdef class ArraySymbol(Symbol):
             >>> sizeinfo.max
             10
 
-            When we index the constant array from the set we create another
-            dynamic array with its size derived from set
+            If a constant array is indexed from a set, that creates another
+            dynamic array with size derived from the set.
 
             >>> b = c[s]
             >>> b.info()  # doctest: +ELLIPSIS
@@ -1769,38 +2061,46 @@ cdef class ArraySymbol(Symbol):
         return ArrayInfo._from_array(self)
 
     def max(self, *, axis=None, initial=_NoValue):
-        """Create a :class:`~dwave.optimization.symbols.Max` symbol.
-
-        The new symbol returns the maximum value in its elements.
+        r"""Create a symbol that returns the maximum value of the array.
 
         Args:
-            axis (int or tuple[int, ...], optional):
+            axis (int or tuple[int, ...], optional, default=None):
                 Axis or axes along which the operation is performed.
-                If ``None``, the reduction is performed over all dimensions.
-                If ``tuple[int, ...]``, the reduction is performed along the
+                If unspecified, reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, reduction is performed along the
                 specified axes.
 
                 .. versionadded:: 0.6.8
 
             initial (float or None, optional):
-                The starting value for the reduction.
-                If `None` is given, the first element of the reduction is used.
+                Starting value for the reduction. If unspecified, the first
+                element of the reduction is used.
 
                 .. versionadded:: 0.6.4
 
+        Returns:
+            :class:`~dwave.optimization.symbols.Max`: A successor symbol that
+            returns the maximum value among elements of the predecessor symbol.
+
         Examples:
-            This example adds the minimum value of an integer decision
-            variable to a model.
+            This example creates a symbol that returns the maximum values in
+            columns of a :math:`2 \times 3` array, with the ``initial``
+            argument set to zero to prevent the return of negative values.
 
             >>> from dwave.optimization.model import Model
             >>> model = Model()
-            >>> i = model.integer(100, lower_bound=-50, upper_bound=50)
-            >>> i_max = i.max()
-            >>> type(i_max)  # doctest: +ELLIPSIS
-            <class 'dwave.optimization.symbols...Max'>
+            >>> i = model.integer((2, 3), lower_bound=-10, upper_bound=10)
+            >>> i_max = i.max(axis=0, initial=0)
+            >>> with model.lock():
+            ...     model.states.resize(1)
+            ...     i.set_state(0, [[2, -4, 5], [8, -2, 7]])
+            ...     print(i_max.state())
+            [8. 0. 7.]
 
-        See Also:
-            :class:`~dwave.optimization.symbols.Max`
+        See also:
+            *   :class:`~dwave.optimization.symbols.Max`: Generated symbol
+            *   :func:`~dwave.optimization.model.ArraySymbol.min`
+            *   :func:`~numpy.max`: :doc:`NumPy <numpy:index>` function
         """
         from dwave.optimization.symbols import Max  # avoid circular import
         return Max(self, axis=axis, initial=initial)
@@ -1826,108 +2126,140 @@ cdef class ArraySymbol(Symbol):
         return MAYBE
 
     def min(self, *, axis=None, initial=_NoValue):
-        """Create a :class:`~dwave.optimization.symbols.Min` symbol.
-
-        The new symbol returns the minimum value in its elements.
+        r"""Create a symbol that returns the minimum value of the array.
 
         Args:
-            axis (int or tuple[int, ...], optional):
+            axis (int or tuple[int, ...], optional, default=None):
                 Axis or axes along which the operation is performed.
-                If ``None``, the reduction is performed over all dimensions.
-                If ``tuple[int, ...]``, the reduction is performed along the
+                If unspecified, reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, reduction is performed along the
                 specified axes.
 
                 .. versionadded:: 0.6.8
 
             initial (float or None, optional):
-                The starting value for the reduction.
-                If `None` is given, the first element of the reduction is used.
+                Starting value for the reduction. If unspecified, the first
+                element of the reduction is used.
 
                 .. versionadded:: 0.6.4
 
+        Returns:
+            :class:`~dwave.optimization.symbols.Min`: A successor symbol that
+            returns the minimum value among elements of the predecessor symbol.
+
         Examples:
-            This example adds the minimum value of an integer decision
-            variable to a model.
+            This example creates a symbol that returns the minimum values in
+            rows of a :math:`3 \times 2` array, with the ``initial``
+            argument set to zero to prevent the return of positive values.
 
             >>> from dwave.optimization.model import Model
             >>> model = Model()
-            >>> i = model.integer(100, lower_bound=-50, upper_bound=50)
-            >>> i_min = i.min()
-            >>> type(i_min)  # doctest: +ELLIPSIS
-            <class 'dwave.optimization.symbols...Min'>
+            >>> i = model.integer((3, 2), lower_bound=-10, upper_bound=10)
+            >>> i_min = i.min(axis=1, initial=0)
+            >>> with model.lock():
+            ...     model.states.resize(1)
+            ...     i.set_state(0, [[2, -4], [5, 8], [-2, -7]])
+            ...     print(i_min.state())
+            [-4.  0. -7.]
 
-        See Also:
-            :class:`~dwave.optimization.symbols.Min`
+        See also:
+            *   :class:`~dwave.optimization.symbols.Min`: Generated symbol
+            *   :func:`~dwave.optimization.model.ArraySymbol.max`
+            *   :func:`~numpy.min`: :doc:`NumPy <numpy:index>` function
         """
         from dwave.optimization.symbols import Min  # avoid circular import
         return Min(self, axis=axis, initial=initial)
 
     def ndim(self):
-        """Return the number of dimensions for a symbol."""
+        r"""Return the number of dimensions for a symbol.
+
+        Returns:
+            int: Number of dimensions.
+
+        Examples:
+            >>> from dwave.optimization.model import Model
+            >>> model = Model()
+            >>> i = model.integer((3, 2), lower_bound=-10, upper_bound=10)
+            >>> x = model.binary(2)
+            >>> print(f"i: {i.ndim()}\nx: {x.ndim()}")
+            i: 2
+            x: 1
+
+        See also:
+            *   :func:`~dwave.optimization.model.ArraySymbol.shape`
+            *   :func:`~numpy.ndim`: :doc:`NumPy <numpy:index>` function
+        """
         return self.array_ptr.ndim()
 
     def prod(self, *, axis=None, initial=_NoValue):
-        """Create a :class:`~dwave.optimization.symbols.Prod` symbol.
-
-        The new symbol returns the product of its elements.
+        r"""Create a symbol that returns the product of the array elements.
 
         Args:
-            axis (int or tuple[int, ...], optional):
+            axis (int or tuple[int, ...], optional, default=None):
                 Axis or axes along which the operation is performed.
-                If ``None``, the reduction is performed over all dimensions.
-                If ``tuple[int, ...]``, the reduction is performed along the
+                If unspecified, reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, reduction is performed along the
                 specified axes.
 
                 .. versionadded:: 0.5.1
 
             initial (float or None, optional):
-                The starting value for the reduction.
-                If `None` is given, the first element of the reduction is used.
+                Starting value for the reduction. If unspecified, the first
+                element of the reduction is used.
 
                 .. versionadded:: 0.6.4
 
+        Returns:
+            :class:`~dwave.optimization.symbols.Prod`: A successor symbol that
+            returns the product of the elements of the predecessor symbol.
+
         Examples:
-            This example adds the product of an integer symbol's
-            elements to a model.
+            This example creates a symbol that returns the product of values in
+            columns of a :math:`2 \times 3` array, with the ``initial``
+            argument set to two to double the returned values.
 
             >>> from dwave.optimization.model import Model
             >>> model = Model()
-            >>> i = model.integer(100, lower_bound=-50, upper_bound=50)
-            >>> i.prod()  # doctest: +ELLIPSIS
-            <dwave.optimization.symbols...Prod at ...>
+            >>> i = model.integer((2, 3), lower_bound=-10, upper_bound=10)
+            >>> prod_i = i.prod(axis=0, initial=2)
+            >>> with model.lock():
+            ...     model.states.resize(1)
+            ...     i.set_state(0, [[2, -4, 5], [8, -2, 7]])
+            ...     print(prod_i.state())
+            [32. 16. 70.]
 
-        See Also:
-            :class:`~dwave.optimization.symbols.Prod` equivalent symbol.
+        See also:
+            *   :class:`~dwave.optimization.symbols.Prod`: Generated symbol
+            *   :func:`~numpy.prod`: :doc:`NumPy <numpy:index>` function
         """
         from dwave.optimization.symbols import Prod
         return Prod(self, axis=axis, initial=initial)
 
     def reshape(self, *shape):
-        """Create a :class:`~dwave.optimization.symbols.Reshape` symbol.
-
-        The new symbol reshapes without changing the antecedent symbol's data.
+        r"""Create a symbol with the array reshaped.
 
         Args:
-            shape:
-                Shape of the created symbol.
-                May be specified either as a single argument defining the shape
-                or as the elements of the shape passed in as separate arguments.
-                E.g., :code:`a.reshape((1, 2))` is equivalent to
+            shape (int or tuple[int, ...]):
+                Shape of the created symbol, specified as an integer argument
+                per dimension or a single argument formatted as a tuple or list;
+                e.g., :code:`a.reshape((1, 2))` is equivalent to
                 :code:`a.reshape(1, 2)`.
-                One dimension can be -1, in which case it's size is inferred
-                from the other dimensions.
+                One dimension can be :math:`-1`, in which case its size is
+                inferred from the other dimensions.
                 For dynamically sized array symbols, the first dimension must
-                be specified as -1 and the size of each "row" of the new array
-                symbol cannot be a fraction of the size of each "row" of the
-                antecedent array symbol. See examples below.
+                be specified as :math:`-1` and the remaining dimensions must be
+                even divisions or multiplications of the dimensions of the
+                predecessor array symbol, as shown in the examples below.
 
         Returns:
-            A :class:`~dwave.optimization.symbols.Reshape` symbol, except when
-            the provided shape exactly matches the shape of the symbol. In that
-            case the symbol is returned.
+            :class:`~dwave.optimization.symbols.Reshape` or ``self``: A
+            successor symbol that reshapes the predecessor symbol without
+            changing its values, except when the provided shape exactly matches
+            the shape of the symbol, in which case the predecessor symbol is
+            returned.
 
         Examples:
-            This example reshapes a 1D vector into a 3x1 matrix.
+            This example reshapes a 1D vector into a :math:`1 \times 3` matrix.
 
             >>> from dwave.optimization import Model
             >>> model = Model()
@@ -1938,7 +2270,7 @@ cdef class ArraySymbol(Symbol):
             >>> k.shape()
             (1, 3)
 
-            This example reshapes a dynamic 2d array symbol.
+            This example reshapes a dynamic 2D array symbol.
 
             >>> import numpy as np
             ...
@@ -1946,7 +2278,7 @@ cdef class ArraySymbol(Symbol):
             >>> a = model.constant(np.ones((10, 4)))[model.set(10), :]
             >>> a.shape()
             (-1, 4)
-            >>> b = a.reshape(-1, 2, 2)  # OK because 2*2 = 4 
+            >>> b = a.reshape(-1, 2, 2)  # OK because 2*2 = 4
             >>> b.shape()
             (-1, 2, 2)
             >>> c = a.reshape(-1, 4, 1, 1)  # OK because 4*1*1 = 4
@@ -1959,12 +2291,16 @@ cdef class ArraySymbol(Symbol):
             Traceback (most recent call last):
             ValueError: cannot reshape array of shape (-1, 4) into shape (-1, 8)
 
-        See also:
-            :class:`~dwave.optimization.symbols.Reshape`: equivalent symbol.
-
         .. versionadded:: 0.5.1
         .. versionadded:: 0.6.5
             Add support for reshaping dynamic array symbols.
+
+        See also:
+            *   :class:`~dwave.optimization.symbols.Reshape`: Generated symbol
+            *   :func:`~dwave.optimization.mathematical.resize`,
+                :func:`~dwave.optimization.model.ArraySymbol.flatten`
+            *   :func:`~numpy.reshape`: :doc:`NumPy <numpy:index>` function
+
         """
         from dwave.optimization.symbols import Reshape  # avoid circular import
 
@@ -1987,15 +2323,18 @@ cdef class ArraySymbol(Symbol):
         return Reshape(self, shape)
 
     def resize(self, shape, fill_value=None):
-        """Return a new :class:`~dwave.optimization.symbols.Resize` symbol with the given shape.
+        """Create a symbol with the specified shape.
 
         Args:
-            shape: Shape of the new array. All dimension sizes must be non-negative.
-            fill_value: The value to be used if the resulting array is larger than
-                the given one. Defaults to 0.
+            shape (tuple[int, ...]): Shape of the successor array. Dimension
+                values must be non-negative.
+            fill_value (int, optional, default=None): Value to use if the
+                successor array is larger than the predecessor array. Defaults
+                to 0.
 
         Returns:
-            A :class:`~dwave.optimization.symbols.Resize` symbol.
+            :class:`~dwave.optimization.symbols.Resize`: A successor symbol with
+            the specified shape.
 
         Examples:
             >>> from dwave.optimization import Model
@@ -2012,9 +2351,10 @@ cdef class ArraySymbol(Symbol):
              [ 2. -1.]]
 
         See also:
-            :func:`~dwave.optimization.mathematical.resize`: equivalent function.
-
-            :class:`~dwave.optimization.symbols.Resize`: equivalent symbol.
+            *   :class:`~dwave.optimization.symbols.Resize`: Generated
+                symbol
+            *   :func:`~dwave.optimization.model.ArraySymbol.reshape`
+            *   :func:`~numpy.resize`: :doc:`NumPy <numpy:index>` function
 
         .. versionadded:: 0.6.4
         """
@@ -2024,8 +2364,10 @@ cdef class ArraySymbol(Symbol):
     def shape(self):
         """Return the shape of the symbol.
 
-        A :ref:`dynamic <optimization_philosophy_tensor_programming_dynamic>`
-        array symbol returns a ``-1`` in the first dimension.
+        Returns:
+            tuple: Dimensions of the array. A
+            :ref:`dynamic <optimization_philosophy_tensor_programming_dynamic>`
+            array symbol returns a :math:`-1` in the first dimension.
 
         Examples:
             This example returns the shape of a newly instantiated symbol.
@@ -2038,6 +2380,10 @@ cdef class ArraySymbol(Symbol):
             >>> s = model.set(20)
             >>> s.shape()
             (-1,)
+
+        See also:
+            *   :func:`~dwave.optimization.model.ArraySymbol.ndim`
+            *   :func:`~numpy.shape`: :doc:`NumPy <numpy:index>` function
         """
         # We could do the whole buffer format thing and return a numpy array
         # but I think it's better to follow NumPy and return a tuple
@@ -2047,8 +2393,11 @@ cdef class ArraySymbol(Symbol):
     def size(self):
         r"""Return the number of elements in the symbol.
 
-        If the symbol has a fixed size, returns that size as an integer.
-        Otherwise, returns a :class:`~dwave.optimization.symbols.Size` symbol.
+        Returns:
+            int or :class:`~dwave.optimization.symbols.Size`: Number of
+            elements in the array. For
+            :ref:`dynamic <optimization_philosophy_tensor_programming_dynamic>`
+            symbols, returns a :class:`~dwave.optimization.symbols.Size` symbol.
 
         Examples:
             This example checks the size of a :math:`2 \times 3`
@@ -2060,6 +2409,9 @@ cdef class ArraySymbol(Symbol):
             >>> x.size()
             6
 
+        See also:
+            *   :class:`~dwave.optimization.symbols.Size`: Generated symbol
+            *   :func:`~numpy.size`: :doc:`NumPy <numpy:index>` function
         """
         if self.array_ptr.dynamic():
             from dwave.optimization.symbols import Size
@@ -2071,12 +2423,12 @@ cdef class ArraySymbol(Symbol):
         """Return the state of the symbol.
 
         Args:
-            index: Index of the state.
+            index (int, optional, default=0): Index of the state.
 
-            copy: Currently only True is supported.
+            copy (bool, optional): Currently only True is supported.
 
         Returns:
-            State as a :class:`numpy.ndarray`.
+            :class:`numpy.ndarray`: State of the symbol.
 
         Examples:
             This example prints a symbol's two states: initialized
@@ -2093,6 +2445,10 @@ cdef class ArraySymbol(Symbol):
             ...     print(z.state(1))
             3.0
             0.0
+
+        See also:
+            :meth:`has_state`, :meth:`reset_state`
+
         """
         if not copy:
             # todo: document once implemented
@@ -2123,7 +2479,7 @@ cdef class ArraySymbol(Symbol):
             states_info = None
 
         if states_info is None:
-            for i in range(num_states):            
+            for i in range(num_states):
                 try:
                     state_info = zf.getinfo(f"{directory}states/{i}/array.npy")
                 except KeyError:
@@ -2173,16 +2529,17 @@ cdef class ArraySymbol(Symbol):
                 np.save(f, states, allow_pickle=False)
 
     def state_size(self):
-        r"""Return an estimate of the size, in bytes, of an array symbol's state.
+        r"""Return an estimate of the size, in bytes, of the symbol's state.
 
-        For an array symbol, the estimate of the state size is exactly the
-        number of bytes needed to encode the array.
+        Returns:
+            int: Number of bytes needed to encode the array.
 
         Examples:
-            This example returns the size of an integer symbol.
-            In this example, the symbol encodes a :math:`5\times4` of integers,
-            each represented by a :math:`8` byte float.
-            Therefore the estimated state size is :math:`5*4*8 = 160` bytes.
+            This example returns the size of an
+            :class:`~dwave.optimization.symbols.IntegerVariable` symbol that
+            encodes a :math:`5 \times 4` array of integers, each represented by
+            an :math:`8`-byte float. Therefore the estimated state size is
+            :math:`5*4*8 = 160` bytes.
 
             >>> from dwave.optimization import Model
             >>> model = Model()
@@ -2219,53 +2576,65 @@ cdef class ArraySymbol(Symbol):
         """Return the stride length, in bytes, for traversing a symbol.
 
         Returns:
-            Tuple of the number of bytes to step in each dimension when
+            tuple: Number of bytes to step in each dimension when
             traversing a symbol.
 
         Examples:
-            This example returns the size of an integer symbol.
+            This example returns the stride length of an
+            :class:`~dwave.optimization.symbols.IntegerVariable` symbol.
 
             >>> from dwave.optimization import Model
             >>> model = Model()
             >>> i = model.integer((2, 3), upper_bound=20)
             >>> i.strides()
             (24, 8)
+
+        See Also:
+            :attr:`~numpy.ndarray.strides`: :doc:`NumPy <numpy:index>` attribute
         """
         strides = self.array_ptr.strides()
         return tuple(strides[i] for i in range(strides.size()))
 
     def sum(self, *, axis=None, initial=_NoValue):
-        """Create a :class:`~dwave.optimization.symbols.Sum` symbol.
-
-        The new symbol returns the sum of its elements.
+        r"""Create a symbol that returns the sum of the array elements.
 
         Args:
             axis (int or tuple[int, ...], optional):
                 Axis or axes along which the operation is performed.
-                If ``None``, the reduction is performed over all dimensions.
-                If ``tuple[int, ...]``, the reduction is performed along the
+                If unspecified, reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, reduction is performed along the
                 specified axes.
 
                 .. versionadded:: 0.4.1
 
             initial (float or None, optional):
-                The starting value for the reduction.
-                If `None` is given, the first element of the reduction is used.
+                Starting value for the reduction. If unspecified, the first
+                element of the reduction is used.
 
                 .. versionadded:: 0.6.4
 
+        Returns:
+            :class:`~dwave.optimization.symbols.Sum`: A successor symbol that
+            returns the sum of the elements of the predecessor symbol.
+
         Examples:
-            This example adds the product of an integer symbol's
-            elements to a model.
+            This example creates a symbol that returns the sum of values in
+            columns of a :math:`2 \times 3` array, with the ``initial``
+            argument set to :math:`-3` to offset the returned values.
 
             >>> from dwave.optimization.model import Model
             >>> model = Model()
-            >>> i = model.integer(100, lower_bound=-50, upper_bound=50)
-            >>> i.sum()  # doctest: +ELLIPSIS
-            <dwave.optimization.symbols...Sum at ...>
+            >>> i = model.integer((2, 3), lower_bound=-10, upper_bound=10)
+            >>> sum_i = i.sum(axis=0, initial=-3)
+            >>> with model.lock():
+            ...     model.states.resize(1)
+            ...     i.set_state(0, [[2, -4, 5], [8, -2, 7]])
+            ...     print(sum_i.state())
+            [ 7. -9.  9.]
 
         See Also:
-            :class:`~dwave.optimization.symbols.Sum` equivalent symbol.
+            *   :class:`~dwave.optimization.symbols.Sum`: Genertaed symbol
+            *   :func:`~numpy.sum`: :doc:`NumPy <numpy:index>` function
         """
         from dwave.optimization.symbols import Sum
         return Sum(self, axis=axis, initial=initial)

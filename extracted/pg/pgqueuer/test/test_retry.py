@@ -4,8 +4,8 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 from pgqueuer import db, queries
+from pgqueuer.domain.settings import DBSettings
 from pgqueuer.models import Job
-from pgqueuer.qb import DBSettings
 from pgqueuer.qm import QueueManager
 from pgqueuer.types import JobId
 
@@ -23,10 +23,10 @@ async def test_retry_after_timer_expired(apgdriver: db.Driver) -> None:
     retry_timer = timedelta(seconds=0.250)
 
     e = asyncio.Event()
-    qm = QueueManager(apgdriver)
+    qm = QueueManager(queries.Queries(apgdriver))
     calls = Counter[JobId]()
 
-    @qm.entrypoint("fetch", retry_timer=retry_timer)
+    @qm.entrypoint("fetch")
     async def fetch(context: Job) -> None:
         calls[context.id] += 1
         await e.wait()
@@ -39,7 +39,7 @@ async def test_retry_after_timer_expired(apgdriver: db.Driver) -> None:
         qm.shutdown.set()
 
     await asyncio.gather(
-        qm.run(dequeue_timeout=timedelta(seconds=0)),
+        qm.run(dequeue_timeout=timedelta(seconds=0), heartbeat_timeout=retry_timer),
         stop_after(),
     )
 
@@ -47,51 +47,12 @@ async def test_retry_after_timer_expired(apgdriver: db.Driver) -> None:
     assert all(v == 1 for v in calls.values())
 
 
-async def test_no_retry_on_zero_timer(apgdriver: db.Driver) -> None:
-    N = 10
-    retry_timer: timedelta = timedelta(seconds=0)
+async def test_heartbeat_keeps_job_alive(apgdriver: db.Driver) -> None:
+    """With heartbeat_timeout set, heartbeats fire and update the DB."""
+    N = 2
+    heartbeat_timeout = timedelta(seconds=0.5)
     event = asyncio.Event()
-    qm = QueueManager(apgdriver)
-    heartbeat = defaultdict[JobId, list[datetime]](list)
-
-    async def fetch_db_heartbeat(jobid: JobId) -> datetime:
-        rows = await inspect_queued_jobs([jobid], apgdriver)
-        assert len(rows) == 1
-        return rows[0].heartbeat
-
-    @qm.entrypoint("fetch", retry_timer=retry_timer)
-    async def fetch(context: Job) -> None:
-        heartbeat[context.id].append(await fetch_db_heartbeat(context.id))
-        await event.wait()
-        heartbeat[context.id].append(await fetch_db_heartbeat(context.id))
-
-    await qm.queries.enqueue(
-        ["fetch"] * N,
-        [None] * N,
-        [0] * N,
-    )
-
-    async def until_retry_updated() -> None:
-        while not heartbeat:
-            await asyncio.sleep(0)
-        event.set()
-        qm.shutdown.set()
-
-    await asyncio.gather(
-        qm.run(dequeue_timeout=timedelta(seconds=0)),
-        until_retry_updated(),
-    )
-
-    assert len(heartbeat) == N
-    for k, v in heartbeat.items():
-        assert len(v) == 2
-        assert v[0] == v[1]
-
-
-async def test_heartbeat_no_updates(apgdriver: db.Driver) -> None:
-    retry_timer = timedelta(seconds=0.100)
-    event = asyncio.Event()
-    qm = QueueManager(apgdriver)
+    qm = QueueManager(queries.Queries(apgdriver))
     heartbeats = defaultdict[JobId, list[datetime]](list)
 
     async def fetch_db_heartbeat(jobid: JobId) -> datetime:
@@ -99,7 +60,45 @@ async def test_heartbeat_no_updates(apgdriver: db.Driver) -> None:
         assert len(rows) == 1
         return rows[0].heartbeat
 
-    @qm.entrypoint("fetch", retry_timer=retry_timer)
+    @qm.entrypoint("fetch")
+    async def fetch(context: Job) -> None:
+        heartbeats[context.id].append(await fetch_db_heartbeat(context.id))
+        # Wait long enough for at least one heartbeat to fire (interval = timeout/2)
+        await asyncio.sleep(heartbeat_timeout.total_seconds())
+        heartbeats[context.id].append(await fetch_db_heartbeat(context.id))
+        await event.wait()
+
+    await qm.queries.enqueue(["fetch"] * N, [None] * N, [0] * N)
+
+    async def until_done() -> None:
+        while len(heartbeats) < N or any(len(v) < 2 for v in heartbeats.values()):
+            await asyncio.sleep(0.01)
+        event.set()
+        qm.shutdown.set()
+
+    await asyncio.gather(
+        qm.run(dequeue_timeout=timedelta(seconds=0), heartbeat_timeout=heartbeat_timeout),
+        until_done(),
+    )
+
+    for v in heartbeats.values():
+        assert len(v) == 2
+        # Heartbeat should have been updated between the two reads
+        assert v[1] > v[0]
+
+
+async def test_heartbeat_no_updates(apgdriver: db.Driver) -> None:
+    retry_timer = timedelta(seconds=0.100)
+    event = asyncio.Event()
+    qm = QueueManager(queries.Queries(apgdriver))
+    heartbeats = defaultdict[JobId, list[datetime]](list)
+
+    async def fetch_db_heartbeat(jobid: JobId) -> datetime:
+        rows = await inspect_queued_jobs([jobid], apgdriver)
+        assert len(rows) == 1
+        return rows[0].heartbeat
+
+    @qm.entrypoint("fetch")
     async def fetch(context: Job) -> None:
         heartbeats[context.id].append(await fetch_db_heartbeat(context.id))
         await event.wait()
@@ -114,7 +113,7 @@ async def test_heartbeat_no_updates(apgdriver: db.Driver) -> None:
         qm.shutdown.set()
 
     await asyncio.gather(
-        qm.run(dequeue_timeout=timedelta(seconds=0)),
+        qm.run(dequeue_timeout=timedelta(seconds=0), heartbeat_timeout=retry_timer),
         entrypoint_waiter(),
     )
 
@@ -126,19 +125,19 @@ async def test_heartbeat_no_updates(apgdriver: db.Driver) -> None:
 
 async def test_varying_retry_timers(apgdriver: db.Driver) -> None:
     waiter = asyncio.Event()
-    qm = QueueManager(apgdriver)
+    qm = QueueManager(queries.Queries(apgdriver))
     calls = Counter[JobId]()
 
     short_retry_timer = timedelta(seconds=0.5)
 
-    @qm.entrypoint("fetch_short", retry_timer=short_retry_timer)
+    @qm.entrypoint("fetch_short")
     async def fetch_short(job: Job) -> None:
         calls[job.id] += 1
         await waiter.wait()
 
     long_retry_timer = timedelta(seconds=1)
 
-    @qm.entrypoint("fetch_long", retry_timer=long_retry_timer)
+    @qm.entrypoint("fetch_long")
     async def fetch_long(job: Job) -> None:
         calls[job.id] += 1
         await waiter.wait()
@@ -155,7 +154,7 @@ async def test_varying_retry_timers(apgdriver: db.Driver) -> None:
         qm.shutdown.set()
 
     await asyncio.gather(
-        qm.run(dequeue_timeout=timedelta(seconds=0)),
+        qm.run(dequeue_timeout=timedelta(seconds=0), heartbeat_timeout=short_retry_timer),
         entrypoint_waiter(),
     )
 
@@ -167,10 +166,10 @@ async def test_varying_retry_timers(apgdriver: db.Driver) -> None:
 async def test_retry_with_cancellation(apgdriver: db.Driver) -> None:
     N = 4
     retry_timer = timedelta(seconds=0.100)
-    qm = QueueManager(apgdriver)
+    qm = QueueManager(queries.Queries(apgdriver))
     calls = Counter[JobId]()
 
-    @qm.entrypoint("fetch", retry_timer=retry_timer)
+    @qm.entrypoint("fetch")
     async def fetch(context: Job) -> None:
         calls[context.id] += 1
         if calls[context.id] < N:
@@ -181,7 +180,7 @@ async def test_retry_with_cancellation(apgdriver: db.Driver) -> None:
 
     await qm.queries.enqueue(["fetch"], [None], [0])
 
-    await qm.run(dequeue_timeout=timedelta(seconds=0))
+    await qm.run(dequeue_timeout=timedelta(seconds=0), heartbeat_timeout=retry_timer)
 
     assert len(calls) == 1
     assert sum(v for v in calls.values()) == N
@@ -190,7 +189,7 @@ async def test_retry_with_cancellation(apgdriver: db.Driver) -> None:
 async def test_heartbeat_db_datetime(apgdriver: db.Driver) -> None:
     retry_timer = timedelta(seconds=0.150)
     event = asyncio.Event()
-    qm = QueueManager(apgdriver)
+    qm = QueueManager(queries.Queries(apgdriver))
 
     async def fetch_db_heartbeat(jobid: JobId) -> timedelta:
         sql = f"""SELECT NOW() - heartbeat AS dt FROM {DBSettings().queue_table} WHERE id = ANY($1::integer[])"""  # noqa: E501
@@ -198,7 +197,7 @@ async def test_heartbeat_db_datetime(apgdriver: db.Driver) -> None:
         assert len(rows) == 1
         return rows[0]["dt"]
 
-    @qm.entrypoint("fetch", retry_timer=retry_timer)
+    @qm.entrypoint("fetch")
     async def fetch(context: Job) -> None:
         await event.wait()
 
@@ -217,7 +216,7 @@ async def test_heartbeat_db_datetime(apgdriver: db.Driver) -> None:
 
     samples, *_ = await asyncio.gather(
         poller(),
-        qm.run(dequeue_timeout=timedelta(seconds=0)),
+        qm.run(dequeue_timeout=timedelta(seconds=0), heartbeat_timeout=retry_timer),
         entrypoint_waiter(),
     )
 
@@ -229,10 +228,10 @@ async def test_heartbeat_db_datetime(apgdriver: db.Driver) -> None:
 async def test_retry_timer_honours_serialized_dispatch(apgdriver: db.Driver) -> None:
     retry_timer = timedelta(seconds=0.1)
     event = asyncio.Event()
-    qm = QueueManager(apgdriver)
+    qm = QueueManager(queries.Queries(apgdriver))
     calls = Counter[JobId]()
 
-    @qm.entrypoint("fetch", retry_timer=retry_timer, serialized_dispatch=True)
+    @qm.entrypoint("fetch", concurrency_limit=1)
     async def fetch(context: Job) -> None:
         calls[context.id] += 1
         await event.wait()
@@ -245,7 +244,7 @@ async def test_retry_timer_honours_serialized_dispatch(apgdriver: db.Driver) -> 
         qm.shutdown.set()
 
     await asyncio.gather(
-        qm.run(dequeue_timeout=timedelta(seconds=0)),
+        qm.run(dequeue_timeout=timedelta(seconds=0), heartbeat_timeout=retry_timer),
         stopper(),
     )
 
@@ -261,10 +260,10 @@ async def test_retry_concurrency_limit_for_retries(apgdriver: db.Driver) -> None
 
     retry_timer = timedelta(seconds=0.100)
     concurrency_limit = 1
-    qm = QueueManager(apgdriver)
+    qm = QueueManager(queries.Queries(apgdriver))
     calls = Counter[JobId]()
 
-    @qm.entrypoint("fetch", retry_timer=retry_timer, concurrency_limit=concurrency_limit)
+    @qm.entrypoint("fetch", concurrency_limit=concurrency_limit)
     async def fetch(context: Job) -> None:
         calls[context.id] += 1
         # block the first run to occupy the retry window
@@ -283,7 +282,7 @@ async def test_retry_concurrency_limit_for_retries(apgdriver: db.Driver) -> None
         qm.shutdown.set()
 
     await asyncio.gather(
-        qm.run(dequeue_timeout=timedelta(seconds=0)),
+        qm.run(dequeue_timeout=timedelta(seconds=0), heartbeat_timeout=retry_timer),
         stopper(),
     )
     # ensure only one invocation occurred
@@ -295,9 +294,9 @@ async def test_job_not_retried_while_running(apgdriver: db.Driver) -> None:
     retry_timer = timedelta(seconds=0.1)
     waiter = asyncio.Event()
     calls = 0
-    qm = QueueManager(apgdriver)
+    qm = QueueManager(queries.Queries(apgdriver))
 
-    @qm.entrypoint("fetch", retry_timer=retry_timer)
+    @qm.entrypoint("fetch")
     async def fetch(job: Job) -> None:
         nonlocal calls
         calls += 1
@@ -312,7 +311,7 @@ async def test_job_not_retried_while_running(apgdriver: db.Driver) -> None:
         qm.shutdown.set()
 
     await asyncio.gather(
-        qm.run(dequeue_timeout=timedelta(seconds=0)),
+        qm.run(dequeue_timeout=timedelta(seconds=0), heartbeat_timeout=retry_timer),
         stopper(),
     )
 
@@ -333,11 +332,10 @@ async def test_retry_reclaims_stale_picked_job_after_crash(apgdriver: db.Driver)
     async def noop(_: Job) -> None:
         return None
 
-    crashed_manager = QueueManager(apgdriver)
+    crashed_manager = QueueManager(queries.Queries(apgdriver))
 
     crashed_manager.entrypoint(
         entrypoint,
-        retry_timer=retry_timer,
         concurrency_limit=concurrency_limit,
     )(noop)
 
@@ -345,8 +343,6 @@ async def test_retry_reclaims_stale_picked_job_after_crash(apgdriver: db.Driver)
 
     execution_params = {
         entrypoint: queries.EntrypointExecutionParameter(
-            retry_after=retry_timer,
-            serialized=False,
             concurrency_limit=concurrency_limit,
         )
     }
@@ -356,6 +352,7 @@ async def test_retry_reclaims_stale_picked_job_after_crash(apgdriver: db.Driver)
         entrypoints=execution_params,
         queue_manager_id=crashed_manager.queue_manager_id,
         global_concurrency_limit=None,
+        heartbeat_timeout=timedelta(seconds=30),
     )
     assert len(first_claim) == 1
     assert first_claim[0].id == job_id
@@ -367,11 +364,10 @@ async def test_retry_reclaims_stale_picked_job_after_crash(apgdriver: db.Driver)
     assert queued_rows[0].status == "picked"
     assert queued_rows[0].queue_manager_id == crashed_manager.queue_manager_id
 
-    recovery_manager = QueueManager(apgdriver)
+    recovery_manager = QueueManager(queries.Queries(apgdriver))
 
     recovery_manager.entrypoint(
         entrypoint,
-        retry_timer=retry_timer,
         concurrency_limit=concurrency_limit,
     )(noop)
 
@@ -380,5 +376,8 @@ async def test_retry_reclaims_stale_picked_job_after_crash(apgdriver: db.Driver)
         entrypoints=execution_params,
         queue_manager_id=recovery_manager.queue_manager_id,
         global_concurrency_limit=None,
+        heartbeat_timeout=retry_timer,
     )
-    assert second_claim, "expected new worker to reclaim stale picked job after retry_timer elapsed"
+    assert second_claim, (
+        "expected new worker to reclaim stale picked job after heartbeat_timeout elapsed"
+    )

@@ -11,6 +11,7 @@ import psycopg
 import pytest
 import pytest_asyncio
 
+from pgqueuer.adapters.inmemory import InMemoryDriver, InMemoryQueries
 from pgqueuer.db import AsyncpgDriver, AsyncpgPoolDriver
 from pgqueuer.queries import Queries
 
@@ -23,6 +24,16 @@ from testcontainers.core.container import DockerContainer
 from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 from pgqueuer.db import SyncPsycopgDriver
+
+
+@pytest.fixture
+def driver() -> InMemoryDriver:
+    return InMemoryDriver()
+
+
+@pytest.fixture
+def queries(driver: InMemoryDriver) -> InMemoryQueries:
+    return InMemoryQueries(driver=driver)
 
 
 class PGQueuerPostgresContainer(DockerContainer):
@@ -159,6 +170,11 @@ async def apgdriver(dsn: str) -> AsyncGenerator[AsyncpgDriver, None]:
         yield driver
     finally:
         await conn.close()
+
+
+@pytest.fixture
+def apg_queries(apgdriver: AsyncpgDriver) -> Queries:
+    return Queries(apgdriver)
 
 
 @pytest_asyncio.fixture(scope="function")

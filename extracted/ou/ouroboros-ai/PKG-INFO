@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ouroboros-ai
-Version: 0.36.0
+Version: 0.37.0
 Summary: Specification-first workflow engine for AI coding agents. Works with Claude Code and Codex CLI.
 Author-email: Q00 <jqyu.lee@gmail.com>
 License-File: LICENSE
@@ -11,6 +11,7 @@ Requires-Dist: jsonschema<5.0.0,>=4.21.0
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: pyyaml<7.0.0,>=6.0.0
+Requires-Dist: questionary<3.0.0,>=2.0.0
 Requires-Dist: rich<15.0.0,>=13.0.0
 Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0
 Requires-Dist: structlog<26.0.0,>=24.0.0

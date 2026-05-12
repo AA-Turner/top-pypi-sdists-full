@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.generation.stateful.state_machine import StepOutput
     from schemathesis.specs.openapi.schemas import OpenApiSchema
+    from schemathesis.specs.openapi.stateful.dependencies.models import DependencyGraph, OperationNode
 
 FilterFunction = Callable[["StepOutput"], bool]
 
@@ -194,10 +195,12 @@ def create_state_machine(
     #   2. Don't waste the test budget (limited number of steps) on likely-to-fail operations
     #   3. Focus on transitions that are designed to work together via links
 
-    roots = classify_root_transitions(operations, transitions)
+    roots = classify_root_transitions(operations, transitions, schema.analysis.dependency_graph)
 
     for target in operations:
         if target.label in transitions.operations:
+            if not schema.config.phases_for(operation=target).stateful.enabled:
+                continue
             incoming = transitions.operations[target.label].incoming
             config = schema.config.generation_for(operation=target, phase="stateful")
             if incoming:
@@ -262,7 +265,9 @@ def create_state_machine(
     )
 
 
-def classify_root_transitions(operations: list[APIOperation], transitions: ApiTransitions) -> RootTransitions:
+def classify_root_transitions(
+    operations: list[APIOperation], transitions: ApiTransitions, graph: DependencyGraph
+) -> RootTransitions:
     """Find operations that can serve as root transitions."""
     roots = RootTransitions()
 
@@ -272,7 +277,7 @@ def classify_root_transitions(operations: list[APIOperation], transitions: ApiTr
         if not operation_transitions or not operation_transitions.outgoing:
             continue
 
-        if is_likely_root_transition(operation):
+        if is_likely_root_transition(operation, graph.operations.get(operation.label)):
             roots.reliable.add(operation.label)
         else:
             roots.fallback.add(operation.label)
@@ -280,8 +285,13 @@ def classify_root_transitions(operations: list[APIOperation], transitions: ApiTr
     return roots
 
 
-def is_likely_root_transition(operation: APIOperation) -> bool:
+def is_likely_root_transition(operation: APIOperation, node: OperationNode | None) -> bool:
     """Check if operation is likely to succeed as a root transition."""
+    if node is not None:
+        produced = {slot.resource.name for slot in node.outputs}
+        if any(slot.resource_field is not None and slot.resource.name not in produced for slot in node.inputs):
+            return False
+
     # POST operations are likely to create resources
     if operation.method == "post":
         return True

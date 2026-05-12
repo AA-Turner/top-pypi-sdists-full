@@ -256,20 +256,6 @@ class Tick(QuantConnect.Data.BaseData):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Initialize tick class with a default constructor."""
-        ...
-
-    @overload
-    def __init__(self, original: QuantConnect.Data.Market.Tick) -> None:
-        """
-        Cloner constructor for fill forward engine implementation. Clone the original tick into this new tick:
-        
-        :param original: Original tick we're cloning
-        """
-        ...
-
-    @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], bid: float, ask: float) -> None:
         """
         Constructor for a FOREX tick where there is no last sale price. The volume in FX is so high its rare to find FX trade data.
@@ -398,6 +384,20 @@ class Tick(QuantConnect.Data.BaseData):
         :param symbol: Symbol for underlying asset
         :param line: CSV line of data from QC tick csv
         :param base_date: The base date of the tick
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initialize tick class with a default constructor."""
+        ...
+
+    @overload
+    def __init__(self, original: QuantConnect.Data.Market.Tick) -> None:
+        """
+        Cloner constructor for fill forward engine implementation. Clone the original tick into this new tick:
+        
+        :param original: Original tick we're cloning
         """
         ...
 
@@ -613,21 +613,6 @@ class TradeBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Default initializer to setup an empty tradebar."""
-        ...
-
-    @overload
-    def __init__(self, original: QuantConnect.Data.Market.TradeBar) -> None:
-        """
-        Cloner constructor for implementing fill forward.
-        Return a new instance with the same values as this original.
-        
-        :param original: Original tradebar object we seek to clone
-        """
-        ...
-
-    @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], open: float, high: float, low: float, close: float, volume: float, period: typing.Optional[datetime.timedelta] = None) -> None:
         """
         Initialize Trade Bar with OHLC Values:
@@ -640,6 +625,21 @@ class TradeBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
         :param close: Decimal Close price of this bar
         :param volume: Volume sum over day
         :param period: The period of this bar, specify null for default of 1 minute
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default initializer to setup an empty tradebar."""
+        ...
+
+    @overload
+    def __init__(self, original: QuantConnect.Data.Market.TradeBar) -> None:
+        """
+        Cloner constructor for implementing fill forward.
+        Return a new instance with the same values as this original.
+        
+        :param original: Original tradebar object we seek to clone
         """
         ...
 
@@ -1041,11 +1041,6 @@ class QuoteBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Default initializer to setup an empty quotebar."""
-        ...
-
-    @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], bid: QuantConnect.Data.Market.IBar, last_bid_size: float, ask: QuantConnect.Data.Market.IBar, last_ask_size: float, period: typing.Optional[datetime.timedelta] = None) -> None:
         """
         Initialize Quote Bar with Bid(OHLC) and Ask(OHLC) Values:
@@ -1058,6 +1053,11 @@ class QuoteBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
         :param last_ask_size: Average ask size over period
         :param period: The period of this bar, specify null for default of 1 minute
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default initializer to setup an empty quotebar."""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -1333,16 +1333,6 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         ...
 
     @overload
-    def __init__(self, data_type: QuantConnect.MarketDataType, flatten: bool) -> None:
-        """
-        Initializes a new default instance of the BaseChain{T, TContractsCollection} class
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    @overload
     def __init__(self, canonical_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], data_type: QuantConnect.MarketDataType, flatten: bool = True) -> None:
         """
         Initializes a new instance of the BaseChain{T, TContractsCollection} class
@@ -1353,6 +1343,16 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         :param canonical_option_symbol: The symbol for this chain.
         :param time: The time of this chain
         :param flatten: Whether to flatten the data frame
+        """
+        ...
+
+    @overload
+    def __init__(self, data_type: QuantConnect.MarketDataType, flatten: bool) -> None:
+        """
+        Initializes a new default instance of the BaseChain{T, TContractsCollection} class
+        
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1407,11 +1407,6 @@ class Delisting(QuantConnect.Data.BaseData):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the Delisting class"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date], price: float, type: QuantConnect.DelistingType) -> None:
         """
         Initializes a new instance of the Delisting class
@@ -1421,6 +1416,11 @@ class Delisting(QuantConnect.Data.BaseData):
         :param price: The final price before delisting
         :param type: The type of delisting event
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Delisting class"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -2025,11 +2025,6 @@ class Split(QuantConnect.Data.BaseData):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the Split class"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date], price: float, split_factor: float, type: QuantConnect.SplitType) -> None:
         """
         Initializes a new instance of the Split class
@@ -2040,6 +2035,11 @@ class Split(QuantConnect.Data.BaseData):
         :param split_factor: The split factor to be applied to current holdings
         :param type: The type of split event, warning or split occurred
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Split class"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -2282,11 +2282,6 @@ class SymbolChangedEvent(QuantConnect.Data.BaseData):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Initializes a new default instance of the SymbolChangedEvent class"""
-        ...
-
-    @overload
     def __init__(self, requested_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date], old_symbol: str, new_symbol: str) -> None:
         """
         Initializes a new instance of the SymbolChangedEvent
@@ -2296,6 +2291,11 @@ class SymbolChangedEvent(QuantConnect.Data.BaseData):
         :param old_symbol: The old symbol mapping
         :param new_symbol: The new symbol mapping
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new default instance of the SymbolChangedEvent class"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -2336,11 +2336,6 @@ class RangeBar(QuantConnect.Data.Market.TradeBar):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Initialize a new default instance of RangeBar class."""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], end_time: typing.Union[datetime.datetime, datetime.date], range_size: float, open: float, high: typing.Optional[float] = None, low: typing.Optional[float] = None, close: typing.Optional[float] = None, volume: float = 0) -> None:
         """
         Initializes a new instance of the RangeBar class with the specified values
@@ -2354,6 +2349,11 @@ class RangeBar(QuantConnect.Data.Market.TradeBar):
         :param close: The closing price for the new bar
         :param volume: The volume value for the new bar
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initialize a new default instance of RangeBar class."""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -2489,11 +2489,6 @@ class Dividend(QuantConnect.Data.BaseData):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the Dividend class"""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date], distribution: float, reference_price: float) -> None:
         """
         Initializes a new instance of the Dividend class
@@ -2503,6 +2498,11 @@ class Dividend(QuantConnect.Data.BaseData):
         :param distribution: The dividend amount
         :param reference_price: The previous day's closing price
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Dividend class"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -2631,20 +2631,6 @@ class OpenInterest(QuantConnect.Data.Market.Tick):
     """Defines a data type that represents open interest for given security"""
 
     @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the OpenInterest class"""
-        ...
-
-    @overload
-    def __init__(self, original: QuantConnect.Data.Market.OpenInterest) -> None:
-        """
-        Cloner constructor for fill forward engine implementation. Clone the original OI into this new one:
-        
-        :param original: Original OI we're cloning
-        """
-        ...
-
-    @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], open_interest: float) -> None:
         """
         Initializes a new instance of the OpenInterest class with data
@@ -2664,6 +2650,20 @@ class OpenInterest(QuantConnect.Data.Market.Tick):
         :param symbol: Symbol for underlying asset
         :param line: CSV line of data from QC OI csv
         :param base_date: The base date of the OI
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the OpenInterest class"""
+        ...
+
+    @overload
+    def __init__(self, original: QuantConnect.Data.Market.OpenInterest) -> None:
+        """
+        Cloner constructor for fill forward engine implementation. Clone the original OI into this new one:
+        
+        :param original: Original OI we're cloning
         """
         ...
 
@@ -2876,11 +2876,6 @@ class RenkoBar(QuantConnect.Data.Market.BaseRenkoBar):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Initializes a new default instance of the RenkoBar class."""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], brick_size: float, open: float, volume: float) -> None:
         """
         Initializes a new instance of the RenkoBar class with the specified values
@@ -2907,6 +2902,11 @@ class RenkoBar(QuantConnect.Data.Market.BaseRenkoBar):
         :param low: The low price for the new bar
         :param close: The closing price for the new bar
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new default instance of the RenkoBar class."""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -2992,11 +2992,6 @@ class VolumeRenkoBar(QuantConnect.Data.Market.BaseRenkoBar):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Initializes a new default instance of the RenkoBar class."""
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end_time: typing.Union[datetime.datetime, datetime.date], brick_size: float, open: float, high: float, low: float, close: float, volume: float) -> None:
         """
         Initializes a new instance of the VolumeRenkoBar class with the specified values
@@ -3011,6 +3006,11 @@ class VolumeRenkoBar(QuantConnect.Data.Market.BaseRenkoBar):
         :param close: The current data close value
         :param volume: The current data volume
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new default instance of the RenkoBar class."""
         ...
 
     def rollover(self) -> QuantConnect.Data.Market.VolumeRenkoBar:

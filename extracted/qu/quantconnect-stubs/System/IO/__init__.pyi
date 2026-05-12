@@ -1279,14 +1279,6 @@ class UnmanagedMemoryStream(System.IO.Stream):
         ...
 
     @overload
-    def __init__(self, pointer: typing.Any, length: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, pointer: typing.Any, length: int, capacity: int, access: System.IO.FileAccess) -> None:
-        ...
-
-    @overload
     def __init__(self) -> None:
         ...
 
@@ -1296,6 +1288,14 @@ class UnmanagedMemoryStream(System.IO.Stream):
 
     @overload
     def __init__(self, buffer: System.Runtime.InteropServices.SafeBuffer, offset: int, length: int, access: System.IO.FileAccess) -> None:
+        ...
+
+    @overload
+    def __init__(self, pointer: typing.Any, length: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, pointer: typing.Any, length: int, capacity: int, access: System.IO.FileAccess) -> None:
         ...
 
     def dispose(self, disposing: bool) -> None:
@@ -1308,11 +1308,11 @@ class UnmanagedMemoryStream(System.IO.Stream):
         ...
 
     @overload
-    def initialize(self, pointer: typing.Any, length: int, capacity: int, access: System.IO.FileAccess) -> None:
+    def initialize(self, buffer: System.Runtime.InteropServices.SafeBuffer, offset: int, length: int, access: System.IO.FileAccess) -> None:
         ...
 
     @overload
-    def initialize(self, buffer: System.Runtime.InteropServices.SafeBuffer, offset: int, length: int, access: System.IO.FileAccess) -> None:
+    def initialize(self, pointer: typing.Any, length: int, capacity: int, access: System.IO.FileAccess) -> None:
         ...
 
     @overload
@@ -1807,22 +1807,6 @@ class TextWriter(System.MarshalByRefObject, System.IDisposable, System.IAsyncDis
         ...
 
     @overload
-    def write(self, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def write(self, format: str, arg_0: typing.Any) -> None:
-        ...
-
-    @overload
-    def write(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
-        ...
-
-    @overload
-    def write(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> None:
-        ...
-
-    @overload
     def write(self, value: str) -> None:
         ...
 
@@ -1855,7 +1839,23 @@ class TextWriter(System.MarshalByRefObject, System.IDisposable, System.IAsyncDis
         ...
 
     @overload
+    def write(self, value: typing.Any) -> None:
+        ...
+
+    @overload
     def write(self, value: System.Text.StringBuilder) -> None:
+        ...
+
+    @overload
+    def write(self, format: str, arg_0: typing.Any) -> None:
+        ...
+
+    @overload
+    def write(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
+        ...
+
+    @overload
+    def write(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> None:
         ...
 
     @overload
@@ -1888,22 +1888,6 @@ class TextWriter(System.MarshalByRefObject, System.IDisposable, System.IAsyncDis
 
     @overload
     def write_async(self, buffer: System.ReadOnlyMemory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def write_line(self, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def write_line(self, format: str, arg_0: typing.Any) -> None:
-        ...
-
-    @overload
-    def write_line(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
-        ...
-
-    @overload
-    def write_line(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> None:
         ...
 
     @overload
@@ -1944,6 +1928,22 @@ class TextWriter(System.MarshalByRefObject, System.IDisposable, System.IAsyncDis
 
     @overload
     def write_line(self, value: System.Text.StringBuilder) -> None:
+        ...
+
+    @overload
+    def write_line(self, value: typing.Any) -> None:
+        ...
+
+    @overload
+    def write_line(self, format: str, arg_0: typing.Any) -> None:
+        ...
+
+    @overload
+    def write_line(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
+        ...
+
+    @overload
+    def write_line(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> None:
         ...
 
     @overload
@@ -2069,18 +2069,6 @@ class StreamWriter(System.IO.TextWriter):
         ...
 
     @overload
-    def write(self, format: str, arg_0: typing.Any) -> None:
-        ...
-
-    @overload
-    def write(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
-        ...
-
-    @overload
-    def write(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> None:
-        ...
-
-    @overload
     def write(self, value: str) -> None:
         ...
 
@@ -2094,6 +2082,18 @@ class StreamWriter(System.IO.TextWriter):
 
     @overload
     def write(self, buffer: System.ReadOnlySpan[str]) -> None:
+        ...
+
+    @overload
+    def write(self, format: str, arg_0: typing.Any) -> None:
+        ...
+
+    @overload
+    def write(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
+        ...
+
+    @overload
+    def write(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> None:
         ...
 
     @overload
@@ -2113,6 +2113,14 @@ class StreamWriter(System.IO.TextWriter):
         ...
 
     @overload
+    def write_line(self, value: str) -> None:
+        ...
+
+    @overload
+    def write_line(self, buffer: System.ReadOnlySpan[str]) -> None:
+        ...
+
+    @overload
     def write_line(self, format: str, arg_0: typing.Any) -> None:
         ...
 
@@ -2122,14 +2130,6 @@ class StreamWriter(System.IO.TextWriter):
 
     @overload
     def write_line(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> None:
-        ...
-
-    @overload
-    def write_line(self, value: str) -> None:
-        ...
-
-    @overload
-    def write_line(self, buffer: System.ReadOnlySpan[str]) -> None:
         ...
 
     @overload

@@ -108,6 +108,70 @@ class TestDetectKeywords:
             "bare 'autopilot' should not route to ooo auto"
         )
 
+    def test_ooo_publish_detected(self):
+        result = detect_keywords("ooo publish")
+        assert result["detected"] is True
+        assert result["suggested_skill"] == "/ouroboros:publish"
+
+    def test_ooo_publish_with_args(self):
+        result = detect_keywords("ooo publish --dry-run")
+        assert result["detected"] is True
+        assert result["suggested_skill"] == "/ouroboros:publish"
+
+    def test_ooo_resume_session_detected(self):
+        result = detect_keywords("ooo resume-session")
+        assert result["detected"] is True
+        assert result["suggested_skill"] == "/ouroboros:resume-session"
+
+    def test_ooo_resume_session_with_args(self):
+        result = detect_keywords("ooo resume-session --all")
+        assert result["detected"] is True
+        assert result["suggested_skill"] == "/ouroboros:resume-session"
+
+    def test_ooo_resume_prose_does_not_route(self):
+        # Guards the canonical-form-only decision: a prose mention of "ooo
+        # resume" inside a sentence must NOT route to resume-session, because
+        # word-boundary matching would otherwise mis-suggest session recovery
+        # for ordinary text like "please ooo resume work on this".
+        result = detect_keywords("please ooo resume work on this")
+        assert result["suggested_skill"] != "/ouroboros:resume-session"
+
+    def test_ooo_resume_bare_does_not_route(self):
+        # The bare short form is intentionally unsupported — users must type
+        # the unambiguous canonical "ooo resume-session".
+        result = detect_keywords("ooo resume")
+        assert result["suggested_skill"] != "/ouroboros:resume-session"
+
+    def test_ooo_resume_session_does_not_collide_with_hyphen_extension(self):
+        """Regression: ``ooo resume-session-extra`` (a future hypothetical
+        sibling command, or a typo) used to falsely route to
+        ``/ouroboros:resume-session`` because ``\\b`` triggers on every
+        word/non-word transition — including the boundary between
+        ``session`` and the trailing ``-``. The tightened end-boundary
+        rejects a hyphen as a valid token terminator, so longer
+        hyphenated identifiers cannot silently masquerade as the
+        canonical command.
+        """
+        result = detect_keywords("ooo resume-session-extra --all")
+        assert result["suggested_skill"] != "/ouroboros:resume-session", (
+            "ooo resume-session-extra must not collapse onto resume-session"
+        )
+
+    def test_ooo_resume_session_with_trailing_punctuation_still_matches(self):
+        """Sanity: trailing non-hyphen punctuation (space, ``.``, ``:``,
+        newline, end-of-string) still terminates the match cleanly."""
+        for text in (
+            "ooo resume-session",
+            "ooo resume-session ",
+            "ooo resume-session.",
+            "ooo resume-session: please",
+            "ooo resume-session\nfollow-up",
+        ):
+            result = detect_keywords(text)
+            assert result["suggested_skill"] == "/ouroboros:resume-session", (
+                f"resume-session should still match for {text!r}"
+            )
+
 
 class TestSetupBypass:
     """qa skill has a no-MCP fallback, so it must bypass the setup gate."""
@@ -118,6 +182,11 @@ class TestSetupBypass:
     def test_setup_and_help_in_bypass_list(self):
         assert "/ouroboros:setup" in SETUP_BYPASS_SKILLS
         assert "/ouroboros:help" in SETUP_BYPASS_SKILLS
+
+    def test_resume_session_in_bypass_list(self):
+        # resume-session reads the EventStore directly and is meant to be used
+        # exactly when the MCP server is unreachable. It must bypass the gate.
+        assert "/ouroboros:resume-session" in SETUP_BYPASS_SKILLS
 
 
 class TestMainGate:
@@ -184,3 +253,23 @@ class TestMainGate:
         out = capsys.readouterr().out
         assert "/ouroboros:auto" in out
         assert "/ouroboros:setup" not in out
+
+    @patch.object(_mod, "is_mcp_configured", return_value=False)
+    @patch.object(_mod, "is_first_time", return_value=False)
+    def test_resume_session_bypasses_setup_gate(self, _first, _mcp, capsys):
+        with patch("sys.stdin") as mock_stdin:
+            mock_stdin.read.return_value = "ooo resume-session"
+            main()
+        out = capsys.readouterr().out
+        assert "/ouroboros:setup" not in out
+        assert "/ouroboros:resume-session" in out
+
+    @patch.object(_mod, "is_mcp_configured", return_value=False)
+    @patch.object(_mod, "is_first_time", return_value=False)
+    def test_resume_session_with_args_bypasses_setup_gate(self, _first, _mcp, capsys):
+        with patch("sys.stdin") as mock_stdin:
+            mock_stdin.read.return_value = "ooo resume-session --all"
+            main()
+        out = capsys.readouterr().out
+        assert "/ouroboros:setup" not in out
+        assert "/ouroboros:resume-session" in out

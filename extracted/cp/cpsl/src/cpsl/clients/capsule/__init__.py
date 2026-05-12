@@ -440,11 +440,19 @@ class GetSessionResponse(betterproto.Message):
 class SaveSessionDataRequest(betterproto.Message):
     session_id: str = betterproto.string_field(1)
     data_json: str = betterproto.string_field(2)
+    base_revision: int = betterproto.int64_field(3)
+    base_checksum: str = betterproto.string_field(4)
+    nonce: str = betterproto.string_field(5)
+    checksum: str = betterproto.string_field(6)
 
 
 @dataclass(eq=False, repr=False)
 class SaveSessionDataResponse(betterproto.Message):
     ok: bool = betterproto.bool_field(1)
+    revision: int = betterproto.int64_field(2)
+    checksum: str = betterproto.string_field(3)
+    conflict: bool = betterproto.bool_field(4)
+    data_json: str = betterproto.string_field(5)
 
 
 @dataclass(eq=False, repr=False)

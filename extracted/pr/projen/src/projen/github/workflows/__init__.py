@@ -3687,22 +3687,31 @@ class StepConfiguration:
 @jsii.data_type(
     jsii_type="projen.github.workflows.ToolRequirement",
     jsii_struct_bases=[],
-    name_mapping={"version": "version"},
+    name_mapping={"version": "version", "cache": "cache"},
 )
 class ToolRequirement:
-    def __init__(self, *, version: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        version: builtins.str,
+        cache: typing.Optional[builtins.bool] = None,
+    ) -> None:
         '''(experimental) Version requirement for tools.
 
         :param version: 
+        :param cache: (experimental) Whether to enable automatic dependency caching. Default: false
 
         :stability: experimental
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a49e39102f958d999716dd94aae1647a49fe1d2fd3d73add88292e5067592c14)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "version": version,
         }
+        if cache is not None:
+            self._values["cache"] = cache
 
     @builtins.property
     def version(self) -> builtins.str:
@@ -3712,6 +3721,17 @@ class ToolRequirement:
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cache(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable automatic dependency caching.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("cache")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3742,15 +3762,15 @@ class Tools:
         *,
         dotnet: typing.Optional[typing.Union["ToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
         go: typing.Optional[typing.Union["ToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
-        java: typing.Optional[typing.Union["ToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
+        java: typing.Optional[typing.Union["JavaToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
         node: typing.Optional[typing.Union["ToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union["ToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
+        python: typing.Optional[typing.Union["PythonToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Supported tools.
 
         :param dotnet: (experimental) Setup .NET Core. Default: - not installed
         :param go: (experimental) Setup golang. Default: - not installed
-        :param java: (experimental) Setup java (temurin distribution). Default: - not installed
+        :param java: (experimental) Setup java. Default: - not installed
         :param node: (experimental) Setup node.js. Default: - not installed
         :param python: (experimental) Setup python. Default: - not installed
 
@@ -3761,11 +3781,11 @@ class Tools:
         if isinstance(go, dict):
             go = ToolRequirement(**go)
         if isinstance(java, dict):
-            java = ToolRequirement(**java)
+            java = JavaToolRequirement(**java)
         if isinstance(node, dict):
             node = ToolRequirement(**node)
         if isinstance(python, dict):
-            python = ToolRequirement(**python)
+            python = PythonToolRequirement(**python)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4dab9f9edea4d6d3c0897aa6348f12a4359741f0e29873be48495120ea2a4b12)
             check_type(argname="argument dotnet", value=dotnet, expected_type=type_hints["dotnet"])
@@ -3808,15 +3828,15 @@ class Tools:
         return typing.cast(typing.Optional["ToolRequirement"], result)
 
     @builtins.property
-    def java(self) -> typing.Optional["ToolRequirement"]:
-        '''(experimental) Setup java (temurin distribution).
+    def java(self) -> typing.Optional["JavaToolRequirement"]:
+        '''(experimental) Setup java.
 
         :default: - not installed
 
         :stability: experimental
         '''
         result = self._values.get("java")
-        return typing.cast(typing.Optional["ToolRequirement"], result)
+        return typing.cast(typing.Optional["JavaToolRequirement"], result)
 
     @builtins.property
     def node(self) -> typing.Optional["ToolRequirement"]:
@@ -3830,7 +3850,7 @@ class Tools:
         return typing.cast(typing.Optional["ToolRequirement"], result)
 
     @builtins.property
-    def python(self) -> typing.Optional["ToolRequirement"]:
+    def python(self) -> typing.Optional["PythonToolRequirement"]:
         '''(experimental) Setup python.
 
         :default: - not installed
@@ -3838,7 +3858,7 @@ class Tools:
         :stability: experimental
         '''
         result = self._values.get("python")
-        return typing.cast(typing.Optional["ToolRequirement"], result)
+        return typing.cast(typing.Optional["PythonToolRequirement"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4832,6 +4852,102 @@ class WorkflowRunOptions:
 
 
 @jsii.data_type(
+    jsii_type="projen.github.workflows.JavaToolRequirement",
+    jsii_struct_bases=[ToolRequirement],
+    name_mapping={
+        "version": "version",
+        "cache": "cache",
+        "distribution": "distribution",
+        "package_manager": "packageManager",
+    },
+)
+class JavaToolRequirement(ToolRequirement):
+    def __init__(
+        self,
+        *,
+        version: builtins.str,
+        cache: typing.Optional[builtins.bool] = None,
+        distribution: typing.Optional[builtins.str] = None,
+        package_manager: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Version requirement for Java tools.
+
+        :param version: 
+        :param cache: (experimental) Whether to enable automatic dependency caching. Default: false
+        :param distribution: (experimental) The JDK distribution to use. Default: "corretto"
+        :param package_manager: (experimental) The package manager to use for caching (e.g. "maven", "gradle", "sbt"). Required when ``cache`` is true.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6d1b24222632c32e919d43b3532b81da19da81e20e80bcc2d7e28ecdc96eb5e)
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
+            check_type(argname="argument distribution", value=distribution, expected_type=type_hints["distribution"])
+            check_type(argname="argument package_manager", value=package_manager, expected_type=type_hints["package_manager"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "version": version,
+        }
+        if cache is not None:
+            self._values["cache"] = cache
+        if distribution is not None:
+            self._values["distribution"] = distribution
+        if package_manager is not None:
+            self._values["package_manager"] = package_manager
+
+    @builtins.property
+    def version(self) -> builtins.str:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cache(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable automatic dependency caching.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("cache")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def distribution(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The JDK distribution to use.
+
+        :default: "corretto"
+
+        :stability: experimental
+        '''
+        result = self._values.get("distribution")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def package_manager(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The package manager to use for caching (e.g. "maven", "gradle", "sbt"). Required when ``cache`` is true.
+
+        :stability: experimental
+        '''
+        result = self._values.get("package_manager")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "JavaToolRequirement(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="projen.github.workflows.JobStepConfiguration",
     jsii_struct_bases=[StepConfiguration],
     name_mapping={
@@ -5213,6 +5329,85 @@ class PullRequestTargetOptions(PushOptions):
 
     def __repr__(self) -> str:
         return "PullRequestTargetOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.github.workflows.PythonToolRequirement",
+    jsii_struct_bases=[ToolRequirement],
+    name_mapping={
+        "version": "version",
+        "cache": "cache",
+        "package_manager": "packageManager",
+    },
+)
+class PythonToolRequirement(ToolRequirement):
+    def __init__(
+        self,
+        *,
+        version: builtins.str,
+        cache: typing.Optional[builtins.bool] = None,
+        package_manager: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Version requirement for Python tools.
+
+        :param version: 
+        :param cache: (experimental) Whether to enable automatic dependency caching. Default: false
+        :param package_manager: (experimental) The package manager to use for caching (e.g. "pip", "pipenv", "poetry"). Required when ``cache`` is true.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__371c40578cd882c4a0809a79b191d24aafe280284525738329838e501a68b395)
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
+            check_type(argname="argument package_manager", value=package_manager, expected_type=type_hints["package_manager"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "version": version,
+        }
+        if cache is not None:
+            self._values["cache"] = cache
+        if package_manager is not None:
+            self._values["package_manager"] = package_manager
+
+    @builtins.property
+    def version(self) -> builtins.str:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("version")
+        assert result is not None, "Required property 'version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cache(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable automatic dependency caching.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("cache")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def package_manager(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The package manager to use for caching (e.g. "pip", "pipenv", "poetry"). Required when ``cache`` is true.
+
+        :stability: experimental
+        '''
+        result = self._values.get("package_manager")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PythonToolRequirement(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -5663,6 +5858,7 @@ __all__ = [
     "GollumOptions",
     "IssueCommentOptions",
     "IssuesOptions",
+    "JavaToolRequirement",
     "Job",
     "JobCallingReusableWorkflow",
     "JobDefaults",
@@ -5686,6 +5882,7 @@ __all__ = [
     "PullRequestReviewOptions",
     "PullRequestTargetOptions",
     "PushOptions",
+    "PythonToolRequirement",
     "RegistryPackageOptions",
     "ReleaseOptions",
     "RepositoryDispatchOptions",
@@ -6051,6 +6248,7 @@ def _typecheckingstub__044349b8d18055b991a5680dc1d218dc2901bc2369d30fa23e79229d8
 def _typecheckingstub__a49e39102f958d999716dd94aae1647a49fe1d2fd3d73add88292e5067592c14(
     *,
     version: builtins.str,
+    cache: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6059,9 +6257,9 @@ def _typecheckingstub__4dab9f9edea4d6d3c0897aa6348f12a4359741f0e29873be48495120e
     *,
     dotnet: typing.Optional[typing.Union[ToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
     go: typing.Optional[typing.Union[ToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
-    java: typing.Optional[typing.Union[ToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
+    java: typing.Optional[typing.Union[JavaToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
     node: typing.Optional[typing.Union[ToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
-    python: typing.Optional[typing.Union[ToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
+    python: typing.Optional[typing.Union[PythonToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6141,6 +6339,16 @@ def _typecheckingstub__585f016972d6eec9e010fe83a5c43507031992141443c1f2e89e954a9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e6d1b24222632c32e919d43b3532b81da19da81e20e80bcc2d7e28ecdc96eb5e(
+    *,
+    version: builtins.str,
+    cache: typing.Optional[builtins.bool] = None,
+    distribution: typing.Optional[builtins.str] = None,
+    package_manager: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__015947eea91a5bd0b89e515aeca63fc47bd80c9c63472b7c37f32a247b878ba9(
     *,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -6171,6 +6379,15 @@ def _typecheckingstub__0ca7cc715b84ec3cf61f2ce2a905a0d5ec7555e282d1ce9b79e5c3773
     paths: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     types: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__371c40578cd882c4a0809a79b191d24aafe280284525738329838e501a68b395(
+    *,
+    version: builtins.str,
+    cache: typing.Optional[builtins.bool] = None,
+    package_manager: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

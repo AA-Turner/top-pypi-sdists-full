@@ -233,24 +233,28 @@ class Endpoint(RequestsEndpoint):
 
         :raises: :exc:`pycarlo.common.errors.GqlError`
         """
-        is_timeout = exception.response.status_code == 504
-        is_idempotent = X_MCD_IDEMPOTENT_ID in request.headers
+        response = exception.response
+        assert response is not None, "HTTPError without a response is unexpected here"
+        request_headers = request.headers or {}
+
+        is_timeout = response.status_code == 504
+        is_idempotent = X_MCD_IDEMPOTENT_ID in request_headers
         if not is_timeout or not is_idempotent:
             # don't log the exception for a timeout if we sent an idempotent request, we'll retry
             self.logger.error("log_error - %s: %s", request.url, exception)
 
-        for header in sorted(exception.response.headers):
-            self.logger.info("Response header: %s: %s", header, exception.response.headers[header])
+        for header in sorted(response.headers):
+            self.logger.info("Response header: %s: %s", header, response.headers[header])
 
-        body = cast(str, exception.response.text)
-        content_type = exception.response.headers.get("Content-Type", "")
+        body = cast(str, response.text)
+        content_type = response.headers.get("Content-Type", "")
         self.logger.info("Response [%s]:\n%s", content_type, body)
         if not content_type.startswith("application/json"):
             raise GqlError(
                 body=body,
-                headers=exception.response.headers,
+                headers=response.headers,
                 message=str(body),
-                status_code=exception.response.status_code,
+                status_code=response.status_code,
                 summary=str(exception),
             )
         try:
@@ -258,9 +262,9 @@ class Endpoint(RequestsEndpoint):
         except json.JSONDecodeError as err:
             raise GqlError(
                 body=body,
-                headers=exception.response.headers,
+                headers=response.headers,
                 message=str(err),
-                status_code=exception.response.status_code,
+                status_code=response.status_code,
                 summary=str(err),
             )
 
@@ -268,8 +272,8 @@ class Endpoint(RequestsEndpoint):
             data.update(
                 {
                     "exception": exception,
-                    "status": exception.response.status_code,
-                    "headers": exception.response.headers,
+                    "status": response.status_code,
+                    "headers": response.headers,
                 }
             )
             return self._log_graphql_error(query, data)
@@ -282,8 +286,8 @@ class Endpoint(RequestsEndpoint):
         )
         raise GqlError(
             body=body,
-            headers=exception.response.headers,
+            headers=response.headers,
             message=message,
-            status_code=exception.response.status_code,
+            status_code=response.status_code,
             summary=str(exception),
         )

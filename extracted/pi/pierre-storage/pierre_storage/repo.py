@@ -16,6 +16,8 @@ from pierre_storage.commit import (
 )
 from pierre_storage.errors import ApiError, RefUpdateError, infer_ref_update_reason
 from pierre_storage.types import (
+    BlameLine,
+    BlameResult,
     BranchInfo,
     CommitBuilder,
     CommitInfo,
@@ -34,6 +36,7 @@ from pierre_storage.types import (
     FilteredFile,
     GetBranchDiffResult,
     GetCommitDiffResult,
+    GetCommitResult,
     GrepFileMatch,
     GrepLine,
     GrepResult,
@@ -495,6 +498,7 @@ class RepoImpl:
         *,
         cursor: Optional[str] = None,
         limit: Optional[int] = None,
+        ephemeral: Optional[bool] = None,
         ttl: Optional[int] = None,
     ) -> ListBranchesResult:
         """List branches in repository.
@@ -502,6 +506,7 @@ class RepoImpl:
         Args:
             cursor: Pagination cursor
             limit: Maximum number of branches to return
+            ephemeral: When true, list branches under the ephemeral namespace
             ttl: Token TTL in seconds
 
         Returns:
@@ -515,6 +520,8 @@ class RepoImpl:
             params["cursor"] = cursor
         if limit is not None:
             params["limit"] = str(limit)
+        if ephemeral is not None:
+            params["ephemeral"] = "true" if ephemeral else "false"
 
         url = f"{self.api_base_url}/api/v{self.api_version}/repos/branches"
         if params:
@@ -998,6 +1005,7 @@ class RepoImpl:
         branch: Optional[str] = None,
         cursor: Optional[str] = None,
         limit: Optional[int] = None,
+        ephemeral: Optional[bool] = None,
         ttl: Optional[int] = None,
     ) -> ListCommitsResult:
         """List commits in repository.
@@ -1006,6 +1014,7 @@ class RepoImpl:
             branch: Branch name to list commits from
             cursor: Pagination cursor
             limit: Maximum number of commits to return
+            ephemeral: When true, resolve `branch` under the ephemeral namespace
             ttl: Token TTL in seconds
 
         Returns:
@@ -1021,6 +1030,8 @@ class RepoImpl:
             params["cursor"] = cursor
         if limit is not None:
             params["limit"] = str(limit)
+        if ephemeral is not None:
+            params["ephemeral"] = "true" if ephemeral else "false"
 
         url = f"{self.api_base_url}/api/v{self.api_version}/repos/commits"
         if params:
@@ -1058,6 +1069,154 @@ class RepoImpl:
                 "commits": commits,
                 "next_cursor": data.get("next_cursor"),
                 "has_more": data["has_more"],
+            }
+
+    async def get_commit(
+        self,
+        *,
+        sha: str,
+        ttl: Optional[int] = None,
+    ) -> GetCommitResult:
+        """Get metadata for a single commit, without computing its diff.
+
+        Args:
+            sha: Commit SHA (or any revision git can resolve, e.g. branch
+                name or short SHA).
+            ttl: Token TTL in seconds.
+
+        Returns:
+            Commit metadata under the ``commit`` key.
+        """
+        sha_clean = sha.strip()
+        if not sha_clean:
+            raise ValueError("get_commit sha is required")
+
+        ttl = ttl or DEFAULT_TOKEN_TTL_SECONDS
+        jwt = self.generate_jwt(self._id, {"permissions": ["git:read"], "ttl": ttl})
+
+        url = (
+            f"{self.api_base_url}/api/v{self.api_version}/repos/commit"
+            f"?{urlencode({'sha': sha_clean})}"
+        )
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {jwt}",
+                    "Code-Storage-Agent": get_user_agent(),
+                },
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            commit_raw = data["commit"]
+            date = datetime.fromisoformat(commit_raw["date"].replace("Z", "+00:00"))
+            commit: CommitInfo = {
+                "sha": commit_raw["sha"],
+                "message": commit_raw["message"],
+                "author_name": commit_raw["author_name"],
+                "author_email": commit_raw["author_email"],
+                "committer_name": commit_raw["committer_name"],
+                "committer_email": commit_raw["committer_email"],
+                "date": date,
+                "raw_date": commit_raw["date"],
+            }
+            return {"commit": commit}
+
+    async def get_blame(
+        self,
+        *,
+        path: str,
+        ref: Optional[str] = None,
+        ephemeral: Optional[bool] = None,
+        ranges: Optional[List[str]] = None,
+        detect_moves: Optional[bool] = None,
+        ttl: Optional[int] = None,
+    ) -> BlameResult:
+        """Return per-line authorship for a file at a ref.
+
+        Args:
+            path: Repository-relative file path to blame.
+            ref: Branch, tag, or commit SHA to blame at. Defaults to the
+                repository default branch.
+            ephemeral: Resolve ``ref`` from the ephemeral namespace.
+            ranges: ``git blame -L``-style range specs. When omitted, the
+                whole file is blamed.
+            detect_moves: Follow the file across renames and copies.
+            ttl: Token TTL in seconds.
+
+        Returns:
+            Per-line attribution plus a deduped commits map.
+        """
+        if not path.strip():
+            raise ValueError("get_blame path is required")
+
+        ttl = ttl or DEFAULT_TOKEN_TTL_SECONDS
+        jwt = self.generate_jwt(self._id, {"permissions": ["git:read"], "ttl": ttl})
+
+        params: List[tuple[str, str]] = [("path", path)]
+        if ref is not None and ref.strip():
+            params.append(("ref", ref.strip()))
+        if ephemeral:
+            params.append(("ephemeral", "true"))
+        if ranges:
+            for spec in ranges:
+                params.append(("range", spec))
+        if detect_moves:
+            params.append(("detect_moves", "true"))
+
+        url = (
+            f"{self.api_base_url}/api/v{self.api_version}/repos/blame"
+            f"?{urlencode(params)}"
+        )
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {jwt}",
+                    "Code-Storage-Agent": get_user_agent(),
+                },
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            lines: List[BlameLine] = []
+            for entry in data.get("lines", []):
+                author_time_raw = entry["author_time"]
+                committer_time_raw = entry["committer_time"]
+                line: BlameLine = {
+                    "line_number": entry["line_number"],
+                    "commit_sha": entry["commit_sha"],
+                    "original_line_number": entry["original_line_number"],
+                    "original_path": entry["original_path"],
+                    "author_name": entry["author_name"],
+                    "author_email": entry["author_email"],
+                    "author_time": datetime.fromisoformat(
+                        author_time_raw.replace("Z", "+00:00")
+                    ),
+                    "raw_author_time": author_time_raw,
+                    "committer_name": entry["committer_name"],
+                    "committer_email": entry["committer_email"],
+                    "committer_time": datetime.fromisoformat(
+                        committer_time_raw.replace("Z", "+00:00")
+                    ),
+                    "raw_committer_time": committer_time_raw,
+                    "summary": entry["summary"],
+                }
+                previous = entry.get("previous_commit_sha")
+                if previous:
+                    line["previous_commit_sha"] = previous
+                lines.append(line)
+
+            return {
+                "ref": data["ref"],
+                "path": data["path"],
+                "commit_sha": data["commit_sha"],
+                "lines": lines,
             }
 
     async def get_note(
@@ -1350,6 +1509,7 @@ class RepoImpl:
         pattern: str,
         ref: Optional[str] = None,
         rev: Optional[str] = None,
+        ephemeral: Optional[bool] = None,
         paths: Optional[list[str]] = None,
         case_sensitive: Optional[bool] = None,
         file_filters: Optional[Dict[str, Any]] = None,
@@ -1364,6 +1524,7 @@ class RepoImpl:
             pattern: Regex pattern to search for
             ref: Git ref to search (defaults to server-side default branch)
             rev: Deprecated alias for ref
+            ephemeral: When true, resolve `ref` under the ephemeral namespace
             paths: Git pathspecs to restrict search
             case_sensitive: Whether search is case-sensitive (default: server default)
             file_filters: Optional filters with include_globs/exclude_globs/extension_filters
@@ -1400,6 +1561,8 @@ class RepoImpl:
             body["ref"] = ref
         elif rev:
             body["ref"] = rev
+        if ephemeral is not None:
+            body["ephemeral"] = bool(ephemeral)
         if paths:
             body["paths"] = paths
         if file_filters:

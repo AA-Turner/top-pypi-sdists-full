@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import click
+import httpx
 import pytest
 from click.testing import CliRunner
 
@@ -26,6 +27,7 @@ def mock_auth():
     with patch("notebooklm.cli.helpers.load_auth_from_storage") as mock:
         mock.return_value = {
             "SID": "test",
+            "__Secure-1PSIDTS": "test_1psidts",
             "HSID": "test",
             "SSID": "test",
             "APISID": "test",
@@ -1136,6 +1138,7 @@ class TestAuthCheckCommand:
         storage_data = {
             "cookies": [
                 {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
                 {"name": "HSID", "value": "test_hsid", "domain": ".google.com"},
                 {"name": "SSID", "value": "test_ssid", "domain": ".google.com"},
             ]
@@ -1153,6 +1156,7 @@ class TestAuthCheckCommand:
         storage_data = {
             "cookies": [
                 {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
                 {"name": "HSID", "value": "test_hsid", "domain": ".google.com"},
             ]
         }
@@ -1169,11 +1173,42 @@ class TestAuthCheckCommand:
         assert output["checks"]["sid_cookie"] is True
         assert "SID" in output["details"]["cookies_found"]
 
+    def test_auth_check_missing_1psidts_surfaces_tier1_error(self, runner, mock_storage_path):
+        """SID present but ``__Secure-1PSIDTS`` absent must surface the Tier 1 error.
+
+        Pinned by the #371 two-tier pre-flight: ``MINIMUM_REQUIRED_COOKIES``
+        now contains both ``SID`` and ``__Secure-1PSIDTS``; the load helpers
+        in ``auth.py`` raise on absence, and ``auth check`` reports the raised
+        ``ValueError`` so users see the new diagnostic.
+
+        Note: ``auth check`` itself returns exit code 0 regardless — that's a
+        pre-existing UX gap orthogonal to #371. We assert on the surfaced
+        error text instead, which is what users would actually see.
+        """
+        storage_data = {
+            "cookies": [
+                {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                # Note: __Secure-1PSIDTS deliberately omitted.
+                {"name": "HSID", "value": "test_hsid", "domain": ".google.com"},
+                {"name": "SSID", "value": "test_ssid", "domain": ".google.com"},
+            ]
+        }
+        mock_storage_path.write_text(json.dumps(storage_data))
+
+        result = runner.invoke(cli, ["auth", "check", "--json"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.output)
+        assert output["status"] == "error"
+        assert output["checks"]["cookies_present"] is False
+        assert "__Secure-1PSIDTS" in output["details"].get("error", "")
+
     def test_auth_check_with_test_flag_success(self, runner, mock_storage_path):
         """Test auth check --test with successful token fetch."""
         storage_data = {
             "cookies": [
                 {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
             ]
         }
         mock_storage_path.write_text(json.dumps(storage_data))
@@ -1194,6 +1229,7 @@ class TestAuthCheckCommand:
         storage_data = {
             "cookies": [
                 {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
             ]
         }
         mock_storage_path.write_text(json.dumps(storage_data))
@@ -1215,6 +1251,7 @@ class TestAuthCheckCommand:
         storage_data = {
             "cookies": [
                 {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
             ]
         }
         mock_storage_path.write_text(json.dumps(storage_data))
@@ -1242,6 +1279,7 @@ class TestAuthCheckCommand:
         env_storage = {
             "cookies": [
                 {"name": "SID", "value": "env_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
             ]
         }
         monkeypatch.setenv("NOTEBOOKLM_AUTH_JSON", json.dumps(env_storage))
@@ -1258,6 +1296,7 @@ class TestAuthCheckCommand:
         storage_data = {
             "cookies": [
                 {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
                 {"name": "NID", "value": "test_nid", "domain": ".google.com.sg"},
             ]
         }
@@ -1274,9 +1313,11 @@ class TestAuthCheckCommand:
         storage_data = {
             "cookies": [
                 {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
                 {"name": "HSID", "value": "test_hsid", "domain": ".google.com"},
                 {"name": "SSID", "value": "test_ssid", "domain": ".google.com"},
                 {"name": "SID", "value": "regional_sid", "domain": ".google.com.sg"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com.sg"},
                 {"name": "__Secure-1PSID", "value": "secure1", "domain": ".google.com"},
             ]
         }
@@ -1303,6 +1344,7 @@ class TestAuthCheckCommand:
         storage_data = {
             "cookies": [
                 {"name": "SID", "value": "test_sid", "domain": ".google.com"},
+                {"name": "__Secure-1PSIDTS", "value": "test_1psidts", "domain": ".google.com"},
             ]
         }
         mock_storage_path.write_text(json.dumps(storage_data))
@@ -1631,6 +1673,15 @@ class TestLoginBrowserCookies:
                 "expires": 1234567890,
                 "http_only": False,
             },
+            {
+                "domain": ".google.com",
+                "name": "__Secure-1PSIDTS",
+                "value": "test_1psidts",
+                "path": "/",
+                "secure": True,
+                "expires": 1234567890,
+                "http_only": False,
+            },
         ]
         mock_rookiepy = MagicMock()
         mock_rookiepy.load = MagicMock(return_value=mock_cookies)
@@ -1657,6 +1708,15 @@ class TestLoginBrowserCookies:
                 "domain": ".google.com",
                 "name": "SID",
                 "value": "abc",
+                "path": "/",
+                "secure": True,
+                "expires": None,
+                "http_only": False,
+            },
+            {
+                "domain": ".google.com",
+                "name": "__Secure-1PSIDTS",
+                "value": "test_1psidts",
                 "path": "/",
                 "secure": True,
                 "expires": None,
@@ -1721,6 +1781,15 @@ class TestLoginBrowserCookies:
                 "domain": ".google.com",
                 "name": "SID",
                 "value": "mysid",
+                "path": "/",
+                "secure": True,
+                "expires": 9999,
+                "http_only": False,
+            },
+            {
+                "domain": ".google.com",
+                "name": "__Secure-1PSIDTS",
+                "value": "test_1psidts",
                 "path": "/",
                 "secure": True,
                 "expires": 9999,
@@ -1975,3 +2044,131 @@ class TestAuthLogoutCommand:
 
         assert result.exit_code == 1
         assert "context file" in result.output.lower()
+
+
+# =============================================================================
+# AUTH REFRESH COMMAND TESTS
+# =============================================================================
+
+
+class TestAuthRefreshCommand:
+    """Tests for the 'auth refresh' one-shot keepalive command."""
+
+    @pytest.fixture
+    def mock_storage_path(self, tmp_path):
+        storage_file = tmp_path / "storage_state.json"
+        storage_file.write_text(
+            json.dumps(
+                {
+                    "cookies": [
+                        {"name": "SID", "value": "x", "domain": ".google.com"},
+                        {
+                            "name": "__Secure-1PSIDTS",
+                            "value": "test_1psidts",
+                            "domain": ".google.com",
+                        },
+                    ]
+                }
+            )
+        )
+        with patch("notebooklm.cli.session.get_storage_path", return_value=storage_file):
+            yield storage_file
+
+    def test_auth_refresh_success(self, runner, mock_storage_path):
+        """auth refresh exits 0 and prints `ok` on a successful token fetch."""
+        with patch(
+            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_fetch.return_value = ("csrf_ok", "session_ok")
+            result = runner.invoke(cli, ["auth", "refresh"])
+        assert result.exit_code == 0
+        assert "ok" in result.output.lower()
+        mock_fetch.assert_awaited_once()
+
+    def test_auth_refresh_quiet_suppresses_success_output(self, runner, mock_storage_path):
+        """--quiet keeps stdout clean when refresh succeeds (cron-friendly)."""
+        with patch(
+            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_fetch.return_value = ("csrf_ok", "session_ok")
+            result = runner.invoke(cli, ["auth", "refresh", "--quiet"])
+        assert result.exit_code == 0
+        assert result.output.strip() == ""
+
+    def test_auth_refresh_failure_exits_nonzero(self, runner, mock_storage_path):
+        """Token fetch failure exits 1 with stderr message — picked up by cron logs."""
+        with patch(
+            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_fetch.side_effect = ValueError("Authentication expired or invalid.")
+            result = runner.invoke(cli, ["auth", "refresh"])
+        assert result.exit_code == 1
+        assert "authentication expired" in result.output.lower()
+
+    def test_auth_refresh_failure_includes_exception_class(self, runner, mock_storage_path):
+        """Sparse exception messages (e.g. httpx.ConnectTimeout) still get a
+        diagnostic class name in the cron log."""
+        with patch(
+            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_fetch.side_effect = httpx.ConnectTimeout("")  # empty message
+            result = runner.invoke(cli, ["auth", "refresh"])
+        assert result.exit_code == 1
+        assert "ConnectTimeout" in result.output
+
+    def test_auth_refresh_rejects_env_var_auth(self, runner, monkeypatch, mock_storage_path):
+        """NOTEBOOKLM_AUTH_JSON has no writable backing store; refreshing it
+        would silently rotate SIDTS but persist nothing. Refuse loudly."""
+        monkeypatch.setenv("NOTEBOOKLM_AUTH_JSON", '{"cookies":[]}')
+        with patch(
+            "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+        ) as mock_fetch:
+            result = runner.invoke(cli, ["auth", "refresh"])
+        assert result.exit_code == 1
+        assert "NOTEBOOKLM_AUTH_JSON" in result.output
+        assert "incompatible" in result.output.lower()
+        # Critical: no token fetch should run when the env var is set —
+        # otherwise we'd be doing a server-side rotation that gets lost.
+        mock_fetch.assert_not_awaited()
+
+    def test_auth_refresh_propagates_global_profile_flag(self, runner, tmp_path):
+        """`notebooklm --profile work auth refresh` resolves the work profile.
+
+        Guards against the launchd/cron case where the global -p flag must
+        flow through ctx.obj into fetch_tokens_with_domains.
+        """
+        work_storage = tmp_path / "work_storage_state.json"
+        work_storage.write_text(
+            json.dumps(
+                {
+                    "cookies": [
+                        {"name": "SID", "value": "y", "domain": ".google.com"},
+                        {
+                            "name": "__Secure-1PSIDTS",
+                            "value": "test_1psidts",
+                            "domain": ".google.com",
+                        },
+                    ]
+                }
+            )
+        )
+
+        def fake_storage_path(profile=None):
+            assert profile == "work", f"expected profile='work', got {profile!r}"
+            return work_storage
+
+        with (
+            patch("notebooklm.cli.session.get_storage_path", side_effect=fake_storage_path),
+            patch(
+                "notebooklm.auth.fetch_tokens_with_domains", new_callable=AsyncMock
+            ) as mock_fetch,
+        ):
+            mock_fetch.return_value = ("csrf_ok", "session_ok")
+            result = runner.invoke(cli, ["--profile", "work", "auth", "refresh"])
+
+        assert result.exit_code == 0, result.output
+        # fetch_tokens_with_domains(path, profile) — verify the work profile
+        # was threaded through to the auth layer.
+        called_args = mock_fetch.call_args
+        assert called_args.args[0] == work_storage
+        assert called_args.args[1] == "work"

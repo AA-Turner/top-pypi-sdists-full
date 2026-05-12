@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trame-server
-Version: 3.12.0
+Version: 3.12.1
 Summary: Internal server side implementation of trame
 Author: Kitware Inc.
 License: Apache License 2.0
@@ -23,6 +23,7 @@ Requires-Dist: nox; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-asyncio; extra == 'dev'
+Requires-Dist: pytest-cov; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: trame; extra == 'dev'
 Description-Content-Type: text/x-rst

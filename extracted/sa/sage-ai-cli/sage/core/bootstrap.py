@@ -255,6 +255,63 @@ def phase_set_default_model(opts: BootstrapOptions) -> tuple[str, str]:
     return ("ok", f"set default_model = {pick}")
 
 
+# ── Ollama daemon readiness ────────────────────────────────────────────
+
+
+_OLLAMA_HOST = "http://127.0.0.1:11434"
+
+
+def _ensure_ollama_running(timeout: float = 15.0) -> bool:
+    """Make sure the local Ollama daemon is up so subsequent API calls succeed.
+
+    A fresh `--clean` install often leaves the daemon stopped, which used to
+    surface as a misleading "prewarm failed" or "/api/embeddings 500" later in
+    the bootstrap. We detect that here and spawn `ollama serve &` ourselves,
+    polling /api/tags until ready (or timing out).
+
+    Returns True if the daemon is reachable by the time we return. False if
+    the ollama binary isn't installed, the spawn failed, or polling timed
+    out — callers should degrade gracefully rather than crashing the bootstrap.
+    """
+    try:
+        import httpx
+    except ImportError:
+        return False
+
+    def _probe() -> bool:
+        try:
+            r = httpx.get(f"{_OLLAMA_HOST}/api/tags", timeout=1.5)
+            return getattr(r, "status_code", 0) == 200
+        except Exception:
+            return False
+
+    if _probe():
+        return True
+
+    if not _have_cmd("ollama"):
+        return False
+
+    # Spawn the daemon detached from this process. Suppress its stdout/stderr
+    # because users running `sage install` don't need the daemon's noise.
+    try:
+        subprocess.Popen(
+            ["ollama", "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception:
+        return False
+
+    deadline = time.monotonic() + max(timeout, 0.0)
+    while time.monotonic() < deadline:
+        if _probe():
+            return True
+        time.sleep(0.25)
+    return False
+
+
 # ── Phase 3: Pre-warm via Ollama keep_alive ────────────────────────────
 
 def phase_prewarm(opts: BootstrapOptions) -> tuple[str, str]:
@@ -265,6 +322,8 @@ def phase_prewarm(opts: BootstrapOptions) -> tuple[str, str]:
     if not cfg.default_model.startswith("ollama:"):
         return ("skipped", f"default {cfg.default_model} is not an Ollama model")
     bare = cfg.default_model.split(":", 1)[1]
+    if not _ensure_ollama_running():
+        return ("failed", f"ollama daemon not available; prewarm of {bare} skipped")
     if prewarm(bare):
         return ("ok", f"prewarmed {bare}")
     return ("failed", f"prewarm of {bare} failed (Ollama not running?)")
@@ -343,7 +402,11 @@ def phase_install_optional_deps(opts: BootstrapOptions) -> tuple[str, str]:
 
 def phase_build_rag_index(opts: BootstrapOptions) -> tuple[str, str]:
     """Build the per-project RAG index. Cheap; no-op when cwd has no
-    indexable files."""
+    indexable files. Embedding step calls Ollama, so we ensure the daemon
+    is up first — otherwise the user sees `500 Internal Server Error`
+    from /api/embeddings and the install looks broken."""
+    if not _ensure_ollama_running():
+        return ("failed", "ollama daemon not available; RAG index needs the embedder")
     try:
         from sage.core.rag import RAGIndex
     except Exception as exc:

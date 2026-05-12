@@ -328,22 +328,22 @@ class SubscriptionDataConfig(System.Object, System.IEquatable[QuantConnect_Data_
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Data.SubscriptionDataConfig) -> bool:
         """
         Indicates whether the current object is equal to another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
         """
         ...
 
@@ -511,22 +511,22 @@ class SubscriptionDataSource(System.Object, System.IEquatable[QuantConnect_Data_
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified instance is equal to the current instance.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Data.SubscriptionDataSource) -> bool:
         """
         Indicates whether the current object is equal to another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified instance is equal to the current instance.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
         """
         ...
 
@@ -888,22 +888,22 @@ class Channel(System.Object):
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Data.Channel) -> bool:
         """
         Indicates whether the current object is equal to another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
         """
         ...
 
@@ -1115,16 +1115,6 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         ...
 
     @overload
-    def __setitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: typing.Any) -> None:
-        """
-        Indexer method for the base dictioanry to access the objects by their symbol.
-        
-        :param key: Key object indexer
-        :returns: Object of t_value.
-        """
-        ...
-
-    @overload
     def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: typing.Union[QuantConnect.Data.Market.TradeBar, QuantConnect.Data.Market.QuoteBar, System.Collections.Generic.List[QuantConnect.Data.Market.Tick], typing.Any]) -> None:
         """
         Gets the data corresponding to the specified symbol. If the requested data
@@ -1134,6 +1124,16 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         
         :param symbol: The data's symbols
         :returns: The data for the specified symbol.
+        """
+        ...
+
+    @overload
+    def __setitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: typing.Any) -> None:
+        """
+        Indexer method for the base dictioanry to access the objects by their symbol.
+        
+        :param key: Key object indexer
+        :returns: Object of t_value.
         """
         ...
 
@@ -1158,6 +1158,17 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         ...
 
     @overload
+    def get(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
+        """
+        Returns the value for the specified key if key is in dictionary.
+        
+        :param key: key to be searched in the dictionary
+        :returns: The value for the specified key if key is in dictionary.
+        None if the key is not found, or if the key is None.
+        """
+        ...
+
+    @overload
     def get(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], default_value: typing.Any) -> typing.Any:
         """
         Returns the value for the specified key if key is in dictionary.
@@ -1170,13 +1181,13 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         ...
 
     @overload
-    def get(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
+    def get(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
         """
-        Returns the value for the specified key if key is in dictionary.
+        Gets the data of the specified symbol and type.
         
-        :param key: key to be searched in the dictionary
-        :returns: The value for the specified key if key is in dictionary.
-        None if the key is not found, or if the key is None.
+        :param type: The type of data we seek
+        :param symbol: The specific symbol was seek
+        :returns: The data point for the requested symbol.
         """
         ...
 
@@ -1187,17 +1198,6 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         
         :param type: The type of data we seek
         :returns: The DataDictionary{T} instance for the requested type.
-        """
-        ...
-
-    @overload
-    def get(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
-        """
-        Gets the data of the specified symbol and type.
-        
-        :param type: The type of data we seek
-        :param symbol: The specific symbol was seek
-        :returns: The data point for the requested symbol.
         """
         ...
 
@@ -1226,6 +1226,17 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         ...
 
     @overload
+    def pop(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
+        """
+        Removes and returns an element from a dictionary having the given key.
+        
+        :param key: Key which is to be searched for removal
+        :returns: If key is found - removed/popped element from the dictionary
+        If key is not found - KeyError exception is raised.
+        """
+        ...
+
+    @overload
     def pop(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], default_value: typing.Any) -> typing.Any:
         """
         Removes and returns an element from a dictionary having the given key.
@@ -1234,17 +1245,6 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         :param default_value: Value which is to be returned when the key is not in the dictionary
         :returns: If key is found - removed/popped element from the dictionary
         If key is not found - value specified as the second argument(default).
-        """
-        ...
-
-    @overload
-    def pop(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
-        """
-        Removes and returns an element from a dictionary having the given key.
-        
-        :param key: Key which is to be searched for removal
-        :returns: If key is found - removed/popped element from the dictionary
-        If key is not found - KeyError exception is raised.
         """
         ...
 
@@ -1258,6 +1258,17 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         ...
 
     @overload
+    def setdefault(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
+        """
+        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
+        
+        :param key: Key with null/None value is inserted to the dictionary if key is not in the dictionary.
+        :returns: The value of the key if it is in the dictionary
+        None if key is not in the dictionary.
+        """
+        ...
+
+    @overload
     def setdefault(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], default_value: typing.Any) -> typing.Any:
         """
         Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
@@ -1266,17 +1277,6 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         :param default_value: Default value
         :returns: The value of the key if it is in the dictionary
         default_value if key is not in the dictionary and default_value is specified.
-        """
-        ...
-
-    @overload
-    def setdefault(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
-        """
-        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
-        
-        :param key: Key with null/None value is inserted to the dictionary if key is not in the dictionary.
-        :returns: The value of the key if it is in the dictionary
-        None if key is not in the dictionary.
         """
         ...
 
@@ -1986,6 +1986,17 @@ class HistoryRequest(QuantConnect.Data.BaseDataRequest):
         ...
 
     @overload
+    def __init__(self, request: QuantConnect.Data.HistoryRequest, new_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], new_start_time_utc: typing.Union[datetime.datetime, datetime.date], new_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the HistoryRequest class with new Symbol, StartTimeUtc, EndTimeUtc
+        
+        :param request: Represents a request for historical data
+        :param new_start_time_utc: The start time for this request
+        :param new_end_time_utc: The end time for this request
+        """
+        ...
+
+    @overload
     def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig, hours: QuantConnect.Securities.SecurityExchangeHours, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
         Initializes a new instance of the HistoryRequest class from the specified config and exchange hours
@@ -1994,17 +2005,6 @@ class HistoryRequest(QuantConnect.Data.BaseDataRequest):
         :param hours: The exchange hours used for fill forward processing
         :param start_time_utc: The start time for this request,
         :param end_time_utc: The end time for this request
-        """
-        ...
-
-    @overload
-    def __init__(self, request: QuantConnect.Data.HistoryRequest, new_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], new_start_time_utc: typing.Union[datetime.datetime, datetime.date], new_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the HistoryRequest class with new Symbol, StartTimeUtc, EndTimeUtc
-        
-        :param request: Represents a request for historical data
-        :param new_start_time_utc: The start time for this request
-        :param new_end_time_utc: The end time for this request
         """
         ...
 
@@ -2365,13 +2365,13 @@ class DividendYieldProvider(System.Object, QuantConnect.Data.IDividendYieldModel
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Creates a new instance using the default symbol"""
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """Instantiates a DividendYieldProvider with the specified Symbol"""
         ...
 
     @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
-        """Instantiates a DividendYieldProvider with the specified Symbol"""
+    def __init__(self) -> None:
+        """Creates a new instance using the default symbol"""
         ...
 
     @staticmethod

@@ -106,7 +106,8 @@ def build_sample_events(prefix: str) -> list[RelationalAsset]:
                 description="Sample downstream view for lineage",
                 view_query=(
                     "SELECT event_id, event_type FROM "
-                    f"{MANUAL_INGESTION_DATABASE}.{MANUAL_INGESTION_SCHEMA}.{asset_name(prefix, 'c')}"
+                    f"{MANUAL_INGESTION_DATABASE}.{MANUAL_INGESTION_SCHEMA}."
+                    f"{asset_name(prefix, 'c')}"
                 ),
             ),
             fields=[

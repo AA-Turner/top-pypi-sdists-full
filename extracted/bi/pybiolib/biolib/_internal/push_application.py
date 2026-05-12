@@ -29,11 +29,24 @@ class DockerProgressDetail(TypedDict):
     total: int
 
 
+class DockerErrorDetail(TypedDict, total=False):
+    message: str
+
+
 class DockerStatusUpdate(TypedDict, total=False):
     status: str
     progressDetail: DockerProgressDetail
     progress: str
     id: str
+    error: str
+    errorDetail: DockerErrorDetail
+
+
+def _raise_if_docker_status_update_is_error(update: DockerStatusUpdate, action: str) -> None:
+    if 'error' not in update and 'errorDetail' not in update:
+        return
+    error_message = update.get('error') or update.get('errorDetail', {}).get('message') or 'Unknown error'
+    raise BioLibError(f'{action} Docker image failed: {error_message}')
 
 
 def process_docker_status_updates(status_updates: Iterable[DockerStatusUpdate], action: str) -> None:
@@ -56,6 +69,7 @@ def _process_docker_status_updates_with_progress_bar(status_updates: Iterable[Do
         overall_task_id = progress.add_task(description=f'[bold blue]{action} Docker image', total=None)
 
         for update in status_updates:
+            _raise_if_docker_status_update_is_error(update, action)
             if 'progressDetail' in update and 'id' in update:
                 layer_id = update['id']
                 progress_detail = update['progressDetail']
@@ -122,6 +136,7 @@ def _process_docker_status_updates_with_logging(status_updates: Iterable[DockerS
     logger.info(f'{action} Docker image...')
 
     for update in status_updates:
+        _raise_if_docker_status_update_is_error(update, action)
         current_time = time.time()
 
         if 'progressDetail' in update and 'id' in update:

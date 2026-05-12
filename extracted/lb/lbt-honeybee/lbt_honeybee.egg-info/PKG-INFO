@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lbt-honeybee
-Version: 0.9.320
+Version: 0.9.322
 Summary: Installs a collection of Honeybee core and extension libraries.
 Home-page: https://github.com/ladybug-tools/lbt-honeybee
 Author: Ladybug Tools
@@ -20,8 +20,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: honeybee-radiance-postprocess==0.4.626
 Requires-Dist: honeybee-energy[openstudio,standards]==1.119.2
-Requires-Dist: honeybee-display==0.6.2
-Requires-Dist: lbt-ladybug==0.27.180
+Requires-Dist: honeybee-display==0.6.3
+Requires-Dist: lbt-ladybug==0.27.181
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

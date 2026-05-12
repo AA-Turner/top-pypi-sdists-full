@@ -24,17 +24,9 @@ class Geometry:
     __slots__ = (
         "_shape", "_transform", "_offset",
         "_last_version",
-        "_cache_rotscale_vertices",
-        "_cache_world_vertices",
-        "_cache_world_bounding_box",
-        "_cache_world_center",
-        "_dirty_rotscale",
-        "_dirty_world_vertices",
-        "_dirty_world_bounding_box",
-        "_dirty_world_center",
-        "_cached_tx", "_cached_ty",
-        "_cached_ax", "_cached_ay",
-        "_cached_cos_r", "_cached_sin_r",
+        "_cache_rotscale_vertices", "_cache_world_vertices", "_cache_world_bounding_box", "_cache_world_center",
+        "_dirty_rotscale", "_dirty_world_vertices", "_dirty_world_bounding_box", "_dirty_world_center",
+        "_cached_tx", "_cached_ty", "_cached_ax", "_cached_ay", "_cached_cos_r", "_cached_sin_r",
     )
 
     def __init__(self, shape: Shape, transform: Transform, offset: Vector = None):
@@ -159,15 +151,16 @@ class Geometry:
 
     @profile_section("_core.geometry.world_contains")
     def world_contains(self, point: Point) -> bool:
-        """Hit-test en coordonnées monde"""
+        """Hit-test en coordonnées monde
+
+        Args:
+            point: ``Point`` à tester
+        """
         self._check_dirty()
         px = point[0] - self._cached_tx
         py = point[1] - self._cached_ty
         if self._transform.rotation != 0.0:
-            px, py = (
-                px * self._cached_cos_r + py * self._cached_sin_r,
-                -px * self._cached_sin_r + py * self._cached_cos_r,
-            )
+            px, py = (px * self._cached_cos_r + py * self._cached_sin_r, -px * self._cached_sin_r + py * self._cached_cos_r)
         if self._transform.scale != 1.0:
             s = self._transform.scale
             px /= s
@@ -209,8 +202,8 @@ class Geometry:
     def _compute_rotscale(self) -> None:
         """Calcule les vertices après rotation et scale (sans translation)"""
         R = np.array(
-            [[self._cached_cos_r,  self._cached_sin_r],
-             [-self._cached_sin_r, self._cached_cos_r]],
+            ((self._cached_cos_r,  self._cached_sin_r),
+             (-self._cached_sin_r, self._cached_cos_r)),
             dtype=np.float32,
         )
         vertices = self._shape.get_vertices()
@@ -222,9 +215,7 @@ class Geometry:
         """Calcule les vertices en coordonnées monde"""
         if self._dirty_rotscale:
             self._compute_rotscale()
-        self._cache_world_vertices = self._cache_rotscale_vertices + np.array(
-            [self._cached_tx, self._cached_ty], dtype=np.float32,
-        )
+        self._cache_world_vertices = self._cache_rotscale_vertices + np.array([self._cached_tx, self._cached_ty], dtype=np.float32)
         self._dirty_world_vertices = False
 
     def _compute_world_bounding_box(self) -> None:

@@ -32,8 +32,9 @@ from boxmot.data.cache import (
 from boxmot.detectors import get_runtime_detector_cfg
 from boxmot.engine.cache import generate_dets_embs_batched, run_generate_dets_embs
 from boxmot.engine.replay import process_sequence, run_generate_mot_results
-from boxmot.engine.workflow_reporting import extract_summary, timing_stats_from_snapshot, timing_summary_from_stats
+from boxmot.engine.workflow_reporting import extract_summary, timing_summary_from_stats
 from boxmot.engine.workflow_results import ValidationResult
+from boxmot.utils.misc import suppress_boxmot_logs
 from boxmot.utils import (
     BENCHMARK_CONFIGS,
     logger as LOGGER,
@@ -46,6 +47,15 @@ from boxmot.utils.benchmark_config import (
     should_use_benchmark_reid,
 )
 from boxmot.utils.checks import RequirementsChecker
+from boxmot.utils.rich.pipeline import PipelineTracker
+from boxmot.utils.rich.eval_reporting import (
+    EVAL_EVALUATE_STEP,
+    EVAL_GENERATE_STEP,
+    EVAL_SETUP_STEP,
+    EVAL_TRACK_STEP,
+    EvalWorkflowReporter,
+    _build_eval_workflow_fields,
+)
 from boxmot.utils.evaluation.results import (
     _filter_obb_trackeval_results,
     _known_trackeval_class_names,
@@ -62,6 +72,7 @@ from boxmot.utils.evaluation.trackeval import (
 from boxmot.utils.misc import resolve_model_path
 from boxmot.utils.plots import MetricsPlotter
 from boxmot.utils.timing import TimingStats
+import boxmot.utils.rich.ui as ui
 
 _EVAL_DEPENDENCIES_READY = False
 
@@ -233,12 +244,13 @@ def run_trackeval(args: argparse.Namespace, verbose: bool = True) -> dict:
     return final_results
 
 
-def eval_setup(args) -> None:
+def eval_setup(args, pipeline: PipelineTracker | None = None) -> None:
     """
     Common setup for eval and tune pipelines.
     """
     _ensure_eval_dependencies()
-    eval_init(args)
+    status_fn = pipeline.callback() if pipeline is not None else None
+    eval_init(args, status_fn=status_fn)
     _, _, dataset_detector_cfg = _configure_benchmark_runtime(args)
     det_cfg = get_runtime_detector_cfg(args.detector[0], dataset_detector_cfg)
     apply_class_remap(args, det_cfg)
@@ -283,6 +295,11 @@ def _normalize_eval_models(args: argparse.Namespace) -> None:
     args.reid = [resolve_model_path(model) for model in args.reid]
 
 
+def log_eval_pipeline_intro(args: argparse.Namespace) -> ui.WorkflowProgress:
+    _normalize_eval_models(args)
+    return EvalWorkflowReporter(args).create()
+
+
 def run_eval(
     args: argparse.Namespace,
     *,
@@ -291,6 +308,7 @@ def run_eval(
     prepare_cache: bool = True,
     verbose: bool | None = None,
     show_progress: bool | None = None,
+    pipeline: PipelineTracker | None = None,
 ) -> ValidationResult:
     _ensure_eval_dependencies()
     _normalize_eval_models(args)
@@ -301,20 +319,44 @@ def run_eval(
     args.show_progress = bool(show_progress)
 
     timing_stats = TimingStats()
-    if setup:
-        eval_setup(args)
-    if prepare_cache:
-        run_generate_dets_embs(args, timing_stats=timing_stats)
-    run_generate_mot_results(
-        args,
-        evolve_config=evolve_config,
-        timing_stats=timing_stats,
-        quiet=not bool(show_progress),
-    )
-    raw_results = run_trackeval(args, verbose=bool(verbose))
-    summary_label, summary = extract_summary(raw_results)
+    has_pipeline = pipeline is not None
+    suppress = (not verbose) or has_pipeline
 
-    return ValidationResult(
+    # -- Setup --
+    if setup:
+        eval_setup(args, pipeline=pipeline)
+        if pipeline is not None:
+            pipeline.refresh_fields(_build_eval_workflow_fields(args))
+
+    # -- Generate detections & embeddings --
+    if prepare_cache:
+        if pipeline is not None:
+            pipeline.advance("Generating detections & embeddings...")
+        with suppress_boxmot_logs(suppress, level="WARNING"):
+            run_generate_dets_embs(
+                args,
+                timing_stats=timing_stats,
+                progress_callback=pipeline.callback() if pipeline and show_progress else None,
+            )
+    if pipeline is not None:
+        pipeline.advance("Starting tracker...")
+
+    # -- Track --
+    with suppress_boxmot_logs(suppress, level="WARNING"):
+        run_generate_mot_results(
+            args,
+            evolve_config=evolve_config,
+            timing_stats=timing_stats,
+            quiet=not bool(show_progress),
+            progress_callback=pipeline.callback() if pipeline and show_progress else None,
+        )
+    if pipeline is not None:
+        pipeline.advance("Computing metrics...")
+
+    # -- Evaluate --
+    raw_results = run_trackeval(args, verbose=verbose and not has_pipeline)
+    summary_label, summary = extract_summary(raw_results)
+    result = ValidationResult(
         benchmark=str(getattr(args, "benchmark", getattr(args, "data", ""))),
         raw=raw_results,
         summary_label=summary_label,
@@ -322,33 +364,24 @@ def run_eval(
         exp_dir=getattr(args, "exp_dir", None),
         timings=timing_summary_from_stats(timing_stats),
         args=args,
+        workflow_rendered=has_pipeline,
     )
+    if pipeline is not None:
+        include_timings = bool(getattr(args, "show_timing", False))
+        pipeline.complete_step()
+        pipeline.set_detail_renderable(
+            pipeline.current_step,
+            result.renderable(include_timings=include_timings),
+        )
+
+    return result
 
 
 def main(args):
     _normalize_eval_models(args)
-
-    LOGGER.opt(colors=True).info("<cyan>[1/4]</cyan> Setting up TrackEval...")
-    LOGGER.info("")
-    LOGGER.opt(colors=True).info("<blue>" + "=" * 60 + "</blue>")
-    LOGGER.opt(colors=True).info("<bold><cyan>🚀 BoxMOT Evaluation Pipeline</cyan></bold>")
-    LOGGER.opt(colors=True).info("<blue>" + "=" * 60 + "</blue>")
-    LOGGER.opt(colors=True).info(f"<bold>Detector:</bold>  <cyan>{args.detector[0]}</cyan>")
-    LOGGER.opt(colors=True).info(f"<bold>ReID:</bold>      <cyan>{args.reid[0]}</cyan>")
-    LOGGER.opt(colors=True).info(f"<bold>Tracker:</bold>   <cyan>{args.tracker}</cyan>")
-    LOGGER.opt(colors=True).info(f"<bold>Benchmark:</bold> <cyan>{args.source}</cyan>")
-    LOGGER.opt(colors=True).info(f"<bold>Image size:</bold> <cyan>{getattr(args, 'imgsz', None)}</cyan>")
-    LOGGER.opt(colors=True).info("<blue>" + "=" * 60 + "</blue>")
-
-    LOGGER.opt(colors=True).info("<cyan>[2/4]</cyan> Generating detections and embeddings...")
-    LOGGER.opt(colors=True).info("<cyan>[3/4]</cyan> Running tracker...")
-    LOGGER.opt(colors=True).info("<cyan>[4/4]</cyan> Evaluating results...")
-    result = run_eval(args)
-
-    if getattr(args, "show_timing", False):
-        timing_stats = timing_stats_from_snapshot(result.timings)
-        if timing_stats is not None and timing_stats.frames > 0:
-            timing_stats.print_summary()
+    pipeline = EvalWorkflowReporter(args).pipeline()
+    with pipeline:
+        result = run_eval(args, verbose=False, pipeline=pipeline)
 
     plot_class, metrics_data = _select_plot_metrics_data(result.raw)
     if metrics_data:

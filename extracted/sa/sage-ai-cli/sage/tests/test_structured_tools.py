@@ -508,5 +508,84 @@ Based on the files above..."""
         assert is_descriptive is False
 
 
+class TestStripInlineDescription:
+    """Tests for stripping trailing parenthetical prose from RUN: commands.
+
+    The model sometimes emits commands with a trailing English description:
+        RUN: ls -laR | head -200 (list top 200 lines of the project)
+
+    The literal `(...)` is then passed to /bin/sh -c, which fails with a
+    syntax error. The extractor must strip the prose annotation while
+    leaving legitimate shell parens intact (e.g. `find . \\( -name "*.py" \\)`).
+    """
+
+    def test_strips_simple_prose_annotation(self):
+        from sage.main import _strip_inline_description
+        assert _strip_inline_description(
+            "ls -laR | head -200 (list top 200 lines of the project)"
+        ) == "ls -laR | head -200"
+
+    def test_strips_annotation_after_find_command(self):
+        from sage.main import _strip_inline_description
+        assert _strip_inline_description(
+            "find . -maxdepth 2 -type d | head -80 (top 80 directories)"
+        ) == "find . -maxdepth 2 -type d | head -80"
+
+    def test_leaves_escaped_find_grouping_intact(self):
+        from sage.main import _strip_inline_description
+        cmd = "find . \\( -name '*.py' -o -name '*.js' \\)"
+        assert _strip_inline_description(cmd) == cmd
+
+    def test_leaves_command_substitution_intact(self):
+        from sage.main import _strip_inline_description
+        cmd = 'echo "today is $(date)"'
+        assert _strip_inline_description(cmd) == cmd
+
+    def test_leaves_subshell_with_shell_metachars_intact(self):
+        from sage.main import _strip_inline_description
+        cmd = "(cd /tmp && ls -la)"
+        assert _strip_inline_description(cmd) == cmd
+
+    def test_leaves_single_word_paren_intact(self):
+        # A single bare token like `(verbose)` is ambiguous — don't strip.
+        # But a multi-word English phrase is clearly prose.
+        from sage.main import _strip_inline_description
+        cmd = "make build (verbose)"
+        # Single token — leave as-is, too risky to strip.
+        assert _strip_inline_description(cmd) == cmd
+
+    def test_strips_multi_word_natural_language(self):
+        from sage.main import _strip_inline_description
+        assert _strip_inline_description(
+            "pytest tests/ -v (run all tests with verbose output)"
+        ) == "pytest tests/ -v"
+
+    def test_no_paren_at_end_is_unchanged(self):
+        from sage.main import _strip_inline_description
+        cmd = "npm install"
+        assert _strip_inline_description(cmd) == cmd
+
+
+class TestExtractToolCommandsStripsParenAnnotation:
+    """End-to-end: _extract_tool_commands and _extract_tool_commands_structured
+    must strip trailing prose annotations from RUN: commands before returning.
+    """
+
+    def test_extract_tool_commands_strips_prose_paren(self):
+        from sage.main import _extract_tool_commands
+        text = "RUN: ls -laR | head -200 (list top 200 lines of the project)\n"
+        cmds = _extract_tool_commands(text)
+        assert cmds == [("RUN", "ls -laR | head -200")]
+
+    def test_extract_tool_commands_structured_strips_prose_paren(self):
+        from sage.core.tools import ToolType
+        from sage.main import _extract_tool_commands_structured
+        text = "RUN: find . -maxdepth 2 -type d | head -80 (top 80 directories)\n"
+        calls = _extract_tool_commands_structured(text)
+        assert len(calls) == 1
+        assert calls[0].tool_type == ToolType.RUN
+        assert calls[0].arguments["command"] == "find . -maxdepth 2 -type d | head -80"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

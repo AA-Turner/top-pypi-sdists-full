@@ -14,7 +14,6 @@ from ..clients.capsule import (
     GetUserIntegrationsRequest,
     InboundMessage,
     NotifySessionRequest,
-    SaveSessionDataRequest,
 )
 from ..constants import (
     CollectionDecl,
@@ -47,8 +46,8 @@ from ..session import (
     SessionChannel,
     UserInfo,
     _track_data_value,
-    session_data_json,
 )
+from ..session_state import commit_session_data, session_data_snapshot
 from ..workflow import WorkflowInput
 from .shared import (
     _HEARTBEAT_INTERVAL,
@@ -173,6 +172,7 @@ class RunnerSessionMixin:
                 data={},
             )
             self._sessions[msg.session_id] = session
+            await self._hydrate_session(session, strip_last_user_text=msg.text)
         else:
             session = self._sessions[msg.session_id]
 
@@ -352,22 +352,34 @@ class RunnerSessionMixin:
             ]
         )
 
-    async def _persist(self, session: Session) -> None:
+    async def _persist(
+        self,
+        session: Session,
+        *,
+        base_data: dict[str, object] | None = None,
+    ):
         if not self._session_stub:
-            return
+            raise RuntimeError("session service unavailable")
+
+        base_snapshot = base_data if isinstance(base_data, dict) else session_data_snapshot(session.data)
         try:
-            await asyncio.get_running_loop().run_in_executor(
+            commit = await asyncio.get_running_loop().run_in_executor(
                 None,
-                self._session_stub.save_session_data,
-                SaveSessionDataRequest(
+                lambda: commit_session_data(
                     session_id=session.id,
-                    data_json=session_data_json(session.data),
+                    data=session.data,
+                    base_snapshot=base_snapshot,
+                    save_session_data=self._session_stub.save_session_data,
                 ),
             )
         except Exception as exc:
             if self._stop_event and self._stop_event.is_set():
-                return
+                raise
             _log(f"save_session failed: {exc}")
+            raise
+
+        session.data = _track_data_value(commit.data, session._notify_data_changed)
+        return commit
 
     async def _handle(self, item: InboundMessage) -> None:
         lock = self._session_locks.setdefault(item.session_id, asyncio.Lock())
@@ -383,6 +395,25 @@ class RunnerSessionMixin:
 
         try:
             session, is_new = await self._get_session(item)
+            session_data_dirty = False
+            base_session_data = session_data_snapshot(session.data)
+
+            def _data_changed() -> None:
+                nonlocal session_data_dirty
+                session_data_dirty = True
+
+            async def _flush_data() -> None:
+                nonlocal session_data_dirty, base_session_data
+                if not session_data_dirty:
+                    return
+                resp = await self._persist(session, base_data=base_session_data)
+                self._submit_session_data_snapshot(sid, resp.data_json)
+                base_session_data = resp.data
+                session_data_dirty = False
+
+            session._data_change_callback = _data_changed
+            session._data_flush_callback = _flush_data
+
             if item.initial_data_json and is_new:
                 try:
                     initial_data = json.loads(item.initial_data_json)
@@ -428,10 +459,6 @@ class RunnerSessionMixin:
             async def _block(block_json: str) -> None:
                 self._submit_block(sid, block_json)
 
-            async def _data_changed() -> None:
-                await self._persist(session)
-                self._submit_widget_update(sid, reason="data")
-
             async def _notify(m):
                 if self._session_stub and hasattr(self._session_stub, "notify_session"):
                     await self._run_rpc(
@@ -456,8 +483,6 @@ class RunnerSessionMixin:
             session._stream_reply_factory = None
             session._notify_callback = _notify
             session._block_callback = _block
-            session._data_change_callback = _data_changed
-
             identity_token = self._set_session_on_refs(session)
             try:
                 if item.action_name:
@@ -471,6 +496,18 @@ class RunnerSessionMixin:
                         handler = self._session_handlers.get(session_name)
                         if handler:
                             await _maybe_await(handler(session))
+                    elif item.action_name == "__session_set__":
+                        payload = {}
+                        if item.action_payload_json:
+                            parsed = json.loads(item.action_payload_json)
+                            if isinstance(parsed, dict):
+                                payload = parsed
+                        values = payload.get("values")
+                        if isinstance(values, dict):
+                            for key, value in values.items():
+                                await session.data.set(str(key), value)
+                        elif "key" in payload:
+                            await session.data.set(str(payload["key"]), payload.get("value"))
                     else:
                         handler = self._action_handlers.get(item.action_name)
                         if handler is None:
@@ -499,16 +536,27 @@ class RunnerSessionMixin:
             finally:
                 self._clear_session_on_refs(identity_token)
 
+            if session_data_dirty:
+                resp = await self._persist(session, base_data=base_session_data)
+                self._submit_session_data_snapshot(sid, resp.data_json)
+                base_session_data = resp.data
+                session_data_dirty = False
+
             if not streamed:
                 self._submit(rid, "", done=True, session_id=sid)
         except Exception as exc:
+            if session is not None and "session_data_dirty" in locals() and session_data_dirty:
+                resp = await self._persist(session, base_data=base_session_data)
+                self._submit_session_data_snapshot(sid, resp.data_json)
+                session_data_dirty = False
             _log(f"handle error request_id={rid}: {exc}")
             if not streamed and rid:
                 self._submit(rid, f"Runner error: {exc}", done=True, session_id=sid)
         finally:
             await self._track_end()
             if session is not None:
-                asyncio.ensure_future(self._persist(session))
+                session._data_change_callback = None
+                session._data_flush_callback = None
 
     def _parse_workflow_envelope(self, text: str) -> tuple[str, str, dict] | None:
         """Parse a workflow action envelope from message text.

@@ -71,7 +71,7 @@ from typing import Dict, Generator, List, Optional, Union
 
 import cv2
 import numpy as np
-from tqdm import tqdm
+from boxmot.utils.rich.progress import RichTqdm as tqdm
 
 from boxmot.utils import logger as LOGGER
 
@@ -139,6 +139,7 @@ class MOTDataset:
         det_emb_root: Optional[str] = None,
         model_name: Optional[str] = None,
         reid_name: Optional[str] = None,
+        reid_preprocess: Optional[str] = None,
         target_fps: Optional[int] = None,
     ):
         self.root = Path(mot_root)
@@ -146,9 +147,62 @@ class MOTDataset:
         self.seqs: Dict[str, Dict] = {}
 
         if det_emb_root and model_name and reid_name:
+            from boxmot.reid.core.preprocessing import DEFAULT_PREPROCESS
+            preprocess_name = reid_preprocess or DEFAULT_PREPROCESS
             base = Path(det_emb_root) / model_name
             self.dets_dir = base / "dets"
-            self.embs_dir = base / "embs" / reid_name
+            embs_root = base / "embs"
+            self.embs_dir = embs_root / reid_name / preprocess_name
+            # Back-compat: if the (suffix-included) directory does not exist
+            # but the legacy stem-only directory does, prefer the legacy one
+            # so existing on-disk caches keep working.
+            #
+            # Restricted to ``.pt`` requests because the legacy layout was
+            # only ever populated by the PyTorch runtime; reusing it for
+            # ``.onnx`` (or other formats) would silently consume PyTorch
+            # embeddings as if they belonged to a different model.
+            if not self.embs_dir.exists():
+                from pathlib import Path as _Path
+                _name_path = _Path(reid_name)
+                stem = _name_path.stem if _name_path.suffix else str(reid_name)
+                if (
+                    stem
+                    and stem != reid_name
+                    and _name_path.suffix.lower() == ".pt"
+                ):
+                    legacy_dir = embs_root / stem / preprocess_name
+                    if legacy_dir.exists():
+                        self.embs_dir = legacy_dir
+            # Modern back-compat: caches written by ``boxmot.engine.cache``
+            # are bucketed under ``reid_cache_key`` (e.g.
+            # ``lmbn_n_duke_pt_pytorch_py``). When neither the raw
+            # ``<reid_name>`` nor the legacy stem directory is on disk, fall
+            # back to the canonical cache key so eval can find embeddings
+            # written by a previous generate phase.
+            if not self.embs_dir.exists():
+                try:
+                    from boxmot.data.cache import (legacy_reid_cache_keys,
+                                                   reid_cache_key)
+                except ImportError:
+                    pass
+                else:
+                    candidates: list[str] = []
+                    for backend in ("py", "cpp"):
+                        candidates.append(
+                            reid_cache_key(reid_name, tracker_backend=backend)
+                        )
+                        candidates.extend(
+                            legacy_reid_cache_keys(reid_name, tracker_backend=backend)
+                        )
+                    seen: set[str] = set()
+                    for key in candidates:
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        candidate_dir = embs_root / key / preprocess_name
+                        if candidate_dir.exists():
+                            self.embs_dir = candidate_dir
+                            break
         else:
             self.dets_dir = self.embs_dir = None
 

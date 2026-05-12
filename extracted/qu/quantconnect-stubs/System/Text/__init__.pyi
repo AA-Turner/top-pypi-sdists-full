@@ -74,10 +74,6 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
             ...
 
         @overload
-        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
-            ...
-
-        @overload
         def append_formatted(self, value: System.ReadOnlySpan[str]) -> None:
             ...
 
@@ -91,6 +87,10 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
 
         @overload
         def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> None:
+            ...
+
+        @overload
+        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
             ...
 
         def append_literal(self, value: str) -> None:
@@ -147,14 +147,6 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
         ...
 
     @overload
-    def append(self, value: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: typing.Any, value_count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
     def append(self, value: str, repeat_count: int) -> System.Text.StringBuilder:
         ...
 
@@ -195,6 +187,10 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
         ...
 
     @overload
+    def append(self, value: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
     def append(self, value: typing.List[str]) -> System.Text.StringBuilder:
         ...
 
@@ -215,6 +211,10 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
         ...
 
     @overload
+    def append(self, value: typing.Any, value_count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
     def append_format(self, format: str, arg_0: typing.Any) -> System.Text.StringBuilder:
         ...
 
@@ -227,6 +227,10 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
         ...
 
     @overload
+    def append_format(self, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
     def append_format(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any) -> System.Text.StringBuilder:
         ...
 
@@ -236,10 +240,6 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
 
     @overload
     def append_format(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
         ...
 
     @overload
@@ -306,10 +306,6 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
         ...
 
     @overload
-    def insert(self, index: int, value: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
     def insert(self, index: int, value: str, count: int) -> System.Text.StringBuilder:
         ...
 
@@ -339,6 +335,10 @@ class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
 
     @overload
     def insert(self, index: int, value: float) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def insert(self, index: int, value: typing.Any) -> System.Text.StringBuilder:
         ...
 
     @overload
@@ -471,11 +471,11 @@ class Encoder(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def convert(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int, flush: bool, chars_used: typing.Optional[int], bytes_used: typing.Optional[int], completed: typing.Optional[bool]) -> typing.Tuple[None, int, int, bool]:
+    def convert(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int, byte_count: int, flush: bool, chars_used: typing.Optional[int], bytes_used: typing.Optional[int], completed: typing.Optional[bool]) -> typing.Tuple[None, int, int, bool]:
         ...
 
     @overload
-    def convert(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int, byte_count: int, flush: bool, chars_used: typing.Optional[int], bytes_used: typing.Optional[int], completed: typing.Optional[bool]) -> typing.Tuple[None, int, int, bool]:
+    def convert(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int, flush: bool, chars_used: typing.Optional[int], bytes_used: typing.Optional[int], completed: typing.Optional[bool]) -> typing.Tuple[None, int, int, bool]:
         ...
 
     @overload
@@ -483,11 +483,11 @@ class Encoder(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def get_byte_count(self, chars: typing.Any, count: int, flush: bool) -> int:
+    def get_byte_count(self, chars: typing.List[str], index: int, count: int, flush: bool) -> int:
         ...
 
     @overload
-    def get_byte_count(self, chars: typing.List[str], index: int, count: int, flush: bool) -> int:
+    def get_byte_count(self, chars: typing.Any, count: int, flush: bool) -> int:
         ...
 
     @overload
@@ -495,11 +495,11 @@ class Encoder(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int, flush: bool) -> int:
+    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int, flush: bool) -> int:
         ...
 
     @overload
-    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int, flush: bool) -> int:
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int, flush: bool) -> int:
         ...
 
     @overload
@@ -604,19 +604,15 @@ class Decoder(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def convert(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int, flush: bool, bytes_used: typing.Optional[int], chars_used: typing.Optional[int], completed: typing.Optional[bool]) -> typing.Tuple[None, int, int, bool]:
-        ...
-
-    @overload
     def convert(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int, char_count: int, flush: bool, bytes_used: typing.Optional[int], chars_used: typing.Optional[int], completed: typing.Optional[bool]) -> typing.Tuple[None, int, int, bool]:
         ...
 
     @overload
-    def convert(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str], flush: bool, bytes_used: typing.Optional[int], chars_used: typing.Optional[int], completed: typing.Optional[bool]) -> typing.Tuple[None, int, int, bool]:
+    def convert(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int, flush: bool, bytes_used: typing.Optional[int], chars_used: typing.Optional[int], completed: typing.Optional[bool]) -> typing.Tuple[None, int, int, bool]:
         ...
 
     @overload
-    def get_char_count(self, bytes: typing.Any, count: int, flush: bool) -> int:
+    def convert(self, bytes: System.ReadOnlySpan[int], chars: System.Span[str], flush: bool, bytes_used: typing.Optional[int], chars_used: typing.Optional[int], completed: typing.Optional[bool]) -> typing.Tuple[None, int, int, bool]:
         ...
 
     @overload
@@ -628,11 +624,11 @@ class Decoder(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def get_char_count(self, bytes: System.ReadOnlySpan[int], flush: bool) -> int:
+    def get_char_count(self, bytes: typing.Any, count: int, flush: bool) -> int:
         ...
 
     @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int, flush: bool) -> int:
+    def get_char_count(self, bytes: System.ReadOnlySpan[int], flush: bool) -> int:
         ...
 
     @overload
@@ -641,6 +637,10 @@ class Decoder(System.Object, metaclass=abc.ABCMeta):
 
     @overload
     def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int, flush: bool) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int, flush: bool) -> int:
         ...
 
     @overload
@@ -771,10 +771,6 @@ class Encoding(System.Object, System.ICloneable):
         ...
 
     @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
-        ...
-
-    @overload
     def get_byte_count(self, chars: typing.List[str]) -> int:
         ...
 
@@ -791,11 +787,11 @@ class Encoding(System.Object, System.ICloneable):
         ...
 
     @overload
-    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
         ...
 
     @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
         ...
 
     @overload
@@ -823,11 +819,11 @@ class Encoding(System.Object, System.ICloneable):
         ...
 
     @overload
-    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
         ...
 
     @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
         ...
 
     @overload
@@ -839,11 +835,11 @@ class Encoding(System.Object, System.ICloneable):
         ...
 
     @overload
-    def get_char_count(self, bytes: System.ReadOnlySpan[int]) -> int:
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
         ...
 
     @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+    def get_char_count(self, bytes: System.ReadOnlySpan[int]) -> int:
         ...
 
     @overload
@@ -856,6 +852,10 @@ class Encoding(System.Object, System.ICloneable):
 
     @overload
     def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
         ...
 
     @overload
@@ -954,10 +954,6 @@ class UTF7Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
-        ...
-
-    @overload
     def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
         ...
 
@@ -966,7 +962,7 @@ class UTF7Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
         ...
 
     @overload
@@ -978,7 +974,7 @@ class UTF7Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
         ...
 
     @overload
@@ -986,11 +982,15 @@ class UTF7Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
         ...
 
     @overload
     def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
         ...
 
     def get_decoder(self) -> System.Text.Decoder:
@@ -1319,10 +1319,6 @@ class UTF8Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
-        ...
-
-    @overload
     def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
         ...
 
@@ -1331,11 +1327,11 @@ class UTF8Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
         ...
 
     @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
         ...
 
     @overload
@@ -1347,11 +1343,11 @@ class UTF8Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
         ...
 
     @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
         ...
 
     @overload
@@ -1359,15 +1355,19 @@ class UTF8Encoding(System.Text.Encoding):
         ...
 
     @overload
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+        ...
+
+    @overload
     def get_char_count(self, bytes: System.ReadOnlySpan[int]) -> int:
         ...
 
     @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
         ...
 
     @overload
-    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
         ...
 
     @overload
@@ -1465,10 +1465,6 @@ class ASCIIEncoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
-        ...
-
-    @overload
     def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
         ...
 
@@ -1477,11 +1473,11 @@ class ASCIIEncoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
         ...
 
     @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+    def get_byte_count(self, chars: System.ReadOnlySpan[str]) -> int:
         ...
 
     @overload
@@ -1493,11 +1489,11 @@ class ASCIIEncoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
         ...
 
     @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+    def get_bytes(self, chars: System.ReadOnlySpan[str], bytes: System.Span[int]) -> int:
         ...
 
     @overload
@@ -1505,15 +1501,19 @@ class ASCIIEncoding(System.Text.Encoding):
         ...
 
     @overload
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+        ...
+
+    @overload
     def get_char_count(self, bytes: System.ReadOnlySpan[int]) -> int:
         ...
 
     @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
         ...
 
     @overload
-    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
         ...
 
     @overload
@@ -1676,11 +1676,11 @@ class RunePosition(System.IEquatable[System_Text_RunePosition]):
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, other: System.Text.RunePosition) -> bool:
         ...
 
     @overload
-    def equals(self, other: System.Text.RunePosition) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     def get_hash_code(self) -> int:
@@ -1774,10 +1774,6 @@ class UnicodeEncoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
-        ...
-
-    @overload
     def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
         ...
 
@@ -1786,7 +1782,7 @@ class UnicodeEncoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
         ...
 
     @overload
@@ -1798,7 +1794,7 @@ class UnicodeEncoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
         ...
 
     @overload
@@ -1806,11 +1802,15 @@ class UnicodeEncoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
         ...
 
     @overload
     def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
         ...
 
     def get_decoder(self) -> System.Text.Decoder:
@@ -1858,10 +1858,6 @@ class UTF32Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
-        ...
-
-    @overload
     def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
         ...
 
@@ -1870,7 +1866,7 @@ class UTF32Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
         ...
 
     @overload
@@ -1882,7 +1878,7 @@ class UTF32Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
         ...
 
     @overload
@@ -1890,11 +1886,15 @@ class UTF32Encoding(System.Text.Encoding):
         ...
 
     @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
         ...
 
     @overload
     def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
         ...
 
     def get_decoder(self) -> System.Text.Decoder:

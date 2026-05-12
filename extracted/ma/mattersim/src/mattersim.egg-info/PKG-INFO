@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mattersim
-Version: 1.2.3
+Version: 1.2.4
 Summary: MatterSim: A Deep Learning Atomistic Model Across Elements, Temperatures and Pressures.
 Author-email: Han Yang <hanyang@microsoft.com>, Hongxia Hao <hongxiahao@microsoft.com>, Jielan Li <jielanli@microsoft.com>, Ziheng Lu <zihenglu@microsoft.com>
 Project-URL: Homepage, https://github.com/microsoft/mattersim
@@ -8,7 +8,7 @@ Project-URL: Bug Tracker, https://github.com/microsoft/mattersim/issues
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.10
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: ase>=3.23.0
@@ -18,12 +18,9 @@ Requires-Dist: scikit-learn
 Requires-Dist: deprecated
 Requires-Dist: e3nn>=0.5.0
 Requires-Dist: atomate2
-Requires-Dist: emmet-core>=0.84; python_version >= "3.10"
-Requires-Dist: emmet-core<0.84; python_version < "3.10"
 Requires-Dist: loguru
 Requires-Dist: mp-api
-Requires-Dist: numpy>=2.0.0; python_version >= "3.10"
-Requires-Dist: numpy<2.0.0; python_version < "3.10"
+Requires-Dist: numpy>=2.0.0
 Requires-Dist: opt_einsum_fx
 Requires-Dist: pydantic>=2.9.2
 Requires-Dist: pymatgen
@@ -37,7 +34,9 @@ Requires-Dist: torch_runstats>=0.2.0
 Requires-Dist: torchaudio>=2.2.0
 Requires-Dist: torchmetrics>=0.10.0
 Requires-Dist: torchvision>=0.17.0
+Requires-Dist: torch-sim-atomistic>=0.6.0
 Requires-Dist: wandb
+Requires-Dist: typer
 Provides-Extra: dev
 Requires-Dist: ipykernel; extra == "dev"
 Requires-Dist: ipython; extra == "dev"
@@ -46,13 +45,14 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-testmon; extra == "dev"
 Provides-Extra: docs
+Requires-Dist: furo; extra == "docs"
 Requires-Dist: nbconvert; extra == "docs"
 Requires-Dist: nbsphinx; extra == "docs"
-Requires-Dist: recommonmark; extra == "docs"
-Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: myst-parser; extra == "docs"
+Requires-Dist: sphinx>=7.0; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"
-Requires-Dist: sphinx_book_theme; extra == "docs"
+Requires-Dist: sphinx-design; extra == "docs"
 Dynamic: license-file
 
 <h1>
@@ -66,7 +66,7 @@ Dynamic: license-file
 <h4 align="center">
 
 [![arXiv](https://img.shields.io/badge/arXiv-2405.04967-blue?logo=arxiv&logoColor=white.svg)](https://arxiv.org/abs/2405.04967)
-[![Requires Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg?logo=python&logoColor=white)](https://python.org/downloads)
+[![Requires Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg?logo=python&logoColor=white)](https://python.org/downloads)
 [![PyPI Downloads](https://static.pepy.tech/badge/mattersim)](https://pepy.tech/projects/mattersim)
 </h4>
 
@@ -80,7 +80,7 @@ This README provides a quick start guide. For more comprehensive information, pl
 ## Installation
 
 ### Prerequisite
-* `Python >= 3.10`
+* `Python >= 3.12`
 
 
 ### Install from PyPI
@@ -89,7 +89,7 @@ This README provides a quick start guide. For more comprehensive information, pl
 >
 > ```bash
 > # create the environment
-> conda create -n mattersim python=3.10
+> conda create -n mattersim python=3.12
 >
 > # activate the environment
 > conda activate mattersim

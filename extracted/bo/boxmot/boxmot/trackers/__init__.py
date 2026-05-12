@@ -3,9 +3,11 @@ from boxmot.trackers.botsort.botsort import BotSort
 from boxmot.trackers.bytetrack.bytetrack import ByteTrack
 from boxmot.trackers.deepocsort.deepocsort import DeepOcSort
 from boxmot.trackers.hybridsort.hybridsort import HybridSort
+from boxmot.trackers.occluboost.occluboost import OccluBoost
 from boxmot.trackers.ocsort.ocsort import OcSort
 from boxmot.trackers.sfsort.sfsort import SFSORT
 from boxmot.trackers.strongsort.strongsort import StrongSort
+from boxmot.trackers.track_results import TrackResults
 
 __all__ = (
     "BoostTrack",
@@ -13,7 +15,9 @@ __all__ = (
     "ByteTrack",
     "DeepOcSort",
     "HybridSort",
+    "OccluBoost",
     "OcSort",
     "SFSORT",
     "StrongSort",
+    "TrackResults",
 )

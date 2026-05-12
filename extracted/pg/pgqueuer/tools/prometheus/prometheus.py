@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import Response
 
 from pgqueuer.db import AsyncpgDriver
+from pgqueuer.domain.settings import add_prefix
 from pgqueuer.models import LogStatistics, QueueStatistics
-from pgqueuer.qb import add_prefix
 from pgqueuer.queries import Queries
 
 ReduceFn: TypeAlias = Callable[[Iterable[float]], float]
@@ -100,7 +100,7 @@ def create_metrics_router() -> APIRouter:
     async def metrics(queries: Queries = Depends(get_queries)) -> Response:
         queue_statistics = await queries.queue_size()
         log_statistics = await queries.log_statistics(
-            tail=None,
+            limit=None,
             last=timedelta(minutes=5),
         )
         return Response(

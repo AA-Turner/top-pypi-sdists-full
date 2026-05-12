@@ -106,24 +106,42 @@ class ListAsQuerySet(list):
             return None
 
     def filter(self, *args, **kwargs) -> "ListAsQuerySet":
-        """:private:"""
+        """:private:
+
+        QuerySet filter.
+        Supports args or kwargs, but not both.
+        Supports equal clauses only.
+        """
+        print(args)
         if args:
-            raise NotImplementedError(
-                f"filter with positional args not supported: {args=} {kwargs=}"
-            )
+            new_list = []
+            for item in self:
+                matches = True
+                for q_obj in args:
+                    filters = dict(q_obj.children)
+                    matches &= all(
+                        str(getattr(item, key, "")) == str(val)
+                        for key, val in filters.items()
+                    )
+                if matches:
+                    new_list.append(item)
 
-        if not kwargs:
-            return self
+            return self._make_clone(new_list=new_list)
 
-        filter_objs = [_FilterObj.create(key, value) for key, value in kwargs.items()]
+        if kwargs:
+            filter_objs = [
+                _FilterObj.create(key, value) for key, value in kwargs.items()
+            ]
 
-        new_list = [
-            obj
-            for obj in self
-            if all(filter_obj.is_matching(obj) for filter_obj in filter_objs)
-        ]
+            new_list = [
+                item
+                for item in self
+                if all(filter_obj.is_matching(item) for filter_obj in filter_objs)
+            ]
 
-        return self._make_clone(new_list=new_list)
+            return self._make_clone(new_list=new_list)
+
+        return self
 
     def get(self, *args, **kwargs) -> Any:
         """:private:"""

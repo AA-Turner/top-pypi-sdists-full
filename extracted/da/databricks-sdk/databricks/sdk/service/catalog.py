@@ -1840,6 +1840,7 @@ class ConnectionType(Enum):
     GLUE = "GLUE"
     HIVE_METASTORE = "HIVE_METASTORE"
     HTTP = "HTTP"
+    META_MARKETING = "META_MARKETING"
     MYSQL = "MYSQL"
     ORACLE = "ORACLE"
     POSTGRESQL = "POSTGRESQL"
@@ -1854,6 +1855,7 @@ class ConnectionType(Enum):
     TERADATA = "TERADATA"
     UNKNOWN_CONNECTION_TYPE = "UNKNOWN_CONNECTION_TYPE"
     WORKDAY_RAAS = "WORKDAY_RAAS"
+    ZENDESK = "ZENDESK"
 
 
 @dataclass
@@ -9248,7 +9250,7 @@ class Securable:
 
 
 class SecurableKind(Enum):
-    """Latest kind: CONNECTION_SLACK_ACCESS_AND_INTEGRATION_LOGS_OAUTH_U2M = 319; Next id: 320"""
+    """Latest kind: FEATURE_STANDARD = 328; Next id: 329"""
 
     TABLE_DB_STORAGE = "TABLE_DB_STORAGE"
     TABLE_DELTA = "TABLE_DELTA"
@@ -10261,6 +10263,8 @@ class TemporaryCredentials:
 
     gcp_oauth_token: Optional[GcpOauthToken] = None
 
+    r2_temp_credentials: Optional[R2Credentials] = None
+
     def as_dict(self) -> dict:
         """Serializes the TemporaryCredentials into a dictionary suitable for use as a JSON request body."""
         body = {}
@@ -10272,6 +10276,8 @@ class TemporaryCredentials:
             body["expiration_time"] = self.expiration_time
         if self.gcp_oauth_token:
             body["gcp_oauth_token"] = self.gcp_oauth_token.as_dict()
+        if self.r2_temp_credentials:
+            body["r2_temp_credentials"] = self.r2_temp_credentials.as_dict()
         return body
 
     def as_shallow_dict(self) -> dict:
@@ -10285,6 +10291,8 @@ class TemporaryCredentials:
             body["expiration_time"] = self.expiration_time
         if self.gcp_oauth_token:
             body["gcp_oauth_token"] = self.gcp_oauth_token
+        if self.r2_temp_credentials:
+            body["r2_temp_credentials"] = self.r2_temp_credentials
         return body
 
     @classmethod
@@ -10295,6 +10303,7 @@ class TemporaryCredentials:
             azure_aad=_from_dict(d, "azure_aad", AzureActiveDirectoryToken),
             expiration_time=d.get("expiration_time", None),
             gcp_oauth_token=_from_dict(d, "gcp_oauth_token", GcpOauthToken),
+            r2_temp_credentials=_from_dict(d, "r2_temp_credentials", R2Credentials),
         )
 
 
@@ -17103,17 +17112,14 @@ class TemporaryPathCredentialsAPI:
     unauthorized access or misuse. To use the temporary path credentials API, a metastore admin needs to
     enable the external_access_enabled flag (off by default) at the metastore level. A user needs to be
     granted the EXTERNAL USE LOCATION permission by external location owner. For requests on existing external
-    tables, user also needs to be granted the EXTERNAL USE SCHEMA permission at the schema level by catalog
-    owner.
+    tables and external volumes, user also needs to be granted the EXTERNAL USE SCHEMA permission at the
+    schema level by catalog owner.
 
     Note that EXTERNAL USE SCHEMA is a schema level permission that can only be granted by catalog owner
     explicitly and is not included in schema ownership or ALL PRIVILEGES on the schema for security reasons.
     Similarly, EXTERNAL USE LOCATION is an external location level permission that can only be granted by
     external location owner explicitly and is not included in external location ownership or ALL PRIVILEGES on
-    the external location for security reasons.
-
-    This API only supports temporary path credentials for external locations and external tables, and volumes
-    will be supported in the future."""
+    the external location for security reasons."""
 
     def __init__(self, api_client):
         self._api = api_client

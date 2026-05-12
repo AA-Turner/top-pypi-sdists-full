@@ -71,18 +71,6 @@ class IndentedTextWriter(System.IO.TextWriter):
         ...
 
     @overload
-    def write(self, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def write(self, format: str, arg_0: typing.Any) -> None:
-        ...
-
-    @overload
-    def write(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
-        ...
-
-    @overload
     def write(self, s: str) -> None:
         ...
 
@@ -115,6 +103,18 @@ class IndentedTextWriter(System.IO.TextWriter):
         ...
 
     @overload
+    def write(self, value: typing.Any) -> None:
+        ...
+
+    @overload
+    def write(self, format: str, arg_0: typing.Any) -> None:
+        ...
+
+    @overload
+    def write(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
+        ...
+
+    @overload
     def write(self, format: str, *arg: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
         ...
 
@@ -136,18 +136,6 @@ class IndentedTextWriter(System.IO.TextWriter):
 
     @overload
     def write_async(self, value: System.Text.StringBuilder, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def write_line(self, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def write_line(self, format: str, arg_0: typing.Any) -> None:
-        ...
-
-    @overload
-    def write_line(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
         ...
 
     @overload
@@ -184,6 +172,18 @@ class IndentedTextWriter(System.IO.TextWriter):
 
     @overload
     def write_line(self, value: int) -> None:
+        ...
+
+    @overload
+    def write_line(self, value: typing.Any) -> None:
+        ...
+
+    @overload
+    def write_line(self, format: str, arg_0: typing.Any) -> None:
+        ...
+
+    @overload
+    def write_line(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
         ...
 
     @overload

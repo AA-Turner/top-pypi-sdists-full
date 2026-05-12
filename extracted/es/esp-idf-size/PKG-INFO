@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esp-idf-size
-Version: 2.2.0
+Version: 2.2.1
 Summary: Firmware size analysis for ESP-IDF
 Author: Espressif Systems
 License: Apache-2.0

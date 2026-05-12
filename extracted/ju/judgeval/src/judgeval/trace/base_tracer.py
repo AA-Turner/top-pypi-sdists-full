@@ -12,6 +12,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    ClassVar,
     Dict,
     Iterator,
     Optional,
@@ -114,6 +115,8 @@ class BaseTracer(ABC):
         "_client",
     )
 
+    SUPPORTS_LIVE_INSTRUMENTATION: ClassVar[bool] = True
+
     # ------------------------------------------------------------------ #
     #  Initialization                                                     #
     # ------------------------------------------------------------------ #
@@ -184,7 +187,7 @@ class BaseTracer(ABC):
         """Ask the active tracer's span processor to emit the current span
         as a partial update without ending it."""
         tracer = BaseTracer._get_proxy_provider().get_active_tracer()
-        if tracer is None:
+        if tracer is None or not tracer.SUPPORTS_LIVE_INSTRUMENTATION:
             return
         tracer.get_span_processor().emit_partial()
 
@@ -338,6 +341,67 @@ class BaseTracer(ABC):
         ) as span:
             BaseTracer._emit_partial()
             yield span
+
+    @staticmethod
+    @contextmanager
+    def continue_trace(carrier: Any) -> Iterator[Any]:
+        """Continue a distributed trace from an upstream service.
+
+        Extracts W3C trace context and Judgment baggage from ``carrier``
+        and makes it the active context for the duration of the block.
+        Any span started inside — including ``@Tracer.observe`` functions
+        — becomes a child of the upstream parent, stitching your service
+        into the caller's trace.
+
+        Use this at the entry point of an inbound request (HTTP handler,
+        message queue consumer, RPC dispatcher, etc.) to join the trace
+        started by the upstream caller.
+
+        Args:
+            carrier: A mapping containing propagation keys. Typically
+                ``request.headers`` from FastAPI, Flask, or Starlette,
+                but any dict-shaped mapping with lowercase keys works
+                (message queue attributes, Lambda event headers, RPC
+                metadata, etc.). If the carrier contains no trace
+                context, the block runs with a fresh context — no error.
+
+        Yields:
+            The extracted OTel ``Context``. Most callers can ignore
+            this; it is exposed for advanced use cases like reading
+            baggage off the upstream context.
+
+        Examples:
+            FastAPI:
+
+            ```python
+            @Tracer.observe(span_type="agent")
+            def handle(payload): ...
+
+            @app.post("/run")
+            async def run(request: Request):
+                with Tracer.continue_trace(request.headers):
+                    return handle(await request.json())
+            ```
+
+            Propagating in the opposite direction (outbound):
+
+            ```python
+            from judgeval.trace.propagation import inject
+
+            headers = {}
+            inject(headers)
+            httpx.post(downstream_url, headers=headers, json=payload)
+            ```
+        """
+        from judgeval.trace.propagation import extract
+
+        proxy = BaseTracer._get_proxy_provider()
+        ctx = extract(carrier)
+        token = proxy.attach_context(ctx)
+        try:
+            yield ctx
+        finally:
+            proxy.detach_context(token)
 
     @staticmethod
     @contextmanager
@@ -1062,7 +1126,11 @@ class BaseTracer(ABC):
             return
         proxy = BaseTracer._get_proxy_provider()
         tracer = proxy.get_active_tracer()
-        if not tracer or not tracer.project_id:
+        if (
+            not tracer
+            or not tracer.project_id
+            or not tracer.SUPPORTS_LIVE_INSTRUMENTATION
+        ):
             return
         ids = BaseTracer._get_current_trace_and_span_id()
         if not ids:
@@ -1116,7 +1184,11 @@ class BaseTracer(ABC):
         """
         proxy = BaseTracer._get_proxy_provider()
         tracer = proxy.get_active_tracer()
-        if not tracer or not tracer.project_id:
+        if (
+            not tracer
+            or not tracer.project_id
+            or not tracer.SUPPORTS_LIVE_INSTRUMENTATION
+        ):
             return
         current_span = proxy.get_current_span()
         if current_span is None or not current_span.is_recording():

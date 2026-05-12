@@ -17,7 +17,7 @@ import logging
 import sys
 import typing as t
 
-import simpleeval  # type: ignore[import-untyped]
+import simpleeval
 
 import singer_sdk.typing as th
 from singer_sdk.exceptions import MapExpressionError, StreamMapConfigError
@@ -77,7 +77,7 @@ def sha256(string: str) -> str:
 StreamMapsDict: t.TypeAlias = dict[str, str | dict | None]
 
 
-class StreamMap(metaclass=abc.ABCMeta):
+class StreamMap(abc.ABC):
     """Abstract base class for all map classes."""
 
     def __init__(
@@ -390,7 +390,7 @@ class CustomStreamMap(StreamMap):
         Returns:
             Functions which should be available for expression evaluation.
         """
-        funcs: dict[str, t.Any] = simpleeval.DEFAULT_FUNCTIONS.copy()
+        funcs: dict[str, t.Any] = dict(simpleeval.DEFAULT_FUNCTIONS)
         funcs["md5"] = md5
         funcs["sha256"] = sha256
         funcs["datetime"] = simpleeval.ModuleWrapper(datetime)
@@ -443,8 +443,6 @@ class CustomStreamMap(StreamMap):
         except (simpleeval.InvalidExpression, SyntaxError) as ex:
             msg = f"Failed to evaluate simpleeval expressions {expr}."
             raise MapExpressionError(msg) from ex
-
-        logger.debug("Eval result: %s = %s", expr, result)
 
         return result
 
@@ -755,7 +753,7 @@ class PluginMapper:
         self.stream_maps: dict[str, list[StreamMap]] = {}
         self.map_config = plugin_config.get("stream_map_config", {})
         self.faker_config = plugin_config.get("faker_config", {})
-        self.flattening_options = get_flattening_options(plugin_config)  # type: ignore[arg-type]
+        self.flattening_options = get_flattening_options(plugin_config)  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
         self.default_mapper_type: type[DefaultStreamMap] = SameRecordTransform
         self.logger = logger
 

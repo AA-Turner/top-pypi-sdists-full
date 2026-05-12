@@ -1,17 +1,21 @@
 import asyncio
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 import asyncpg
 
-from pgqueuer.db import AsyncpgDriver, dsn
+from pgqueuer.db import AsyncpgDriver
 from pgqueuer.models import Schedule
+from pgqueuer.queries import Queries
 from pgqueuer.sm import SchedulerManager
 
 
-async def create_scheduler() -> SchedulerManager:
+@asynccontextmanager
+async def create_scheduler() -> AsyncGenerator[SchedulerManager, None]:
     # Establish a connection to PostgreSQL
-    connection = await asyncpg.connect(dsn())
+    connection = await asyncpg.connect()
     driver = AsyncpgDriver(connection)
-    sm = SchedulerManager(driver)
+    sm = SchedulerManager(Queries(driver))
 
     # Define and register recurring tasks using cron expressions
     # The cron expression "* * * * *" means the task will run every minute
@@ -28,4 +32,4 @@ async def create_scheduler() -> SchedulerManager:
         await asyncio.sleep(0.2)
         print("clean_expired_tokens task completed.")
 
-    return sm
+    yield sm

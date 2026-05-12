@@ -141,7 +141,6 @@ from mypy.typeanal import (
     fix_instance,
     has_any_from_unimported_type,
     instantiate_type_alias,
-    make_optional_type,
     set_any_tvars,
     validate_instance,
 )
@@ -1788,6 +1787,7 @@ class ExpressionChecker(ExpressionVisitor[Type], ExpressionCheckerSharedApi):
 
         might_have_shifted_args = (
             not self.msg.prefer_simple_messages()
+            and len(args) >= 2  # see gh-21427
             and all(k == ARG_POS for k in callee.arg_kinds)
             and all(k == ARG_POS for k in arg_kinds)
             and len(arg_kinds) == len(callee.arg_kinds) - 1
@@ -5860,17 +5860,10 @@ class ExpressionChecker(ExpressionVisitor[Type], ExpressionCheckerSharedApi):
         return type_type, instance_type
 
     def visit_slice_expr(self, e: SliceExpr) -> Type:
-        try:
-            supports_index = self.chk.named_type("typing_extensions.SupportsIndex")
-        except KeyError:
-            supports_index = self.chk.named_type("builtins.int")  # thanks, fixture life
-        expected = make_optional_type(supports_index)
         type_args = []
         for index in [e.begin_index, e.end_index, e.stride]:
             if index:
-                t = self.accept(index)
-                self.chk.check_subtype(t, expected, index, message_registry.INVALID_SLICE_INDEX)
-                type_args.append(t)
+                type_args.append(self.accept(index))
             else:
                 type_args.append(NoneType())
         return self.chk.named_generic_type("builtins.slice", type_args)

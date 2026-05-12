@@ -19,6 +19,7 @@ HEADER_ACCEPT = "Accept"
 HEADER_USER_AGENT = "User-Agent"
 HEADER_CONTENT_TYPE = "Content-Type"
 HEADER_CONTENT_LENGTH = "Content-Length"
+HEADER_CONTENT_ENCODING = "Content-Encoding"
 HEADER_LOCATION = "Location"
 HEADER_CONNECTION = "Connection"
 # Standard Header Values
@@ -59,6 +60,11 @@ HEADER_OBJECT_BLOB_CHUNK_SIZE = HEADER_PREFIX + "Blob-Chunk"
 HEADER_OBJECT_BLOB_WORKERS = HEADER_PREFIX + "Blob-Workers"
 HEADER_OBJECT_APPEND_HANDLE = HEADER_PREFIX + "Append-Handle"
 HEADER_DIRECT_PUT_LENGTH = HEADER_PREFIX + "Direct-Put-Length"
+# ETL → AIS retry contract: emitted by the ETL webserver alongside a 503
+# response to signal that AIS should retry the whole PUT (the ETL bailed on
+# a transient direct-put failure and the request body was one-shot).
+HEADER_ETL_RETRY_REASON = HEADER_PREFIX + "Etl-Retry-Reason"
+ETL_RETRY_REASON_DIRECT_PUT_TRANSIENT = "direct-put-transient"
 # Ref: https://www.rfc-editor.org/rfc/rfc7233#section-2.1
 HEADER_RANGE = "Range"
 # AuthN Headers
@@ -194,6 +200,8 @@ STATUS_FORBIDDEN = 403
 STATUS_PARTIAL_CONTENT = 206
 STATUS_REDIRECT_TMP = 307
 STATUS_REDIRECT_PERM = 301
+STATUS_BAD_GATEWAY = 502
+STATUS_SERVICE_UNAVAILABLE = 503
 STATUS_INTERNAL_SERVER_ERROR = 500
 
 # Protocol

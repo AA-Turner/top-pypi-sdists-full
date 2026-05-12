@@ -1390,21 +1390,28 @@ class CloudController(BaseController):
             )
         return workload_identity_pool
 
-    def wait_for_cloud_to_be_active(
-        self, cloud_id: str, cloud_provider: CloudProviders
-    ) -> None:
+    def wait_for_cloud_to_be_active(self, cloud_id: str) -> None:
         """
         Waits for the cloud to be active
         """
         with self.log.spinner("Setting up resources on Anyscale for your new cloud..."):
+            if not self.initialize_auth_api_client:
+                return
+            cloud_resources = (
+                self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
+                    cloud_id=cloud_id,
+                ).results
+                or []
+            )
+            if not cloud_resources:
+                raise ClickException(f"No cloud resources found for cloud {cloud_id}")
             try:
                 # The ingress for cloud admin zone may not be ready yet, so we need to wait for it to be active.
                 # We use the cloud functional verification controller to create a cluster compute config to wait
                 # for the cloud admin zone to be active.
-                if self.initialize_auth_api_client:
-                    CloudFunctionalVerificationController(
-                        self.cloud_event_producer, self.log
-                    ).get_or_create_cluster_compute(cloud_id, cloud_provider)
+                CloudFunctionalVerificationController(
+                    self.cloud_event_producer, self.log
+                ).get_or_create_cluster_compute(cloud_id, cloud_resources[0])
             except Exception:  # noqa: BLE001
                 self.log.error(
                     "Timed out waiting for cloud admin zone to be active. Your cloud may not be set up properly. Please reach out to Anyscale support for assistance."
@@ -1590,7 +1597,7 @@ class CloudController(BaseController):
                     CloudAnalyticsEventName.RESOURCES_CREATED, succeeded=True,
                 )
 
-                self.wait_for_cloud_to_be_active(cloud_id, CloudProviders.GCP)
+                self.wait_for_cloud_to_be_active(cloud_id)
                 self.cloud_event_producer.produce(
                     CloudAnalyticsEventName.INFRA_SETUP_COMPLETE, succeeded=True,
                 )
@@ -1615,13 +1622,8 @@ class CloudController(BaseController):
             )
 
         if len(functions_to_verify) > 0:
-            CloudFunctionalVerificationController(
-                self.cloud_event_producer, self.log
-            ).start_verification(
-                cloud_id,
-                self._get_cloud_provider_from_str(provider),
-                functions_to_verify,
-                yes,
+            self._run_functional_verification_on_all_resources(
+                cloud_id, functions_to_verify, yes=yes,
             )
 
     def _add_redis_cluster_aws(
@@ -1797,13 +1799,13 @@ class CloudController(BaseController):
         cloud_id, cloud_name = get_cloud_id_and_name(
             self.api_client, cloud_id, cloud_name
         )
+        assert cloud_id is not None  # get_cloud_id_and_name raises if unresolvable
         cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(cloud_id).result
 
         if enable_auto_add_user is not None:
             self._update_auto_add_user_field(enable_auto_add_user, cloud)
 
         if migrate_dm_to_im:
-            assert cloud_id is not None  # get_cloud_id_and_name raises if unresolvable
             self.migrate_gcp_dm_to_im(cloud_id=cloud_id)
         elif (
             cloud.is_bring_your_own_resource or cloud.is_bring_your_own_resource is None
@@ -1841,13 +1843,8 @@ class CloudController(BaseController):
         self.log.info("Cloud update completed.")
 
         if len(functions_to_verify) > 0:
-            CloudFunctionalVerificationController(
-                self.cloud_event_producer, self.log
-            ).start_verification(
-                cloud_id,
-                self._get_cloud_provider_from_str(cloud.provider),
-                functions_to_verify,
-                yes,
+            self._run_functional_verification_on_all_resources(
+                cloud_id, functions_to_verify, yes=yes,
             )
 
     def update_managed_cloud(  # noqa: PLR0912, C901
@@ -3033,19 +3030,98 @@ class CloudController(BaseController):
             functions_to_verify.add(fn)
         return list(functions_to_verify)
 
-    def verify_cloud(  # noqa: PLR0911
+    def _run_functional_verification_on_all_resources(
         self,
+        cloud_id: str,
+        functions_to_verify: List[CloudFunctionalVerificationType],
+        yes: bool = False,
+    ) -> bool:
+        """
+        Run functional verification once per cloud resource on the given cloud.
+
+        The provider is read off each ``cloud_resource.provider`` inside the
+        verifier rather than threaded as a parameter -- a multi-resource
+        cloud may have resources whose providers differ from the cloud-level
+        ``Cloud.provider``, and the per-resource value is the only one that
+        correctly drives instance-type selection.
+        """
+        cloud_resources = (
+            self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
+                cloud_id=cloud_id,
+            ).results
+            or []
+        )
+        if not cloud_resources:
+            self.log.error("No cloud resources found for this cloud")
+            return False
+        func_controller = CloudFunctionalVerificationController(
+            self.cloud_event_producer, self.log
+        )
+        results = [
+            func_controller.start_verification(
+                cloud_id, cloud_resource, functions_to_verify, yes=yes,
+            )
+            for cloud_resource in cloud_resources
+        ]
+        return all(results)
+
+    def verify_cloud_resource(
+        self,
+        cloud_id: str,
+        cloud_resource: CloudDeployment,
         *,
-        cloud_name: Optional[str],
-        cloud_id: Optional[str],
-        functional_verify: Optional[str],
+        functions_to_verify: Optional[List[CloudFunctionalVerificationType]] = None,
         boto3_session: Optional[Any] = None,
         strict: bool = False,
         _use_strict_iam_permissions: bool = False,  # This should only be used in testing.
         yes: bool = False,
     ) -> bool:
         """
-        Verifies a cloud by name or id, including all cloud resources.
+        Verify a single cloud resource: static checks plus optional functional
+        verification. This is the core per-resource entry point; ``verify_cloud``
+        is a thin wrapper that lists resources and calls into this method.
+
+        Functional verification only runs if static verification passes for
+        this resource -- there's no point spinning up a workspace on a
+        misconfigured cloud resource.
+        """
+        cloud_resource_name = cloud_resource.name or cloud_resource.cloud_resource_id
+        self.log.info(f"Verifying cloud resource: {cloud_resource_name}")
+
+        static_ok = self.verify_cloud_deployment(
+            cloud_id,
+            cloud_resource,
+            strict=strict,
+            _use_strict_iam_permissions=_use_strict_iam_permissions,
+            boto3_session=boto3_session,
+        )
+        if not static_ok:
+            return False
+
+        if not functions_to_verify:
+            return True
+
+        return CloudFunctionalVerificationController(
+            self.cloud_event_producer, self.log
+        ).start_verification(cloud_id, cloud_resource, functions_to_verify, yes=yes,)
+
+    def verify_cloud(  # noqa: PLR0911
+        self,
+        *,
+        cloud_name: Optional[str],
+        cloud_id: Optional[str],
+        functional_verify: Optional[str],
+        cloud_resource_name: Optional[str] = None,
+        boto3_session: Optional[Any] = None,
+        strict: bool = False,
+        _use_strict_iam_permissions: bool = False,  # This should only be used in testing.
+        yes: bool = False,
+    ) -> bool:
+        """
+        Verifies a cloud by name or id. Iterates the cloud's resources and
+        delegates each one to ``verify_cloud_resource``.
+
+        If ``cloud_resource_name`` is provided, only that resource is verified.
 
         Note: If your changes involve operations that may require additional permissions
         (for example, `boto3_session.client("efs").describe_backup_policy`), it's important
@@ -3082,6 +3158,17 @@ class CloudController(BaseController):
             self.log.error("No cloud resources found for this cloud")
             return False
 
+        if cloud_resource_name is not None:
+            cloud_resources = [
+                r for r in cloud_resources if r.name == cloud_resource_name
+            ]
+            if not cloud_resources:
+                self.log.error(
+                    f"No cloud resource named '{cloud_resource_name}' found on "
+                    f"cloud {cloud_name}({cloud_id})."
+                )
+                return False
+
         self.cloud_event_producer.init_trace_context(
             CloudAnalyticsEventCommandName.VERIFY,
             cloud_provider=cloud.provider,
@@ -3091,31 +3178,28 @@ class CloudController(BaseController):
             CloudAnalyticsEventName.COMMAND_START, succeeded=True
         )
 
+        # Pass 1: run the (fast) static verification on every resource first.
+        # We fail fast at the cloud level so we don't pay for the (slow)
+        # functional verify step if any resource is statically misconfigured.
         cloud_resource_results = []
         for cloud_resource in cloud_resources:
+            display_name = cloud_resource.name or cloud_resource.cloud_resource_id
             try:
-                cloud_resource_name = (
-                    cloud_resource.name or cloud_resource.cloud_resource_id
-                )
-
-                self.log.info(f"Verifying cloud resource: {cloud_resource_name}")
-                result = self.verify_cloud_deployment(
+                result = self.verify_cloud_resource(
                     cloud_id,
                     cloud_resource,
+                    # Static-only here; functional runs in a second pass
+                    # below.
+                    functions_to_verify=None,
+                    boto3_session=boto3_session,
                     strict=strict,
                     _use_strict_iam_permissions=_use_strict_iam_permissions,
-                    boto3_session=boto3_session,
                 )
-                cloud_resource_results.append((cloud_resource_name, result))
+                cloud_resource_results.append((display_name, result))
 
             except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
-                cloud_resource_name = getattr(cloud_resource, "name", None) or getattr(
-                    cloud_resource, "cloud_resource_id", "unknown"
-                )
-                self.log.error(
-                    f"Failed to verify cloud resource {cloud_resource_name}: {e}"
-                )
-                cloud_resource_results.append((cloud_resource_name, False))
+                self.log.error(f"Failed to verify cloud resource {display_name}: {e}")
+                cloud_resource_results.append((display_name, False))
 
         self._print_cloud_resource_verification_results(cloud_resource_results)
 
@@ -3128,10 +3212,21 @@ class CloudController(BaseController):
         if not overall_success:
             return False
 
-        if len(functions_to_verify) > 0:
-            return CloudFunctionalVerificationController(
+        # Pass 2: only after every resource passed static, run functional
+        # verification per resource if requested. ``start_verification`` is
+        # called directly here so we don't redundantly re-run static through
+        # ``verify_cloud_resource``.
+        if functions_to_verify:
+            func_controller = CloudFunctionalVerificationController(
                 self.cloud_event_producer, self.log
-            ).start_verification(cloud_id, cloud.provider, functions_to_verify, yes=yes)
+            )
+            functional_results = [
+                func_controller.start_verification(
+                    cloud_id, cloud_resource, functions_to_verify, yes=yes,
+                )
+                for cloud_resource in cloud_resources
+            ]
+            return all(functional_results)
 
         return True
 
@@ -3845,7 +3940,7 @@ class CloudController(BaseController):
                     f"Cloud registration complete! To install the Anyscale operator, run:\n\n{helm_command}"
                 )
             else:
-                self.wait_for_cloud_to_be_active(cloud_id, CloudProviders.AWS)
+                self.wait_for_cloud_to_be_active(cloud_id)
             self.cloud_event_producer.produce(
                 CloudAnalyticsEventName.INFRA_SETUP_COMPLETE, succeeded=True
             )
@@ -3880,9 +3975,9 @@ class CloudController(BaseController):
         self.log.info(f"Successfully created cloud {name}, and it's ready to use.")
 
         if len(functions_to_verify) > 0:
-            CloudFunctionalVerificationController(
-                self.cloud_event_producer, self.log
-            ).start_verification(cloud_id, CloudProviders.AWS, functions_to_verify, yes)
+            self._run_functional_verification_on_all_resources(
+                cloud_id, functions_to_verify, yes=yes,
+            )
 
     def verify_gcp_cloud_resources_from_cloud_deployment(
         self,
@@ -4346,7 +4441,7 @@ class CloudController(BaseController):
                     f"Cloud registration complete! To install the Anyscale operator, run:\n\n{helm_command}\n\nThen configure workload identity by running:\n\n{gcloud_command}"
                 )
             else:
-                self.wait_for_cloud_to_be_active(cloud_id, CloudProviders.GCP)
+                self.wait_for_cloud_to_be_active(cloud_id)
 
             self.cloud_event_producer.produce(
                 CloudAnalyticsEventName.INFRA_SETUP_COMPLETE, succeeded=True
@@ -4368,9 +4463,9 @@ class CloudController(BaseController):
         self.log.info(f"Successfully created cloud {name}, and it's ready to use.")
 
         if len(functions_to_verify) > 0:
-            CloudFunctionalVerificationController(
-                self.cloud_event_producer, self.log
-            ).start_verification(cloud_id, CloudProviders.GCP, functions_to_verify, yes)
+            self._run_functional_verification_on_all_resources(
+                cloud_id, functions_to_verify, yes=yes,
+            )
 
     def delete_cloud(  # noqa: PLR0912, C901
         self,
@@ -5417,6 +5512,7 @@ class CloudController(BaseController):
         cloud_id, cloud_name = get_cloud_id_and_name(
             self.api_client, cloud_id, cloud_name
         )
+        assert cloud_id is not None  # get_cloud_id_and_name raises if unresolvable
         cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(cloud_id).result
 
         if not cloud.is_bring_your_own_resource:
@@ -5570,13 +5666,8 @@ class CloudController(BaseController):
         )
         # Functional verify.
         if len(functions_to_verify) > 0:
-            functional_verify_succeed = CloudFunctionalVerificationController(
-                self.cloud_event_producer, self.log
-            ).start_verification(
-                cloud_id,
-                self._get_cloud_provider_from_str(cloud.provider),
-                functions_to_verify,
-                yes,
+            functional_verify_succeed = self._run_functional_verification_on_all_resources(
+                cloud_id, functions_to_verify, yes=yes,
             )
             if not functional_verify_succeed:
                 raise ClickException(

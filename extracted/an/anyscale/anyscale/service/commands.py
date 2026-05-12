@@ -48,6 +48,7 @@ _DEPLOY_ARG_DOCSTRINGS = {
     PrivateServiceSDK,
     doc_py_example=_DEPLOY_EXAMPLE,
     arg_docstrings=_DEPLOY_ARG_DOCSTRINGS,
+    hidden_args={"versions"},
 )
 def deploy(
     configs: Union[ServiceConfig, List[ServiceConfig]],

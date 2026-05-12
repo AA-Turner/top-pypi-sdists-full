@@ -12,7 +12,13 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-"""Model generators for optimization problems."""
+"""Model generators for optimization problems.
+
+See examples such as :ref:`opt_example_nl_tsp` and :ref:`opt_example_nl_cvrp`,
+as well as application examples in the
+`D-Wave Examples <https://github.com/dwave-examples>`_ GitHub repository, for
+more detailed usage.
+"""
 
 from __future__ import annotations
 
@@ -25,15 +31,19 @@ import numpy.typing
 
 from dwave.optimization.mathematical import (
     add,
+    concatenate,
     exp,
     expit,
     logical_or,
     maximum,
+    minimum,
+    put,
     softmax,
     tanh,
     where
 )
 from dwave.optimization.model import ArraySymbol, Model
+from dwave.optimization.symbols import AccumulateZip
 
 __all__ = [
     "bin_packing",
@@ -172,7 +182,7 @@ def bin_packing(weights: numpy.typing.ArrayLike,
 
     Args:
         weights:
-            A 1D |array-like|_ (row vector or Python list) of weights per item.
+            Weight per item as a 1D |array-like|_ (row vector or Python list).
             Weights can be any non-negative number.
 
         capacity:
@@ -180,6 +190,59 @@ def bin_packing(weights: numpy.typing.ArrayLike,
 
     Returns:
         A model encoding the BPP problem.
+
+    Notes:
+        The model uses a :class:`~dwave.optimization.symbols.DisjointBitSets`
+        class as the decision variable being optimized, with permutations of its
+        bit sets representing various packings for each bin.
+
+    Examples:
+        This example finds how many bins are needed to pack four items with
+        various weights into bins with maximum capacity 7.
+
+        >>> from dwave.optimization.generators import bin_packing
+        >>> model = bin_packing([3, 5, 1, 3], 7)
+
+        An example feasible solution might be four bit sets (for four items the
+        maximum possible number of bins is four) of four bits each (a bit per
+        item), with :math:`1.0`  signifying placement of the corresponding item
+        in the corresponding bin,
+
+        .. math::
+            [0. \quad 1. \quad 0. \quad 0.], \\ [1. \quad 0. \quad 1. \quad 1.], \\
+            [0. \quad 0. \quad 0. \quad 0.], \\ [0. \quad 0. \quad 0. \quad 0.],
+
+        where here the second item with weight 5 is in one bin and the remaining
+        items are in a second bin. The objective value for this solution is 2,
+        as shown in the following code.
+
+        The :meth:`~dwave.optimization.model.Model.iter_decisions` method
+        obtains the decision variables of the generated model.
+
+        >>> items = next(model.iter_decisions())
+
+        To test the solution above, set it in the model as the state of the
+        decision variable. **Skip these next lines** if you have submitted your
+        model to the `Leap <https://cloud.dwavesys.com/leap/>`_ :term:`hybrid`
+        nonlinear :term:`solver`.
+
+        >>> model.states.resize(1)
+        >>> items.set_state(0, [[0, 1, 0, 0], [1, 0, 1, 1], 4*[0], 4*[0]])
+
+        You can use the :meth:`~dwave.optimization.model.Model.iter_constraints`
+        method to check feasibility of constructed or returned solutions. Here,
+        the number of states (:meth:`~dwave.optimization.states.States.size`) is
+        set to 1 for the constructed solution so a single value of the
+        :attr:`~dwave.optimization.model.Model.objective` property is printed.
+
+        >>> with model.lock():
+        ...     capacity_constraint = next(model.iter_constraints())
+        ...     for i in range(model.states.size()):
+        ...         if capacity_constraint.state(i):    # Filter on feasibility
+        ...             print((f"Objective value #{i} is {model.objective.state(i)} for packing\n"
+        ...                    f"    {[b.state(i).tolist() for b in items.iter_successors()]}"))
+        Objective value #0 is 2.0 for packing
+            [[0.0, 1.0, 0.0, 0.0], [1.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]]
     """
 
     weights = _require("weights", weights, dtype=float, nonnegative=True, ndim=1)
@@ -280,7 +343,64 @@ def capacitated_vehicle_routing(demand: numpy.typing.ArrayLike,
     Notes:
         The model uses a :class:`~dwave.optimization.symbols.DisjointLists`
         class as the decision variable being optimized, with permutations of its
-        sublist representing various itineraries for each vehicle.
+        sublists representing various itineraries for each vehicle.
+
+    Examples:
+        This example finds delivery routes for two vehicles delivering from a
+        depot to nine sites with maximum vehicle capacity 200.
+
+        >>> from dwave.optimization.generators import capacitated_vehicle_routing
+        ...
+        >>> demand = [0, 34, 12, 65, 10, 43, 27, 55, 61, 22]
+        >>> sites = [(15, 38), (23, -19), (44, 62), (3, 12), (-56, -21), (-53, 2),
+        ...          (33, 63), (14, -33), (42, 41), (13, -62)]
+        >>> model = capacitated_vehicle_routing(
+        ...     demand=demand,
+        ...     number_of_vehicles=2,
+        ...     vehicle_capacity=200,
+        ...     locations_x=[x for x,y in sites],
+        ...     locations_y=[y for x,y in sites])
+
+        The :ref:`opt_example_nl_cvrp` example demonstrates the use of the
+        `Leap <https://cloud.dwavesys.com/leap/>`_ :term:`hybrid` nonlinear
+        :term:`solver` and handles the returned solutions.
+
+        An example feasible solution might be,
+
+        .. math::
+            [2., 7., 1., 5], [4., 3., 8., 6., 0.],
+
+        meaning one vehicle visits customer sites :math:`2, 7, 1, 5` and the
+        other vehicle visits the remaining sites. The objective value for this
+        solution is :math:`\approx 424`, as shown in the following code.
+
+        The :meth:`~dwave.optimization.model.Model.iter_decisions` method
+        obtains the decision variables of the generated model.
+
+        >>> routes = next(model.iter_decisions())
+
+        To test the solution above, set it in the model as the state of the
+        decision variable. **Skip these next lines** if you have submitted your
+        model to the `Leap <https://cloud.dwavesys.com/leap/>`_ :term:`hybrid`
+        nonlinear :term:`solver`.
+
+        >>> model.states.resize(1)
+        >>> routes.set_state(0, [[2., 7., 1., 5.], [4., 3., 8., 6., 0.]])
+
+        You can use the :meth:`~dwave.optimization.model.Model.iter_constraints`
+        method to check feasibility of constructed or returned solutions. Here,
+        the number of states (:meth:`~dwave.optimization.states.States.size`) is
+        set to 1 for the constructed solution so a single value of the
+        :attr:`~dwave.optimization.model.Model.objective` property is printed.
+
+        >>> with model.lock():
+        ...     capacity_constraint = next(model.iter_constraints())
+        ...     for i in range(model.states.size()):
+        ...         if capacity_constraint.state(i):    # Filter on feasibility
+        ...             print((f"Objective value #{i} is {model.objective.state(i).round(2)} for routes\n"
+        ...                    f"    {[r.state(i).tolist() for r in routes.iter_successors()]}"))
+        Objective value #0 is 423.8 for routes
+            [[2.0, 7.0, 1.0, 5.0], [4.0, 3.0, 8.0, 6.0, 0.0]]
     """
 
     if not isinstance(number_of_vehicles, int):
@@ -435,32 +555,37 @@ def capacitated_vehicle_routing_with_time_windows(demand: numpy.typing.ArrayLike
     `CVRPTW <https://en.wikipedia.org/wiki/Vehicle_routing_problem>`_,
     is to find the shortest possible routes for a fleet of vehicles delivering
     to multiple customer locations from a central depot. Each customer should
-    be served after time_window_open and before time_window_close. Vehicles have a
-    specified delivery capacity, and on the routes to locations and then back
+    be served after their time window opens and before it closes. Vehicles have
+    a specified delivery capacity, and on the routes to locations and then back
     to the depot, no vehicle is allowed to exceed its carrying capacity.
 
     Args:
         demand:
-            Customer demand, as an |array-like|_. The first element is the depot and must
-            be zero.
+            Customer demand, as an |array-like|_. The first element is the depot
+            and must be zero.
         number_of_vehicles:
             Number of available vehicles, as a positive integer.
         vehicle_capacity:
             Maximum capacity for any vehicle. The total delivered demand by any
             vehicle on any route must not exceed this value.
         time_distances:
-            time_distances between **all** the problem's locations, as an |array-like|_
-            of positive numbers, including both customer sites and the depot. The first
-            row and column of the distance matrix are customer distances from the depot.
+            Time distances between **all** the problem's locations, as an
+            |array-like|_ of positive numbers, including both customer sites and
+            the depot. The first row and column of the distance matrix are
+            customer distances from the depot.
         time_window_open:
-            The opening time of each customer, as an |array-like|_. The first element is
-            the depot.
+            Opening time for each customer, as an |array-like|_. The first
+            element is the depot.
         time_window_close:
-            The closing time of each customer, as an |array-like|_. The first element is
-            the depot.
+            Closing time for each customer, as an |array-like|_. The first
+            element is the depot. Arrival at each customer :math:`i` must occur
+            earlier than ``time_window_close[i] - service_time[i]`` to enable
+            the delivery to be serviced before the window closes.
         service_time:
-            The time it takes to serve each customer, as an |array-like|_. The first element
-            is the depot and must be zero.
+            Time it takes to serve each customer, as an |array-like|_. The first
+            element is the depot and must be zero. For feasible solutions,
+            ``service_time[i] <= time_window_close[i] - time_window_open[i]``
+            for each customer :math:`i`.
 
     Returns:
         A model encoding the CVRPTW problem.
@@ -468,7 +593,67 @@ def capacitated_vehicle_routing_with_time_windows(demand: numpy.typing.ArrayLike
     Notes:
         The model uses a :class:`~dwave.optimization.symbols.DisjointLists`
         class as the decision variable being optimized, with permutations of its
-        sublist representing various itineraries for each vehicle.
+        sublists representing various itineraries for each vehicle.
+
+    Examples:
+        This example finds delivery routes for two vehicles delivering from a
+        depot to three sites with maximum vehicle capacity 40 and varying
+        opening,closing, and service times.
+
+        >>> from dwave.optimization.generators import capacitated_vehicle_routing_with_time_windows
+        ...
+        >>> time_distances=[[0, 14, 19, 32],
+        ...                 [14, 0, 15, 19],
+        ...                 [19, 15, 0, 21],
+        ...                 [32, 19, 21, 0]]
+        >>> model = capacitated_vehicle_routing_with_time_windows(
+        ...     demand=[0, 19, 30, 16],
+        ...     number_of_vehicles=2,
+        ...     vehicle_capacity=40,
+        ...     time_distances=time_distances,
+        ...     time_window_open=[0, 0, 10, 5],
+        ...     time_window_close=[100, 90, 50, 90],
+        ...     service_time=[0, 10, 5, 5])
+
+        The :ref:`opt_example_nl_cvrp` example demonstrates the use of the
+        `Leap <https://cloud.dwavesys.com/leap/>`_ :term:`hybrid` nonlinear
+        :term:`solver` and handles the returned solutions for a similar problem.
+
+        An example feasible solution might be,
+
+        .. math::
+            [0, 2], [1],
+
+        meaning one vehicle visits customer sites :math:`0, 2` and the
+        other vehicle visits site :math:`1`. The objective value for this
+        solution is :math:`\approx 103`, as shown in the following code.
+
+        The :meth:`~dwave.optimization.model.Model.iter_decisions` method
+        obtains the decision variables of the generated model.
+
+        >>> routes = next(model.iter_decisions())
+
+        To test the solution above, set it in the model as the state of the
+        decision variable. **Skip these next lines** if you have submitted your
+        model to the `Leap <https://cloud.dwavesys.com/leap/>`_ :term:`hybrid`
+        nonlinear :term:`solver`.
+
+        >>> model.states.resize(1)
+        >>> routes.set_state(0, [[0, 2], [1]])
+
+        You can use the :meth:`~dwave.optimization.model.Model.iter_constraints`
+        method to check feasibility of constructed or returned solutions. Here,
+        the number of states (:meth:`~dwave.optimization.states.States.size`) is
+        set to 1 for the constructed solution so a single value of the
+        :attr:`~dwave.optimization.model.Model.objective` property is printed.
+
+        >>> with model.lock():
+        ...     for i in range(model.states.size()):
+        ...         if all(sym.state(i) for sym in model.iter_constraints()): # Filter feasibility
+        ...             print((f"Objective value #{i} is {model.objective.state(i).round(2)} for routes\n"
+        ...                    f"    {[r.state(i).tolist() for r in routes]}"))
+        Objective value #0 is 103.0 for routes
+            [[0.0, 2.0], [1.0]]
     """
 
     if not isinstance(number_of_vehicles, int):
@@ -674,11 +859,11 @@ def flow_shop_scheduling(processing_times: numpy.typing.ArrayLike) -> Model:
 
     `Flow-shop scheduling <https://en.wikipedia.org/wiki/Flow-shop_scheduling>`_
     is a variant of the renowned :func:`.job_shop_scheduling` optimization problem.
-    Given `n` jobs to schedule on `m` machines, with specified processing
-    times for each job per machine, minimize the makespan (the total
+    Given :math:`n` jobs to schedule on :math:`m` machines, with specified
+    processing times for each job per machine, minimize the makespan (the total
     length of the schedule for processing all the jobs). For every job, the
-    `i`-th operation is executed on the `i`-th machine. No machine can
-    perform more than one operation simultaneously.
+    :math:`i`-th operation is executed on the :math:`i`-th machine. No machine
+    can perform more than one operation simultaneously.
 
     `E. Taillard <http://mistic.heig-vd.ch/taillard/problemes.dir/problemes.html>`_
     provides benchmark instances compatible with this generator.
@@ -692,10 +877,15 @@ def flow_shop_scheduling(processing_times: numpy.typing.ArrayLike) -> Model:
         processing_times:
             Processing times, as an :math:`m \times n` |array-like|_ of
             integers, where ``processing_times[m, n]`` is the time job
-            `n` is on machine `m`.
+            :math:`n` is on machine :math:`m`.
 
     Returns:
         A model encoding the flow-shop scheduling problem.
+
+    Notes:
+        The model uses a :class:`~dwave.optimization.symbols.ListVariable`
+        class as the decision variable being optimized, with permutations of its
+        integer values representing various job orderings.
 
     Examples:
 
@@ -709,6 +899,45 @@ def flow_shop_scheduling(processing_times: numpy.typing.ArrayLike) -> Model:
         >>> processing_times = [[10, 5, 7], [20, 10, 15]]
         >>> model = flow_shop_scheduling(processing_times=processing_times)
 
+        An example feasible solution might be :math:`[1, 0, 2]`, meaning the
+        order of jobs is job 1 first, job 0 second, and job 2 last. The
+        objective value (makespan) for this solution is :math:`50`, as shown in
+        the following code.
+
+        The :meth:`~dwave.optimization.model.Model.iter_decisions` method
+        obtains the decision variables of the generated model.
+
+        >>> order = next(model.iter_decisions())
+
+        To test the solution above, set it in the model as the state of the
+        decision variable. **Skip these next lines** if you have submitted your
+        model to the `Leap <https://cloud.dwavesys.com/leap/>`_ :term:`hybrid`
+        nonlinear :term:`solver`.
+
+        >>> model.states.resize(1)
+        >>> order.set_state(0, [1, 0, 2])
+
+        Here, the number of states
+        (:meth:`~dwave.optimization.states.States.size`) is set to 1 for the
+        constructed solution so a single value of the
+        :attr:`~dwave.optimization.model.Model.objective` property is printed.
+
+        >>> with model.lock():
+        ...     for i in range(model.states.size()):
+        ...         print((f"Order #{i} is {order.state(i).tolist()} with makespan "
+        ...                f"{model.objective.state(i).round(2)}"))
+        Order #0 is [1.0, 0.0, 2.0] with makespan 50.0
+
+        This solution is shown in the figure below.
+
+        .. figure:: /_images/flow_shop_scheduling_2x3.png
+            :width: 800 px
+            :name: flow-shop-scheduling-2x3-example
+            :alt: Image of the model constructed in this example, showing
+                the machines in two colors across three rows representing each
+                job.
+
+            Visualization of the solution.
     """
     processing_times = _require("processing_times", processing_times,
                                 ndim=2, nonnegative=True)
@@ -768,15 +997,27 @@ def job_shop_scheduling(times: numpy.typing.ArrayLike, machines: numpy.typing.Ar
                         *,
                         upper_bound: None | int = None,
                         ) -> Model:
-    """Generate a model encoding a job-shop scheduling problem.
+    r"""Generate a model encoding a job-shop scheduling problem.
 
-    `Job-shop scheduling <https://en.wikipedia.org/wiki/Job-shop_scheduling>`_
-    has many variants.  Here, what we have implemented is a variant of job-shop
-    scheduling with the additional assumption that every job makes use of
-    every machine.
+    There are many variants of
+    `job-shop scheduling <https://en.wikipedia.org/wiki/Job-shop_scheduling>`_,
+    a problem where given :math:`n` jobs to schedule on :math:`m` machines, with
+    specified processing times for each job per machine, the aim is to minimize
+    the makespan (the total length of the schedule for processing all the jobs).
+    This generator implements a variant of job-shop scheduling with the
+    additional assumption that every job makes use of every machine.
 
     `E. Taillard <http://mistic.heig-vd.ch/taillard/problemes.dir/problemes.html>`_
     provides benchmark instances compatible with this generator.
+
+    .. versionchanged:: 0.6.13
+        From version `0.4.1` to `0.6.12`, the model generated used integer
+        variables for the start times and included explicit non-overlap
+        constraints between each pair of jobs on the machines.
+
+        Now the model uses a list variable for the global ordering of all tasks
+        and greedily constructs a feasible ordering from which the start times
+        are determined.
 
     .. versionchanged:: 0.4.1
         Prior to version `0.4.1`, the model generated was based on one proposed by
@@ -796,20 +1037,135 @@ def job_shop_scheduling(times: numpy.typing.ArrayLike, machines: numpy.typing.Ar
 
     Args:
         times:
-            An ``n`` jobs by ``m`` machines array-like where ``times[n, m]``
-            is the processing time of job ``n`` on machine ``m``.
+            Processing times as an :math:`n` jobs by :math:`m` machines
+            |array-like|_ where ``times[n, m]`` is the processing time of job
+            :math:`n` on machine :math:`m`.
         machines:
-            An ``n`` jobs by ``m`` machines array-like where ``machines[n, :]``
-            is the order of machines that job ``n`` will be processed on.
+            Machine order as an :math:`n` jobs by :math:`m` machines
+            |array-like|_ where ``machines[n, :]`` is the order of machines that
+            job :math:`n` is processed on.
         upper_bound:
-            An upper bound on the makespan.
-            If not given, defaults to ``times.sum()``.
-            Note that if the `upper_bound` is too small the model may be
-            infeasible.
+            Upper bound on the makespan. If not given, defaults to
+            ``times.sum()``.  Note that if ``upper_bound`` is too small the
+            model may be infeasible.
 
     Returns:
-        A model encoding the job-shop scheduling problem.
+        A model encoding the job-shop scheduling problem. The model includes
+        three additional methods added to it:
 
+        -     ``model.get_global_task_ordering(state_index: int)``: Given an
+              index of a state on the model, returns an array corresponding to
+              the global ordering of all tasks where the global task index for
+              the :math:`j` th task of the :math:`i` th job is given by :math:`n * i + j`.
+        -     ``model.get_start_times(state_index: int)``: Given an
+              index of a state on the model, returns an :math:`n` by :math:`m` array of
+              start times of each task of each job.
+        -     ``model.get_end_times(state_index: int)``: Given an
+              index of a state on the model, returns an :math:`n` by :math:`m` array of
+              end times of each task of each job.
+
+    Notes:
+        The model formulation has a single
+        :class:`~dwave.optimization.symbols.ListVariable` decision variable of size
+        :math:`n \times m` (total number of tasks), and consists of two main parts:
+        One to derive a global task ordering that respects the task-ordering
+        requirement of each job, and another to build a feasible schedule based on
+        that global ordering.
+
+        The first part is achieved by taking the list decision variable output, and
+        using :math:`m` :class:`~dwave.optimization.symbols.AccumulateZip`
+        nodes nodes to select and then reorder the tasks of each job.
+
+        The second part is achieved by iterating through the tasks in the global
+        ordering and placing each task at the earliest possible time it can run.
+        Finish times for each task, as well as the finish time for the last task
+        on each machine, are maintained in lists and updated with
+        :class:`~dwave.optimization.symbols.Put` nodes at each iteration.
+
+        Finally, the makespan is equal to the maximum value of the finish-times
+        array.
+
+    Examples:
+
+        This example creates a model for a job-shop-scheduling problem
+        with three jobs on three machines. For example, the first job
+        requires processing for 2 time units on the first machine, then 1 time
+        unit on the second machine, then 3 time units on the third machine.
+
+        >>> from dwave.optimization.generators import job_shop_scheduling
+        ...
+        >>> times = [[2, 1, 3],
+        ...          [4, 1, 2],
+        ...          [1, 1, 2]]
+        >>> machines = [[0, 1, 2],
+        ...             [2, 0, 1],
+        ...             [2, 1, 0]]
+        >>> model = job_shop_scheduling(times, machines)
+
+        In the global task ordering, the index for the :math:`j` th task for the
+        :math:`i` th job is equal to :math:`n*i + j`. An example solution for the final
+        global task ordering might be:
+
+        .. math::
+            [0, 3, 4, 6, 1, 2, 7, 5, 8],
+
+        meaning that the first task is the first job on the first machine, the
+        next task is the second job on the third machine, the next task is the
+        second job on the first machine, etc. The model constructs a schedule
+        based on when the next task is available to run. The goal of the solver
+        is to determine a global ordering of tasks whose corresponding schedule
+        minimizes the makespan. The makespan (objective value) is 7, as shown in
+        the following code.
+
+        The :meth:`~dwave.optimization.model.Model.iter_decisions` method
+        obtains the decision variables of the generated model.
+
+        >>> task_ordering = next(model.iter_decisions())
+
+        This gives the initial global task ordering from which the feasible
+        final global task ordering is constructed.
+
+        To test the solution above, set the corresponding initial global task
+        ordering in the model as the state of the decision variable. **Skip
+        these next lines** if you have submitted your model to the
+        `Leap <https://cloud.dwavesys.com/leap/>`_ :term:`hybrid`
+        nonlinear :term:`solver`.
+
+        >>> model.states.resize(1)
+        >>> task_ordering.set_state(0, [0, 5, 4, 7, 1, 2, 6, 3, 8])
+
+        To check that this task ordering corresponds to the global feasible task
+        ordering ``[0,3,4,6,1,2,7,5,8]`` , use the method
+        :meth:`~model.get_global_task_ordering`.
+
+        >>> final_ordering = model.get_global_task_ordering(0)
+
+        You can use the methods :meth:`~model.get_start_times` and
+        :meth:`~model.get_end_times` to obtain the corresponding start and end
+        times of all tasks.
+        
+        >>> start_times = model.get_start_times(0)
+        >>> end_times = model.get_end_times(0)
+
+        Finally, you can check the objective value of this state.
+
+        >>> makespan = model.objective.state(0)
+
+        The makespan is 7.0 for the schedule with start times
+        [[0. 2. 4.]
+        [0. 2. 6.]
+        [2. 4. 6.]]
+
+        This solution is shown in the figure below.
+
+        .. figure:: /_images/job_shop_scheduling_3x3.svg
+            :width: 800 px
+            :name: job-shop-scheduling-3x3-example
+            :alt: Image of the model constructed in this example, showing
+                the jobs in three colors across three rows representing each
+                job.
+
+            Visualization of the solution.
     """
     times = _require("times", times, ndim=2, dtype=int, nonnegative=True)
     machines = _require("machines", machines, ndim=2, dtype=int, nonnegative=True)
@@ -854,45 +1210,91 @@ def job_shop_scheduling(times: numpy.typing.ArrayLike, machines: numpy.typing.Ar
     # Alright, model construction time
     model = Model()
 
-    # Add the constants
-    times = model.constant(times)
-    machines = model.constant(machines)
+    num_tasks = num_jobs * num_machines
+    NO_TASK = num_tasks
 
-    # The "main" decision symbol is a num_jobs x num_machines array of integer variables
-    # giving the start time for each task
-    start_times = model.integer(shape=(num_jobs, num_machines),
-                                lower_bound=0, upper_bound=upper_bound)
+    # Index task durations by (job, task_index)
+    task_durations = np.array([times[job][machines[job]] for job in range(num_jobs)])
+    task_durations_ = model.constant(task_durations.flatten())
 
-    # The objective is simply to minimize the last end time
-    end_times = start_times + times
-    model.minimize(end_times.max())
+    machine_assignments_ = model.constant(machines.flatten())
+    zero_ = model.constant(0)
+    zero_n_ = model.constant([0] * num_tasks)
 
-    # Ensure that for each job, its tasks do not overlap
-    for j in range(num_jobs):
-        ends = end_times[j, machines[j, :-1]]
-        starts = start_times[j, machines[j, 1:]]
+    def task_index(job, machine):
+        return job * num_machines + machine
+    
+    # Construct an array containing the previous task for each index 
+    previous_tasks = [0] * num_tasks
+    for job in range(num_jobs):
+        previous_tasks[task_index(job, 0)] = NO_TASK
+        for i in range(1, num_machines):
+            previous_tasks[task_index(job, i)] = task_index(job, i - 1)
 
-        model.add_constraint((ends <= starts).all())
+    previous_tasks_ = model.constant(previous_tasks)
+    NO_TASK_ = model.constant(NO_TASK)
 
-    # Ensure for each machine, its tasks do not overlap
-    # Collect all the pairs of jobs in two indices arrays
-    u_idx = []
-    v_idx = []
-    for i, j in itertools.combinations(range(num_jobs), 2):
-        u_idx.append(i)
-        v_idx.append(j)
+    # The only decision variable is a list containing the global ordering of all tasks
+    order = model.list(num_tasks)
+    mask = model.constant(np.repeat(np.arange(num_jobs) * num_machines, num_machines))
+    mo = mask[order]
 
-    u = model.constant(u_idx)
-    v = model.constant(v_idx)
+    # Determine a feasible ordering of tasks based on the global ordering
+    from dwave.optimization.expression import expression
+    
+    offsets = []
+    for job_idx in range(num_jobs):
+        base_task = job_idx * num_machines
 
-    # Finally impose the non-overlapping constraints between jobs,
-    # on all machines
-    model.add_constraint(
-        logical_or(
-            end_times[u, :] <= start_times[v, :],
-            end_times[v, :] <= start_times[u, :]
-        ).all()
+        @expression(task_index=dict(integral=True), next_base_task=dict(integral=True))
+        def increase_task_index(task_index, next_base_task):
+            return task_index + (next_base_task == base_task)
+
+        job_offset = AccumulateZip(increase_task_index, (mo,), initial=-1)
+        offsets.append(where(mo == model.constant(base_task), job_offset, zero_n_))
+
+    final_order = minimum(
+        maximum(add(mo, *offsets), zero_), model.constant(num_tasks - 1)
     )
+
+    # Determine the end time of the last job on each machine 
+    current_machine_time = model.constant([0] * num_machines)
+
+    task_end_times = model.constant([0] * num_tasks)
+
+    for task_idx in range(num_tasks):
+        task = final_order[task_idx]
+        previous_task = previous_tasks_[task]
+        prev_task_end_time = where(
+            previous_task == NO_TASK_,
+            zero_,
+            task_end_times[minimum(previous_task, num_tasks - 1)],
+        )
+        machine_index = machine_assignments_[task]
+        selected_machine_time = current_machine_time[machine_index]
+        task_start_time = maximum(prev_task_end_time, selected_machine_time)
+        task_end_time = task_start_time + task_durations_[task]
+        task_end_time = task_end_time.reshape(1)
+        current_machine_time = put(
+            current_machine_time, machine_index.reshape(1), task_end_time
+        )
+
+        task_end_times = put(task_end_times, task.reshape(1), task_end_time)
+
+    model.minimize(current_machine_time.max())
+
+    def get_global_task_ordering(state_index: int):
+        return final_order.state(state_index)
+
+    def get_end_times(state_index: int):
+        return task_end_times.state(state_index).reshape(num_jobs, num_machines)
+
+    def get_start_times(state_index: int):
+        return get_end_times(state_index) - task_durations
+
+    model.get_global_task_ordering = get_global_task_ordering
+    model.get_start_times = get_start_times
+    model.get_end_times = get_end_times
 
     model.lock()
     return model
@@ -912,12 +1314,12 @@ def knapsack(values: numpy.typing.ArrayLike,
 
     Args:
         values:
-            A 1D |array-like|_ (row vector or Python list) of values per item.
-            The length of ``values`` must be equal to the length of
-            ``weights``. Values can be any non-negative number.
+            Value per item as a 1D |array-like|_ (row vector or Python list).
+            Length of ``values`` must be equal to the length of ``weights``.
+            Values can be any non-negative number.
 
         weights:
-            A 1D |array-like|_ (row vector or Python list) of weights per item.
+            Weight per item as a 1D |array-like|_ (row vector or Python list).
             Weights can be any non-negative number.
 
         capacity:
@@ -926,10 +1328,51 @@ def knapsack(values: numpy.typing.ArrayLike,
     Returns:
         A model encoding the knapsack problem.
 
-    The model generated uses a :class:`dwave.optimization.Model.set` class as
-    the decision variable being optimized, with permutations of subsets of this
-    set representing possible items included in the knapsack.
+    Notes:
+        The model generated uses a
+        :class:`~dwave.optimization.symbols.SetVariable` class as the decision
+        variable being optimized, with permutations of the subsets of this
+        set representing possible items included in the knapsack.
 
+    Examples:
+
+        This example creates a model for a knapsack problem
+        with four items.
+
+        >>> from dwave.optimization.generators import knapsack
+        ...
+        >>> weights = [30, 10, 40, 20]
+        >>> values = [10, 20, 30, 40]
+        >>> model = knapsack(values=values, weights=weights, capacity=30)
+
+        An example feasible solution might be :math:`[1, 2]`, meaning the
+        knapsack should include the second and fourth items. The objective value
+        for this solution is :math:`-1(20 + 40) = -60`, as shown in
+        the following code.
+
+        The :meth:`~dwave.optimization.model.Model.iter_decisions` method
+        obtains the decision variables of the generated model.
+
+        >>> items = next(model.iter_decisions())
+
+        To test the solution above, set it in the model as the state of the
+        decision variable. **Skip these next lines** if you have submitted your
+        model to the `Leap <https://cloud.dwavesys.com/leap/>`_ :term:`hybrid`
+        nonlinear :term:`solver`.
+
+        >>> model.states.resize(1)
+        >>> items.set_state(0, [1, 3])
+
+        Here, the number of states
+        (:meth:`~dwave.optimization.states.States.size`) is set to 1 for the
+        constructed solution so a single value of the
+        :attr:`~dwave.optimization.model.Model.objective` property is printed.
+
+        >>> with model.lock():
+        ...     for i in range(model.states.size()):
+        ...         print((f"Items in solution #{i} are {items.state(i)} with value "
+        ...                f"{-model.objective.state(i)}"))
+        Items in solution #0 are [1. 3.] with value 60.0
     """
     weights = _require("weights", weights, dtype=float, nonnegative=True, ndim=1)
     values = _require("values", values, dtype=float, nonnegative=True, ndim=1)
@@ -970,7 +1413,7 @@ def knapsack(values: numpy.typing.ArrayLike,
 # the example in the unittests line-for-line
 @functools.singledispatch
 def predict(estimator, X: ArraySymbol) -> ArraySymbol:
-    """Predict ``y`` from ``X`` using the given ``estimator``.
+    """Predict ``y`` from ``X`` using a fitted estimator.
 
     Args:
         estimator:
@@ -982,10 +1425,10 @@ def predict(estimator, X: ArraySymbol) -> ArraySymbol:
             :class:`~sklearn.neural_network.MLPClassifier` is supported.
 
         X:
-            An array symbol representing the input data.
+            Input data as an array symbol.
 
     Returns:
-        The predicted values, ``y``.
+        Predicted values, ``y``.
 
     Raises:
         NotImplementedError: There are many ways to train estimators, some cases
@@ -994,6 +1437,11 @@ def predict(estimator, X: ArraySymbol) -> ArraySymbol:
             cases.
 
     Examples:
+        This example solves a
+        `knapsack problem <https://en.wikipedia.org/wiki/Knapsack_problem>`_
+        (see also the :func:`knapsack` function) where weights are known but
+        values (prices) for these items are noisy observations.
+
         .. code-block:: python
 
             import itertools
@@ -1004,11 +1452,11 @@ def predict(estimator, X: ArraySymbol) -> ArraySymbol:
             from dwave.optimization.generators import predict
             from sklearn.neural_network import MLPRegressor
 
-            # The values are know exactly
+            # The weights are known exactly
             weights = np.asarray([12, 1, 1, 2, 4])
 
-            # But rather than the values being known directly, we only have observations
-            # with noise
+            # But the values, rather than being known directly, are given only
+            # through noisy observations
             def observations():
                 secret_values = np.asarray([4, 2, 1, 2, 10])
 
@@ -1021,11 +1469,11 @@ def predict(estimator, X: ArraySymbol) -> ArraySymbol:
 
             X, y = observations()
 
-            # We can now fit a multi-layer perceptron estimator to our observations. The
-            # estimator, given a collection of purchases, estimates the value
+            # You can now fit a multi-layer perceptron estimator to these observations. The
+            # estimator, given a collection of purchases, estimates the values of the items
             regr = MLPRegressor(max_iter=2000).fit(X, y)
 
-            # Now we can use that estimator to construct our knapsack problem
+            # Now you can use that estimator to construct a knapsack problem
             model = Model()
 
             items = model.binary(shape=(1, 5))
@@ -1033,8 +1481,8 @@ def predict(estimator, X: ArraySymbol) -> ArraySymbol:
             model.minimize(-predict(regr, items))
             model.add_constraint(items @ weights <= 15)
 
-            # Finally, we can solve it exactly by trying all possible solutions, and check
-            # that our solution is the correct one
+            # Finally, you can solve exactly by trying all possible solutions, and check
+            # that the solution is the correct one
             model.lock()
             model.states.resize(1)
 
@@ -1141,30 +1589,153 @@ else:
 def quadratic_assignment(distance_matrix: numpy.typing.ArrayLike,
                          flow_matrix: numpy.typing.ArrayLike,
                          ) -> Model:
-    """Generate a model encoding a quadratic assignment problem.
+    r"""Generate a model encoding a quadratic assignment problem.
 
     The
     `quadratic assignment <https://en.wikipedia.org/wiki/Quadratic_assignment_problem>`_
     is, for a given list of facilities, the distances between them, and the flow
-    between each pair of facilities, minimize the sum of the products of distances
-    and flows.
+    between each pair of facilities, to minimize the sum of the products of
+    distances and flows.
 
     Args:
         distance_matrix:
-            An array-like where ``distance_matrix[n, m]`` is the distance
-            between location ``n`` and ``m``. Represents the (known and constant)
-            distances between every possible pair of facility locations: in real-world
-            problems, such a matrix can be generated from an application with
-            access to an online map.
+            Distances as an |array-like|_, where ``distance_matrix[n, m]`` is
+            the distance between location :math:`n` and :math:`m`. Represents
+            the (known and constant) distances between every possible pair of
+            facility locations: in real-world problems, such a matrix can be
+            generated from an application with access to an online map.
 
         flow_matrix:
-            A array-like where ``flow_matrix[n, m]`` is the flow
-            between location ``n`` and ``m``. Represents the (known and constant)
-            flow between every possible pair of facility location.
+            Flows as an |array-like|_, where ``flow_matrix[n, m]`` is the flow
+            between facilities :math:`n` and :math:`m`. Represents the (known
+            and constant) flow between every possible pair of facilities.
 
     Returns:
-        A model encoding the quadratic_assignment problem.
+        A model encoding the quadratic-assignment problem.
 
+    Notes:
+        The model generated uses a
+        :class:`~dwave.optimization.symbols.ListVariable` class as the decision
+        variable being optimized, with permutations of the values of this
+        list representing assignments of facilities to locations.
+
+    Examples:
+
+        This example creates a model for a quadratic-assignment problem
+        that has three facilites to place in three locations.
+
+        >>> from dwave.optimization.generators import quadratic_assignment
+        ...
+        >>> distance_matrix = [[0, 5, 3],
+        ...                    [5, 0, 2],
+        ...                    [3, 2, 0]]
+        >>> flow_matrix = [[0, 1, 3],
+        ...                [4, 0, 2],
+        ...                [1, 1, 0]]
+        >>> model = quadratic_assignment(distance_matrix=distance_matrix, flow_matrix=flow_matrix)
+
+        An example feasible solution might be :math:`[2, 1, 0]`, meaning that
+        facility two should be on site zero, facility one should be on site one,
+        and facility zero should be on site two.\ [#]_ The objective value
+        for this solution is :math:`37`, as shown in
+        the following code.
+
+        The :meth:`~dwave.optimization.model.Model.iter_decisions` method
+        obtains the decision variables of the generated model.
+
+        >>> locations = next(model.iter_decisions())
+
+        To test the solution above, set it in the model as the state of the
+        decision variable. **Skip these next lines** if you have submitted your
+        model to the `Leap <https://cloud.dwavesys.com/leap/>`_ :term:`hybrid`
+        nonlinear :term:`solver`.
+
+        >>> model.states.resize(1)
+        >>> locations.set_state(0, [2, 1, 0])
+
+        Here, the number of states
+        (:meth:`~dwave.optimization.states.States.size`) is set to 1 for the
+        constructed solution so a single value of the
+        :attr:`~dwave.optimization.model.Model.objective` property is printed.
+
+        >>> with model.lock():
+        ...     for i in range(model.states.size()):
+        ...         print((f"Locations for solution #{i} are {locations.state(i)} with objective "
+        ...                f"value of {model.objective.state(i)}"))
+        Locations for solution #0 are [2. 1. 0.] with objective value of 37.0
+
+        This solution is shown in the figure below.
+
+        .. figure:: /_images/quadratic_assignment_problem_3x3.png
+            :width: 800 px
+            :name: quadratic-assignment-problem-3x3-example
+            :alt: Image of the model constructed in this example, showing
+                the assignment of sites to locations with the distances and flow
+                annotated on the edges.
+
+            Visualization of the solution. The shortest distance between pairs,
+            of 2 between facilities 1 and 2, has the greatest total flow of
+            :math:`1+4=5`, the longest distance between pairs, of 5 between
+            facilities 0 and 1, has the least total flow of :math:`1+2=3`, while
+            the intermediate distance of 3 has an intermediate total flow of
+            :math:`1+3=4`.
+
+    .. [#]
+
+        To understand how the :class:`~dwave.optimization.symbols.ListVariable`
+        decision variable orders facilities to locations, consider a simple
+        example of two facilities and two locations, where the flow is
+        asymmetric and the distance depends on direction. The cost given by the
+        multiplication of flow matrix by distance matrix, for example,
+
+        .. math::
+
+            \overbrace{
+                \begin{bmatrix} 0 & 2 \\ 1 & 0  \end{bmatrix}}^{\text{Flow}}
+            *
+            \overbrace{
+                \begin{bmatrix} 0 & 2 \\ 3 & 0  \end{bmatrix}}^{\text{Distance}}
+            =
+            \overbrace{
+                \begin{bmatrix} 0 & 4 \\ 3 & 0  \end{bmatrix}}^{\text{Cost}},
+
+        gives 3 in element :math:`(0, 1)`, meaning the cost of transfers between
+        facility 0 to facility 1 (element :math:`(0, 1)` in the flow matrix) in
+        location 0 and 1 (element :math:`(0, 1)` in the distance matrix) is 3.
+
+        This remains the product when the distance matrix is indexed as
+
+        .. math::
+
+            \text{distance_matrix}[\text{index}, :][:, \text{index}],
+
+        where the index, a :class:`~dwave.optimization.symbols.ListVariable`
+        decision variable, is the natural order, here :math:`[0, 1]`.
+
+        .. math::
+
+            \begin{bmatrix} 0 & 2 \\ 1 & 0  \end{bmatrix}
+            *
+            \begin{bmatrix} 0 & 2 \\ 3 & 0  \end{bmatrix}[[0, 1], :][:, [0, 1]]
+            =
+            \begin{bmatrix} 0 & 4 \\ 3 & 0  \end{bmatrix}
+
+        Permutations of the index switch the resulting product around; here
+        :math:`[1, 0]` gives the cost for facilty 0 at location 1 and facility 1
+        at location 0:
+
+        .. math::
+
+            \begin{bmatrix} 0 & 2 \\ 1 & 0  \end{bmatrix}
+            *
+            \begin{bmatrix} 0 & 2 \\ 3 & 0  \end{bmatrix}[[1, 0], :][:, [1, 0]]
+            =
+            \begin{bmatrix} 0 & 6 \\ 2 & 0  \end{bmatrix}
+
+        In this way, permutations of the
+        :class:`~dwave.optimization.symbols.ListVariable` decision variable
+        allow the model to represent all possible pairings of facilities and
+        locations and the cost for each.
     """
     distance_matrix = _require("distance_matrix", distance_matrix,
                                dtype=float, ndim=2, nonnegative=True, square=True)
@@ -1208,47 +1779,91 @@ def traveling_salesperson(distance_matrix: numpy.typing.ArrayLike,
 
     Args:
         distance_matrix:
-            An array-like where ``distance_matrix[n, m]`` is the distance
-            between city ``n`` and ``m``. Represents the (known and constant)
-            distances between every possible pair of cities: in real-world
-            problems, such a matrix can be generated from an application with
-            access to an online map.
+            Distances as an |array-like|_, where ``distance_matrix[n, m]`` is
+            the distance between city :math:`n` and :math:`m`. Represents the
+            (known and constant) distances between every possible pair of
+            cities: In real-world problems, such a matrix can be generated from
+            an application with access to an online map. Such matrices may be
+            asymmetric if the direction of travel matters, such as when
+            different routes are used depending on direction.
 
     Returns:
         A model encoding the traveling-salesperson problem.
 
-    Typically, solver performance strongly depends on the size of the solution
-    space for your modelled problem: models with smaller spaces of feasible
-    solutions tend to perform better than ones with larger spaces. A powerful
-    way to reduce the feasible-solutions space is by using variables that act
-    as implicit constraints. This is analogous to judicious typing of a variable
-    to meet but not exceed its required assignments: a Boolean variable, ``x``,
-    has a solution space of size 2 (:math:`\{True, False\}`) while an integer
-    variable, ``i``, might have a solution space of over 4 billion values.
+    Notes:
+        The model generated uses a
+        :class:`~dwave.optimization.symbols.ListVariable` class as the decision
+        variable being optimized, with permutations of this ordered list
+        representing possible itineraries through the required cities.\ [#]_
 
-    The model generated uses a :class:`dwave.optimization.Model.list` class as
-    the decision variable being optimized, with permutations of this ordered
-    list representing possible itineraries through the required cities.
+    Examples:
 
-    The :class:`dwave.optimization.Model.list` class used to represent the
-    decision variable as an ordered list is implicitly constrained in the
-    possible values that can be assigned to it; for example, compare a model
-    representing five cities as five variables of type ``int``,
-    :math:`i_{Rome}, i_{Turin}, i_{Naples}, i_{Milan}, i_{Genoa}`, where
-    :math:`i_{Rome} = 2` means Rome is the third city visited, versus a model
-    using an ordered list, :math:`(city_0, city_1, city_2, city_3, city_4)`.
-    The first model must explicitly constrain solutions to those that select
-    a value between 0 and 4 for each decision variable with no repetitions; such
-    constraints are implicit to the ordered-list variable.
+        This example creates a model for a traveling-salesperson problem
+        that visits three cities, where the distance depends on the direction of
+        travel.
 
-    The objective is to minimize the distance traveled. Permutations of indices
-    :math:`(0, 1, 2, ...)` that order ``distance_matrix`` represent itineraries
-    that travel from list-element :math:`i` to list-element :math:`i+1` for
-    :math:`i \in [0, N-1]`, where :math:`N` is the length of the list (and the
-    number of cities). Additionally, the problem requires a return to the city
-    of origin (first element of the list) from the last city visited (the last
-    element of the list).
+        >>> from dwave.optimization.generators import traveling_salesperson
+        ...
+        >>> distance_matrix = [
+        ...     [0, 3, 1],
+        ...     [1, 0, 3],
+        ...     [3, 1, 0]]
+        >>> model = traveling_salesperson(distance_matrix=distance_matrix)
 
+        Example solutions might be :math:`[0, 1, 2]` and :math:`[2, 1, 0]`,
+        the first solution meaning that the salesperson visits city 0 then city
+        1 then city 2 while the second solution reverses that order. The
+        objective value for the first solution is :math:`9` and for the second
+        :math:`3`, as shown in the following code.\ [#]_
+
+        The :meth:`~dwave.optimization.model.Model.iter_decisions` method
+        obtains the decision variables of the generated model.
+
+        >>> itinerary = next(model.iter_decisions())
+
+        To test the solution above, set it in the model as the state of the
+        decision variable. **Skip these next lines** if you have submitted your
+        model to the `Leap <https://cloud.dwavesys.com/leap/>`_ :term:`hybrid`
+        nonlinear :term:`solver`.
+
+        >>> model.states.resize(2)
+        >>> itinerary.set_state(0, [2, 1, 0])
+        >>> itinerary.set_state(1, [0, 1, 2])
+
+        Here, the number of states
+        (:meth:`~dwave.optimization.states.States.size`) is set to 2 for the
+        constructed solutions so two values of the
+        :attr:`~dwave.optimization.model.Model.objective` property are printed.
+
+        >>> with model.lock():
+        ...     for i in range(model.states.size()):
+        ...         print((f"Itinerary #{i} is {itinerary.state(i)} with objective "
+        ...                f"value of {model.objective.state(i)}"))
+        Itinerary #0 is [2. 1. 0.] with objective value of 3.0
+        Itinerary #1 is [0. 1. 2.] with objective value of 9.0
+
+        .. [#]
+            The :class:`~dwave.optimization.symbols.ListVariable` class used to
+            represent the decision variable as an ordered list is implicitly
+            constrained in the possible values that can be assigned to it; for
+            example, compare a model representing five cities as five variables
+            of type ``int``,
+            :math:`i_{Rome}, i_{Turin}, i_{Naples}, i_{Milan}, i_{Genoa}`, where
+            :math:`i_{Rome} = 2` means Rome is the third city visited, versus a
+            model using an ordered list,
+            :math:`(city_0, city_1, city_2, city_3, city_4)`. The first model
+            must explicitly constrain solutions to those that select a value
+            between 0 and 4 for each decision variable with no repetitions; such
+            constraints are implicit to the ordered-list variable.
+
+        .. [#]
+            Permutations of indices :math:`(0, 1, 2, ...)` that order
+            ``distance_matrix`` represent itineraries that travel from
+            list-element :math:`i` to list-element :math:`i+1` for
+            :math:`i \in [0, N-1]`, where :math:`N` is the length of the list
+            (and the number of cities). Additionally, the problem requires a
+            return to the city of origin (first element of the list) from the
+            last city visited (the last element of the list).
     """
     distance_matrix = _require("distance_matrix", distance_matrix,
                                dtype=float, ndim=2, nonnegative=True, square=True)

@@ -22,6 +22,7 @@ const GEOIP_DB_URL =
   "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb";
 const GEOIP_DB_FILENAME = "GeoLite2-City.mmdb";
 const GEOIP_UPDATE_INTERVAL_MS = 30 * 86_400_000; // 30 days
+const DEFAULT_GEOIP_TIMEOUT_MS = 5_000;
 
 /** Country ISO code → BCP 47 locale (covers ~90% of proxy traffic). */
 export const COUNTRY_LOCALE_MAP: Record<string, string> = {
@@ -68,10 +69,18 @@ export async function resolveProxyGeo(
   const dbPath = await ensureGeoipDb();
   if (!dbPath) return { timezone: null, locale: null, exitIp: null };
 
+  const timeoutMs = getGeoipTimeoutMs();
+  const deadline = deadlineFromTimeout(timeoutMs);
+
   // Exit IP (through proxy) is most accurate — gateway DNS may differ from exit
-  let ip = await resolveExitIp(proxyUrl);
-  if (!ip) ip = await resolveProxyIp(proxyUrl);
-  if (!ip) return { timezone: null, locale: null, exitIp: null };
+  let ip = await resolveExitIp(proxyUrl, remainingMs(deadline));
+  if (!ip && !deadlineExpired(deadline)) ip = await resolveProxyIp(proxyUrl);
+  if (!ip || deadlineExpired(deadline)) {
+    if (deadlineExpired(deadline)) {
+      console.warn(`[cloakbrowser] GeoIP resolution timed out after ${timeoutMs}ms; continuing without GeoIP`);
+    }
+    return { timezone: null, locale: null, exitIp: null };
+  }
 
   try {
     const buf = fs.readFileSync(dbPath);
@@ -85,6 +94,30 @@ export async function resolveProxyGeo(
   } catch {
     return { timezone: null, locale: null, exitIp: ip };
   }
+}
+
+function getGeoipTimeoutMs(): number {
+  const raw = process.env.CLOAKBROWSER_GEOIP_TIMEOUT_SECONDS;
+  if (!raw) return DEFAULT_GEOIP_TIMEOUT_MS;
+  const timeoutSeconds = Number(raw);
+  if (!Number.isFinite(timeoutSeconds)) {
+    console.warn(`[cloakbrowser] Invalid CLOAKBROWSER_GEOIP_TIMEOUT_SECONDS=${raw}; using ${DEFAULT_GEOIP_TIMEOUT_MS / 1000}s`);
+    return DEFAULT_GEOIP_TIMEOUT_MS;
+  }
+  return Math.max(timeoutSeconds, 0) * 1000;
+}
+
+function deadlineFromTimeout(timeoutMs: number): number | null {
+  return timeoutMs > 0 ? performance.now() + timeoutMs : null;
+}
+
+function remainingMs(deadline: number | null): number | undefined {
+  if (deadline === null) return undefined;
+  return Math.max(deadline - performance.now(), 0);
+}
+
+function deadlineExpired(deadline: number | null): boolean {
+  return deadline !== null && performance.now() >= deadline;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,7 +161,8 @@ const IP_ECHO_URLS = [
   "https://ifconfig.me/ip",
 ];
 
-async function resolveExitIp(proxyUrl: string): Promise<string | null> {
+async function resolveExitIp(proxyUrl: string, timeoutMs?: number): Promise<string | null> {
+  const deadline = timeoutMs && timeoutMs > 0 ? performance.now() + timeoutMs : null;
   const isSocks = isSocksProxy(proxyUrl);
 
   // SOCKS5: tunnel through the SOCKS5 proxy via socks-proxy-agent
@@ -144,9 +178,11 @@ async function resolveExitIp(proxyUrl: string): Promise<string | null> {
     const agent = new SocksProxyAgent(proxyUrl);
 
     for (const echoUrl of IP_ECHO_URLS) {
+      const remaining = remainingMs(deadline);
+      if (remaining !== undefined && remaining <= 0) return null;
       try {
         const ip = await new Promise<string | null>((resolve) => {
-          const req = https.request(echoUrl, { agent, timeout: 10_000 }, (res) => {
+          const req = https.request(echoUrl, { agent, timeout: Math.min(10_000, remaining ?? 10_000) }, (res) => {
             let data = "";
             res.on("data", (chunk: Buffer) => (data += chunk.toString()));
             res.on("end", () => {
@@ -173,6 +209,8 @@ async function resolveExitIp(proxyUrl: string): Promise<string | null> {
     const proxyUrlObj = new URL(proxyUrl);
 
     for (const echoUrl of IP_ECHO_URLS) {
+      const remaining = remainingMs(deadline);
+      if (remaining !== undefined && remaining <= 0) return null;
       try {
         const ip = await new Promise<string | null>((resolve, reject) => {
           const targetUrl = new URL(echoUrl);
@@ -190,13 +228,14 @@ async function resolveExitIp(proxyUrl: string): Promise<string | null> {
                     ).toString("base64"),
                 }
               : {},
-            timeout: 10_000,
+            timeout: Math.min(10_000, remaining ?? 10_000),
           });
 
           connectReq.on("connect", (_res, socket) => {
+            const innerRemaining = remainingMs(deadline);
             const req = https.request(
               echoUrl,
-              { socket, timeout: 5_000 } as any,
+              { socket, timeout: Math.min(5_000, innerRemaining ?? 5_000) } as any,
               (res) => {
                 let data = "";
                 res.on("data", (chunk: Buffer) => (data += chunk.toString()));
@@ -207,6 +246,7 @@ async function resolveExitIp(proxyUrl: string): Promise<string | null> {
               }
             );
             req.on("error", () => resolve(null));
+            req.on("timeout", () => { req.destroy(); resolve(null); });
             req.end();
           });
 
@@ -261,7 +301,9 @@ async function downloadGeoipDb(dest: string): Promise<void> {
 
   const tmpPath = `${dest}.tmp.${Date.now()}`;
   try {
-    const response = await fetch(GEOIP_DB_URL, { redirect: "follow" });
+    const response = await fetch(GEOIP_DB_URL, {
+      redirect: "follow",
+    });
     if (!response.ok || !response.body) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -329,7 +371,8 @@ export async function maybeResolveGeoip(
 
   // When both tz/locale are explicit, still resolve exit IP for WebRTC
   if (options.timezone && options.locale) {
-    const exitIp = await resolveExitIp(proxyUrl) ?? undefined;
+    const timeoutMs = getGeoipTimeoutMs();
+    const exitIp = await resolveExitIp(proxyUrl, timeoutMs) ?? undefined;
     return { timezone: options.timezone, locale: options.locale, exitIp };
   }
 
@@ -363,7 +406,7 @@ export async function resolveWebrtcArgs(
   }
 
   try {
-    const ip = await resolveExitIp(proxyUrl);
+    const ip = await resolveExitIp(proxyUrl, getGeoipTimeoutMs());
     const result = [...args];
     if (ip) {
       result[idx] = `--fingerprint-webrtc-ip=${ip}`;

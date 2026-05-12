@@ -63573,11 +63573,6 @@ class FineFundamental(QuantConnect.Data.UniverseSelection.CoarseFundamental):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
         """Creates a new instance for the given time and security"""
         ...
@@ -63585,6 +63580,11 @@ class FineFundamental(QuantConnect.Data.UniverseSelection.CoarseFundamental):
     @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fundamental_instance_provider: QuantConnect.Data.Fundamental.FundamentalInstanceProvider) -> None:
         """Creates a new instance for the given time and security"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -70930,11 +70930,6 @@ class Fundamental(QuantConnect.Data.Fundamental.FineFundamental):
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
         """
         Creates a new instance
@@ -70942,6 +70937,11 @@ class Fundamental(QuantConnect.Data.Fundamental.FineFundamental):
         :param time: The current time
         :param symbol: The associated symbol
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -70987,11 +70987,6 @@ class FundamentalUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection
     """Lean fundamentals universe data class"""
 
     @overload
-    def __init__(self) -> None:
-        """Creates a new instance"""
-        ...
-
-    @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
         """
         Creates a new instance
@@ -70999,6 +70994,11 @@ class FundamentalUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection
         :param time: The current time
         :param symbol: The associated symbol
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:

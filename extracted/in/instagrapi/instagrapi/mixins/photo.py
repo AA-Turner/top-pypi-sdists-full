@@ -30,7 +30,8 @@ from instagrapi.types import (
     Track,
     Usertag,
 )
-from instagrapi.utils import date_time_original, dumps
+from instagrapi.utils.serialization import dumps
+from instagrapi.utils.timing import date_time_original
 
 try:
     from PIL import Image
@@ -694,7 +695,7 @@ class UploadPhotoMixin:
                     "height": mention.height,
                     "rotation": 0.0,
                     "type": "location",
-                    "location_id": str(mention.location.pk),
+                    "location_id": self.location_story_sticker_id(mention.location),
                     "is_sticker": True,
                     "tap_state": 0,
                     "tap_state_str_id": "location_sticker_vibrant",

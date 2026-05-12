@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import typing_extensions
 from typing import Dict, Iterable, Optional
 from typing_extensions import Literal
 
@@ -82,7 +81,8 @@ class LlmResource(SyncAPIResource):
         | Omit = omit,
         model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[Literal["gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]] | Omit = omit,
+        s2s_model: Optional[Literal["gpt-realtime-2", "gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]]
+        | Omit = omit,
         start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_create_params.State]] | Omit = omit,
@@ -277,7 +277,8 @@ class LlmResource(SyncAPIResource):
         | Omit = omit,
         model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[Literal["gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]] | Omit = omit,
+        s2s_model: Optional[Literal["gpt-realtime-2", "gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]]
+        | Omit = omit,
         start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_update_params.State]] | Omit = omit,
@@ -400,13 +401,12 @@ class LlmResource(SyncAPIResource):
             cast_to=LlmResponse,
         )
 
-    @typing_extensions.deprecated("deprecated")
     def list(
         self,
         *,
         limit: int | Omit = omit,
         pagination_key: str | Omit = omit,
-        pagination_key_version: int | Omit = omit,
+        sort_order: Literal["ascending", "descending"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -415,19 +415,14 @@ class LlmResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LlmListResponse:
         """
-        List all Retell LLM Response Engines that can be attached to an agent.
+        List Retell LLM Response Engines with pagination
 
         Args:
-          limit: A limit on the number of objects to be returned. Limit can range between 1 and
-              1000, and the default is 1000.
+          limit: Maximum number of items to return.
 
-          pagination_key: The pagination key to continue fetching the next page of LLMs. Pagination key is
-              represented by a llm id, pagination key and version pair is exclusive (not
-              included in the fetched page). If not set, will start from the beginning.
+          pagination_key: Pagination key for fetching the next page.
 
-          pagination_key_version: Specifies the version of the llm associated with the pagination_key. When
-              paginating, both the pagination_key and its version must be provided to ensure
-              consistent ordering and to fetch the next page correctly.
+          sort_order: Sort order for results.
 
           extra_headers: Send extra headers
 
@@ -438,7 +433,7 @@ class LlmResource(SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return self._get(
-            "/list-retell-llms",
+            "/v2/list-retell-llms",
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -448,7 +443,7 @@ class LlmResource(SyncAPIResource):
                     {
                         "limit": limit,
                         "pagination_key": pagination_key,
-                        "pagination_key_version": pagination_key_version,
+                        "sort_order": sort_order,
                     },
                     llm_list_params.LlmListParams,
                 ),
@@ -547,7 +542,8 @@ class AsyncLlmResource(AsyncAPIResource):
         | Omit = omit,
         model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[Literal["gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]] | Omit = omit,
+        s2s_model: Optional[Literal["gpt-realtime-2", "gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]]
+        | Omit = omit,
         start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_create_params.State]] | Omit = omit,
@@ -742,7 +738,8 @@ class AsyncLlmResource(AsyncAPIResource):
         | Omit = omit,
         model_high_priority: Optional[bool] | Omit = omit,
         model_temperature: float | Omit = omit,
-        s2s_model: Optional[Literal["gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]] | Omit = omit,
+        s2s_model: Optional[Literal["gpt-realtime-2", "gpt-realtime-1.5", "gpt-realtime", "gpt-realtime-mini"]]
+        | Omit = omit,
         start_speaker: Literal["user", "agent"] | Omit = omit,
         starting_state: Optional[str] | Omit = omit,
         states: Optional[Iterable[llm_update_params.State]] | Omit = omit,
@@ -865,13 +862,12 @@ class AsyncLlmResource(AsyncAPIResource):
             cast_to=LlmResponse,
         )
 
-    @typing_extensions.deprecated("deprecated")
     async def list(
         self,
         *,
         limit: int | Omit = omit,
         pagination_key: str | Omit = omit,
-        pagination_key_version: int | Omit = omit,
+        sort_order: Literal["ascending", "descending"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -880,19 +876,14 @@ class AsyncLlmResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> LlmListResponse:
         """
-        List all Retell LLM Response Engines that can be attached to an agent.
+        List Retell LLM Response Engines with pagination
 
         Args:
-          limit: A limit on the number of objects to be returned. Limit can range between 1 and
-              1000, and the default is 1000.
+          limit: Maximum number of items to return.
 
-          pagination_key: The pagination key to continue fetching the next page of LLMs. Pagination key is
-              represented by a llm id, pagination key and version pair is exclusive (not
-              included in the fetched page). If not set, will start from the beginning.
+          pagination_key: Pagination key for fetching the next page.
 
-          pagination_key_version: Specifies the version of the llm associated with the pagination_key. When
-              paginating, both the pagination_key and its version must be provided to ensure
-              consistent ordering and to fetch the next page correctly.
+          sort_order: Sort order for results.
 
           extra_headers: Send extra headers
 
@@ -903,7 +894,7 @@ class AsyncLlmResource(AsyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return await self._get(
-            "/list-retell-llms",
+            "/v2/list-retell-llms",
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -913,7 +904,7 @@ class AsyncLlmResource(AsyncAPIResource):
                     {
                         "limit": limit,
                         "pagination_key": pagination_key,
-                        "pagination_key_version": pagination_key_version,
+                        "sort_order": sort_order,
                     },
                     llm_list_params.LlmListParams,
                 ),
@@ -969,10 +960,8 @@ class LlmResourceWithRawResponse:
         self.update = to_raw_response_wrapper(
             llm.update,
         )
-        self.list = (  # pyright: ignore[reportDeprecated]
-            to_raw_response_wrapper(
-                llm.list,  # pyright: ignore[reportDeprecated],
-            )
+        self.list = to_raw_response_wrapper(
+            llm.list,
         )
         self.delete = to_raw_response_wrapper(
             llm.delete,
@@ -992,10 +981,8 @@ class AsyncLlmResourceWithRawResponse:
         self.update = async_to_raw_response_wrapper(
             llm.update,
         )
-        self.list = (  # pyright: ignore[reportDeprecated]
-            async_to_raw_response_wrapper(
-                llm.list,  # pyright: ignore[reportDeprecated],
-            )
+        self.list = async_to_raw_response_wrapper(
+            llm.list,
         )
         self.delete = async_to_raw_response_wrapper(
             llm.delete,
@@ -1015,10 +1002,8 @@ class LlmResourceWithStreamingResponse:
         self.update = to_streamed_response_wrapper(
             llm.update,
         )
-        self.list = (  # pyright: ignore[reportDeprecated]
-            to_streamed_response_wrapper(
-                llm.list,  # pyright: ignore[reportDeprecated],
-            )
+        self.list = to_streamed_response_wrapper(
+            llm.list,
         )
         self.delete = to_streamed_response_wrapper(
             llm.delete,
@@ -1038,10 +1023,8 @@ class AsyncLlmResourceWithStreamingResponse:
         self.update = async_to_streamed_response_wrapper(
             llm.update,
         )
-        self.list = (  # pyright: ignore[reportDeprecated]
-            async_to_streamed_response_wrapper(
-                llm.list,  # pyright: ignore[reportDeprecated],
-            )
+        self.list = async_to_streamed_response_wrapper(
+            llm.list,
         )
         self.delete = async_to_streamed_response_wrapper(
             llm.delete,

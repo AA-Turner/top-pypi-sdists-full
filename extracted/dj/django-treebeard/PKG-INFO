@@ -1,9 +1,12 @@
 Metadata-Version: 2.4
 Name: django-treebeard
-Version: 5.0.5
+Version: 5.1.0
 Summary: Efficient tree implementations for Django
 Author-email: Gustavo Picon <tabo@tabo.pe>
 License-Expression: Apache-2.0
+Project-URL: source, https://github.com/django-treebeard/django-treebeard
+Project-URL: documentation, http://django-treebeard.readthedocs.io/
+Project-URL: changelog, https://github.com/django-treebeard/django-treebeard/blob/master/CHANGES.md
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Environment :: Web Environment
@@ -22,6 +25,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+License-File: LICENSE-THIRD-PARTY
 License-File: AUTHORS
 Requires-Dist: django>=5.2
 Provides-Extra: test

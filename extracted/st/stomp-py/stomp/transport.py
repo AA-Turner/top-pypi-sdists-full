@@ -7,8 +7,10 @@ import math
 import random
 import sys
 import time
+import selectors
 from io import BytesIO
 from time import monotonic
+from collections import deque
 
 try:
     from socket import SOL_SOCKET, SO_KEEPALIVE, SOL_TCP, TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
@@ -36,7 +38,7 @@ except (ImportError, AttributeError):
 import stomp.exception as exception
 import stomp.listener
 from stomp.utils import *
-from stomp import logging
+from stomp import log
 
 
 class BaseTransport(stomp.listener.Publisher):
@@ -60,7 +62,9 @@ class BaseTransport(stomp.listener.Publisher):
         self.__recvbuf = b""
         self.listeners = {}
         self.running = False
-        self.blocking = None
+        self.blocking = True # Flips to False for TLS connections
+        self.send_queue = None
+        self.sel = None
         self.connected = False
         self.connection_error = False
         self.disconnecting = False
@@ -73,11 +77,11 @@ class BaseTransport(stomp.listener.Publisher):
 
         # function for creating threads used by the connection
         self.create_thread_fc = default_create_thread
-        self.receiver_thread = None
+        self.io_thread = None
 
         self.__listeners_change_condition = threading.Condition()
-        self.__receiver_thread_exit_condition = threading.Condition()
-        self.__receiver_thread_exited = False
+        self.__io_thread_exit_condition = threading.Condition()
+        self.__io_thread_exited = False
         self.__send_wait_condition = threading.Condition()
         self.__connect_wait_condition = threading.Condition()
         self.__auto_decode = auto_decode
@@ -87,7 +91,7 @@ class BaseTransport(stomp.listener.Publisher):
     def override_threading(self, create_thread_fc):
         """
         Override for thread creation. Use an alternate threading library by
-        setting this to a function with a single argument (which is the receiver loop callback).
+        setting this to a function with a single argument (which is the io loop callback).
         The thread which is returned should be started (ready to run)
 
         :param function create_thread_fc: single argument function for creating a thread
@@ -107,18 +111,18 @@ class BaseTransport(stomp.listener.Publisher):
         """
         self.running = True
         self.attempt_connection()
-        self.receiver_thread = self.create_thread_fc(self.__receiver_loop)
-        logging.debug("created thread %s using func %s", self.receiver_thread, self.create_thread_fc)
+        self.io_thread = self.create_thread_fc(self.__io_loop)
+        log.debug("created thread %s using func %s", self.io_thread, self.create_thread_fc)
         self.notify("connecting")
 
     def stop(self):
         """
         Stop the connection. Performs a clean shutdown by waiting for the
-        receiver thread to exit.
+        io thread to exit.
         """
-        with self.__receiver_thread_exit_condition:
-            while not self.__receiver_thread_exited and self.is_connected():
-                self.__receiver_thread_exit_condition.wait()
+        with self.__io_thread_exit_condition:
+            while not self.__io_thread_exited and self.is_connected():
+                self.__io_thread_exit_condition.wait()
 
     def is_connected(self):
         """
@@ -186,11 +190,11 @@ class BaseTransport(stomp.listener.Publisher):
         if frame_type in ["connected", "message", "receipt", "error", "heartbeat"]:
             if frame_type == "message":
                 self.notify("before_message", f)
-            if logging.isEnabledFor(logging.DEBUG):
-                logging.debug("received frame: %r, headers=%r, body=%r", f.cmd, f.headers, f.body)
+            if log.isEnabledFor(log.DEBUG):
+                log.debug("received frame: %r, headers=%r, body=%r", f.cmd, f.headers, f.body)
             self.notify(frame_type, f)
         else:
-            logging.warning("unknown response frame type: '%s' (frame length was %d)", frame_type, length(frame_str))
+            log.warning("unknown response frame type: '%s' (frame length was %d)", frame_type, length(frame_str))
 
     def notify(self, frame_type, frame=None):
         """
@@ -227,7 +231,7 @@ class BaseTransport(stomp.listener.Publisher):
         for (_, listener) in listeners:
             notify_func = getattr(listener, "on_%s" % frame_type, None)
             if not notify_func:
-                logging.debug("listener %s has no method on_%s", listener, frame_type)
+                log.debug("listener %s has no method on_%s", listener, frame_type)
                 continue
             if frame_type in ("heartbeat", "disconnected"):
                 notify_func()
@@ -264,9 +268,14 @@ class BaseTransport(stomp.listener.Publisher):
         lines = convert_frame(frame)
         packed_frame = pack(lines)
 
-        if logging.isEnabledFor(logging.DEBUG):
-            logging.debug("sending frame: %s", clean_lines(lines))
-        self.send(packed_frame)
+        if log.isEnabledFor(log.DEBUG):
+            log.debug("sending frame: %s", clean_lines(lines))
+
+        if not self.blocking:
+            # Let the io thread write to the socket
+            self.send_queue.put(packed_frame)
+        else:
+            self.send(packed_frame)
 
     def send(self, encoded_frame):
         """
@@ -318,28 +327,62 @@ class BaseTransport(stomp.listener.Publisher):
         if not self.running or not self.is_connected():
             raise exception.ConnectFailedException()
 
-    def __receiver_loop(self):
+    def __io_loop(self):
         """
-        Main loop listening for incoming data.
+        Main loop listening for incoming data. For non-blocking sockets the
+        loop is also responsible for writing to the socket.
         """
-        logging.debug("starting receiver loop (%s)", threading.current_thread())
+        log.debug("starting io loop (%s)", threading.current_thread())
         notify_disconnected = True
+        outgoing = deque()
         try:
             while self.running:
                 try:
                     while self.running:
-                        frames = self.__read()
-
-                        for frame in frames:
-                            if self.__is_eol(frame):
-                                f = HEARTBEAT_FRAME
-                            else:
-                                f = parse_frame(frame)
-                            if f is None:
-                                continue
-                            if self.__auto_decode:
-                                f.body = decode(f.body)
-                            self.process_frame(f, frame)
+                        # Always attempt to read, even for non-blocking
+                        # sockets. The TLS socket might have pending incoming
+                        # application data even if the underlying TCP socket
+                        # has no pending data.
+                        self.__read_frames()
+                        if not self.blocking:
+                            for key, mask in self.sel.select():
+                                if key.fileobj == self.socket:
+                                    if mask & selectors.EVENT_READ:
+                                        self.__read_frames()
+                                    if mask & selectors.EVENT_WRITE:
+                                        if outgoing:
+                                            # Send the first chunk
+                                            buf = outgoing[0]
+                                            try:
+                                                # Don't use sendall(), may end
+                                                # up in socket buffer deadlock
+                                                # scenario if the server is
+                                                # blocked because the client's
+                                                # receive buffer is full  
+                                                sent = self.socket.send(buf)
+                                            except ssl.SSLWantReadError:
+                                                continue
+                                            except ssl.SSLWantWriteError:
+                                                continue
+                                            if sent < len(buf):
+                                                # Only part of the chunk was sent
+                                                outgoing[0] = buf[sent:]
+                                            else:
+                                                # Whole chunk sent
+                                                outgoing.popleft()
+                                        if not outgoing:
+                                            # Nothing more to send, stop writing
+                                            self.sel.modify(self.socket, selectors.EVENT_READ)
+                                            # Start checking the send queue again
+                                            self.sel.modify(self.send_queue, selectors.EVENT_READ)
+                                elif key.fileobj == self.send_queue and mask & selectors.EVENT_READ:
+                                    encoded_frame = self.send_queue.get()
+                                    outgoing.append(encoded_frame)
+                                    # Now we have data to write to the socket
+                                    self.sel.modify(self.socket, selectors.EVENT_READ | selectors.EVENT_WRITE)
+                                    # Stop checking the send queue in order to
+                                    # not buffer too many messages
+                                    self.sel.modify(self.send_queue, 0)
                 except exception.ConnectionClosedException:
                     if self.running:
                         #
@@ -349,19 +392,39 @@ class BaseTransport(stomp.listener.Publisher):
                         self.running = False
                         notify_disconnected = True
                     break
+                except Exception:
+                    _, e, _ = sys.exc_info()
+                    log.warning(e)
                 finally:
                     self.cleanup()
+        except Exception:
+            _, e, _ = sys.exc_info()
+            log.warning(e)
         finally:
-            with self.__receiver_thread_exit_condition:
-                self.__receiver_thread_exited = True
-                self.__receiver_thread_exit_condition.notify_all()
-            logging.debug("receiver loop ended")
+            with self.__io_thread_exit_condition:
+                self.__io_thread_exited = True
+                self.__io_thread_exit_condition.notify_all()
+            log.debug("io loop ended")
             self.notify("receiver_loop_completed")
             if notify_disconnected and not self.notified_on_disconnect:
                 self.notify("disconnected")
             with self.__connect_wait_condition:
                 self.__connect_wait_condition.notify_all()
             self.notified_on_disconnect = False
+
+    def __read_frames(self):
+        frames = self.__read()
+
+        for frame in frames:
+            if self.__is_eol(frame):
+                f = HEARTBEAT_FRAME
+            else:
+                f = parse_frame(frame)
+            if f is None:
+                continue
+            if self.__auto_decode:
+                f.body = decode(f.body)
+            self.process_frame(f, frame)
 
     def __read(self):
         """
@@ -375,14 +438,22 @@ class BaseTransport(stomp.listener.Publisher):
             try:
                 try:
                     c = self.receive()
+                except ssl.SSLWantReadError:
+                    break
+                except ssl.SSLWantWriteError:
+                    break
                 except exception.InterruptedException:
-                    logging.debug("socket read interrupted, restarting")
+                    log.debug("socket read interrupted, restarting")
                     continue
             except Exception:
-                logging.debug("socket read error", exc_info=logging.verbose)
+                log.debug("socket read error", exc_info=log.verbose)
                 c = b""
             if c is None or len(c) == 0:
-                logging.debug("nothing received, raising ConnectionClosedException")
+                if not self.blocking:
+                    # recv() for TLS sockets can return None while the
+                    # connection is still open.
+                    break
+                log.debug("nothing received, raising ConnectionClosedException")
                 raise exception.ConnectionClosedException()
             if self.__is_eol(c) and not self.__recvbuf and not fastbuf.tell():
                 #
@@ -502,13 +573,13 @@ class Transport(BaseTransport):
                  vhost=None,
                  auto_decode=True,
                  encoding="utf-8",
-                 recv_bytes=1024,
+                 recv_bytes=16384,
                  is_eol_fc=is_eol_default,
                  bind_host_port=None):
         BaseTransport.__init__(self, auto_decode, encoding, is_eol_fc)
 
         if host_and_ports is None:
-            logging.debug("no hosts_and_ports specified, adding default localhost")
+            log.debug("no hosts_and_ports specified, adding default localhost")
             host_and_ports = [("localhost", 61613)]
 
         sorted_host_and_ports = []
@@ -577,7 +648,15 @@ class Transport(BaseTransport):
         """
         self.running = False
         if self.socket is not None:
+            if not self.blocking:
+                self.shutdown_queue()
             if self.__need_ssl():
+                # Do the SSL shutdown handshake in blocking mode
+                self.blocking = True
+                try:
+                    self.socket.setblocking(self.blocking)
+                except Exception:
+                    pass
                 #
                 # Even though we don't want to use the socket, unwrap is the only API method which does a proper SSL
                 # shutdown
@@ -589,7 +668,7 @@ class Transport(BaseTransport):
                     # unwrap seems flaky on Win with the back-ported ssl mod, so catch any exception and log it
                     #
                     _, e, _ = sys.exc_info()
-                    logging.warning(e)
+                    log.warning(e)
             elif hasattr(socket, "SHUT_RDWR"):
                 try:
                     self.socket.shutdown(socket.SHUT_RDWR)
@@ -597,7 +676,7 @@ class Transport(BaseTransport):
                     _, e, _ = sys.exc_info()
                     # ignore when socket already closed
                     if get_errno(e) != errno.ENOTCONN:
-                        logging.warning("unable to issue SHUT_RDWR on socket because of error '%s'", e)
+                        log.warning("unable to issue SHUT_RDWR on socket because of error '%s'", e)
 
         #
         # split this into a separate check, because sometimes the socket is nulled between shutdown and this call
@@ -607,7 +686,7 @@ class Transport(BaseTransport):
                 self.socket.close()
             except socket.error:
                 _, e, _ = sys.exc_info()
-                logging.warning("unable to close socket because of error '%s'", e)
+                log.warning("unable to close socket because of error '%s'", e)
         self.current_host_and_port = None
         self.socket = None
         if not self.notified_on_disconnect:
@@ -623,7 +702,7 @@ class Transport(BaseTransport):
                     self.socket.sendall(encoded_frame)
             except Exception:
                 _, e, _ = sys.exc_info()
-                logging.error("error sending frame", exc_info=True)
+                log.error("error sending frame", exc_info=True)
                 raise e
         else:
             raise exception.NotConnectedException()
@@ -637,7 +716,7 @@ class Transport(BaseTransport):
         except socket.error:
             _, e, _ = sys.exc_info()
             if get_errno(e) in (errno.EAGAIN, errno.EINTR):
-                logging.debug("socket read interrupted, restarting")
+                log.debug("socket read interrupted, restarting")
                 raise exception.InterruptedException()
             if self.is_connected():
                 raise
@@ -646,11 +725,21 @@ class Transport(BaseTransport):
         """
         Close the socket and clear the current host and port details.
         """
+        if not self.blocking:
+            self.shutdown_queue()
         try:
             self.socket.close()
         except:
             pass  # ignore errors when attempting to close socket
         self.socket = None
+
+    def shutdown_queue(self):
+        self.blocking = True
+        self.sel.unregister(self.socket)
+        self.sel.unregister(self.send_queue)
+        self.sel = None
+        self.send_queue.shutdown()
+        self.send_queue = None
 
     def __enable_keepalive(self):
         def try_setsockopt(sock, name, fam, opt, val=None):
@@ -658,9 +747,9 @@ class Transport(BaseTransport):
                 return True  # no value to set always works
             try:
                 sock.setsockopt(fam, opt, val)
-                logging.debug("keepalive: set %r option to %r on socket", name, val)
+                log.debug("keepalive: set %r option to %r on socket", name, val)
             except:
-                logging.error("keepalive: unable to set %r option to %r on socket", name, val)
+                log.error("keepalive: unable to set %r option to %r on socket", name, val)
                 return False
             return True
 
@@ -677,26 +766,26 @@ class Transport(BaseTransport):
                 ka_sig = ka[0]
                 ka_args = ka[1:]
             except Exception:
-                logging.error("keepalive: bad specification %r", ka)
+                log.error("keepalive: bad specification %r", ka)
                 return
 
         if ka_sig == "auto":
             if LINUX_KEEPALIVE_AVAIL:
                 ka_sig = "linux"
                 ka_args = None
-                logging.debug("keepalive: autodetected linux-style support")
+                log.debug("keepalive: autodetected linux-style support")
             elif MAC_KEEPALIVE_AVAIL:
                 ka_sig = "mac"
                 ka_args = None
-                logging.debug("keepalive: autodetected mac-style support")
+                log.debug("keepalive: autodetected mac-style support")
             else:
-                logging.error("keepalive: unable to detect any implementation, DISABLED!")
+                log.error("keepalive: unable to detect any implementation, DISABLED!")
                 return
 
         if ka_sig == "linux":
-            logging.debug("keepalive: activating linux-style support")
+            log.debug("keepalive: activating linux-style support")
             if ka_args is None:
-                logging.debug("keepalive: using system defaults")
+                log.debug("keepalive: using system defaults")
                 ka_args = (None, None, None)
             ka_idle, ka_intvl, ka_cnt = ka_args
             if try_setsockopt(self.socket, "enable", SOL_SOCKET, SO_KEEPALIVE, 1):
@@ -704,15 +793,15 @@ class Transport(BaseTransport):
                 try_setsockopt(self.socket, "interval", SOL_TCP, TCP_KEEPINTVL, ka_intvl)
                 try_setsockopt(self.socket, "count", SOL_TCP, TCP_KEEPCNT, ka_cnt)
         elif ka_sig == "mac":
-            logging.debug("keepalive: activating mac-style support")
+            log.debug("keepalive: activating mac-style support")
             if ka_args is None:
-                logging.debug("keepalive: using system defaults")
+                log.debug("keepalive: using system defaults")
                 ka_args = (3,)
             ka_intvl = ka_args
             if try_setsockopt(self.socket, "enable", SOL_SOCKET, SO_KEEPALIVE, 1):
                 try_setsockopt(self.socket, socket.IPPROTO_TCP, 0x10, ka_intvl)
         else:
-            logging.error("keepalive: implementation %r not recognized or not supported", ka_sig)
+            log.error("keepalive: implementation %r not recognized or not supported", ka_sig)
 
     def attempt_connection(self):
         """
@@ -722,12 +811,12 @@ class Transport(BaseTransport):
         sleep_exp = 1
         connect_count = 0
 
-        logging.debug("attempt reconnection (%s, %s, %s)", self.running, self.socket, connect_count)
+        log.debug("attempt reconnection (%s, %s, %s)", self.running, self.socket, connect_count)
         while self.running and self.socket is None and (connect_count < self.__reconnect_attempts_max or
                                                         self.__reconnect_attempts_max == -1):
             for host_and_port in self.__host_and_ports:
                 try:
-                    logging.debug("attempting connection to host %s, port %s", host_and_port[0], host_and_port[1])
+                    log.debug("attempting connection to host %s, port %s", host_and_port[0], host_and_port[1])
                     if self.__bind_host_port:
                         self.socket = socket.create_connection(host_and_port, self.__timeout, self.__bind_host_port)
                     else:
@@ -737,10 +826,13 @@ class Transport(BaseTransport):
 
                     if need_ssl:  # wrap socket
                         ssl_params = self.get_ssl(host_and_port)
-                        tls_context = ssl.SSLContext(DEFAULT_SSL_VERSION)
+                        tls_context = ssl.SSLContext(ssl_params["ssl_version"])
                         if ssl_params["ca_certs"]:
-                            cert_validation = ssl.CERT_REQUIRED
                             tls_context.load_verify_locations(ssl_params["ca_certs"])
+                        else:
+                            tls_context.load_default_certs()
+                        if ssl_params["verify"]:
+                            cert_validation = ssl.CERT_REQUIRED
                         else:
                             cert_validation = ssl.CERT_NONE
                         if tls_context:
@@ -755,11 +847,11 @@ class Transport(BaseTransport):
                             if cert_validation is None or cert_validation == ssl.CERT_NONE:
                                 tls_context.check_hostname = False
                             tls_context.verify_mode = cert_validation
-                            logging.debug("wrapping SSL socket")
+                            log.debug("wrapping SSL socket")
                             self.socket = tls_context.wrap_socket(self.socket, server_hostname=host_and_port[0])
                         else:
                             # Old-style wrap_socket where we don't have a modern SSLContext (so no SNI)
-                            logging.debug("wrapping SSL socket (old style)")
+                            log.debug("wrapping SSL socket (old style)")
                             self.socket = ssl.wrap_socket(
                                 self.socket,
                                 keyfile=ssl_params["key_file"],
@@ -767,11 +859,15 @@ class Transport(BaseTransport):
                                 cert_reqs=cert_validation,
                                 ca_certs=ssl_params["ca_certs"],
                                 ssl_version=ssl_params["ssl_version"])
+                        # Handshake is done. Switch to non-blocking mode.
+                        self.send_queue = PollableQueue()
+                        self.sel = selectors.DefaultSelector()
+                        self.sel.register(self.send_queue, selectors.EVENT_READ)
+                        self.sel.register(self.socket, selectors.EVENT_READ)
+                        self.blocking = False
 
                     self.socket.settimeout(self.__timeout)
-
-                    if self.blocking is not None:
-                        self.socket.setblocking(self.blocking)
+                    self.socket.setblocking(self.blocking)
 
                     #
                     # Validate server cert
@@ -783,19 +879,19 @@ class Transport(BaseTransport):
                             raise SSLError("Server certificate validation failed: %s", errmsg)
 
                     self.current_host_and_port = host_and_port
-                    logging.info("established connection to host %s, port %s", host_and_port[0], host_and_port[1])
+                    log.info("established connection to host %s, port %s", host_and_port[0], host_and_port[1])
                     break
 
                 except FileNotFoundError as err:
-                    logging.error("Could not find file %s", err.filename)
+                    log.error("Could not find file %s", err.filename)
                     self.socket = None
                     break
 
-                except (OSError, AssertionError):
+                except (OSError, AssertionError) as err:
                     self.socket = None
                     connect_count += 1
-                    logging.warning("could not connect to host %s, port %s", host_and_port[0], host_and_port[1],
-                                    exc_info=logging.verbose)
+                    log.warning("could not connect to host %s, port %s: %s", host_and_port[0], host_and_port[1],
+                                    err, exc_info=log.verbose)
 
             if self.socket is None:
                 sleep_duration = (min(self.__reconnect_sleep_max,
@@ -803,7 +899,7 @@ class Transport(BaseTransport):
                                        * math.pow(1.0 + self.__reconnect_sleep_increase, sleep_exp)))
                                   * (1.0 + random.random() * self.__reconnect_sleep_jitter))
                 sleep_end = monotonic() + sleep_duration
-                logging.debug("sleeping for %.1f seconds before attempting reconnect", sleep_duration)
+                log.debug("sleeping for %.1f seconds before attempting reconnect", sleep_duration)
                 while self.running and monotonic() < sleep_end:
                     time.sleep(0.2)
 
@@ -820,7 +916,8 @@ class Transport(BaseTransport):
                 ca_certs=None,
                 cert_validator=None,
                 ssl_version=DEFAULT_SSL_VERSION,
-                password=None):
+                password=None,
+                verify=True):
         """
         Sets up SSL configuration for the given hosts. This ensures socket is wrapped in a SSL connection, raising an
         exception if the SSL module can't be found.
@@ -848,6 +945,7 @@ class Transport(BaseTransport):
                                                 cert_file=cert_file,
                                                 ca_certs=ca_certs,
                                                 cert_validator=cert_validator,
+                                                verify=verify,
                                                 ssl_version=ssl_version,
                                                 password=password)
 

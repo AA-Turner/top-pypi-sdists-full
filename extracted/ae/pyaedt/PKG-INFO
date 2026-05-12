@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyaedt
-Version: 0.26.3
+Version: 0.27.0
 Summary: High-level Python API for Ansys Electronics Desktop Framework
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
@@ -28,59 +29,58 @@ Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ansys-tools-common
-Requires-Dist: grpcio<1.81,>=1.50.0
+Requires-Dist: grpcio>=1.50.0
 Requires-Dist: jsonschema
 Requires-Dist: psutil>=6.0.0
-Requires-Dist: pyedb==0.74.0
+Requires-Dist: pyedb>=0.75.0
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: tomli-w
 Requires-Dist: pyyaml
-Requires-Dist: defusedxml<8.0,>=0.7
-Requires-Dist: numpy<2.3,>=1.20.0
-Requires-Dist: pydantic<2.14,>=2.6.4
+Requires-Dist: defusedxml>=0.7
+Requires-Dist: numpy>=1.20.0
+Requires-Dist: pydantic>=2.6.4
 Provides-Extra: dotnet
 Requires-Dist: ansys-pythonnet>=3.1.0rc3; extra == "dotnet"
-Requires-Dist: cffi<2.1,>=1.16.0; platform_system == "Linux" and extra == "dotnet"
-Requires-Dist: dotnetcore2==3.1.23; platform_system == "Linux" and extra == "dotnet"
+Requires-Dist: cffi>=1.16.0; platform_system == "Linux" and extra == "dotnet"
 Requires-Dist: pywin32>=303; platform_system == "Windows" and extra == "dotnet"
 Provides-Extra: graphics
 Requires-Dist: ansys-tools-visualization-interface; extra == "graphics"
 Requires-Dist: pyvista[io]<0.48,>=0.38.0; extra == "graphics"
-Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "graphics"
+Requires-Dist: matplotlib>=3.5.0; extra == "graphics"
 Requires-Dist: vtk<9.7,>=9.0; extra == "graphics"
 Requires-Dist: fpdf2; extra == "graphics"
 Requires-Dist: pillow; extra == "graphics"
 Provides-Extra: jupyter
-Requires-Dist: jupyterlab<4.6,>=3.6.0; extra == "jupyter"
-Requires-Dist: ipython<9.1,>=7.30.0; extra == "jupyter"
+Requires-Dist: jupyterlab>=3.6.0; extra == "jupyter"
+Requires-Dist: ipython>=7.30.0; extra == "jupyter"
 Provides-Extra: all
-Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "all"
-Requires-Dist: openpyxl<3.3,>=3.1.0; extra == "all"
-Requires-Dist: osmnx<2.2,>=2.0.0; extra == "all"
-Requires-Dist: pandas<2.4,>=1.1.0; extra == "all"
+Requires-Dist: matplotlib>=3.5.0; extra == "all"
+Requires-Dist: openpyxl>=3.1.0; extra == "all"
+Requires-Dist: osmnx>=2.0.0; extra == "all"
+Requires-Dist: pandas>=1.1.0; extra == "all"
 Requires-Dist: pyvista[io]<0.48,>=0.38.0; extra == "all"
 Requires-Dist: fast-simplification>=0.1.7; extra == "all"
 Requires-Dist: ansys-tools-visualization-interface; extra == "all"
 Requires-Dist: tables; python_version >= "3.10" and extra == "all"
-Requires-Dist: scikit-rf<1.12,>=0.30.0; extra == "all"
+Requires-Dist: scikit-rf>=0.30.0; extra == "all"
 Requires-Dist: pyaedt[jupyter]; extra == "all"
 Requires-Dist: requests; extra == "all"
 Requires-Dist: typer>=0.20.0; extra == "all"
 Requires-Dist: fpdf2; extra == "all"
-Requires-Dist: rpyc<6.1,>=6.0.0; extra == "all"
+Requires-Dist: rpyc>=6.0.0; extra == "all"
 Provides-Extra: examples
-Requires-Dist: imageio<2.38,>=2.34.0; extra == "examples"
-Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "examples"
-Requires-Dist: openpyxl<3.3,>=3.1.0; extra == "examples"
-Requires-Dist: osmnx<2.2,>=2.0.0; extra == "examples"
-Requires-Dist: pandas<2.4,>=1.1.0; extra == "examples"
-Requires-Dist: pyvista[jupyter]<0.48,>=0.38.0; extra == "examples"
+Requires-Dist: imageio>=2.34.0; extra == "examples"
+Requires-Dist: matplotlib>=3.5.0; extra == "examples"
+Requires-Dist: openpyxl>=3.1.0; extra == "examples"
+Requires-Dist: osmnx>=2.0.0; extra == "examples"
+Requires-Dist: pandas>=1.1.0; extra == "examples"
+Requires-Dist: pyvista[jupyter]>=0.38.0; extra == "examples"
 Requires-Dist: fast-simplification>=0.1.7; extra == "examples"
-Requires-Dist: joblib<1.6,>=1.4.0; extra == "examples"
-Requires-Dist: plotly<6.8,>=6.0; extra == "examples"
-Requires-Dist: scikit-rf<1.12,>=0.30.0; extra == "examples"
+Requires-Dist: joblib>=1.4.0; extra == "examples"
+Requires-Dist: plotly>=6.0; extra == "examples"
+Requires-Dist: scikit-rf>=0.30.0; extra == "examples"
 Requires-Dist: fpdf2; extra == "examples"
-Requires-Dist: rpyc<6.1,>=6.0.0; extra == "examples"
+Requires-Dist: rpyc>=6.0.0; extra == "examples"
 Requires-Dist: tables; python_version >= "3.10" and extra == "examples"
 Dynamic: license-file
 
@@ -127,7 +127,7 @@ the API.
 
 ## Install on CPython from PyPI
 
-You can install PyAEDT on CPython 3.8 through 3.12 from PyPI with this command:
+You can install PyAEDT on CPython 3.10 through 3.14 from PyPI with this command:
 
 
 ```sh
@@ -176,6 +176,11 @@ PyAEDT has different compatibility requirements based on its version. Below is a
     - Compatible with Python 3.10 and versions up to Python 3.13.
   - AEDT Compatibility:
     - All tests were conducted using AEDT 2025 R1.
+- PyAEDT Version ≥ 0.27.0:
+  - Python Compatibility:
+    - Compatible with Python 3.10 and versions up to Python 3.14.
+  - AEDT Compatibility:
+    - All tests were conducted using AEDT 2026 R1.
 
 
 ## About PyAnsys

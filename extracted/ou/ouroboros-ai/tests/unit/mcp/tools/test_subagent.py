@@ -112,7 +112,15 @@ class TestBuildSubagentPayload:
             context={"key": "val"},
         )
         d = p.to_dict()
-        assert set(d.keys()) == {"tool_name", "title", "agent", "prompt", "model", "context"}
+        assert set(d.keys()) == {
+            "tool_name",
+            "title",
+            "agent",
+            "prompt",
+            "model",
+            "context",
+            "timeout",
+        }
         assert d["tool_name"] == "ouroboros_qa"
 
     def test_to_dict_omits_none_model(self) -> None:
@@ -125,6 +133,8 @@ class TestBuildSubagentPayload:
         d = p.to_dict()
         assert "model" in d
         assert d["model"] is None
+        assert "timeout" in d
+        assert d["timeout"] is None
 
     def test_prompt_cannot_be_empty(self) -> None:
         with pytest.raises(ValueError, match="prompt"):
@@ -242,6 +252,12 @@ class TestBuildRalphSubagent:
         assert "delegation_depth: 1" in payload.prompt
         assert "allow_nested_ouroboros_ralph: false" in payload.prompt
         assert "Do not call ouroboros_ralph" in payload.prompt
+        # Without per_iteration_timeout_seconds, the timeout block is omitted.
+        assert "Per-Iteration Timeout" not in payload.prompt
+        # Likewise the progress-stop block is omitted when no windows supplied.
+        assert "Progress Stop Conditions" not in payload.prompt
+        # Without max_total_seconds, the wall-clock budget block is omitted.
+        assert "Total Wall-Clock Budget" not in payload.prompt
         assert payload.context == {
             "lineage_id": "lin-ralph",
             "seed_content": "goal: ship",
@@ -253,6 +269,103 @@ class TestBuildRalphSubagent:
             "delegation_depth": 1,
             "allow_nested_ouroboros_ralph": False,
         }
+        assert "per_iteration_timeout_seconds" not in payload.context
+        assert "max_total_seconds" not in payload.context
+
+    def test_forwards_per_iteration_timeout_to_prompt_and_context(self) -> None:
+        payload = build_ralph_subagent(
+            lineage_id="lin-timeout",
+            seed_content="goal: ship",
+            max_generations=3,
+            per_iteration_timeout_seconds=900,
+        )
+
+        assert payload.context["per_iteration_timeout_seconds"] == 900
+        # Per-iteration alone never drives the bridge's session-kill timer:
+        # the bridge cannot reset per iteration, so without a max_total
+        # ceiling there is no honest whole-session budget to enforce.
+        assert payload.timeout is None
+        assert "per_iteration_timeout_seconds: 900" in payload.prompt
+        assert "stop_reason=iteration_timeout" in payload.prompt
+        assert "exceeds 900 seconds" in payload.prompt
+
+    def test_forwards_progress_windows_to_prompt_and_context(self) -> None:
+        """oscillation_window and grade_regression_window must reach the child.
+
+        Wiring lock for #788 review-1: validating the windows in
+        ``RalphLoopConfig`` while dropping them from the plugin dispatch
+        payload silently breaks the public ``stop_reason=oscillation_detected``
+        and ``stop_reason=grade_regressing`` contracts on the OpenCode plugin
+        path.
+        """
+        payload = build_ralph_subagent(
+            lineage_id="lin-progress",
+            seed_content="goal: ship",
+            max_generations=5,
+            oscillation_window=4,
+            grade_regression_window=3,
+        )
+
+        assert payload.context["oscillation_window"] == 4
+        assert payload.context["grade_regression_window"] == 3
+        assert "Progress Stop Conditions" in payload.prompt
+        assert "oscillation_window: 4" in payload.prompt
+        assert "grade_regression_window: 3" in payload.prompt
+        assert "stop_reason=oscillation_detected" in payload.prompt
+        assert "stop_reason=grade_regressing" in payload.prompt
+
+    def test_forwards_max_total_seconds_to_prompt_and_context(self) -> None:
+        payload = build_ralph_subagent(
+            lineage_id="lin-budget",
+            seed_content="goal: ship",
+            max_generations=3,
+            max_total_seconds=1500,
+        )
+
+        assert payload.context["max_total_seconds"] == 1500
+        # max_total_seconds is the only true whole-session ceiling, so it
+        # alone drives the bridge timer (#790 review-3).
+        assert payload.timeout == {
+            "timeout_ms": 1_500_000,
+            "stop_reason": "wall_clock_exhausted",
+            "source": "max_total_seconds",
+            "behavior": "session_ceiling_only",
+            "per_iteration_timeout_seconds": None,
+            "max_total_seconds": 1500.0,
+        }
+        assert "max_total_seconds: 1500" in payload.prompt
+        assert "stop_reason=wall_clock_exhausted" in payload.prompt
+        assert "1500 seconds" in payload.prompt
+
+    def test_ralph_timeout_metadata_uses_max_total_only(self) -> None:
+        """Per-iteration must NOT cap the bridge timer when both are set.
+
+        Regression guard for #790 review-3: a healthy multi-iteration plugin
+        run with ``per_iteration < max_total`` was being aborted at the
+        per-iteration boundary because the bridge timer was set to the min of
+        the two. The bridge can only enforce a single session-wide ceiling,
+        so ``max_total_seconds`` must drive the timer alone; per_iteration
+        survives only as advisory metadata for in-child enforcement.
+        """
+        payload = build_ralph_subagent(
+            lineage_id="lin-multi-iter",
+            seed_content="goal: ship",
+            max_generations=6,
+            per_iteration_timeout_seconds=300,
+            max_total_seconds=1800,
+        )
+
+        assert payload.timeout == {
+            "timeout_ms": 1_800_000,
+            "stop_reason": "wall_clock_exhausted",
+            "source": "max_total_seconds",
+            "behavior": "session_ceiling_only",
+            "per_iteration_timeout_seconds": 300.0,
+            "max_total_seconds": 1800.0,
+        }
+        result = build_subagent_result(payload)
+        parsed = json.loads(result.value.content[0].text)
+        assert parsed["_subagent"]["timeout"] == payload.timeout
 
     def test_serializes_seed_content_as_json_data(self) -> None:
         payload = build_ralph_subagent(

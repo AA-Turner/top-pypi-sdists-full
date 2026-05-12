@@ -1,8 +1,8 @@
 """Query-less, token-budgeted, signature-level repo overview.
 
-Equivalent in role to RepoMapper's ``repo_map`` — for cold-start orientation when
-no query exists yet. Reuses the existing PageRank index scores; emits signatures
-only (no bodies) and greedy-packs by file rank under the token budget.
+For cold-start orientation when no query exists yet. Reuses the existing
+PageRank index scores; emits signatures only (no bodies) and greedy-packs
+by file rank under the token budget.
 """
 
 import time
@@ -10,7 +10,7 @@ from fnmatch import fnmatch
 from typing import Optional
 
 from ..storage import IndexStore, record_savings, estimate_savings, cost_avoided
-from ._utils import resolve_repo
+from ._utils import index_status_to_tool_error, resolve_repo
 from .get_context_bundle import _count_tokens
 from .pagerank import compute_pagerank, compute_in_out_degrees
 
@@ -73,7 +73,7 @@ def get_repo_map(
     store = IndexStore(base_path=storage_path)
     index = store.load_index(owner, name)
     if not index:
-        return {"error": f"Repository not indexed: {owner}/{name}"}
+        return index_status_to_tool_error(store.inspect_index(owner, name))
 
     # Apply scope filter to the file list used for graph computation
     source_files = index.source_files

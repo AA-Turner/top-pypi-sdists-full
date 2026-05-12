@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
 
 import yaml
@@ -382,8 +382,17 @@ def resolve_required_reid_half(cfg: dict[str, Any]) -> bool | None:
     return bool(reid_cfg["half"])
 
 
+def resolve_required_reid_preprocess(cfg: dict[str, Any]) -> str | None:
+    """Return the ReID preprocess method configured for the active dataset/model bundle."""
+    reid_cfg = get_benchmark_reid_cfg(cfg)
+    preprocess = reid_cfg.get("preprocess")
+    if preprocess is None:
+        return None
+    return str(preprocess).strip() or None
+
+
 def apply_reid_runtime_defaults(args: Any, cfg: dict[str, Any], use_config: bool = True) -> None:
-    """Populate ``args.reid_device`` and ``args.reid_half`` from config when CLI did not override them."""
+    """Populate ``args.reid_device``, ``args.reid_half``, and ``args.reid_preprocess`` from config when CLI did not override them."""
     fallback_device = getattr(args, "device", "")
     fallback_half = bool(getattr(args, "half", False))
 
@@ -401,6 +410,15 @@ def apply_reid_runtime_defaults(args: Any, cfg: dict[str, Any], use_config: bool
 
     args.reid_device = reid_device
     args.reid_half = reid_half
+
+    if not getattr(args, "reid_preprocess", None):
+        from boxmot.reid.core.preprocessing import DEFAULT_PREPROCESS
+        reid_preprocess = DEFAULT_PREPROCESS
+        if use_config:
+            configured_preprocess = resolve_required_reid_preprocess(cfg)
+            if configured_preprocess is not None:
+                reid_preprocess = configured_preprocess
+        args.reid_preprocess = reid_preprocess
 
 
 def ensure_benchmark_detector_model(cfg: dict[str, Any], overwrite: bool = False) -> Path | None:
@@ -542,7 +560,12 @@ def _resolve_active_split_path(cfg: dict[str, Any]) -> str:
     return str(split_path)
 
 
-def _apply_benchmark_config_ref(args: Any, benchmark_ref: str | Path | None, overwrite: bool = False) -> dict[str, Any] | None:
+def _apply_benchmark_config_ref(
+    args: Any,
+    benchmark_ref: str | Path | None,
+    overwrite: bool = False,
+    status_fn: Callable[[str], None] | None = None,
+) -> dict[str, Any] | None:
     """Apply a benchmark YAML referenced by ``benchmark_ref`` to the current args namespace."""
     if not benchmark_ref:
         return None
@@ -568,6 +591,7 @@ def _apply_benchmark_config_ref(args: Any, benchmark_ref: str | Path | None, ove
         dataset_dest=benchmark_dest,
         overwrite=overwrite,
         runs_check_path=runs_check_path,
+        status_fn=status_fn,
     )
 
     args.benchmark_id = cfg.get("id", benchmark_name)
@@ -623,7 +647,11 @@ def find_dataset_cfg_for_source(source: str | Path | None) -> dict[str, Any] | N
     return best_match
 
 
-def ensure_dataset_source_available(args: Any, overwrite: bool = False) -> dict[str, Any] | None:
+def ensure_dataset_source_available(
+    args: Any,
+    overwrite: bool = False,
+    status_fn: Callable[[str], None] | None = None,
+) -> dict[str, Any] | None:
     """Download a configured dataset when ``args.source`` targets a missing dataset path."""
     source = getattr(args, "source", None)
     if not source:
@@ -648,6 +676,7 @@ def ensure_dataset_source_available(args: Any, overwrite: bool = False) -> dict[
         dataset_dest=dataset_dest,
         overwrite=overwrite,
         runs_check_path=None,
+        status_fn=status_fn,
     )
 
     args.dataset_id = cfg.get("id", dataset_name)
@@ -658,9 +687,18 @@ def ensure_dataset_source_available(args: Any, overwrite: bool = False) -> dict[
     return cfg
 
 
-def apply_benchmark_config(args: Any, overwrite: bool = False) -> dict[str, Any] | None:
+def apply_benchmark_config(
+    args: Any,
+    overwrite: bool = False,
+    status_fn: Callable[[str], None] | None = None,
+) -> dict[str, Any] | None:
     """Apply a benchmark YAML referenced via ``args.data`` to the current args namespace."""
-    return _apply_benchmark_config_ref(args, getattr(args, "data", None), overwrite=overwrite)
+    return _apply_benchmark_config_ref(
+        args,
+        getattr(args, "data", None),
+        overwrite=overwrite,
+        status_fn=status_fn,
+    )
 
 
 __all__ = [

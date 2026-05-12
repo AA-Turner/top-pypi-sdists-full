@@ -82,3 +82,5 @@ class range(Sequence[int]):
 def isinstance(x: object, t: Union[type, Tuple]) -> bool: pass
 
 class BaseException: pass
+
+class slice: pass

@@ -25,6 +25,7 @@ class SystemMouseCursor(MouseCursor):
     __slots__ = ("_cursor",)
 
     def __init__(self, cursor: str = PygletWindow.CURSOR_DEFAULT):
+        # Attributs publiques
         self._cursor: str = cursor
 
     def to_pyglet(self, window: PygletWindow) -> pyglet.window.MouseCursor:
@@ -54,10 +55,21 @@ class ImageMouseCursor(MouseCursor):
         anchor_y: Real = 0.0,
         acceleration: bool = False,
     ):
-        self._image: Image = expect(image, Image)
-        self._anchor_x: float = float(clamped(expect(anchor_x, Real)))
-        self._anchor_y: float = float(clamped(expect(anchor_y, Real)))
-        self._acceleration: bool = expect(acceleration, bool)
+        # Transtypage et vérifications
+        anchor_x: float = float(anchor_x)
+        anchor_y: float = float(anchor_y)
+        acceleration: bool = bool(acceleration)
+
+        if __debug__:
+            expect(image, Image)
+            clamped(anchor_x)
+            clamped(anchor_y)
+
+        # Attributs publiques
+        self._image: Image = image
+        self._anchor_x: float = anchor_x
+        self._anchor_y: float = anchor_y
+        self._acceleration: bool = acceleration
 
     def to_pyglet(self, window: PygletWindow) -> pyglet.window.ImageMouseCursor:
         """Renvoie le curseur pyglet
@@ -72,14 +84,18 @@ class ImageMouseCursor(MouseCursor):
 
 # ======================================== STR ========================================
 _NAMES: dict[MouseManager.Button] = {
-    _mouse.LEFT:   "Left Click",
-    _mouse.RIGHT:  "Right Click",
+    _mouse.LEFT: "Left Click",
+    _mouse.RIGHT: "Right Click",
     _mouse.MIDDLE: "Middle Click",
 }
 
 # ======================================== MANAGER ========================================
 class MouseManager(Manager):
-    """Gestionnaire de la souris"""
+    """Gestionnaire de la souris
+    
+    Args:
+        context_manager: ``Manager`` gérant le context d'initialisation
+    """
     __slots__ = (
         "_mouse_x", "_mouse_y", "_mouse_out", "_world_position",
         "_mouse_dx", "_mouse_dy",
@@ -88,11 +104,10 @@ class MouseManager(Manager):
         "_step", "_pressed", "_released_this_frame",
     )
 
-    _ID: str = "mouse"
+    _ID: ClassVar[str] = "mouse"
 
     # Alias
     Button: TypeAlias = int
-    MouseCursor: TypeAlias = MouseCursor
     SystemCursor: TypeAlias = str | None
 
     # Boutons
@@ -101,29 +116,30 @@ class MouseManager(Manager):
     B_RIGHT = _mouse.RIGHT
 
     # Curseurs de souris
-    SystemMouseCursor: ClassVar[Type[SystemCursor]] = SystemMouseCursor
-    ImageMouseCursor: ClassVar[Type[ImageMouseCursor]] = ImageMouseCursor
+    MouseCursor: Type[MouseCursor] = MouseCursor
+    SystemMouseCursor: Type[SystemCursor] = SystemMouseCursor
+    ImageMouseCursor: Type[ImageMouseCursor] = ImageMouseCursor
 
     # Flags des curseurs système
-    CURSOR_DEFAULT = PygletWindow.CURSOR_DEFAULT
-    CURSOR_CROSSHAIR = PygletWindow.CURSOR_CROSSHAIR
-    CURSOR_HAND = PygletWindow.CURSOR_HAND
-    CURSOR_HELP = PygletWindow.CURSOR_HELP
-    CURSOR_NO = PygletWindow.CURSOR_NO
-    CURSOR_SIZE = PygletWindow.CURSOR_SIZE
-    CURSOR_SIZE_UP = PygletWindow.CURSOR_SIZE_UP
-    CURSOR_SIZE_UP_RIGHT = PygletWindow.CURSOR_SIZE_UP_RIGHT
-    CURSOR_SIZE_RIGHT = PygletWindow.CURSOR_SIZE_RIGHT
-    CURSOR_SIZE_DOWN_RIGHT = PygletWindow.CURSOR_SIZE_DOWN_RIGHT
-    CURSOR_SIZE_DOWN = PygletWindow.CURSOR_SIZE_DOWN
-    CURSOR_SIZE_DOWN_LEFT = PygletWindow.CURSOR_SIZE_DOWN_LEFT
-    CURSOR_SIZE_LEFT = PygletWindow.CURSOR_SIZE_LEFT
-    CURSOR_SIZE_UP_LEFT = PygletWindow.CURSOR_SIZE_UP_LEFT
-    CURSOR_SIZE_UP_DOWN = PygletWindow.CURSOR_SIZE_UP_DOWN
-    CURSOR_SIZE_LEFT_RIGHT = PygletWindow.CURSOR_SIZE_LEFT_RIGHT
-    CURSOR_TEXT = PygletWindow.CURSOR_TEXT
-    CURSOR_WAIT = PygletWindow.CURSOR_WAIT
-    CURSOR_WAIT_ARROW = PygletWindow.CURSOR_WAIT_ARROW
+    CURSOR_DEFAULT: ClassVar[None] = PygletWindow.CURSOR_DEFAULT
+    CURSOR_CROSSHAIR: ClassVar[str] = PygletWindow.CURSOR_CROSSHAIR
+    CURSOR_HAND: ClassVar[str] = PygletWindow.CURSOR_HAND
+    CURSOR_HELP: ClassVar[str] = PygletWindow.CURSOR_HELP
+    CURSOR_NO: ClassVar[str] = PygletWindow.CURSOR_NO
+    CURSOR_SIZE: ClassVar[str] = PygletWindow.CURSOR_SIZE
+    CURSOR_SIZE_UP: ClassVar[str] = PygletWindow.CURSOR_SIZE_UP
+    CURSOR_SIZE_UP_RIGHT: ClassVar[str] = PygletWindow.CURSOR_SIZE_UP_RIGHT
+    CURSOR_SIZE_RIGHT: ClassVar[str] = PygletWindow.CURSOR_SIZE_RIGHT
+    CURSOR_SIZE_DOWN_RIGHT: ClassVar[str] = PygletWindow.CURSOR_SIZE_DOWN_RIGHT
+    CURSOR_SIZE_DOWN: ClassVar[str] = PygletWindow.CURSOR_SIZE_DOWN
+    CURSOR_SIZE_DOWN_LEFT: ClassVar[str] = PygletWindow.CURSOR_SIZE_DOWN_LEFT
+    CURSOR_SIZE_LEFT: ClassVar[str] = PygletWindow.CURSOR_SIZE_LEFT
+    CURSOR_SIZE_UP_LEFT: ClassVar[str] = PygletWindow.CURSOR_SIZE_UP_LEFT
+    CURSOR_SIZE_UP_DOWN: ClassVar[str] = PygletWindow.CURSOR_SIZE_UP_DOWN
+    CURSOR_SIZE_LEFT_RIGHT: ClassVar[str] = PygletWindow.CURSOR_SIZE_LEFT_RIGHT
+    CURSOR_TEXT: ClassVar[str] = PygletWindow.CURSOR_TEXT
+    CURSOR_WAIT: ClassVar[str] = PygletWindow.CURSOR_WAIT
+    CURSOR_WAIT_ARROW: ClassVar[str] = PygletWindow.CURSOR_WAIT_ARROW
 
     def __init__(self, context_manager: ContextManager):
         # Initialisation du gestionnaire

@@ -1,9 +1,9 @@
 [build-system]
 requires = [
-    # Same as dependency-groups.build
+    # Same as dependency-groups.build, last refreshed April 2026
     "cython~=3.2.0",
-    "meson~=1.9.0",
-    "meson-python~=0.18.0",
+    "meson~=1.11.0",
+    "meson-python~=0.19.0",
     "ninja~=1.13.0",
 ]
 build-backend = 'mesonpy'
@@ -15,9 +15,9 @@ authors = [
     {name = "D-Wave Inc.", email = "tools@dwavesys.com"},
 ]
 description = "Enables the formulation of nonlinear models for industrial optimization problems."
-license = {file = "LICENSE"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 classifiers = [
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX",
     "Operating System :: Unix",
@@ -54,14 +54,14 @@ Documentation = "https://docs.dwavequantum.com"
 
 [dependency-groups]
 blas = [
-    # Optional build requirement
-    "scipy_openblas64==0.3.30.0.8",
+    # Optional build requirement, last refreshed April 2026
+    "scipy_openblas64==0.3.31.188.0",
 ]
 build = [
-    # Same as build-system.requires
+    # Same as build-system.requires, last refreshed April 2026
     "cython~=3.2.0",
-    "meson~=1.9.0",
-    "meson-python~=0.18.0",
+    "meson~=1.11.0",
+    "meson-python~=0.19.0",
     "ninja~=1.13.0",
 ]
 blas-build = [
@@ -71,12 +71,16 @@ blas-build = [
 changelog = [
     "reno==4.1.0",
 ]
+clang-format = [
+    "clang-format~=22.0",  # latest as of April 2026, we require >=22
+]
 dev = [
     # Install requirements
     "numpy==2.2.6; python_version < '3.11'",  # last that supports 3.10
     "numpy==2.3.3; python_version >= '3.11'",
     {include-group = "build"},
     {include-group = "changelog"},
+    {include-group = "clang-format"},
 ]
 docs = [
     # Matches dwave-ocean-sdk as of Dec 2025

@@ -1,4 +1,45 @@
-"""Cross-token ``<thinking>`` stripping for streaming LLM output (no Rich dependency)."""
+"""Cross-token ``<thinking>`` stripping for streaming LLM output (no Rich dependency).
+
+Two tag styles are recognized:
+  - ``<thinking>...</thinking>`` (claude / sage convention)
+  - ``<think>...</think>`` (qwen3 / deepseek-r1 / many local reasoning models)
+
+`strip_thinking_blocks` is the non-streaming helper used by behavioral
+validators. Validators must NEVER see thinking traces — those traces look
+like the model "described tools without executing" because the model is
+narrating its plan inside the thinking block. Stripping the blocks first
+preserves the model's actual response for validation.
+"""
+
+import re as _re
+
+
+_THINK_BLOCK_RE = _re.compile(
+    r"<(thinking|think)>.*?</\1>",
+    _re.DOTALL | _re.IGNORECASE,
+)
+_UNCLOSED_THINK_RE = _re.compile(
+    r"<(thinking|think)>.*?(?=$|<(?!thinking|think))",
+    _re.DOTALL | _re.IGNORECASE,
+)
+
+
+def strip_thinking_blocks(text: str) -> str:
+    """Remove ``<thinking>``/``<think>`` blocks from a complete response.
+
+    Handles:
+      - Closed blocks: ``<think>...</think>``
+      - Unclosed trailing blocks (model ran out of tokens mid-think)
+      - Mixed casing (``<Think>``, ``</THINKING>``, etc.)
+    """
+    if not text:
+        return text
+    cleaned = _THINK_BLOCK_RE.sub("", text)
+    # If the model never closed its thinking tag (often truncated output),
+    # everything between the open tag and end-of-string is also reasoning.
+    cleaned = _re.sub(r"<(thinking|think)>.*\Z", "", cleaned,
+                      flags=_re.DOTALL | _re.IGNORECASE)
+    return cleaned.strip()
 
 
 def _emit_safe_before_incomplete_open(pending: str, open_tag: str) -> tuple[str, str]:

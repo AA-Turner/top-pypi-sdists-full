@@ -432,22 +432,6 @@ class Option(QuantConnect.Securities.Security, QuantConnect.Securities.IDerivati
         ...
 
     @overload
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, config: QuantConnect.Data.SubscriptionDataConfig, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.Option.OptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, price_model_provider: QuantConnect.Securities.Option.IOptionPriceModelProvider = None) -> None:
-        """
-        Constructor for the option security
-        
-        :param exchange_hours: Defines the hours this exchange is open
-        :param quote_currency: The cash object that represent the quote currency
-        :param config: The subscription configuration for this security
-        :param symbol_properties: The symbol properties for this security
-        :param currency_converter: Currency converter used to convert CashAmount
-        instances into units of the account currency
-        :param registered_types: Provides all data types registered in the algorithm
-        :param price_model_provider: The option price model provider
-        """
-        ...
-
-    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.Option.OptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache, underlying: QuantConnect.Securities.Security, price_model_provider: QuantConnect.Securities.Option.IOptionPriceModelProvider = None) -> None:
         """
         Constructor for the option security
@@ -472,6 +456,22 @@ class Option(QuantConnect.Securities.Security, QuantConnect.Securities.IDerivati
         
         
         This codeEntityType is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, config: QuantConnect.Data.SubscriptionDataConfig, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.Option.OptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, price_model_provider: QuantConnect.Securities.Option.IOptionPriceModelProvider = None) -> None:
+        """
+        Constructor for the option security
+        
+        :param exchange_hours: Defines the hours this exchange is open
+        :param quote_currency: The cash object that represent the quote currency
+        :param config: The subscription configuration for this security
+        :param symbol_properties: The symbol properties for this security
+        :param currency_converter: Currency converter used to convert CashAmount
+        instances into units of the account currency
+        :param registered_types: Provides all data types registered in the algorithm
+        :param price_model_provider: The option price model provider
         """
         ...
 

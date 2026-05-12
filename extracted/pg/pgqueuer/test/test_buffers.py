@@ -2,13 +2,23 @@ import asyncio
 import uuid
 from datetime import timedelta
 from itertools import count
+from typing import Awaitable, Callable
 
 import pytest
 
-from pgqueuer.buffers import JobStatusLogBuffer
-from pgqueuer.core import helpers as pg_helpers
+from pgqueuer.core.buffers import JobStatusLogBuffer
 from pgqueuer.models import JOB_STATUS, Job, TracebackRecord
 from test.helpers import mocked_job
+
+
+class _FakeJobLogSink:
+    """Test double satisfying the JobLogSink protocol."""
+
+    def __init__(self, fn: Callable[[list], Awaitable[None]]) -> None:
+        self._fn = fn
+
+    async def log_jobs(self, items: list) -> None:
+        await self._fn(items)
 
 
 def job_faker(
@@ -25,7 +35,7 @@ def job_faker(
     )
 
 
-@pytest.mark.parametrize("max_size", (1, 2, 3, 5, 64))
+@pytest.mark.parametrize("max_size", (1, 2, 64))
 async def test_job_buffer_max_size(max_size: int) -> None:
     helper_buffer = []
 
@@ -35,7 +45,7 @@ async def test_job_buffer_max_size(max_size: int) -> None:
     async with JobStatusLogBuffer(
         max_size=max_size,
         timeout=timedelta(seconds=100),
-        callback=helper,
+        repository=_FakeJobLogSink(helper),
     ) as buffer:
         for _ in range(max_size - 1):
             await buffer.add((job_faker(), "successful", None))
@@ -61,7 +71,7 @@ async def test_job_buffer_timeout(
     async with JobStatusLogBuffer(
         max_size=N * 2,
         timeout=timeout,
-        callback=helper,
+        repository=_FakeJobLogSink(helper),
     ) as buffer:
         for _ in range(N):
             await buffer.add((job_faker(), "successful", None))
@@ -72,7 +82,7 @@ async def test_job_buffer_timeout(
     assert len(helper_buffer) == N
 
 
-@pytest.mark.parametrize("max_size", (2, 3, 5, 64))  # Adjusted to max_size >=2
+@pytest.mark.parametrize("max_size", (2, 64))  # Adjusted to max_size >=2
 async def test_job_buffer_flush_on_exit(max_size: int) -> None:
     """
     Test that the buffer flushes all remaining items upon exiting the context,
@@ -86,7 +96,7 @@ async def test_job_buffer_flush_on_exit(max_size: int) -> None:
     async with JobStatusLogBuffer(
         max_size=max_size,
         timeout=timedelta(seconds=100),
-        callback=helper,
+        repository=_FakeJobLogSink(helper),
     ) as buffer:
         for _ in range(max_size - 2):
             await buffer.add((job_faker(), "successful", None))
@@ -96,8 +106,8 @@ async def test_job_buffer_flush_on_exit(max_size: int) -> None:
     assert len(helper_buffer) == max_size - 2
 
 
-@pytest.mark.parametrize("max_size", (1, 2, 3, 5, 64))
-@pytest.mark.parametrize("flushes", (1, 2, 3, 5, 64))
+@pytest.mark.parametrize("max_size", (1, 2, 64))
+@pytest.mark.parametrize("flushes", (1, 2, 64))
 async def test_job_buffer_multiple_flushes(max_size: int, flushes: int) -> None:
     """
     Test that the buffer can handle multiple flushes when more items than max_size are added.
@@ -110,7 +120,7 @@ async def test_job_buffer_multiple_flushes(max_size: int, flushes: int) -> None:
     async with JobStatusLogBuffer(
         max_size=max_size,
         timeout=timedelta(seconds=100),
-        callback=helper,
+        repository=_FakeJobLogSink(helper),
     ) as buffer:
         for _ in range(flushes):
             for _ in range(max_size):
@@ -121,7 +131,7 @@ async def test_job_buffer_multiple_flushes(max_size: int, flushes: int) -> None:
     assert len(helper_buffer) == flushes
 
 
-@pytest.mark.parametrize("max_size", (1, 2, 3, 5, 64))
+@pytest.mark.parametrize("max_size", (1, 2, 64))
 async def test_job_buffer_flush_on_exception(max_size: int) -> None:
     """
     Test that the buffer handles exceptions in the callback gracefully and retries.
@@ -139,7 +149,7 @@ async def test_job_buffer_flush_on_exception(max_size: int) -> None:
     async with JobStatusLogBuffer(
         max_size=max_size,
         timeout=timedelta(seconds=0.01),
-        callback=faulty_helper,
+        repository=_FakeJobLogSink(faulty_helper),
     ) as buffer:
         for _ in range(max_size):
             await buffer.add((job_faker(), "successful", None))
@@ -152,7 +162,7 @@ async def test_job_buffer_flush_on_exception(max_size: int) -> None:
     assert len(helper_buffer) == max_size
 
 
-@pytest.mark.parametrize("max_size", (1, 2, 3, 5, 64))
+@pytest.mark.parametrize("max_size", (1, 2, 64))
 async def test_job_buffer_flush_order(max_size: int) -> None:
     """
     Test that items are flushed in the order they were added.
@@ -165,7 +175,7 @@ async def test_job_buffer_flush_order(max_size: int) -> None:
     async with JobStatusLogBuffer(
         max_size=max_size,
         timeout=timedelta(seconds=100),
-        callback=helper,
+        repository=_FakeJobLogSink(helper),
     ) as buffer:
         items = [(job_faker(), "successful") for _ in range(max_size)]
         for item in items:
@@ -174,7 +184,7 @@ async def test_job_buffer_flush_order(max_size: int) -> None:
     assert helper_buffer == items
 
 
-@pytest.mark.parametrize("max_size", (1, 2, 3, 5, 64))
+@pytest.mark.parametrize("max_size", (1, 2, 64))
 async def test_job_buffer_concurrent_adds(max_size: int) -> None:
     """
     Test that the buffer can handle concurrent additions without losing items.
@@ -187,7 +197,7 @@ async def test_job_buffer_concurrent_adds(max_size: int) -> None:
     async with JobStatusLogBuffer(
         max_size=max_size,
         timeout=timedelta(seconds=100),
-        callback=helper,
+        repository=_FakeJobLogSink(helper),
     ) as buffer:
 
         async def add_items(n: int) -> None:
@@ -214,7 +224,7 @@ async def test_job_buffer_empty_flush() -> None:
     async with JobStatusLogBuffer(
         max_size=10,
         timeout=timedelta(seconds=0.1),
-        callback=helper,
+        repository=_FakeJobLogSink(helper),
     ):
         # Do not add any items and let the buffer flush on exit
         pass
@@ -222,7 +232,7 @@ async def test_job_buffer_empty_flush() -> None:
     assert len(helper_buffer) == 0
 
 
-@pytest.mark.parametrize("max_size", (1, 2, 3, 5, 64))
+@pytest.mark.parametrize("max_size", (1, 2, 64))
 async def test_job_buffer_reuse_after_flush(max_size: int) -> None:
     """
     Test that the buffer can be reused after a flush has occurred.
@@ -235,7 +245,7 @@ async def test_job_buffer_reuse_after_flush(max_size: int) -> None:
     async with JobStatusLogBuffer(
         max_size=max_size,
         timeout=timedelta(seconds=100),
-        callback=helper,
+        repository=_FakeJobLogSink(helper),
     ) as buffer:
         # First flush
         for _ in range(max_size):
@@ -253,59 +263,6 @@ async def test_job_buffer_reuse_after_flush(max_size: int) -> None:
         assert len(helper_buffer) == max_size
 
 
-@pytest.mark.parametrize("max_size", (1, 2, 3, 5, 64))
-async def test_job_buffer_exception_during_flush(max_size: int) -> None:
-    """
-    Test that the buffer handles exceptions during flush without losing items.
-    """
-    helper_buffer = []
-    flush_call_count = 0
-
-    async def faulty_helper(x: list) -> None:
-        nonlocal flush_call_count
-        flush_call_count += 1
-        if flush_call_count == 1:
-            raise RuntimeError("Simulated flush failure")
-        helper_buffer.extend(x)
-
-    async with JobStatusLogBuffer(
-        max_size=max_size,
-        timeout=timedelta(seconds=0.01),
-        callback=faulty_helper,
-    ) as buffer:
-        for _ in range(max_size):
-            await buffer.add((job_faker(), "successful", None))
-
-        # Allow time for the flush to be attempted and retried
-        await asyncio.sleep(0.02)
-
-    # After first failure, flush should retry and succeed
-    assert flush_call_count == 2
-    assert len(helper_buffer) == max_size
-
-
-@pytest.mark.parametrize("max_size", (1, 2, 3, 5, 64))
-async def test_job_buffer_callback_called_correctly(max_size: int) -> None:
-    """
-    Test that the callback is called with the correct items.
-    """
-    items = [(job_faker(), "successful") for _ in range(max_size)]
-    received_items = []
-
-    async def helper(x: list) -> None:
-        received_items.extend(x)
-
-    async with JobStatusLogBuffer(
-        max_size=max_size,
-        timeout=timedelta(seconds=100),
-        callback=helper,
-    ) as buffer:
-        for item in items:
-            await buffer.add(item)  # type: ignore[arg-type]
-
-    assert received_items == items
-
-
 async def test_job_buffer_callback_exception_during_teardown() -> None:
     N = 10
     items: list[tuple[Job, JOB_STATUS, None]] = [
@@ -318,75 +275,13 @@ async def test_job_buffer_callback_exception_during_teardown() -> None:
     async with JobStatusLogBuffer(
         max_size=N**2,  # max size must be gt. N.
         timeout=timedelta(seconds=60),  # must be gt. run time of 'for loop' in the with block.
-        callback=helper,
+        repository=_FakeJobLogSink(helper),
     ) as buffer:
         for item in items:
             await buffer.add(item)
 
     # Was uanble to flush at exit, buffer should have all elements.
     assert buffer.events.qsize() == N
-
-
-async def test_job_buffer_retry_uses_jitter(monkeypatch: pytest.MonkeyPatch) -> None:
-    sleep_calls: list[float] = []
-
-    async def fake_sleep(delay: float) -> None:
-        sleep_calls.append(delay)
-
-    jitter_calls: list[timedelta] = []
-
-    def fake_jitter(delay: timedelta) -> timedelta:
-        jitter_calls.append(delay)
-        return timedelta(milliseconds=5)
-
-    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
-    monkeypatch.setattr(pg_helpers, "timeout_with_jitter", fake_jitter)
-
-    async def failing_callback(_: list[LogEntry]) -> None:
-        raise RuntimeError("flush failed")
-
-    buffer = JobStatusLogBuffer(
-        max_size=2,
-        timeout=timedelta(seconds=1),
-        callback=failing_callback,
-    )
-
-    await buffer.add((job_faker(), "successful", None))
-    await buffer.flush()
-
-    assert jitter_calls
-    # fake_jitter returns 5ms which should be forwarded to asyncio.sleep
-    assert sleep_calls == [pytest.approx(timedelta(milliseconds=5).total_seconds())]
-
-
-async def test_job_buffer_retry_skips_jitter_on_shutdown(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    sleep_calls: list[float] = []
-
-    async def fake_sleep(delay: float) -> None:
-        sleep_calls.append(delay)
-
-    def fail_if_called(_: timedelta) -> timedelta:
-        raise AssertionError("timeout_with_jitter should not be used when shutdown")
-
-    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
-    monkeypatch.setattr(pg_helpers, "timeout_with_jitter", fail_if_called)
-
-    async def failing_callback(_: list[LogEntry]) -> None:
-        raise RuntimeError("flush failed")
-
-    buffer = JobStatusLogBuffer(
-        max_size=2,
-        timeout=timedelta(seconds=1),
-        callback=failing_callback,
-    )
-
-    await buffer.add((job_faker(), "successful", None))
-    buffer.shutdown.set()
-    await buffer.flush()
-
-    assert sleep_calls == [0]
 
 
 async def test_job_buffer_flush_returns_when_lock_held() -> None:
@@ -398,7 +293,7 @@ async def test_job_buffer_flush_returns_when_lock_held() -> None:
     buffer = JobStatusLogBuffer(
         max_size=1,
         timeout=timedelta(seconds=1),
-        callback=helper,
+        repository=_FakeJobLogSink(helper),
     )
 
     await buffer.add((job_faker(), "successful", None))

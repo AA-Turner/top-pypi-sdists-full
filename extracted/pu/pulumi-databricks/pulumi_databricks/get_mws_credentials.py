@@ -57,7 +57,8 @@ class GetMwsCredentialsResult:
 
     @_builtins.property
     @pulumi.getter(name="providerConfig")
-    def provider_config(self) -> Optional['outputs.GetMwsCredentialsProviderConfigResult']:
+    @_utilities.deprecated("""provider_config has no effect on this account-only resource and will be removed in a future major release.""")
+    def provider_config(self) -> 'outputs.GetMwsCredentialsProviderConfigResult':
         return pulumi.get(self, "provider_config")
 
 
@@ -105,7 +106,7 @@ def get_mws_credentials(ids: Optional[Mapping[str, _builtins.str]] = None,
 
 
     :param Mapping[str, _builtins.str] ids: name-to-id map for all of the credentials in the account
-    :param Union['GetMwsCredentialsProviderConfigArgs', 'GetMwsCredentialsProviderConfigArgsDict'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
+    :param Union['GetMwsCredentialsProviderConfigArgs', 'GetMwsCredentialsProviderConfigArgsDict'] provider_config: This data source is account-only and has no workspace context, so `provider_config` has no effect and will be removed in a future major release. The block consists of the following field:
     """
     __args__ = dict()
     __args__['ids'] = ids
@@ -117,8 +118,8 @@ def get_mws_credentials(ids: Optional[Mapping[str, _builtins.str]] = None,
         id=pulumi.get(__ret__, 'id'),
         ids=pulumi.get(__ret__, 'ids'),
         provider_config=pulumi.get(__ret__, 'provider_config'))
-def get_mws_credentials_output(ids: Optional[pulumi.Input[Optional[Mapping[str, _builtins.str]]]] = None,
-                               provider_config: Optional[pulumi.Input[Optional[Union['GetMwsCredentialsProviderConfigArgs', 'GetMwsCredentialsProviderConfigArgsDict']]]] = None,
+def get_mws_credentials_output(ids: pulumi.Input[Optional[Optional[Mapping[str, _builtins.str]]]] = None,
+                               provider_config: pulumi.Input[Optional[Optional[Union['GetMwsCredentialsProviderConfigArgs', 'GetMwsCredentialsProviderConfigArgsDict']]]] = None,
                                opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetMwsCredentialsResult]:
     """
     Lists all MwsCredentials in Databricks Account.
@@ -150,7 +151,7 @@ def get_mws_credentials_output(ids: Optional[pulumi.Input[Optional[Mapping[str, 
 
 
     :param Mapping[str, _builtins.str] ids: name-to-id map for all of the credentials in the account
-    :param Union['GetMwsCredentialsProviderConfigArgs', 'GetMwsCredentialsProviderConfigArgsDict'] provider_config: Configure the provider for management through account provider. This block consists of the following fields:
+    :param Union['GetMwsCredentialsProviderConfigArgs', 'GetMwsCredentialsProviderConfigArgsDict'] provider_config: This data source is account-only and has no workspace context, so `provider_config` has no effect and will be removed in a future major release. The block consists of the following field:
     """
     __args__ = dict()
     __args__['ids'] = ids

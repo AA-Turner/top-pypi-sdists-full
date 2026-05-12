@@ -35,7 +35,7 @@ def _calc_distribution(user_classes, num_users):
     user_classes_count = {}
 
     for u in user_classes:
-        count = u.fixed_count if u.fixed_count else (u.weight / total_weight) * weighted_count
+        count = u.fixed_count or (u.weight / total_weight) * weighted_count
         user_classes_count[u.__name__] = round(count)
 
     return user_classes_count

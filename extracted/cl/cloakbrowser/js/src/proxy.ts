@@ -136,7 +136,19 @@ export function normalizeSocksStringUrl(urlStr: string): string {
     const encPass = hasPassword
       ? (rawPassEnc ? encodeURIComponent(lenientDecodeURIComponent(rawPassEnc)) : "")
       : null;
-    return assembleSocksUrl(scheme, encUser, encPass, hostAndRest);
+    const normalized = assembleSocksUrl(scheme, encUser, encPass, hostAndRest);
+    // Compare credentials, not the full URL: keeps the log condition focused
+    // on real encoding work, not cosmetic differences (parity with the Python
+    // implementation, which has to skip urlparse's hostname lowercasing).
+    const credsChanged = encUser !== rawUserEnc
+      || (hasPassword ? encPass !== rawPassEnc : false);
+    if (credsChanged) {
+      console.info(
+        "[cloakbrowser] Auto URL-encoded SOCKS5 proxy credentials (special " +
+        "characters detected). Pre-encode the URL to suppress this notice.",
+      );
+    }
+    return normalized;
   } catch (e) {
     console.warn(`[cloakbrowser] Could not normalize SOCKS5 proxy URL, passing through unchanged: ${(e as Error).message}`);
     return urlStr;

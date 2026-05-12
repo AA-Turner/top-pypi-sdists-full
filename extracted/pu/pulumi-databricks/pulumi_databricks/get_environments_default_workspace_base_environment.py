@@ -103,7 +103,7 @@ def get_environments_default_workspace_base_environment(name: Optional[_builtins
                                                         provider_config: Optional[Union['GetEnvironmentsDefaultWorkspaceBaseEnvironmentProviderConfigArgs', 'GetEnvironmentsDefaultWorkspaceBaseEnvironmentProviderConfigArgsDict']] = None,
                                                         opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetEnvironmentsDefaultWorkspaceBaseEnvironmentResult:
     """
-    [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
+    [![GA](https://img.shields.io/badge/Release_Stage-GA-green)](https://docs.databricks.com/aws/en/release-notes/release-types)
 
     This data source retrieves the current default Workspace Base Environment configuration for the workspace.
 
@@ -134,11 +134,11 @@ def get_environments_default_workspace_base_environment(name: Optional[_builtins
         id=pulumi.get(__ret__, 'id'),
         name=pulumi.get(__ret__, 'name'),
         provider_config=pulumi.get(__ret__, 'provider_config'))
-def get_environments_default_workspace_base_environment_output(name: Optional[pulumi.Input[_builtins.str]] = None,
-                                                               provider_config: Optional[pulumi.Input[Optional[Union['GetEnvironmentsDefaultWorkspaceBaseEnvironmentProviderConfigArgs', 'GetEnvironmentsDefaultWorkspaceBaseEnvironmentProviderConfigArgsDict']]]] = None,
+def get_environments_default_workspace_base_environment_output(name: pulumi.Input[Optional[_builtins.str]] = None,
+                                                               provider_config: pulumi.Input[Optional[Optional[Union['GetEnvironmentsDefaultWorkspaceBaseEnvironmentProviderConfigArgs', 'GetEnvironmentsDefaultWorkspaceBaseEnvironmentProviderConfigArgsDict']]]] = None,
                                                                opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetEnvironmentsDefaultWorkspaceBaseEnvironmentResult]:
     """
-    [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
+    [![GA](https://img.shields.io/badge/Release_Stage-GA-green)](https://docs.databricks.com/aws/en/release-notes/release-types)
 
     This data source retrieves the current default Workspace Base Environment configuration for the workspace.
 

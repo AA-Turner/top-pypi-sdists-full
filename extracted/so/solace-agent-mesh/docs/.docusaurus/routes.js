@@ -3,16 +3,21 @@ import ComponentCreator from '@docusaurus/ComponentCreator';
 
 export default [
   {
+    path: '/solace-agent-mesh/blog',
+    component: ComponentCreator('/solace-agent-mesh/blog', 'b87'),
+    exact: true
+  },
+  {
     path: '/solace-agent-mesh/docs',
-    component: ComponentCreator('/solace-agent-mesh/docs', 'a66'),
+    component: ComponentCreator('/solace-agent-mesh/docs', 'e44'),
     routes: [
       {
         path: '/solace-agent-mesh/docs',
-        component: ComponentCreator('/solace-agent-mesh/docs', '5f3'),
+        component: ComponentCreator('/solace-agent-mesh/docs', 'cce'),
         routes: [
           {
             path: '/solace-agent-mesh/docs',
-            component: ComponentCreator('/solace-agent-mesh/docs', '0dc'),
+            component: ComponentCreator('/solace-agent-mesh/docs', '27c'),
             routes: [
               {
                 path: '/solace-agent-mesh/docs/documentation/components/',
@@ -149,18 +154,6 @@ export default [
               {
                 path: '/solace-agent-mesh/docs/documentation/deploying/health-checks',
                 component: ComponentCreator('/solace-agent-mesh/docs/documentation/deploying/health-checks', 'd09'),
-                exact: true,
-                sidebar: "docSidebar"
-              },
-              {
-                path: '/solace-agent-mesh/docs/documentation/deploying/kubernetes/',
-                component: ComponentCreator('/solace-agent-mesh/docs/documentation/deploying/kubernetes/', 'c3e'),
-                exact: true,
-                sidebar: "docSidebar"
-              },
-              {
-                path: '/solace-agent-mesh/docs/documentation/deploying/kubernetes/kubernetes-deployment-guide',
-                component: ComponentCreator('/solace-agent-mesh/docs/documentation/deploying/kubernetes/kubernetes-deployment-guide', 'a9b'),
                 exact: true,
                 sidebar: "docSidebar"
               },
@@ -315,6 +308,12 @@ export default [
                 sidebar: "docSidebar"
               },
               {
+                path: '/solace-agent-mesh/docs/documentation/enterprise/airgap-kubernetes',
+                component: ComponentCreator('/solace-agent-mesh/docs/documentation/enterprise/airgap-kubernetes', '78e'),
+                exact: true,
+                sidebar: "docSidebar"
+              },
+              {
                 path: '/solace-agent-mesh/docs/documentation/enterprise/auth-proxy',
                 component: ComponentCreator('/solace-agent-mesh/docs/documentation/enterprise/auth-proxy', '8d0'),
                 exact: true,
@@ -357,6 +356,12 @@ export default [
                 sidebar: "docSidebar"
               },
               {
+                path: '/solace-agent-mesh/docs/documentation/enterprise/docker-installation',
+                component: ComponentCreator('/solace-agent-mesh/docs/documentation/enterprise/docker-installation', '550'),
+                exact: true,
+                sidebar: "docSidebar"
+              },
+              {
                 path: '/solace-agent-mesh/docs/documentation/enterprise/gateways/',
                 component: ComponentCreator('/solace-agent-mesh/docs/documentation/enterprise/gateways/', '1d1'),
                 exact: true,
@@ -381,8 +386,14 @@ export default [
                 sidebar: "docSidebar"
               },
               {
-                path: '/solace-agent-mesh/docs/documentation/enterprise/installation',
-                component: ComponentCreator('/solace-agent-mesh/docs/documentation/enterprise/installation', '1d0'),
+                path: '/solace-agent-mesh/docs/documentation/enterprise/migration-v2',
+                component: ComponentCreator('/solace-agent-mesh/docs/documentation/enterprise/migration-v2', 'c20'),
+                exact: true,
+                sidebar: "docSidebar"
+              },
+              {
+                path: '/solace-agent-mesh/docs/documentation/enterprise/offline-evaluations',
+                component: ComponentCreator('/solace-agent-mesh/docs/documentation/enterprise/offline-evaluations', 'fc2'),
                 exact: true,
                 sidebar: "docSidebar"
               },
@@ -425,6 +436,18 @@ export default [
               {
                 path: '/solace-agent-mesh/docs/documentation/enterprise/platform-service-auth',
                 component: ComponentCreator('/solace-agent-mesh/docs/documentation/enterprise/platform-service-auth', 'c37'),
+                exact: true,
+                sidebar: "docSidebar"
+              },
+              {
+                path: '/solace-agent-mesh/docs/documentation/enterprise/production-kubernetes',
+                component: ComponentCreator('/solace-agent-mesh/docs/documentation/enterprise/production-kubernetes', '855'),
+                exact: true,
+                sidebar: "docSidebar"
+              },
+              {
+                path: '/solace-agent-mesh/docs/documentation/enterprise/quickstart-kubernetes',
+                component: ComponentCreator('/solace-agent-mesh/docs/documentation/enterprise/quickstart-kubernetes', 'c4a'),
                 exact: true,
                 sidebar: "docSidebar"
               },
@@ -559,6 +582,11 @@ export default [
                 component: ComponentCreator('/solace-agent-mesh/docs/documentation/vibe_coding', '00f'),
                 exact: true,
                 sidebar: "docSidebar"
+              },
+              {
+                path: '/solace-agent-mesh/docs/partials/helm-pre-install-check',
+                component: ComponentCreator('/solace-agent-mesh/docs/partials/helm-pre-install-check', '01d'),
+                exact: true
               },
               {
                 path: '/solace-agent-mesh/docs/partials/network-access-may-be-required',

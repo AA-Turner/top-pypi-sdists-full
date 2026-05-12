@@ -1853,11 +1853,11 @@ class DynamicMethod(System.Reflection.MethodInfo):
         ...
 
     @overload
-    def create_delegate(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
+    def create_delegate(self, delegate_type: typing.Type) -> System.Delegate:
         ...
 
     @overload
-    def create_delegate(self, delegate_type: typing.Type) -> System.Delegate:
+    def create_delegate(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
         ...
 
     def define_parameter(self, position: int, attributes: System.Reflection.ParameterAttributes, parameter_name: str) -> System.Reflection.Emit.ParameterBuilder:

@@ -9,15 +9,12 @@ import anyio
 import pytest
 
 from pgqueuer.db import Driver
-from pgqueuer.errors import MaxRetriesExceeded, MaxTimeExceeded
 from pgqueuer.executors import (
     AbstractEntrypointExecutor,
     EntrypointExecutor,
     EntrypointExecutorParameters,
-    RetryWithBackoffEntrypointExecutor,
     is_async_callable,
 )
-from pgqueuer.helpers import timer
 from pgqueuer.models import Context, Job
 from pgqueuer.qm import QueueManager
 from pgqueuer.queries import Queries
@@ -29,9 +26,6 @@ from test.helpers import mocked_job
 
 class MultiprocessingExecutor(AbstractEntrypointExecutor):
     def __init__(self) -> None:
-        self.requests_per_second = 5
-        self.retry_timer = timedelta(seconds=10)
-        self.serialized_dispatch = False
         self.concurrency_limit = 2
         self.queue: MPQueue[object] = MPQueue()
 
@@ -46,32 +40,6 @@ class MultiprocessingExecutor(AbstractEntrypointExecutor):
             self.queue.put(job.payload)
 
 
-async def test_entrypoint_executor_sync(apgdriver: Driver) -> None:
-    result = []
-
-    def sync_function(job: Job) -> None:
-        if job.payload:
-            result.append(job.payload)
-
-    executor = EntrypointExecutor(
-        EntrypointExecutorParameters(
-            concurrency_limit=10,
-            requests_per_second=float("+inf"),
-            retry_timer=timedelta(seconds=300),
-            serialized_dispatch=False,
-            func=sync_function,
-        )
-    )
-    job = mocked_job(payload=b"test_payload")
-
-    await executor.execute(
-        job,
-        Context(anyio.CancelScope(), resources={"test_key": "sync_executor"}),
-    )
-
-    assert result == [b"test_payload"]
-
-
 async def test_entrypoint_executor_async(apgdriver: Driver) -> None:
     result = []
 
@@ -82,9 +50,6 @@ async def test_entrypoint_executor_async(apgdriver: Driver) -> None:
     executor = EntrypointExecutor(
         EntrypointExecutorParameters(
             concurrency_limit=10,
-            requests_per_second=float("+inf"),
-            retry_timer=timedelta(seconds=300),
-            serialized_dispatch=False,
             func=async_function,
         )
     )
@@ -95,30 +60,6 @@ async def test_entrypoint_executor_async(apgdriver: Driver) -> None:
         Context(anyio.CancelScope(), resources={"test_key": "async_executor"}),
     )
     assert result == [b"test_payload"]
-
-
-async def test_entrypoint_executor_sync_with_context(apgdriver: Driver) -> None:
-    contexts: list[Context] = []
-
-    def sync_function(job: Job, ctx: Context) -> None:
-        contexts.append(ctx)
-
-    executor = EntrypointExecutor(
-        EntrypointExecutorParameters(
-            concurrency_limit=10,
-            requests_per_second=float("+inf"),
-            retry_timer=timedelta(seconds=300),
-            serialized_dispatch=False,
-            func=sync_function,
-            accepts_context=True,
-        )
-    )
-    job = mocked_job(payload=b"context_payload")
-    job_context = Context(anyio.CancelScope(), resources={"marker": "sync"})
-
-    await executor.execute(job, job_context)
-
-    assert contexts and contexts[0] is job_context
 
 
 async def test_entrypoint_executor_async_with_context(apgdriver: Driver) -> None:
@@ -132,9 +73,6 @@ async def test_entrypoint_executor_async_with_context(apgdriver: Driver) -> None
     executor = EntrypointExecutor(
         EntrypointExecutorParameters(
             concurrency_limit=10,
-            requests_per_second=float("+inf"),
-            retry_timer=timedelta(seconds=300),
-            serialized_dispatch=False,
             func=async_function,
             accepts_context=True,
         )
@@ -147,26 +85,37 @@ async def test_entrypoint_executor_async_with_context(apgdriver: Driver) -> None
     assert markers == ["async"]
 
 
+@pytest.mark.parametrize("accepts_context", [False, True])
+def test_sync_entrypoint_raises_type_error(accepts_context: bool) -> None:
+    def sync_fn(job: Job) -> None:
+        pass
+
+    with pytest.raises(TypeError, match="must be async"):
+        EntrypointExecutor(
+            EntrypointExecutorParameters(
+                concurrency_limit=10,
+                func=sync_fn,  # type: ignore[arg-type]
+                accepts_context=accepts_context,
+            )
+        )
+
+
 async def test_entrypoint_executor_forward_reference_with_flag(apgdriver: Driver) -> None:
     contexts: list[Context] = []
 
-    def sync_function(job: Job, context: "Context") -> None:
+    async def async_function(job: Job, context: "Context") -> None:
         contexts.append(context)
 
     executor = EntrypointExecutor(
         EntrypointExecutorParameters(
             concurrency_limit=10,
-            requests_per_second=float("+inf"),
-            retry_timer=timedelta(seconds=300),
-            serialized_dispatch=False,
-            func=sync_function,
+            func=async_function,
             accepts_context=True,
         )
     )
     job = mocked_job(payload=b"context_forward_ref")
     job_context = Context(anyio.CancelScope(), resources={"marker": "forward"})
 
-    assert executor.accepts_context
     assert executor.parameters.accepts_context
 
     await executor.execute(job, job_context)
@@ -176,22 +125,18 @@ async def test_entrypoint_executor_forward_reference_with_flag(apgdriver: Driver
 async def test_entrypoint_executor_without_context_detection(apgdriver: Driver) -> None:
     calls: list[tuple[Job, bytes | None]] = []
 
-    def sync_function(job: Job, extra: bytes | None = None) -> None:
+    async def async_function(job: Job, extra: bytes | None = None) -> None:
         calls.append((job, extra))
 
     executor = EntrypointExecutor(
         EntrypointExecutorParameters(
             concurrency_limit=10,
-            requests_per_second=float("+inf"),
-            retry_timer=timedelta(seconds=300),
-            serialized_dispatch=False,
-            func=sync_function,
+            func=async_function,
         )
     )
     job = mocked_job(payload=b"no_context")
     job_context = Context(anyio.CancelScope(), resources={"marker": "unused"})
 
-    assert not executor.accepts_context
     assert not executor.parameters.accepts_context
 
     await executor.execute(job, job_context)
@@ -201,9 +146,6 @@ async def test_entrypoint_executor_without_context_detection(apgdriver: Driver) 
 async def test_custom_threading_executor() -> None:
     class ThreadingExecutor(AbstractEntrypointExecutor):
         def __init__(self) -> None:
-            self.requests_per_second = 10
-            self.retry_timer = timedelta(seconds=5)
-            self.serialized_dispatch = False
             self.concurrency_limit = 5
             self.result = list[bytes]()
 
@@ -240,7 +182,7 @@ async def test_custom_multiprocessing_executor() -> None:
 
 
 async def test_queue_manager_with_custom_executor(apgdriver: Driver) -> None:
-    qm = QueueManager(connection=apgdriver)
+    qm = QueueManager(Queries(apgdriver))
     results = []
 
     class CustomExecutor(AbstractEntrypointExecutor):
@@ -252,7 +194,7 @@ async def test_queue_manager_with_custom_executor(apgdriver: Driver) -> None:
         name="custom_entrypoint",
         executor_factory=CustomExecutor,
     )
-    def entrypoint_function(job: Job) -> None:
+    async def entrypoint_function(job: Job) -> None:
         pass  # Not used since executor handles execution
 
     queries = Queries(apgdriver)
@@ -269,113 +211,89 @@ async def test_queue_manager_with_custom_executor(apgdriver: Driver) -> None:
     assert results == [b"test_data"]
 
 
-async def async_function(job: Job) -> None:
+async def _async_fn(job: Job) -> None:
     await asyncio.sleep(0)
 
 
-def sync_function(job: Job) -> None:
+def _sync_fn(job: Job) -> None:
     pass
 
 
-def test_is_async_callable_with_async_function() -> None:
-    assert is_async_callable(async_function) is True
-
-
-def test_is_async_callable_with_sync_function() -> None:
-    assert is_async_callable(sync_function) is False
-
-
-def test_is_async_callable_with_partial_async_function() -> None:
-    partial_async = functools.partial(async_function)
-    assert is_async_callable(partial_async) is True
-
-
-def test_is_async_callable_with_partial_sync_function() -> None:
-    partial_sync = functools.partial(sync_function)
-    assert is_async_callable(partial_sync) is False
-
-
-def test_is_async_callable_with_async_class_method() -> None:
-    class MyClass:
-        async def async_method(self, job: Job) -> None:
-            await asyncio.sleep(0)
-
-    instance = MyClass()
-    assert is_async_callable(instance.async_method) is True
-
-
-def test_is_async_callable_with_sync_class_method() -> None:
-    class MyClass:
-        def sync_method(self, job: Job) -> None:
-            pass
-
-    instance = MyClass()
-    assert is_async_callable(instance.sync_method) is False
-
-
-def test_is_async_callable_with_async_callable_instance() -> None:
-    class AsyncCallable:
-        async def __call__(self, job: Job) -> None:  # pragma: no cover - trivial
-            await asyncio.sleep(0)
-
-    inst = AsyncCallable()
-    assert is_async_callable(inst) is True
-
-
-def test_is_async_callable_with_sync_callable_instance() -> None:
-    class SyncCallable:
-        def __call__(self, job: Job) -> None:  # pragma: no cover - trivial
-            pass
-
-    inst = SyncCallable()
-    assert is_async_callable(inst) is False
-
-
-def test_is_async_callable_with_multi_level_partial_async_callable_instance() -> None:
-    class AsyncCallable:
-        async def __call__(self, job: Job) -> None:  # pragma: no cover - trivial
-            await asyncio.sleep(0)
-
-    inst = AsyncCallable()
-    p1 = functools.partial(inst)
-    p2 = functools.partial(p1)
-    p3 = functools.partial(p2)
-    assert is_async_callable(p3) is True
-
-
-def test_is_async_callable_with_multi_level_partial_sync_callable_instance() -> None:
-    class SyncCallable:
-        def __call__(self, job: Job) -> None:
-            pass
-
-    inst = SyncCallable()
-    p1 = functools.partial(inst)
-    p2 = functools.partial(p1)
-    p3 = functools.partial(p2)
-    assert is_async_callable(p3) is False
-
-
-def test_is_async_callable_with_multi_level_partial_plain_async_function() -> None:
-    async def base(job: Job) -> None:
+class _AsyncCallable:
+    async def __call__(self, job: Job) -> None:  # pragma: no cover - trivial
         await asyncio.sleep(0)
 
-    p1 = functools.partial(base)
-    p2 = functools.partial(p1)
-    p3 = functools.partial(p2)
-    assert is_async_callable(p3) is True
 
-
-def test_is_async_callable_with_multi_level_partial_plain_sync_function() -> None:
-    def base(job: Job) -> None:
+class _SyncCallable:
+    def __call__(self, job: Job) -> None:  # pragma: no cover - trivial
         pass
 
-    p1 = functools.partial(base)
-    p2 = functools.partial(p1)
-    p3 = functools.partial(p2)
-    assert is_async_callable(p3) is False
+
+class _AsyncMethodHolder:
+    async def method(self, job: Job) -> None:
+        await asyncio.sleep(0)
 
 
-def test_is_async_callable_with_async_decorator_wrapper() -> None:
+class _SyncMethodHolder:
+    def method(self, job: Job) -> None:
+        pass
+
+
+def _build_basic_cases() -> list[tuple[object, bool, str]]:
+    """Build (callable, expected, label) tuples for basic is_async_callable tests."""
+    return [
+        (_async_fn, True, "async_function"),
+        (_sync_fn, False, "sync_function"),
+        (functools.partial(_async_fn), True, "partial_async_function"),
+        (functools.partial(_sync_fn), False, "partial_sync_function"),
+        (_AsyncMethodHolder().method, True, "async_class_method"),
+        (_SyncMethodHolder().method, False, "sync_class_method"),
+        (_AsyncCallable(), True, "async_callable_instance"),
+        (_SyncCallable(), False, "sync_callable_instance"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "fn, expected, label",
+    _build_basic_cases(),
+    ids=[c[2] for c in _build_basic_cases()],
+)
+def test_is_async_callable_basic(fn: object, expected: bool, label: str) -> None:
+    assert is_async_callable(fn) is expected
+
+
+def _build_multi_level_partial_cases() -> list[tuple[object, bool, str]]:
+    """Build multi-level functools.partial chains."""
+    async_inst = _AsyncCallable()
+    sync_inst = _SyncCallable()
+
+    async def async_base(job: Job) -> None:
+        await asyncio.sleep(0)
+
+    def sync_base(job: Job) -> None:
+        pass
+
+    def chain3(fn: Callable[..., object]) -> functools.partial[object]:
+        return functools.partial(functools.partial(functools.partial(fn)))
+
+    return [
+        (chain3(async_inst), True, "partial_chain_async_callable"),
+        (chain3(sync_inst), False, "partial_chain_sync_callable"),
+        (chain3(async_base), True, "partial_chain_async_function"),
+        (chain3(sync_base), False, "partial_chain_sync_function"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "fn, expected, label",
+    _build_multi_level_partial_cases(),
+    ids=[c[2] for c in _build_multi_level_partial_cases()],
+)
+def test_is_async_callable_multi_level_partial(fn: object, expected: bool, label: str) -> None:
+    assert is_async_callable(fn) is expected
+
+
+def test_is_async_callable_async_decorator_wrapper() -> None:
     async def base(job: Job) -> None:
         await asyncio.sleep(0)
 
@@ -386,28 +304,42 @@ def test_is_async_callable_with_async_decorator_wrapper() -> None:
 
         return wrapper
 
-    wrapped = async_decorator(base)
-    assert is_async_callable(wrapped) is True
+    assert is_async_callable(async_decorator(base)) is True
 
 
-def test_is_async_callable_with_sync_decorator_returning_coroutine() -> None:
+def test_is_async_callable_sync_wrapper_returning_coroutine() -> None:
+    """Sync def that returns a coroutine object should be classified as sync."""
+
     async def base(job: Job) -> None:
         await asyncio.sleep(0)
 
     def sync_decorator(f: Callable[[Job], Awaitable[None]]) -> Callable[[Job], Awaitable[None]]:
         @functools.wraps(f)
         def wrapper(job: Job) -> Awaitable[None]:
-            # Returns coroutine object but wrapper itself is sync
             return f(job)
 
         return wrapper
 
-    wrapped = sync_decorator(base)
-    # wrapper is a sync def that returns a coroutine object -> should be False
-    assert is_async_callable(wrapped) is False
+    assert is_async_callable(sync_decorator(base)) is False
 
 
-def test_is_async_callable_with_deeply_nested_sync_wrappers_over_async_function() -> None:
+def test_is_async_callable_deeply_nested_async_wrappers() -> None:
+    def make_async_wrapper(f: Callable[[Job], Awaitable[None]]) -> Callable[[Job], Awaitable[None]]:
+        async def w(job: Job) -> None:
+            result = f(job)
+            if asyncio.iscoroutine(result):
+                await result
+
+        return w
+
+    async def base(job: Job) -> None:
+        await asyncio.sleep(0)
+
+    lvl3 = make_async_wrapper(make_async_wrapper(make_async_wrapper(base)))
+    assert is_async_callable(lvl3) is True
+
+
+def test_is_async_callable_deeply_nested_sync_wrappers() -> None:
     async def base(job: Job) -> None:
         await asyncio.sleep(0)
 
@@ -417,200 +349,27 @@ def test_is_async_callable_with_deeply_nested_sync_wrappers_over_async_function(
 
         return w
 
-    lvl1 = wrap_sync(base)
-    lvl2 = wrap_sync(lvl1)
-    lvl3 = wrap_sync(lvl2)
-    # All wrappers are sync functions returning coroutine objects
+    lvl3 = wrap_sync(wrap_sync(wrap_sync(base)))
     assert is_async_callable(lvl3) is False
 
 
-def test_is_async_callable_with_deeply_nested_async_wrappers() -> None:
-    def make_async_wrapper(f: Callable[[Job], Awaitable[None]]) -> Callable[[Job], Awaitable[None]]:
-        async def w(job: Job) -> None:
-            result = f(job)
-            # If underlying returns coroutine, await it
-            if asyncio.iscoroutine(result):
-                await result
-
-        return w
-
-    async def base(job: Job) -> None:
-        await asyncio.sleep(0)
-
-    lvl1 = make_async_wrapper(base)
-    lvl2 = make_async_wrapper(lvl1)
-    lvl3 = make_async_wrapper(lvl2)
-    assert is_async_callable(lvl3) is True
-
-
-def test_is_async_callable_with_function_returning_coroutine_object() -> None:
-    async def base(job: Job) -> None:
-        await asyncio.sleep(0)
-
-    def returns_coroutine(job: Job) -> Awaitable[None]:
-        # Synchronous function returning a coroutine object
-        return base(job)
-
-    assert is_async_callable(returns_coroutine) is False
-
-
-def test_is_async_callable_with_partial_wrapped_sync_function() -> None:
-    def inner(job: Job) -> None:
-        pass
-
-    def decorator(f: Callable[[Job], None]) -> Callable[[Job], None]:
-        def wrapper(job: Job) -> None:
-            return f(job)
-
-        return wrapper
-
-    wrapped = decorator(inner)
-    p = functools.partial(wrapped)
-    assert is_async_callable(p) is False
-
-
-def test_is_async_callable_with_sync_dunder_call_returning_coroutine() -> None:
+def test_is_async_callable_sync_dunder_call_returning_coroutine() -> None:
     async def async_inner(job: Job) -> None:
         await asyncio.sleep(0)
 
     class HybridCallable:
-        # Synchronous __call__ that returns a coroutine object
         def __call__(self, job: Job) -> Awaitable[None]:
             return async_inner(job)
 
-    inst = HybridCallable()
-    assert is_async_callable(inst) is False
+    assert is_async_callable(HybridCallable()) is False
 
 
-async def test_retry_with_backoff_entrypoint_executor_max_attempts(apgdriver: Driver) -> None:
-    jobs = list[Job]()
-
-    async def raises(job: Job) -> None:
-        await asyncio.sleep(0)
-        jobs.append(job)
-        raise ValueError
-
-    parameters = EntrypointExecutorParameters(
-        concurrency_limit=10,
-        requests_per_second=float("+inf"),
-        retry_timer=timedelta(seconds=300),
-        serialized_dispatch=False,
-        func=raises,
-    )
-    exc = RetryWithBackoffEntrypointExecutor(
-        parameters,
-        initial_delay=0,
-        jitter=lambda: 0,
-    )
-
-    exc.max_attempts = 5
-    exc.max_time = timedelta(seconds=300)
-    mj = mocked_job()
-    with pytest.raises(MaxRetriesExceeded):
-        await exc.execute(
-            mj, Context(anyio.CancelScope(), resources={"test_key": "retry_max_attempts_2"})
-        )
-    assert sum(j.id == mj.id for j in jobs) == exc.max_attempts
-
-    exc.max_attempts = 10
-    exc.max_time = timedelta(seconds=300)
-    mj = mocked_job()
-    with pytest.raises(MaxRetriesExceeded):
-        await exc.execute(
-            mj, Context(anyio.CancelScope(), resources={"test_key": "retry_max_time_1"})
-        )
-    assert sum(j.id == mj.id for j in jobs) == exc.max_attempts
-
-
-async def test_retry_with_backoff_entrypoint_executor_max_time(apgdriver: Driver) -> None:
-    async def raises(_: Job) -> None:
-        await asyncio.sleep(0.01)
-        raise ValueError
-
-    parameters = EntrypointExecutorParameters(
-        concurrency_limit=10,
-        requests_per_second=float("+inf"),
-        retry_timer=timedelta(seconds=300),
-        serialized_dispatch=False,
-        func=raises,
-    )
-    exc = RetryWithBackoffEntrypointExecutor(
-        parameters,
-        initial_delay=0,
-        jitter=lambda: 0,
-    )
-
-    exc.max_attempts = 1000
-    exc.max_time = timedelta(seconds=0.01)
-    mj = mocked_job()
-    with (
-        timer() as elp,
-        pytest.raises(MaxTimeExceeded),
-    ):
-        await exc.execute(
-            mj, Context(anyio.CancelScope(), resources={"test_key": "retry_max_time_2"})
-        )
-
-    leeway = 1.1
-    assert elp() * leeway >= exc.max_time
-
-    exc.max_attempts = 1000
-    exc.max_time = timedelta(seconds=0.1)
-    mj = mocked_job()
-    with (
-        timer() as elp,
-        pytest.raises(MaxTimeExceeded),
-    ):
-        await exc.execute(
-            mj, Context(anyio.CancelScope(), resources={"test_key": "retry_until_pass"})
-        )
-
-    assert elp() * leeway >= exc.max_time
-
-
-async def test_retry_with_backoff_entrypoint_executor_until_pass(apgdriver: Driver) -> None:
-    N = 10
-    jobs = list[Job]()
-
-    async def raises(job: Job) -> None:
-        await asyncio.sleep(0.001)
-        jobs.append(job)
-        if len(jobs) > N:
-            return
-        raise ValueError
-
-    parameters = EntrypointExecutorParameters(
-        concurrency_limit=10,
-        requests_per_second=float("+inf"),
-        retry_timer=timedelta(seconds=300),
-        serialized_dispatch=False,
-        func=raises,
-    )
-    exc = RetryWithBackoffEntrypointExecutor(
-        parameters,
-        initial_delay=0,
-        jitter=lambda: 0,
-    )
-
-    exc.max_attempts = 1000
-    exc.max_time = timedelta(seconds=0.1)
-    mj = mocked_job()
-    await exc.execute(mj, Context(anyio.CancelScope()))
-
-
-def test_is_async_callable_with_inspect_vs_call_attribute() -> None:
-    async def af(job: Job) -> None:
-        pass
-
-    class AsyncCallable:
-        async def __call__(self, job: Job) -> None:
-            pass
-
-    async_inst = AsyncCallable()
+def test_is_async_callable_inspect_vs_call_attribute() -> None:
+    async_inst = _AsyncCallable()
 
     # Plain async function: its own object is a coroutine function, its __call__ isn't.
-    assert inspect.iscoroutinefunction(af) is True
-    assert inspect.iscoroutinefunction(getattr(af, "__call__", None)) is False
+    assert inspect.iscoroutinefunction(_async_fn) is True
+    assert inspect.iscoroutinefunction(getattr(_async_fn, "__call__", None)) is False
 
     # Instance with async __call__: the instance itself is not a coroutine function
     # but its __call__ method is.
@@ -618,5 +377,5 @@ def test_is_async_callable_with_inspect_vs_call_attribute() -> None:
     assert inspect.iscoroutinefunction(getattr(async_inst, "__call__", None)) is True
 
     # Helper should classify both as async callables.
-    assert is_async_callable(af) is True
+    assert is_async_callable(_async_fn) is True
     assert is_async_callable(async_inst) is True

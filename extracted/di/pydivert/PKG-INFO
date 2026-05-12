@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydivert
-Version: 3.1.1
+Version: 3.1.2
 Summary: Python binding to windivert driver
 Project-URL: Homepage, https://github.com/ffalcinelli/pydivert
 Project-URL: Repository, https://github.com/ffalcinelli/pydivert.git
@@ -45,8 +45,8 @@ Requires-Dist: pytest>=7.0.0; extra == 'test'
 Requires-Dist: setuptools; extra == 'test'
 Requires-Dist: wheel>=0.29; extra == 'test'
 Provides-Extra: typecheck
-Requires-Dist: mypy>=1.0.0; extra == 'typecheck'
 Requires-Dist: pytest>=7.0.0; extra == 'typecheck'
+Requires-Dist: ty; extra == 'typecheck'
 Description-Content-Type: text/markdown
 
 # PyDivert
@@ -58,6 +58,7 @@ Description-Content-Type: text/markdown
 [![python_versions](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://pypi.python.org/pypi/pydivert)
 [![windows](https://img.shields.io/badge/os-windows%2011-blue.svg)](https://pypi.python.org/pypi/pydivert)
 [![license](https://img.shields.io/pypi/l/pydivert.svg)](https://github.com/ffalcinelli/pydivert/blob/main/LICENSE)
+[![snyk](https://img.shields.io/badge/snyk-security-violet)](https://security.snyk.io/package/pip/pydivert)
 
 **PyDivert** is a powerful Python binding for [WinDivert](https://reqrypt.org/windivert.html), a Windows driver that allows user-mode applications to capture, modify, and drop network packets sent to or from the Windows network stack.
 

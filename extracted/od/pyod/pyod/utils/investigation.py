@@ -14,6 +14,7 @@ ACTION_TYPES = (
     'report_to_user',
     'confirm_with_user',
     'iterate',
+    'recover_detector_failure',
     'done',
 )
 

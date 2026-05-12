@@ -62,20 +62,42 @@ export class RendererUserMenu extends MenuBar.Renderer {
    * @returns A virtual element representing the item label.
    */
   private _createUserIcon(): VirtualElement {
-    if (this._user.isReady && this._user.identity!.avatar_url) {
+    const identity = this._user.identity;
+
+    if (this._user.isReady && identity?.avatar_url) {
       return h.div(
         {
           className: 'lm-MenuBar-itemIcon jp-MenuBar-imageIcon'
         },
-        h.img({ src: this._user.identity!.avatar_url })
+        h.img({
+          src: identity.avatar_url,
+          onerror: (event: Event) => {
+            const img = event.currentTarget as HTMLImageElement;
+            const parent = img.parentElement;
+
+            if (parent) {
+              // Clear broken image and fallback to initials with colors
+              parent.textContent = '';
+
+              parent.style.backgroundColor = identity.color || '';
+
+              const span = document.createElement('span');
+              span.textContent = identity.initials;
+              parent.appendChild(span);
+
+              parent.classList.remove('jp-MenuBar-imageIcon');
+              parent.classList.add('jp-MenuBar-anonymousIcon');
+            }
+          }
+        })
       );
-    } else if (this._user.isReady) {
+    } else if (this._user.isReady && identity) {
       return h.div(
         {
           className: 'lm-MenuBar-itemIcon jp-MenuBar-anonymousIcon',
-          style: { backgroundColor: this._user.identity!.color }
+          style: { backgroundColor: identity.color }
         },
-        h.span({}, this._user.identity!.initials)
+        h.span({}, identity.initials)
       );
     } else {
       return h.div(

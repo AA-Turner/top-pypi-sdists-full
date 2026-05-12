@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: solace-agent-mesh
-Version: 1.24.1
+Version: 1.25.0
 Summary: Solace Agent Mesh is an open-source framework for building event-driven, multi-agent AI systems where specialized agents collaborate on complex tasks.
 Project-URL: Homepage, https://github.com/SolaceLabs/solace-agent-mesh
 Project-URL: Repository, https://github.com/SolaceLabs/solace-agent-mesh
@@ -233,7 +233,7 @@ Requires-Dist: fastapi==0.120.1
 Requires-Dist: filelock==3.20.3
 Requires-Dist: flask-cors==6.0.1
 Requires-Dist: flask==3.1.3
-Requires-Dist: gitpython==3.1.45
+Requires-Dist: gitpython==3.1.47
 Requires-Dist: google-adk==1.18.0
 Requires-Dist: google-cloud-storage==3.9.0
 Requires-Dist: google-genai==1.49.0
@@ -245,28 +245,29 @@ Requires-Dist: jmespath==1.0.1
 Requires-Dist: jsonpath-ng==1.7.0
 Requires-Dist: jwcrypto==1.5.6
 Requires-Dist: kaleido==0.2.1
-Requires-Dist: litellm==1.83.0
+Requires-Dist: litellm==1.83.14
+Requires-Dist: lxml==6.1.0
 Requires-Dist: markdownify==1.2.0
 Requires-Dist: markitdown[all]==0.1.4
 Requires-Dist: mermaid-cli==0.1.2
 Requires-Dist: nanoid==2.0.0
 Requires-Dist: numpy==2.2.6
-Requires-Dist: openai==2.8.0
+Requires-Dist: openai==2.24.0
 Requires-Dist: openfeature-sdk==0.8.4
 Requires-Dist: pandas==2.3.2
 Requires-Dist: pillow==12.2.0
 Requires-Dist: playwright==1.58.0
 Requires-Dist: plotly==6.3.0
-Requires-Dist: protobuf==6.33.5
+Requires-Dist: protobuf==6.33.6
 Requires-Dist: psycopg2-binary==2.9.10
 Requires-Dist: pyasn1>=0.6.3
-Requires-Dist: pydantic==2.11.9
+Requires-Dist: pydantic==2.12.5
 Requires-Dist: pydub==0.25.1
 Requires-Dist: pyjwt>=2.12.0
 Requires-Dist: pypdf==6.10.2
 Requires-Dist: pystache==0.6.8
 Requires-Dist: python-docx==1.2.0
-Requires-Dist: python-dotenv==1.1.1
+Requires-Dist: python-dotenv==1.2.2
 Requires-Dist: python-jwt==4.1.0
 Requires-Dist: python-liquid==2.1.0
 Requires-Dist: python-multipart==0.0.26
@@ -275,7 +276,7 @@ Requires-Dist: pyyaml==6.0.2
 Requires-Dist: rich==13.9.4
 Requires-Dist: rouge==1.0.1
 Requires-Dist: setuptools==80.10.2
-Requires-Dist: solace-ai-connector==3.3.10
+Requires-Dist: solace-ai-connector==3.3.11
 Requires-Dist: sqlalchemy==2.0.40
 Requires-Dist: sse-starlette==3.0.2
 Requires-Dist: starlette==0.49.1

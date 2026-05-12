@@ -12,24 +12,20 @@ import pyglet.sprite
 from pyglet.graphics import Group
 
 # ======================================== CONSTANTS ========================================
-_UNSET = object()
+_UNSET: object = object()
 
 # ======================================== TEXTURE RENDERER ========================================
 class PygletTextureRenderer:
-    """Renderer pyglet unifié pour une texture brute (ex: frame vidéo)
-
-    Contrairement à ``PygletSpriteRenderer``, ce renderer accepte directement
-    une texture pyglet sans passer par un asset ``Image``. Adapté aux sources
-    dynamiques comme les frames vidéo décodées à la volée.
+    """Renderer pyglet unifié pour une texture brute (ex: frame vidéo
 
     Args:
-        texture: texture pyglet brute (AbstractImage / Texture)
+        texture: texture pyglet brute
         transform: transformation monde
         offset: décalage par rapport au transform
-        width: largeur d'affichage en pixels (None = taille native de la texture)
-        height: hauteur d'affichage en pixels (None = taille native de la texture)
+        width: largeur d'affichage en pixels
+        height: hauteur d'affichage en pixels)
         color: teinte multiplicative
-        opacity: opacité [0.0 ; 1.0]
+        opacity: opacité [0, 1]
         z: z-order
         pipeline: pipeline de rendu
         parent: groupe parent
@@ -57,7 +53,7 @@ class PygletTextureRenderer:
         parent: Group = None,
     ):
         # Attributs publiques
-        self._texture = texture
+        self._texture: pyglet.image.AbstractImage | pyglet.image.Texture = texture
         self._transform: Transform = transform
         self._offset: Vector | None = offset
         self._width: int | None = width

@@ -1,0 +1,10 @@
+__turbopack_load_page_chunks__("/poc/ant-components", [
+  "static/chunks/0flzo94i2hd6o.js",
+  "static/chunks/11-1y24s1ec~_.js",
+  "static/chunks/0w2sl_~~z-n6m.js",
+  "static/chunks/0r1.p8aolbqpe.js",
+  "static/chunks/05sbowuyy91~d.js",
+  "static/chunks/043efa0.pp8n~.js",
+  "static/chunks/08_el.whm8hnn.css",
+  "static/chunks/turbopack-0-gi9ii.aa4~y.js"
+])

@@ -14,9 +14,10 @@ from pyglet.graphics import ShaderGroup, Group
 from pyglet.graphics.shader import ShaderProgram
 
 import numpy as np
+from typing import ClassVar
 
 # ======================================== CONSTANTS ========================================
-_UNSET = object()
+_UNSET: object = object()
 
 _REBUILD_KEYS: frozenset[str] = frozenset({"z", "geometry", "parent"})
 _STYLE_KEYS: frozenset[str] = frozenset({"opacity", "color"})
@@ -49,8 +50,8 @@ class PygletShapeRenderer:
     )
 
     # Cache partagé des shader groups
-    _PROGRAM: ShaderProgram = None
-    _GROUPS: dict[tuple[int, int], ShaderGroup] = {}
+    _PROGRAM: ClassVar[ShaderProgram] = None
+    _GROUPS: ClassVar[dict[tuple[int, int], ShaderGroup]] = {}
 
     @classmethod
     def get_program(cls) -> ShaderProgram:

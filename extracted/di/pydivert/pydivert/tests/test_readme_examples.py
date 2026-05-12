@@ -278,7 +278,7 @@ def flow_layer_diverter(port, stop_event, events):
                 if event.flow and (event.flow.LocalPort == port or event.flow.RemotePort == port):
                     events.append(event)
     except OSError as e:
-        if e.winerror == 87:
+        if getattr(e, "winerror", None) == 87:
             events.append("SKIP_WINERROR_87")
         else:
             events.append(e)
@@ -438,7 +438,7 @@ def test_example_pattern_matching():
     raw = bytearray(40)
     raw[0] = 0x45
     raw[9] = 6
-    raw[22:24] = b"\x00\x50" # port 80
+    raw[22:24] = b"\x00\x50"  # port 80
     packet = Packet(raw)
 
     matched_http = False

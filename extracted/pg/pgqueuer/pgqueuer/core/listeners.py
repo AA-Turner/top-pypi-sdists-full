@@ -13,10 +13,10 @@ components
     ``None``.
 
 ``build_default_router``
-    Convenience factory that wires handlers for the four canonical
-    back-end events (*table-changed*, *requests-per-second*,
-    *cancellation*, *health-check*).  It injects application state via
-    closures, avoiding a bulky context object.
+    Convenience factory that wires handlers for the canonical
+    back-end events (*table-changed*, *cancellation*, *health-check*).
+    It injects application state via closures, avoiding a bulky context
+    object.
 
 ``PGNoticeEventListener``
     A thin ``asyncio.Queue`` subclass used by the default
@@ -37,9 +37,11 @@ Typical usage::
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import MutableMapping, TypeAlias, TypeVar
 
 from pgqueuer.core import logconfig
@@ -82,7 +84,6 @@ class EventRouter:
 def default_event_router(
     *,
     notice_event_queue: PGNoticeEventListener,
-    statistics: MutableMapping[str, models.EntrypointStatistics],
     canceled: MutableMapping[models.JobId, models.Context],
     pending_health_check: MutableMapping[uuid.UUID, asyncio.Future[models.HealthCheckEvent]],
 ) -> EventRouter:
@@ -94,11 +95,6 @@ def default_event_router(
     def _table_changed(evt: models.TableChangedEvent) -> None:
         notice_event_queue.put_nowait(evt)
 
-    @router.register("requests_per_second_event")
-    def _requests_per_second(evt: models.RequestsPerSecondEvent) -> None:  #
-        for entrypoint, count in evt.entrypoint_count.items():
-            statistics[entrypoint].samples.append((count, evt.sent_at))
-
     @router.register("cancellation_event")
     def _cancellation(evt: models.CancellationEvent) -> None:
         for jid in evt.ids:
@@ -107,7 +103,7 @@ def default_event_router(
 
     @router.register("health_check_event")
     def _health_check_event(evt: models.HealthCheckEvent) -> None:
-        if fut := pending_health_check.get(evt.id):
+        if (fut := pending_health_check.get(evt.id)) and not fut.done():
             fut.set_result(evt)
 
     return router
@@ -137,3 +133,20 @@ async def initialize_notice_event_listener(
             )
 
     await connection.add_listener(channel, _process_payload)
+
+
+def wait_for_notice_event(
+    queue: PGNoticeEventListener,
+    timeout: timedelta,
+) -> asyncio.Task[models.TableChangedEvent | None]:
+    """Wait for a table change event with a timeout, returning None on expiry."""
+
+    async def suppressed_timeout() -> models.TableChangedEvent | None:
+        with contextlib.suppress(asyncio.TimeoutError):
+            return await asyncio.wait_for(
+                queue.get(),
+                timeout=timeout.total_seconds(),
+            )
+        return None
+
+    return asyncio.create_task(suppressed_timeout())

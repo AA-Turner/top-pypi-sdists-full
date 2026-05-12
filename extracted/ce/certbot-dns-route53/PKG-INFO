@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot-dns-route53
-Version: 5.5.0
+Version: 5.6.0
 Summary: Route53 DNS Authenticator plugin for Certbot
 Author: Certbot Project
 License-Expression: Apache-2.0
@@ -27,8 +27,8 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: boto3>=1.20.34
-Requires-Dist: acme>=5.5.0
-Requires-Dist: certbot>=5.5.0
+Requires-Dist: acme>=5.6.0
+Requires-Dist: certbot>=5.6.0
 Provides-Extra: docs
 Requires-Dist: Sphinx>=1.0; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"

@@ -136,8 +136,18 @@ class SchemeDictionaryDestination(WheelDestination):
     """Silently overwrite existing files."""
 
     def _path_with_destdir(self, scheme: Scheme, path: str) -> Path:
-        target_dir = Path(self.scheme_dict[scheme]).resolve()
-        file = (target_dir / path).resolve()
+        # See https://docs.python.org/3/library/zipfile.html#zipfile.Path:
+        #  When handling untrusted archives,
+        #  consider resolving filenames using os.path.abspath()
+        #  and checking against the target directory with os.path.commonpath().
+        #
+        # Attention: Path.absolute() is not sufficient because it does not
+        #  normalize, i.e. does not remove "..".
+        #
+        # We want to avoid Path.resolve() because it is significantly slower
+        # than os.path.abspath()!
+        target_dir = Path(os.path.abspath(self.scheme_dict[scheme]))  # noqa: PTH100
+        file = Path(os.path.abspath(target_dir / path))  # noqa: PTH100
 
         if not file.is_relative_to(target_dir):
             raise ValueError(

@@ -626,11 +626,11 @@ class MethodInfo(System.Reflection.MethodBase, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def create_delegate(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
+    def create_delegate(self, delegate_type: typing.Type) -> System.Delegate:
         ...
 
     @overload
-    def create_delegate(self, delegate_type: typing.Type) -> System.Delegate:
+    def create_delegate(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -2999,6 +2999,10 @@ class ConstructorInvoker(System.Object):
         ...
 
     @overload
+    def invoke(self) -> System.Object:
+        ...
+
+    @overload
     def invoke(self, arg_1: typing.Any) -> System.Object:
         ...
 
@@ -3012,10 +3016,6 @@ class ConstructorInvoker(System.Object):
 
     @overload
     def invoke(self, arg_1: typing.Any, arg_2: typing.Any, arg_3: typing.Any, arg_4: typing.Any) -> System.Object:
-        ...
-
-    @overload
-    def invoke(self) -> System.Object:
         ...
 
     @overload

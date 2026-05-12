@@ -121,6 +121,21 @@ class RunnerGatewayMixin:
             block_json=block_json,
         )
 
+    def _submit_session_data_snapshot(self, session_id: str, data_json: str) -> None:
+        block_json = json.dumps(
+            {
+                "event": "session_data_snapshot",
+                "data_json": data_json or "{}",
+            }
+        )
+        self._submit(
+            request_id=str(uuid.uuid4()),
+            text="",
+            done=True,
+            session_id=session_id,
+            block_json=block_json,
+        )
+
     async def _stream_chunks(self, request_id: str, chunks, session_id: str = "") -> None:
         full = ""
         async for text in chunks:

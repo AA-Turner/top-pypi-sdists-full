@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.5.17
+Version: 2.6.3
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -83,6 +83,10 @@ Or install it into the active virtual environment:
 ```bash
 uv pip install instagrapi
 ```
+
+Video uploads can use a built-in MP4 metadata parser when you provide `thumbnail=...`. Automatic thumbnail generation,
+`StoryBuilder`, and video/audio composition still need executable `ffmpeg`; Android/Pydroid users should see
+[Pydroid and ffmpeg](docs/usage-guide/pydroid.md).
 
 ## Quick Start
 

@@ -480,12 +480,12 @@ class Marshal(System.Object):
 
     @staticmethod
     @overload
-    def ptr_to_structure(ptr: System.IntPtr, structure: typing.Any) -> None:
+    def ptr_to_structure(ptr: System.IntPtr, structure_type: typing.Type) -> System.Object:
         ...
 
     @staticmethod
     @overload
-    def ptr_to_structure(ptr: System.IntPtr, structure_type: typing.Type) -> System.Object:
+    def ptr_to_structure(ptr: System.IntPtr, structure: typing.Any) -> None:
         ...
 
     @staticmethod
@@ -1035,11 +1035,11 @@ class GCHandle(typing.Generic[System_Runtime_InteropServices_GCHandle_T], System
         ...
 
     @overload
-    def equals(self, o: typing.Any) -> bool:
+    def equals(self, other: System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]) -> bool:
         ...
 
     @overload
-    def equals(self, other: System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]) -> bool:
+    def equals(self, o: typing.Any) -> bool:
         ...
 
     @overload
@@ -1223,11 +1223,11 @@ class CurrencyWrapper(System.Object):
         ...
 
     @overload
-    def __init__(self, obj: typing.Any) -> None:
+    def __init__(self, obj: float) -> None:
         ...
 
     @overload
-    def __init__(self, obj: float) -> None:
+    def __init__(self, obj: typing.Any) -> None:
         ...
 
 
@@ -1703,11 +1703,11 @@ class ErrorWrapper(System.Object):
         ...
 
     @overload
-    def __init__(self, error_code: typing.Any) -> None:
+    def __init__(self, error_code: int) -> None:
         ...
 
     @overload
-    def __init__(self, error_code: int) -> None:
+    def __init__(self, error_code: typing.Any) -> None:
         ...
 
     @overload
@@ -1833,11 +1833,11 @@ class OSPlatform(System.IEquatable[System_Runtime_InteropServices_OSPlatform]):
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, other: System.Runtime.InteropServices.OSPlatform) -> bool:
         ...
 
     @overload
-    def equals(self, other: System.Runtime.InteropServices.OSPlatform) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     def get_hash_code(self) -> int:
@@ -1969,11 +1969,11 @@ class ComWrappers(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def create_object(self, external_com_object: System.IntPtr, flags: System.Runtime.InteropServices.CreateObjectFlags, user_state: typing.Any, wrapper_flags: typing.Optional[System.Runtime.InteropServices.CreatedWrapperFlags]) -> typing.Tuple[System.Object, System.Runtime.InteropServices.CreatedWrapperFlags]:
+    def create_object(self, external_com_object: System.IntPtr, flags: System.Runtime.InteropServices.CreateObjectFlags) -> System.Object:
         ...
 
     @overload
-    def create_object(self, external_com_object: System.IntPtr, flags: System.Runtime.InteropServices.CreateObjectFlags) -> System.Object:
+    def create_object(self, external_com_object: System.IntPtr, flags: System.Runtime.InteropServices.CreateObjectFlags, user_state: typing.Any, wrapper_flags: typing.Optional[System.Runtime.InteropServices.CreatedWrapperFlags]) -> typing.Tuple[System.Object, System.Runtime.InteropServices.CreatedWrapperFlags]:
         ...
 
     @staticmethod
@@ -1984,11 +1984,11 @@ class ComWrappers(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def get_or_create_object_for_com_instance(self, external_com_object: System.IntPtr, flags: System.Runtime.InteropServices.CreateObjectFlags, user_state: typing.Any) -> System.Object:
+    def get_or_create_object_for_com_instance(self, external_com_object: System.IntPtr, flags: System.Runtime.InteropServices.CreateObjectFlags) -> System.Object:
         ...
 
     @overload
-    def get_or_create_object_for_com_instance(self, external_com_object: System.IntPtr, flags: System.Runtime.InteropServices.CreateObjectFlags) -> System.Object:
+    def get_or_create_object_for_com_instance(self, external_com_object: System.IntPtr, flags: System.Runtime.InteropServices.CreateObjectFlags, user_state: typing.Any) -> System.Object:
         ...
 
     @overload
@@ -2638,11 +2638,11 @@ class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropS
         ...
 
     @overload
-    def __ge__(self, other: typing.Any) -> bool:
+    def __ge__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
         ...
 
     @overload
-    def __ge__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
+    def __ge__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -2650,11 +2650,11 @@ class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropS
         ...
 
     @overload
-    def __gt__(self, other: typing.Any) -> bool:
+    def __gt__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
         ...
 
     @overload
-    def __gt__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
+    def __gt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -2680,11 +2680,11 @@ class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropS
         ...
 
     @overload
-    def __le__(self, other: typing.Any) -> bool:
+    def __le__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
         ...
 
     @overload
-    def __le__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
+    def __le__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -2692,11 +2692,11 @@ class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropS
         ...
 
     @overload
-    def __lt__(self, other: typing.Any) -> bool:
+    def __lt__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
         ...
 
     @overload
-    def __lt__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
+    def __lt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -3219,11 +3219,11 @@ class BStrWrapper(System.Object):
         ...
 
     @overload
-    def __init__(self, value: typing.Any) -> None:
+    def __init__(self, value: str) -> None:
         ...
 
     @overload
-    def __init__(self, value: str) -> None:
+    def __init__(self, value: typing.Any) -> None:
         ...
 
 

@@ -13,14 +13,18 @@ import warnings
 import backoff
 import jwt
 import pytest
+import responses
+import responses.registries
 import time_machine
 from cryptography.hazmat.primitives.asymmetric.rsa import generate_private_key
 from cryptography.hazmat.primitives.serialization import (
+    BestAvailableEncryption,
     Encoding,
     NoEncryption,
     PrivateFormat,
     PublicFormat,
 )
+from dirty_equals import IsPositiveInt
 
 from singer_sdk.authenticators import (
     APIAuthenticatorBase,
@@ -281,22 +285,84 @@ def public_key_string(public_key: RSAPublicKey) -> str:
     ).decode("utf-8")
 
 
+@pytest.fixture
+def passphrase() -> str:
+    return "private-key-passphrase"
+
+
+@pytest.fixture
+def private_key_with_passphrase(private_key: RSAPrivateKey, passphrase: str) -> str:
+    return private_key.private_bytes(
+        Encoding.PEM,
+        format=PrivateFormat.PKCS8,
+        encryption_algorithm=BestAvailableEncryption(passphrase.encode("utf-8")),
+    ).decode("utf-8")
+
+
 def test_oauth_jwt_authenticator_payload(
-    rest_tap: Tap,
     private_key_string: str,
     public_key_string: str,
 ):
-    class _FakeOAuthJWTAuthenticator(OAuthJWTAuthenticator):
-        private_key = private_key_string
-        oauth_request_body = {"some": "payload"}  # noqa: RUF012
+    client_id = "client-id"
+    oauth_scopes = "one,two,three"
+    auth_endpoint = "https://example.com/oauth"
 
-    authenticator = _FakeOAuthJWTAuthenticator(stream=rest_tap.streams["some_stream"])
+    authenticator = OAuthJWTAuthenticator(
+        client_id=client_id,
+        private_key=private_key_string,
+        auth_endpoint=auth_endpoint,
+        oauth_scopes=oauth_scopes,
+    )
 
-    body = authenticator.oauth_request_body
     payload = authenticator.oauth_request_payload
     token = payload["assertion"]
 
-    assert jwt.decode(token, public_key_string, algorithms=["RS256"]) == body
+    assert jwt.decode(
+        token,
+        public_key_string,
+        algorithms=["RS256"],
+        audience="https://example.com/oauth",
+    ) == {
+        "aud": auth_endpoint,
+        "exp": IsPositiveInt(),
+        "iat": IsPositiveInt(),
+        "iss": client_id,
+        "scope": oauth_scopes,
+    }
+
+
+def test_oauth_jwt_authenticator_payload_with_passphrase(
+    public_key_string: str,
+    private_key_with_passphrase: str,
+    passphrase: str,
+):
+    auth_endpoint = "https://example.com/oauth"
+    client_id = "client-id"
+    oauth_scopes = "one,two,three"
+
+    authenticator = OAuthJWTAuthenticator(
+        client_id=client_id,
+        auth_endpoint=auth_endpoint,
+        private_key=private_key_with_passphrase,
+        private_key_passphrase=passphrase,
+        oauth_scopes=oauth_scopes,
+    )
+
+    payload = authenticator.oauth_request_payload
+    token = payload["assertion"]
+
+    assert jwt.decode(
+        token,
+        public_key_string,
+        algorithms=["RS256"],
+        audience="https://example.com/oauth",
+    ) == {
+        "aud": auth_endpoint,
+        "exp": IsPositiveInt(),
+        "iat": IsPositiveInt(),
+        "iss": client_id,
+        "scope": oauth_scopes,
+    }
 
 
 def test_requests_library_auth(rest_tap: Tap):
@@ -314,23 +380,11 @@ def _get_args_kwargs(
     return ((stream,), {}) if stream_param == "positional" else ((), {"stream": stream})
 
 
-def assert_basic_auth_deprecation_warning(
-    warning: warnings.WarningMessage,
-    *,
-    location: str = "authenticators.py",
-):
-    assert isinstance(warning.message, SingerSDKDeprecationWarning)
-    message = warning.message.args[0]
-    assert isinstance(message, str)
-    assert message.startswith("BasicAuthenticator is deprecated")
-    assert warning.filename.endswith(f"{os.path.sep}{location}")
-
-
 def assert_stream_param_deprecation_warning(warning: warnings.WarningMessage):
     assert isinstance(warning.message, SingerSDKDeprecationWarning)
     message = warning.message.args[0]
     assert isinstance(message, str)
-    assert message.startswith("The `stream` parameter is deprecated")
+    assert "The `stream` parameter will be removed" in message
     assert warning.filename.endswith(f"{os.path.sep}authenticators.py")
 
 
@@ -338,7 +392,7 @@ def assert_create_for_stream_deprecation_warning(warning: warnings.WarningMessag
     assert isinstance(warning.message, SingerSDKDeprecationWarning)
     message = warning.message.args[0]
     assert isinstance(message, str)
-    assert message.startswith("The `create_for_stream` method is deprecated")
+    assert "The `create_for_stream` method will be removed" in message
     assert warning.filename.endswith(f"{os.path.sep}test_authenticators.py")
 
 
@@ -346,12 +400,12 @@ def assert_config_property_deprecation_warning(warning: warnings.WarningMessage)
     assert isinstance(warning.message, SingerSDKDeprecationWarning)
     message = warning.message.args[0]
     assert isinstance(message, str)
-    assert message.startswith("The `config` property is deprecated")
+    assert "The `config` property will be removed" in message
     assert warning.filename.endswith(f"{os.path.sep}authenticators.py")
 
 
 @pytest.mark.parametrize("stream_param", ["positional", "keyword"])
-def test_basic_auth_deprecation_warning(
+def test_basic_auth_stream_param_deprecation_warning(
     rest_tap: Tap, stream_param: t.Literal["positional", "keyword"]
 ):
     """Validate that a warning is emitted when using BasicAuthenticator."""
@@ -360,12 +414,8 @@ def test_basic_auth_deprecation_warning(
     with pytest.deprecated_call() as recorder:
         BasicAuthenticator(*args, username="username", password="password", **kwargs)  # noqa: S106
 
-    assert len(recorder.list) == 2
-    assert_basic_auth_deprecation_warning(
-        recorder.list[0],
-        location="test_authenticators.py",
-    )
-    assert_stream_param_deprecation_warning(recorder.list[1])
+    assert len(recorder.list) == 1
+    assert_stream_param_deprecation_warning(recorder.list[0])
 
 
 @pytest.mark.parametrize("stream_param", ["positional", "keyword"])
@@ -521,10 +571,9 @@ def test_basic_authenticator_create_for_stream_deprecation_warning(rest_tap: Tap
         )
 
     # create_for_stream, BasicAuthenticator, and stream param warnings
-    assert len(recorder.list) == 3
+    assert len(recorder.list) == 2
     assert_create_for_stream_deprecation_warning(recorder.list[0])
-    assert_basic_auth_deprecation_warning(recorder.list[1])
-    assert_stream_param_deprecation_warning(recorder.list[2])
+    assert_stream_param_deprecation_warning(recorder.list[1])
 
 
 def test_authenticator_invoked_on_each_retry(
@@ -749,3 +798,145 @@ def test_oauth_authenticator_refreshes_token_on_retry(
     # Verify token was refreshed (initial + refresh on retry)
     # Note: OAuth authenticator may refresh on first call + retry
     assert token_refresh_count >= 1
+
+
+@responses.activate(registry=responses.registries.OrderedRegistry)
+def test_oauth_authenticator_retries_on_503_error(rest_tap: Tap):
+    """Verify OAuth token requests automatically retry on 503 errors.
+
+    Uses the responses library to mock HTTP responses and verify that
+    urllib3's retry mechanism successfully retries 503 Service Unavailable
+    errors with Retry-After headers.
+    """
+    fake_token = "token-after-retry"  # noqa: S105
+
+    # Mock: 2 failures (503) then success
+    rsp1 = responses.post(
+        "https://example.com/oauth",
+        status=503,
+        headers={"Retry-After": "0"},
+    )
+    rsp2 = responses.post(
+        "https://example.com/oauth",
+        status=503,
+        headers={"Retry-After": "0"},
+    )
+    rsp3 = responses.post(
+        "https://example.com/oauth",
+        json={"access_token": fake_token, "expires_in": 3600},
+        status=200,
+    )
+
+    authenticator = _FakeOAuthAuthenticator(
+        stream=rest_tap.streams["some_stream"],
+        auth_endpoint="https://example.com/oauth",
+    )
+    authenticator.update_access_token()
+
+    # Verify token was obtained after retries
+    assert authenticator.access_token == fake_token
+    assert authenticator.expires_in == 3600
+
+    # Verify each response was called exactly once
+    assert rsp1.call_count == 1
+    assert rsp2.call_count == 1
+    assert rsp3.call_count == 1
+
+
+@responses.activate(registry=responses.registries.OrderedRegistry)
+def test_oauth_authenticator_retries_on_rate_limit(rest_tap: Tap):
+    """Verify OAuth token requests automatically retry on 429 rate limits.
+
+    Tests that API rate limiting (429 Too Many Requests) with Retry-After
+    headers triggers automatic retry behavior.
+    """
+    fake_token = "token-after-rate-limit"  # noqa: S105
+
+    # Mock: 1 rate limit then success
+    rsp1 = responses.post(
+        "https://example.com/oauth",
+        status=429,
+        headers={"Retry-After": "0"},
+    )
+    rsp2 = responses.post(
+        "https://example.com/oauth",
+        json={"access_token": fake_token, "expires_in": 3600},
+        status=200,
+    )
+
+    authenticator = _FakeOAuthAuthenticator(
+        stream=rest_tap.streams["some_stream"],
+        auth_endpoint="https://example.com/oauth",
+    )
+    authenticator.update_access_token()
+
+    # Verify token was obtained after rate limit
+    assert authenticator.access_token == fake_token
+    assert rsp1.call_count == 1
+    assert rsp2.call_count == 1
+
+
+@pytest.mark.parametrize("status_code", [400, 401, 403, 404])
+@responses.activate(registry=responses.registries.OrderedRegistry)
+def test_oauth_authenticator_does_not_retry_client_errors(
+    rest_tap: Tap,
+    status_code: int,
+):
+    """Verify client errors (4xx except 429) are NOT retried.
+
+    Tests that authentication failures with 4xx statuses (except 429) do not
+    trigger retries, as these are not transient errors.
+    """
+    # Mock: client error (should not retry)
+    rsp = responses.post(
+        "https://example.com/oauth",
+        json={"error": "Invalid credentials"},
+        status=status_code,
+    )
+
+    authenticator = _FakeOAuthAuthenticator(
+        stream=rest_tap.streams["some_stream"],
+        auth_endpoint="https://example.com/oauth",
+    )
+
+    # Expect RuntimeError to be raised (existing error handling)
+    with pytest.raises(RuntimeError, match="Failed to update access token"):
+        authenticator.update_access_token()
+
+    # Verify only 1 request was made (no retries for non-429 4xx)
+    assert rsp.call_count == 1
+
+
+@responses.activate(registry=responses.registries.OrderedRegistry)
+def test_oauth_authenticator_fails_after_max_retries(rest_tap: Tap):
+    """Verify OAuth token requests fail after exceeding max retries.
+
+    Tests that the retry mechanism respects the maximum retry limit (10)
+    and eventually raises an error after exhausting all retry attempts.
+    """
+    # Mock: 15 consecutive 503 errors (exceeds total=10 max retries)
+    # We expect 11 calls (1 initial + 10 retries), so the last 4 won't be used
+    rsps = []
+    for _ in range(15):
+        rsp = responses.post(
+            "https://example.com/oauth",
+            status=503,
+            headers={"Retry-After": "0"},
+        )
+        rsps.append(rsp)
+
+    authenticator = _FakeOAuthAuthenticator(
+        stream=rest_tap.streams["some_stream"],
+        auth_endpoint="https://example.com/oauth",
+    )
+
+    # Expect RuntimeError after max retries exhausted
+    with pytest.raises(
+        RuntimeError,
+        match=r"Failed to update access token \(status=503\)",
+    ):
+        authenticator.update_access_token()
+
+    # Verify max retries: 1 initial + 10 retries = 11 total
+    total_calls = sum(rsp.call_count for rsp in rsps)
+    assert total_calls == 11

@@ -1175,11 +1175,11 @@ class GenericEqualityComparer(typing.Generic[System_Collections_Generic_GenericE
     """This class has no documentation."""
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, x: System_Collections_Generic_GenericEqualityComparer_T, y: System_Collections_Generic_GenericEqualityComparer_T) -> bool:
         ...
 
     @overload
-    def equals(self, x: System_Collections_Generic_GenericEqualityComparer_T, y: System_Collections_Generic_GenericEqualityComparer_T) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload
@@ -1198,11 +1198,11 @@ class NullableEqualityComparer(typing.Generic[System_Collections_Generic_Nullabl
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, x: typing.Optional[System_Collections_Generic_NullableEqualityComparer_T], y: typing.Optional[System_Collections_Generic_NullableEqualityComparer_T]) -> bool:
         ...
 
     @overload
-    def equals(self, x: typing.Optional[System_Collections_Generic_NullableEqualityComparer_T], y: typing.Optional[System_Collections_Generic_NullableEqualityComparer_T]) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload
@@ -1221,11 +1221,11 @@ class ObjectEqualityComparer(typing.Generic[System_Collections_Generic_ObjectEqu
     """This class has no documentation."""
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, x: System_Collections_Generic_ObjectEqualityComparer_T, y: System_Collections_Generic_ObjectEqualityComparer_T) -> bool:
         ...
 
     @overload
-    def equals(self, x: System_Collections_Generic_ObjectEqualityComparer_T, y: System_Collections_Generic_ObjectEqualityComparer_T) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload
@@ -1241,11 +1241,11 @@ class ByteEqualityComparer(System.Collections.Generic.EqualityComparer[int]):
     """This class has no documentation."""
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, x: int, y: int) -> bool:
         ...
 
     @overload
-    def equals(self, x: int, y: int) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload

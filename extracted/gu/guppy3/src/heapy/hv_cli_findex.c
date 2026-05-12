@@ -10,28 +10,31 @@ PyDoc_STRVAR(hv_cli_findex_doc,
 
 
 typedef struct {
-    PyObject_VAR_HEAD
+    NYTUPLELIKE_HEAD
     PyObject *alts;
     PyObject *memo;
     PyObject *kinds;
     PyObject *cmps;
 } FindexObject;
+NYTUPLELIKE_ASSERT(FindexObject, alts);
 
 static PyObject *
 hv_cli_findex_memoized_kind(FindexObject * self, PyObject *kind)
 {
-    PyObject *result = PyDict_GetItem(self->memo, kind);
-    if (!result) {
-        if (PyErr_Occurred())
-            goto Err;
-        if (PyDict_SetItem(self->memo, kind, kind) == -1)
-            goto Err;
-        result = kind;
-    }
-    Py_INCREF(result);
-    return result;
-Err:
-    return 0;
+    PyObject *result;
+    int r;
+
+    r = PyDict_GetItemRef(self->memo, kind, &result);
+    if (r == -1)
+        return NULL;
+    if (result)
+        return result;
+
+    if (PyDict_SetItem(self->memo, kind, kind) == -1)
+        return NULL;
+    /* Caller assumes it owns both kind and the return value */
+    Py_INCREF(kind);
+    return kind;
 }
 
 
@@ -124,7 +127,7 @@ hv_cli_findex(NyHeapViewObject *hv, PyObject *args)
     Py_INCREF(tmp.memo);
     s->kinds = PyTuple_New(numalts);
     s->cmps = PyTuple_New(numalts);
-    if (!s->kinds)
+    if (!s->kinds || !s->cmps)
         goto Err;
     for (i = 0; i < numalts; i++) {
         PyObject *ckc = PyTuple_GET_ITEM(tmp.alts, i);

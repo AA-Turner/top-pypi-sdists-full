@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: http-sf
-Version: 1.2.0
+Version: 1.2.1
 Summary: Parse and serialise HTTP Structured Fields
 Author-email: Mark Nottingham <mnot@mnot.net>
 License-Expression: MIT
@@ -13,6 +13,7 @@ Requires-Dist: typing_extensions
 Provides-Extra: dev
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: black; extra == "dev"
+Requires-Dist: isort; extra == "dev"
 Requires-Dist: pylint; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-md; extra == "dev"

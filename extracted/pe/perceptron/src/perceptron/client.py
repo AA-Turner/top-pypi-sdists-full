@@ -184,7 +184,7 @@ class _StreamProcessor:
         if expects in _BUCKET_BY_EXPECTS and self._parsing_enabled and isinstance(content, str):
             bucket_name, extract = _BUCKET_BY_EXPECTS[expects]
             result[bucket_name] = extract(content)
-            result["parsed"] = parse_text(content)
+            result["parsed"] = parse_text(content, expects=expects)
         issues: list[dict[str, Any]] = []
         if not self._parsing_enabled:
             issues.append(
@@ -208,7 +208,7 @@ class _StreamProcessor:
         if expects not in _BUCKET_BY_EXPECTS:
             return events
         try:
-            segments = parse_text(self._cumulative)
+            segments = parse_text(self._cumulative, expects=expects)
         except Exception:
             return events
         for seg in segments:
@@ -518,18 +518,18 @@ _PROVIDER_CONFIG = {
         "auth_header": "Authorization",
         "auth_prefix": "Bearer ",
         "env_keys": ["PERCEPTRON_API_KEY"],
-        "default_model": "isaac-0.1",
+        "default_model": "perceptron-mk1",
         "supported_models": [
             "isaac-0.1",
             "isaac-0.2-1b",
             "isaac-0.2-2b-preview",
-            "isaac-0.3-max",
+            "perceptron-mk1",
         ],
         "models": {
             "isaac-0.1": {"reasoning": False, "skip_structured_hints": False, "focus": False},
             "isaac-0.2-1b": {"reasoning": True, "skip_structured_hints": False, "focus": True},
             "isaac-0.2-2b-preview": {"reasoning": True, "skip_structured_hints": False, "focus": True},
-            "isaac-0.3-max": {"reasoning": True, "skip_structured_hints": False, "focus": True},
+            "perceptron-mk1": {"reasoning": True, "skip_structured_hints": False, "focus": True},
         },
         "stream": True,
     },
@@ -783,7 +783,7 @@ class _ClientCore:
         if expects in _BUCKET_BY_EXPECTS and isinstance(content, str):
             bucket_name, extract = _BUCKET_BY_EXPECTS[expects]
             result[bucket_name] = extract(content)
-            result["parsed"] = parse_text(content)
+            result["parsed"] = parse_text(content, expects=expects)
         return result
 
 

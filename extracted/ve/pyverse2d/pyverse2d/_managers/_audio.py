@@ -251,7 +251,19 @@ class SoundGroup:
 # ======================================== REQUESTS ========================================
 @dataclass(slots=True)
 class _CrossfadeRequest(Request):
-    """Requête de fondu croisé"""
+    """Requête de fondu croisé
+    
+    Args:
+        handle_out: ``MusicHandle`` sortant
+        handle_in: ``MusicHandle`` arrivant
+        steps: nombre d'étape du fondu
+        step_dt: durée entre chaque étape
+        vol_out: volume sortant
+        vol_in: volume entrant
+        easing: fonction d'atténuation temporelle
+        step: étape initiale
+        elapsed: temps écoulé de l'étape courante
+    """
     handle_out: MusicHandle | None
     handle_in: MusicHandle | None
 
@@ -266,7 +278,22 @@ class _CrossfadeRequest(Request):
 
 @dataclass(slots=True)
 class _PlaylistRequest(Request):
-    """Requête de lecture d'une playlist"""
+    """Requête de lecture d'une playlist
+    
+    Args:
+        playlist: ``Playlist`` asset
+        musics: liste des musiques à jouer
+        order: ordre des indices des musiques à jouer
+        shuffle: lecture aléatoire
+        loop: lecture en boucle
+        fade_in: fondu entrant
+        fade_out: fondu sortant
+        delay: temps d'attente entre chaque musique
+        cross_fade: fondu entre chaque musique
+        playing: état initial
+        index: indice intitial
+        delay_timer: temps écoulé du délai d'attente
+    """
     playlist: Playlist
     musics: list[Music]
     order: list[int]
@@ -284,7 +311,11 @@ class _PlaylistRequest(Request):
 
 # ======================================== MANAGER ========================================
 class AudioManager(Manager):
-    """Gestionnaire audio"""
+    """Gestionnaire audio
+    
+    Args:
+        context_manager: ``Manager`` gérant le contexte d'initialisation
+    """
     __slots__ = (
         "_master_volume", "_music_volume",
         "_active_sounds", "_current_music", "_crossfade", "_playlist",
@@ -294,20 +325,20 @@ class AudioManager(Manager):
     _ID: ClassVar[str] = "audio"
 
     # Types alias
-    AudioState: ClassVar[Type[AudioState]] = AudioState
-    SoundGroup: ClassVar[Type[SoundGroup]] = SoundGroup
-    SoundHandle: ClassVar[Type[SoundHandle]] = SoundHandle
-    MusicHandle: ClassVar[Type[MusicHandle]] = MusicHandle
+    AudioState: Type[AudioState] = AudioState
+    SoundGroup: Type[SoundGroup] = SoundGroup
+    SoundHandle: Type[SoundHandle] = SoundHandle
+    MusicHandle: Type[MusicHandle] = MusicHandle
 
     # Groupes par défaut
-    _DEFAULT_SOUN_GROUP: ClassVar[SoundGroup] = None
+    _DEFAULT_SOUND_GROUP: ClassVar[SoundGroup] = None
 
     @classmethod
     def get_default_sound_group(cls) -> SoundGroup:
         """Renvoie le groupe de sons par défaut"""
-        if cls._DEFAULT_SOUN_GROUP is None:
-            cls._DEFAULT_SOUN_GROUP = SoundGroup()
-        return cls._DEFAULT_SOUN_GROUP
+        if cls._DEFAULT_SOUND_GROUP is None:
+            cls._DEFAULT_SOUND_GROUP = SoundGroup()
+        return cls._DEFAULT_SOUND_GROUP
 
     def __init__(self, context_manager: ContextManager):
         # Initialisation du gestionnaire
@@ -318,12 +349,12 @@ class AudioManager(Manager):
         self._music_volume: float = 1.0
 
         # Attributs internes
-        self._active_sounds: set[Sound] = set()
-        self._current_music: Music | None = None
-        self._crossfade: _CrossfadeRequest | None = None
-        self._playlist: _PlaylistRequest | None = None
-        self._source_cache: dict[str, _media.StaticSource] = {}
-        self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=2)
+        self._active_sounds: set[Sound] = set()                                     # sons actifs
+        self._current_music: Music | None = None                                    # musique courante
+        self._crossfade: _CrossfadeRequest | None = None                            # fondu croisé courant
+        self._playlist: _PlaylistRequest | None = None                              # playlist courante
+        self._source_cache: dict[str, _media.StaticSource] = {}                     # cache des sources statiques (sons)
+        self._executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=2)      # thread de construction des sources continues (musiques)
 
     # ======================================== PROPERTIES ========================================
     @property
@@ -572,8 +603,11 @@ class AudioManager(Manager):
         Args:
             sound: son à reprendre
         """
+        # Fast exit
         if not sound.is_paused():
             return
+        
+        # Reprise
         for handle in sound._get_handles():
             handle.resume()
         sound._set_state(AudioState.PLAYING)
@@ -583,9 +617,12 @@ class AudioManager(Manager):
 
         Args:
             sound: son à mettre en pause
-        """
+        """        
+        # Fast exit
         if not sound.is_playing() or sound.is_paused():
             return
+        
+        # Mise en pause
         for handle in sound._get_handles():
             handle.pause()
         sound._set_state(AudioState.PAUSED)
@@ -596,8 +633,11 @@ class AudioManager(Manager):
         Args:
             sound: son à arrêter
         """
+        # Fast exit
         if not sound.is_playing():
             return
+        
+        # Arrêt
         for handle in list(sound._get_handles()):
             handle.stop()
 
@@ -736,7 +776,7 @@ class AudioManager(Manager):
         """Arrête la musique en cours
 
         Args:
-            fade_s: fade-out en secondes
+            fade_s: fade-out *(en secondes)*
             fade_easing: fonction d'atténuation du fade-out
         """
         # Transtypage et vérifications
@@ -864,8 +904,11 @@ class AudioManager(Manager):
         Args:
             playlist: playlist à jouer
         """
+        # Vérifications
         if __debug__:
             expect(playlist, Playlist)
+
+        # Création de la requête
         self._playlist = _PlaylistRequest(
             playlist = playlist,
             musics = list(playlist.musics),
@@ -881,15 +924,21 @@ class AudioManager(Manager):
 
     def resume_playlist(self) -> None:
         """Reprend la playlist en cours"""
+        # Fast exit
         if self._playlist is None or self._playlist.playing:
             return
+        
+        # Reprise
         self._playlist.playing = True
         self.resume_music()
 
     def pause_playlist(self) -> None:
         """Met la playlist en cours en pause"""
+        # Fast exit
         if self._playlist is None or not self._playlist.playing:
             return
+        
+        # Mise en pause
         self._playlist.playing = False
         self.pause_music()
 
@@ -899,8 +948,11 @@ class AudioManager(Manager):
         Args:
             fade_s: fade-out *(en secondes)*
         """
+        # Fast exit
         if self._playlist is None:
             return
+        
+        # Arrêt
         self._playlist = None
         self.stop_music(fade_s=fade_s)
 
@@ -920,7 +972,7 @@ class AudioManager(Manager):
     
     @property
     def playlist_playing(self) -> bool:
-        """Vérifie que la playliste courant soit en cours de lecture"""
+        """Vérifie que la playlist courant soit en cours de lecture"""
         if self._playlist is None:
             return False
         return self._playlist.playing
@@ -988,11 +1040,15 @@ class AudioManager(Manager):
         Args:
             dt: delta-time
         """
+        # Fast exit
         if self._crossfade is None:
             return
+        
+        # Mise à jour temporelle
         cf = self._crossfade
         cf.elapsed += dt
-    
+
+        # Progression du fondu croisé
         while cf.elapsed >= cf.step_dt and cf.step < cf.steps:
             cf.step += 1
             cf.elapsed -= cf.step_dt
@@ -1002,6 +1058,7 @@ class AudioManager(Manager):
             if cf.handle_in is not None:
                 cf.handle_in.play_volume = cf.vol_in * t
 
+        # Condition d'arrêt
         if cf.step >= cf.steps:
             if cf.handle_out is not None:
                 cf.handle_out.stop()
@@ -1023,6 +1080,18 @@ class AudioManager(Manager):
         if path not in self._source_cache:
             self._source_cache[path] = _media.load(path, streaming=False)
         return self._source_cache[path]
+    
+    def _refresh_volumes(self) -> None:
+        """Actualise les volumes"""
+        base_musics_volume = self.master_volume * self.music_volume
+        if self._crossfade is not None:
+            cf = self._crossfade
+            if cf.handle_out is not None:
+                cf.handle_out.base_volume = base_musics_volume * cf.handle_out.music.volume
+            if cf.handle_in is not None:
+                cf.handle_in.base_volume = base_musics_volume * cf.handle_in.music.volume
+        elif self._current_music is not None:
+            self._current_music._handle.base_volume = base_musics_volume * self._current_music.volume
 
     def _stop_music_immediate(self) -> None:
         """Arrête la musique brutalement"""
@@ -1031,6 +1100,14 @@ class AudioManager(Manager):
             if self._current_music._handle is not None:
                 self._current_music._handle.stop()
             self._current_music = None
+
+    def _cancel_crossfade(self) -> None:
+        """Annule le cross-fade"""
+        if self._crossfade is not None:
+            cf = self._crossfade
+            if cf.handle_out is not None:
+                cf.handle_out.stop()
+        self._crossfade = None
             
     def _on_interrupted_music_end(self, handle: MusicHandle) -> None:
         """Reprend la playlist après une musique de surcharge
@@ -1079,26 +1156,6 @@ class AudioManager(Manager):
             if playlist_fallback and self._playlist is not None and not self._playlist.playing:
                 self._on_interrupted_music_end(h)
         return on_stop
-
-    def _cancel_crossfade(self) -> None:
-        """Annule le cross-fade"""
-        if self._crossfade is not None:
-            cf = self._crossfade
-            if cf.handle_out is not None:
-                cf.handle_out.stop()
-        self._crossfade = None
-
-    def _refresh_volumes(self) -> None:
-        """Actualise les volumes"""
-        base_musics_volume = self.master_volume * self.music_volume
-        if self._crossfade is not None:
-            cf = self._crossfade
-            if cf.handle_out is not None:
-                cf.handle_out.base_volume = base_musics_volume * cf.handle_out.music.volume
-            if cf.handle_in is not None:
-                cf.handle_in.base_volume = base_musics_volume * cf.handle_in.music.volume
-        elif self._current_music is not None:
-            self._current_music._handle.base_volume = base_musics_volume * self._current_music.volume
 
     def _play_playlist_next(self) -> None:
         """Joue la prochaine musique de la playlist en cours"""

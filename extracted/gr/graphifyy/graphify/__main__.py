@@ -33,7 +33,7 @@ def _check_skill_version(skill_dst: Path) -> None:
         return
     installed = version_file.read_text(encoding="utf-8").strip()
     if installed != __version__:
-        print(f"  warning: skill is from graphify {installed}, package is {__version__}. Run 'graphify install' to update.")
+        print(f"  warning: skill is from graphify {installed}, package is {__version__}. Run 'graphify install' to update.", file=sys.stderr)
 
 
 def _refresh_all_version_stamps() -> None:
@@ -1115,12 +1115,18 @@ def _clone_repo(url: str, branch: str | None = None, out_dir: Path | None = None
 def main() -> None:
     # Check all known skill install locations for a stale version stamp.
     # Skip during install/uninstall (hook writes trigger a fresh check anyway).
+    # Skip during hook-check — it runs on every editor tool use and must be silent.
     # Deduplicate paths so platforms sharing the same install dir don't warn twice.
-    if not any(arg in ("install", "uninstall") for arg in sys.argv):
+    _silent_cmds = {"install", "uninstall", "hook-check"}
+    if not any(arg in _silent_cmds for arg in sys.argv):
         for skill_dst in {Path.home() / cfg["skill_dst"] for cfg in _PLATFORM_CONFIG.values()}:
             _check_skill_version(skill_dst)
 
-    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+    if len(sys.argv) >= 2 and sys.argv[1] in ("-v", "--version", "version"):
+        print(f"graphify {__version__}")
+        return
+
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "-?"):
         print("Usage: graphify <command>")
         print()
         print("Commands:")
@@ -1225,6 +1231,17 @@ def main() -> None:
         return
 
     cmd = sys.argv[1]
+
+    # Universal help guard: -h/--help/-? anywhere after the command shows help
+    # and stops — prevents flags from silently triggering destructive subcommands
+    # (e.g. "cursor install --help" was silently installing into Cursor, #821).
+    # Exempt: free-text commands (user string may contain these tokens), and
+    # "install"/"uninstall" which have their own per-subcommand help handlers.
+    _FREE_TEXT_CMDS = {"query", "explain", "path", "save-result", "install", "uninstall"}
+    if cmd not in _FREE_TEXT_CMDS and any(a in {"-h", "--help", "-?"} for a in sys.argv[2:]):
+        print(f"Run 'graphify --help' for full usage.")
+        return
+
     if cmd == "install":
         # Default to windows platform on Windows, claude elsewhere
         default_platform = "windows" if platform.system() == "Windows" else "claude"

@@ -30,12 +30,60 @@ RESEARCH_DEFAULTS = BOXMOT_DEFAULTS.research
 EXPORT_DEFAULTS = BOXMOT_DEFAULTS.export
 SHARED_DEFAULTS = BOXMOT_DEFAULTS.shared
 
+_TUNE_METRIC_OPTIONS = {"--objectives", "--maximize", "--minimize"}
+
 
 def _click_imgsz_default(value):
     """Normalize configured image sizes into a Click-friendly default value."""
     if isinstance(value, (list, tuple)):
         return ",".join(str(part) for part in value)
     return value
+
+
+def _normalize_tune_metric_cli_args(args: list[str]) -> list[str]:
+    """Fold space-separated tune metric values into Click option values."""
+    if "tune" not in args:
+        return args
+
+    tune_index = args.index("tune")
+    prefix = args[: tune_index + 1]
+    tokens = args[tune_index + 1 :]
+    normalized: list[str] = []
+    index = 0
+
+    while index < len(tokens):
+        token = tokens[index]
+        option = None
+        inline_value = None
+
+        if token in _TUNE_METRIC_OPTIONS:
+            option = token
+        else:
+            for candidate in _TUNE_METRIC_OPTIONS:
+                prefix_text = f"{candidate}="
+                if token.startswith(prefix_text):
+                    option = candidate
+                    inline_value = token[len(prefix_text):]
+                    break
+
+        if option is None:
+            normalized.append(token)
+            index += 1
+            continue
+
+        values: list[str] = []
+        if inline_value not in {None, ""}:
+            values.append(inline_value)
+        index += 1
+        while index < len(tokens) and not tokens[index].startswith("-"):
+            values.append(tokens[index])
+            index += 1
+
+        normalized.append(option)
+        if values:
+            normalized.append(",".join(values))
+
+    return prefix + normalized
 
 
 # Shared command options (excluding model, classes, and input selection)
@@ -126,6 +174,34 @@ def data_option(func):
     )(func)
 
 
+def replay_backend_option(func):
+    """Attach the cached-tracking backend option for eval-like workflows."""
+    return click.option(
+        '--tracking-backend',
+        type=click.Choice(["process", "thread", "cpp"], case_sensitive=False),
+        default="process",
+        show_default=True,
+        help=(
+            "Cached replay executor for eval/tune/research. "
+            "Use 'cpp' as a compatibility alias for '--tracker-backend cpp'."
+        ),
+    )(func)
+
+
+def tracker_backend_option(func):
+    """Attach the tracker implementation backend option."""
+    return click.option(
+        '--tracker-backend',
+        type=click.Choice(["python", "cpp"], case_sensitive=False),
+        default=RUNTIME_DEFAULTS.tracker_backend,
+        show_default=True,
+        help=(
+            "Tracker implementation backend. Native 'cpp' is available for "
+            "botsort, bytetrack, ocsort, and sfsort."
+        ),
+    )(func)
+
+
 def _is_option_explicit(ctx: click.Context, option_name: str) -> bool:
     """Return True when a Click option came from the command line instead of defaults."""
     return ctx.get_parameter_source(option_name) != ParameterSource.DEFAULT
@@ -169,6 +245,24 @@ def _resolve_source_context(source: Optional[str]) -> Tuple[Optional[str], str, 
     return source, source_path.parent.name, source_path.name
 
 
+def _is_live_source_value(source: Optional[str]) -> bool:
+    if source is None:
+        return False
+    return str(source).isdigit() or "://" in str(source)
+
+
+def _apply_track_cli_defaults(ctx: click.Context, payload: dict) -> dict:
+    resolved = dict(payload)
+    source = resolved.get("source")
+    has_explicit_output = any(
+        _is_option_explicit(ctx, option_name)
+        for option_name in ("show", "save", "save_txt")
+    )
+    if _is_live_source_value(source) and not has_explicit_output:
+        resolved["show"] = True
+    return resolved
+
+
 def _require_generate_input(data: Optional[str], source: Optional[str], command_name: str) -> None:
     """Validate benchmark-vs-source selection for generate-like commands."""
     if data and source:
@@ -204,12 +298,28 @@ def _require_benchmark_input(data: Optional[str], command_name: str) -> str:
 
 
 def _run_engine_workflow(module_name: str, args) -> None:
-    """Run an engine module through its canonical ``main(args)`` entry point."""
+    """Run an engine module through its canonical ``main(args)`` entry point.
+
+    Engine ``main`` functions render their own Rich workflow panels and capture
+    failures into the panel's traceback view via ``WorkflowProgress.fail()``.
+    When the panel has rendered the error (indicated by __exit__ setting
+    ``_workflow_rendered_error`` on the exception), we convert the exception
+    into a clean ``click.exceptions.Exit(1)`` to avoid a duplicate traceback.
+    Otherwise the exception propagates normally so the user sees what went
+    wrong.
+    """
     module = importlib.import_module(module_name)
     main_fn = getattr(module, "main", None)
     if main_fn is None:
         raise AttributeError(f"{module_name} does not expose main")
-    main_fn(args)
+    try:
+        main_fn(args)
+    except (KeyboardInterrupt, SystemExit, click.exceptions.Exit, click.ClickException):
+        raise
+    except BaseException as exc:
+        if getattr(exc, "_workflow_rendered_error", False):
+            raise click.exceptions.Exit(code=1)
+        raise
 
 
 def singular_model_options(func):
@@ -287,13 +397,22 @@ def tune_options(func):
     options = [
         click.option('--n-trials', type=int, default=TUNE_DEFAULTS.n_trials,
                      help='number of trials for evolutionary tuning'),
+        click.option('--max-concurrent-trials', type=int, default=0,
+                     help='max concurrent trials (0 = auto, defaults to min(4, cpu_count)); '
+                          'controls parallelism and improves Bayesian search effectiveness'),
+        click.option('--time-budget-s', type=float, default=None,
+                     help='optional time budget in seconds for the entire tuning run; '
+                          'Tune stops launching new trials after this time'),
+        click.option('--resume-tune', type=str, default=None,
+                     help='resume a Ray Tune experiment; pass a folder name (e.g. deepocsort_tune_3) '
+                          'or full path under runs/ray/. Retries errored trials and continues remaining ones.'),
         click.option('--objectives', type=str, multiple=True,
                      default=TUNE_DEFAULTS.objectives,
-                     help='metrics to track and return from each trial'),
+                     help='metrics to track and return from each trial; accepts repeated, comma-separated, or space-separated values'),
         click.option('--maximize', type=str, multiple=True, default=TUNE_DEFAULTS.maximize,
-                     help='metrics to maximize; defaults to first --objectives value (e.g. HOTA)'),
+                     help='metrics to maximize; accepts repeated, comma-separated, or space-separated values; defaults to first --objectives value (e.g. HOTA)'),
         click.option('--minimize', type=str, multiple=True, default=TUNE_DEFAULTS.minimize,
-                     help='metrics to minimize for Pareto search (e.g. IDSW_rate); '
+                     help='metrics to minimize for Pareto search; accepts repeated, comma-separated, or space-separated values (e.g. IDSW_rate); '
                           'triggers multi-objective mode when set'),
     ]
     for opt in reversed(options):
@@ -338,6 +457,10 @@ def research_options(func):
 
 class CommandFirstGroup(click.Group):
     """Custom Click Group with improved help formatting - Ultralytics-style."""
+
+    def parse_args(self, ctx, args):
+        """Normalize tune metric lists before Click validates subcommand args."""
+        return super().parse_args(ctx, _normalize_tune_metric_cli_args(list(args)))
     
     def format_help(self, _ctx, formatter):
         """Override to show custom help with Ultralytics-style formatting."""
@@ -430,6 +553,7 @@ def boxmot(ctx):
 
 @boxmot.command(help='Run tracking only')
 @source_option(default=TRACK_DEFAULTS.source, help_text='file/dir/URL/glob, 0 for webcam')
+@tracker_backend_option
 @core_options
 @singular_model_options
 @click.pass_context
@@ -439,7 +563,7 @@ def track(ctx, detector, reid, classes, **kwargs):
         ctx,
         "track",
         "boxmot.engine.tracker",
-        {
+        _apply_track_cli_defaults(ctx, {
             **kwargs,
             "detector": detector,
             "reid": reid,
@@ -447,7 +571,7 @@ def track(ctx, detector, reid, classes, **kwargs):
             "source": src,
             "benchmark": bench,
             "split": split,
-        },
+        }),
     )
     
 @boxmot.command(help='Generate detections and embeddings')
@@ -479,6 +603,8 @@ def generate(ctx, data, detector, reid, classes, **kwargs):
 
 @boxmot.command(help='Evaluate tracking performance')
 @data_option
+@replay_backend_option
+@tracker_backend_option
 @core_options
 @plural_model_options
 @click.pass_context
@@ -503,6 +629,8 @@ def eval(ctx, data, detector, reid, classes, **kwargs):
 
 @boxmot.command(help='Tune models via evolutionary algorithms')
 @data_option
+@replay_backend_option
+@tracker_backend_option
 @core_options
 @tune_options
 @plural_model_options
@@ -528,6 +656,8 @@ def tune(ctx, data, detector, reid, classes, **kwargs):
 
 @boxmot.command(help='Research tracker code changes with GEPA')
 @data_option
+@replay_backend_option
+@tracker_backend_option
 @core_options
 @research_options
 @plural_model_options
@@ -561,6 +691,52 @@ def export(ctx, **kwargs):
     """
     args = _build_cli_namespace(ctx, "export", kwargs)
     _run_engine_workflow("boxmot.engine.export", args)
+
+
+@boxmot.command(help='Build native (C++) tracker shared libraries')
+@click.option(
+    '--tracker', 'trackers', multiple=True,
+    type=click.Choice(['all', 'botsort', 'bytetrack', 'occluboost', 'ocsort', 'sfsort', 'reid'],
+                      case_sensitive=False),
+    default=('all',),
+    help='Tracker(s) to build. Pass --tracker multiple times or use "all" (default).',
+)
+@click.option('--force', is_flag=True, default=False, help='Force rebuild even if libraries already exist.')
+def build(trackers, force):
+    """Compile the native C++ shared libraries shipped under ``boxmot/native/trackers``.
+
+    Useful for editable installs (``pip install -e .``) where the wheel build
+    step is skipped. Each tracker is built into ``build/native/<tracker>/`` and
+    the resulting ``*_capi`` shared library is what the ctypes wrappers in
+    ``boxmot.native`` load at runtime.
+    """
+    selected = {t.lower() for t in trackers}
+    if 'all' in selected:
+        selected = {'reid', 'botsort', 'bytetrack', 'occluboost', 'ocsort', 'sfsort'}
+
+    # Sort so the shared ReID base is built first (other trackers depend on it
+    # transitively at link time when configured standalone).
+    order = ['reid', 'botsort', 'bytetrack', 'occluboost', 'ocsort', 'sfsort']
+    selected = [name for name in order if name in selected]
+
+    failures: list[tuple[str, str]] = []
+    for name in selected:
+        try:
+            if name == 'reid':
+                from boxmot.native.reid_capi import ensure_reid_capi_library
+                lib = ensure_reid_capi_library(force_rebuild=force)
+            else:
+                module = __import__(f'boxmot.native.{name}_cpp', fromlist=['*'])
+                ensure = getattr(module, f'ensure_{name}_cpp_library')
+                lib = ensure(force_rebuild=force)
+            click.echo(f"[boxmot build] {name}: built -> {lib}")
+        except Exception as exc:  # noqa: BLE001 - surface CMake errors verbatim
+            failures.append((name, str(exc)))
+            click.echo(f"[boxmot build] {name}: FAILED\n{exc}", err=True)
+
+    if failures:
+        names = ", ".join(name for name, _ in failures)
+        raise click.ClickException(f"Native build failed for: {names}")
 
 
 main = boxmot

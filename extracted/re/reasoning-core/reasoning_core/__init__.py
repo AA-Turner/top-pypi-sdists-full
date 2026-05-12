@@ -1,7 +1,7 @@
 # __init__.py
 
 
-__version__ = "0.2.3"
+__version__ = "0.3.0"
 
 import importlib
 #import pkgutil
@@ -14,6 +14,7 @@ from tqdm.auto import tqdm
 import os
 from .template import _REGISTRY, prepr_task_name
 from . import tasks
+from .zero_shot_eval import evaluate_model
 
 _PACKAGE_NAME = __name__ 
 
@@ -94,11 +95,14 @@ scorers = {
 }
 
 
-def rg_scorer(a, e):
-    from .tasks import _reasoning_gym
-    return _reasoning_gym.Reasoning_Gym().score_answer(a, e)
-
-scorers['Reasoning_Gym'] = lambda a, e: rg_scorer(a, e)
+try:
+    import reasoning_gym as _rg_check  # noqa: F401
+    def rg_scorer(a, e):
+        from .tasks import _reasoning_gym
+        return _reasoning_gym.Reasoning_Gym().score_answer(a, e)
+    scorers['Reasoning_Gym'] = lambda a, e: rg_scorer(a, e)
+except ImportError:
+    pass
 
 def match_task_name(name):
     datasets = list(DATASETS.keys())+['reasoning_gym']
@@ -114,8 +118,11 @@ def get_task(k, *args, **kwargs):
     k=match_task_name(k)
     return DATASETS[k](*args, **kwargs)
 
+DEPRECATED = ['symbolic_arithmetics', 'graph_node_centrality']
+ignored = DEPRECATED + ['reasonining_gym']
+
 def list_tasks():
-    return [k for k in DATASETS.keys() if k!='reasoning_gym']
+    return [k for k in DATASETS.keys() if k not in ignored]
 
 
 def get_score_answer_fn(task_name, *args, **kwargs):
@@ -130,7 +137,10 @@ def score_answer(answer, entry):
     task_name = entry.get('metadata', {}).get('_task', None) or entry.get('task', None) or entry.get('metadata', {}).get('task', None)
 
     if task_name=="rg":
-        from reasoning_gym import get_score_answer_fn
+        try:
+            from reasoning_gym import get_score_answer_fn
+        except ImportError:
+            raise RuntimeError("reasoning_gym is not installed; install it with: pip install reasoning_gym")
         scorer = get_score_answer_fn(entry['metadata']['source_dataset'])
         return scorer(answer, entry)
 

@@ -22,6 +22,8 @@ parse_connection_params = _mod.parse_connection_params
 parse_cli_args = _mod.parse_cli_args
 ChromePool = _mod.ChromePool
 _default_data_dir = _mod._default_data_dir
+SAFE_SEED_RE = _mod.SAFE_SEED_RE
+RESERVED_SEEDS = _mod.RESERVED_SEEDS
 
 
 # ---------------------------------------------------------------------------
@@ -244,3 +246,95 @@ class TestConnectionTracking:
         pool.disconnect("a")
         assert pool._connections["a"] == 1
         assert pool._connections["b"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Seed validation (CVE fix — path traversal via fingerprint param)
+# ---------------------------------------------------------------------------
+
+
+class TestSeedValidation:
+    """Verify SAFE_SEED_RE rejects path traversal and reserved names."""
+
+    @pytest.mark.parametrize("seed", [
+        "../foo", "../../etc", "/etc/passwd", "..", ".", "foo/bar",
+        "foo\\bar", "\x00evil", "", "a" * 129,
+    ])
+    def test_malicious_seeds_rejected(self, seed):
+        assert not SAFE_SEED_RE.match(seed)
+
+    @pytest.mark.parametrize("seed", [
+        "__default__",
+    ])
+    def test_reserved_seeds_rejected(self, seed):
+        assert seed in RESERVED_SEEDS
+
+    @pytest.mark.parametrize("seed", [
+        "12345", "my-seed_01", "ABC", "a" * 128, "0", "test-seed",
+    ])
+    def test_valid_seeds_accepted(self, seed):
+        assert SAFE_SEED_RE.match(seed)
+        assert seed not in RESERVED_SEEDS
+
+
+# ---------------------------------------------------------------------------
+# Path containment (_safe_rmtree)
+# ---------------------------------------------------------------------------
+
+
+class TestSafeRmtree:
+    """Verify _safe_rmtree refuses to delete outside data_dir."""
+
+    def _make_pool(self, data_dir: str):
+        return ChromePool(
+            binary="/fake/chrome",
+            global_args=[],
+            headless=True,
+            data_dir=data_dir,
+        )
+
+    def test_refuses_path_outside_data_dir(self, tmp_path):
+        data_dir = tmp_path / "profiles"
+        data_dir.mkdir()
+        victim = tmp_path / "victim"
+        victim.mkdir()
+        (victim / "sentinel").touch()
+
+        pool = self._make_pool(str(data_dir))
+        pool._safe_rmtree(str(victim))
+
+        assert victim.exists(), "Directory outside data_dir must not be deleted"
+
+    def test_refuses_data_dir_itself(self, tmp_path):
+        data_dir = tmp_path / "profiles"
+        data_dir.mkdir()
+        (data_dir / "sentinel").touch()
+
+        pool = self._make_pool(str(data_dir))
+        pool._safe_rmtree(str(data_dir))
+
+        assert data_dir.exists(), "data_dir itself must not be deleted"
+
+    def test_deletes_valid_subdirectory(self, tmp_path):
+        data_dir = tmp_path / "profiles"
+        data_dir.mkdir()
+        subdir = data_dir / "seed-12345"
+        subdir.mkdir()
+        (subdir / "data").touch()
+
+        pool = self._make_pool(str(data_dir))
+        pool._safe_rmtree(str(subdir))
+
+        assert not subdir.exists(), "Valid subdirectory should be deleted"
+
+    def test_refuses_traversal_path(self, tmp_path):
+        data_dir = tmp_path / "profiles"
+        data_dir.mkdir()
+        victim = tmp_path / "victim"
+        victim.mkdir()
+
+        traversal = str(data_dir / ".." / "victim")
+        pool = self._make_pool(str(data_dir))
+        pool._safe_rmtree(traversal)
+
+        assert victim.exists(), "Traversal path must not be deleted"

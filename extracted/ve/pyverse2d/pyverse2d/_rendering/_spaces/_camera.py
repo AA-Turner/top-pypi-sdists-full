@@ -17,12 +17,21 @@ from math import cos, sin, radians
 # ======================================== REQUEST ========================================
 @dataclass(slots=True)
 class TransitionRequest(Request):
-    """Requête de transition"""
+    """Requête de transition
+    
+    Args:
+        start: position initiale
+        end: position finale
+        duration: durée de transition
+        easing: fonction d'atténuation temporelle
+        elapsed: temps écoulé
+    """
     start: Point
     end: Point
     duration: float
-    elapsed: float
     easing: EasingFunc | None
+
+    elapsed: float = 0.0
 
     _id: ClassVar[str] = "transition"
 
@@ -38,11 +47,19 @@ class TransitionRequest(Request):
 
 @dataclass(frozen=True, slots=True)
 class FollowRequest(Request):
-    """Requête de transition"""
+    """Requête de transition
+    
+    Args:
+        target: cible
+        offset: décalage par rapport à la cible
+        smoothing: atténuation *[0, 1[*
+        max_speed: vitesse maximale *(u/s)*
+    """
     target: HasPosition
     offset: Vector
     smoothing: float
-    max_speed: float
+
+    max_speed: float | None = None
 
     _id: ClassVar[str] = "follow"
 
@@ -58,7 +75,18 @@ class FollowRequest(Request):
 
 @dataclass(frozen=True, slots=True)
 class AttachRequest(Request):
-    """Requête d'attachement"""
+    """Requête d'attachement
+    
+    Args:
+        camera: ``Camera`` à suivre
+        offset: décalage par rapport à la cible
+        parallax_x: effet parallax horizontal
+        parallax_y: effet parallax vertical
+        same_zoom: suivi du zoom
+        zoom_factor: facteur de redimensionnement supplémentaire
+        same_rotation: suivi de la rotation
+        rotation_offset: décalage de la rotation
+    """
     camera: Camera
     offset: Vector
     parallax_x: float
@@ -102,14 +130,14 @@ class Camera(Space):
     )
 
     # Requêtes
-    TransitionRequest: ClassVar[Type[TransitionRequest]] = TransitionRequest
-    FollowRequest: ClassVar[Type[FollowRequest]] = FollowRequest
-    AttachRequest: ClassVar[Type[AttachRequest]] = AttachRequest
+    TransitionRequest: Type[TransitionRequest] = TransitionRequest
+    FollowRequest: Type[FollowRequest] = FollowRequest
+    AttachRequest: Type[AttachRequest] = AttachRequest
 
     # Caches de matrices
-    _PROJECTION_CACHE: dict[tuple, Mat4] = {}
-    _VIEW_CACHE_STORED: dict[tuple, Mat4] = {}
-    _VIEW_CACHE_FRAME: dict[tuple, Mat4] = {}
+    _PROJECTION_CACHE: ClassVar[dict[tuple, Mat4]] = {}
+    _VIEW_CACHE_STORED: ClassVar[dict[tuple, Mat4]] = {}
+    _VIEW_CACHE_FRAME: ClassVar[dict[tuple, Mat4]] = {}
 
     def __init__(
             self,

@@ -1,15 +1,26 @@
 Metadata-Version: 2.4
 Name: moreorless
-Version: 0.5.0
+Version: 0.6.0
 Summary: Python diff wrapper
 Home-page: https://github.com/thatch/moreorless/
 Author: Tim Hatch
 Author-email: tim@timhatch.com
 License: MIT
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: click
+Provides-Extra: cli
+Requires-Dist: click; extra == "cli"
+Provides-Extra: dev
+Requires-Dist: checkdeps==0.9.0; python_version >= "3.10" and extra == "dev"
+Requires-Dist: mypy==1.19.1; extra == "dev"
+Requires-Dist: ruff==0.15.6; extra == "dev"
+Requires-Dist: tox==4.50.0; extra == "dev"
+Requires-Dist: tox-uv==1.33.4; extra == "dev"
+Provides-Extra: test
+Requires-Dist: coverage>=6; extra == "test"
+Requires-Dist: pytest>=8; extra == "test"
+Requires-Dist: click; extra == "test"
 Dynamic: license-file
 
 # moreorless
@@ -54,6 +65,23 @@ moreorless.combined.combined_diff(
     [astr, bstr], [cstr]
 ) -> str:
     ...
+```
+
+# Version Compat
+
+This library is compatible with Python 3.9+, but should be linted under the
+newest stable version.
+
+# Versioning
+
+This library follows [meanver](https://meanver.org/), which basically means
+[semver](https://semver.org/) along with a promise to rename when the major
+version changes.
+
+Install the optional `cli` extra if you want the colored diff helpers:
+
+```bash
+pip install moreorless[cli]
 ```
 
 # License

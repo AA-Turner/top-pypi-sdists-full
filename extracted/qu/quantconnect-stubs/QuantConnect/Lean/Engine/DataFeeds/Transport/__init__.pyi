@@ -182,17 +182,6 @@ class LocalFileSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.I
         ...
 
     @overload
-    def __init__(self, zip_file: typing.Any, entry_name: str = None) -> None:
-        """
-        Initializes a new instance of the LocalFileSubscriptionStreamReader class.
-        
-        :param zip_file: The local zip archive to be read
-        :param entry_name: Specifies the zip entry to be opened. Leave null if not applicable,
-        or to open the first zip entry found regardless of name
-        """
-        ...
-
-    @overload
     def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, source: str, entry_name: str = None) -> None:
         """
         Initializes a new instance of the LocalFileSubscriptionStreamReader class.
@@ -212,6 +201,17 @@ class LocalFileSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.I
         :param data_cache_provider: The IDataCacheProvider used to retrieve a stream of data
         :param source: The local file to be read
         :param starting_position: The position in the stream from which to start reading
+        """
+        ...
+
+    @overload
+    def __init__(self, zip_file: typing.Any, entry_name: str = None) -> None:
+        """
+        Initializes a new instance of the LocalFileSubscriptionStreamReader class.
+        
+        :param zip_file: The local zip archive to be read
+        :param entry_name: Specifies the zip entry to be opened. Leave null if not applicable,
+        or to open the first zip entry found regardless of name
         """
         ...
 

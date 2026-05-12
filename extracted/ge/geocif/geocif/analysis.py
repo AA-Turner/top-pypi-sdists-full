@@ -1405,24 +1405,13 @@ class Geoanalysis:
                         "name_shapefile": name_shapefile,
                     }
 
-            # Load this country's shapefile
+            # Load + standardize this country's shapefile via the shared helper
+            # (applies config-driven rename + Tanzania short-name fix).
+            from geocif.utils import load_country_boundary_gdf
             shp_file = self.parser.get(country, "boundary_file")
-            dg_country = gpd.read_file(
-                self.dir_boundary_files / shp_file,
-                engine="pyogrio",
+            dg_country = load_country_boundary_gdf(
+                self.parser, self.dir_boundary_files / shp_file
             )
-
-            # Rename columns using config-driven mapping
-            from geoprepare.georegion import get_boundary_col_mapping
-            rename = get_boundary_col_mapping(self.parser, shp_file)
-            # Drop columns that would create duplicates after rename
-            # (e.g. shapefile has both name0 and ADM0_NAME; renaming name0→ADM0_NAME would duplicate)
-            targets = set(rename.values())
-            sources = set(rename.keys())
-            conflicting = [c for c in dg_country.columns if c in targets and c not in sources]
-            if conflicting:
-                dg_country = dg_country.drop(columns=conflicting)
-            dg_country = dg_country.rename(columns=rename)
 
             if "ADM0_NAME" not in dg_country.columns:
                 dg_country.loc[:, "ADM0_NAME"] = country.title().replace("_", " ")

@@ -276,13 +276,18 @@ def feature_contributions(
     X: np.ndarray,
     idx: int,
     scores: np.ndarray,
+    feature_names: list[str] | None = None,
 ) -> list | None:
-    """Compute per-feature z-score for a specific sample.
+    """Compute per-feature z-score, value, and direction for a sample.
 
     Returns the top-5 features by absolute z-score for the row at
-    `idx`. Used to explain why a single sample looks anomalous. The
-    `scores` argument is part of the call signature for API symmetry
-    with `compute_feature_importance` but is not currently read.
+    `idx`. Each entry includes the column index, a feature name, the
+    raw value at this row, the column mean, the absolute z-score, and
+    the direction (`'high'` if the value is at or above the mean,
+    `'low'` otherwise). Used to explain why a single sample looks
+    anomalous. The `scores` argument is part of the call signature for
+    API symmetry with `compute_feature_importance` but is not currently
+    read.
 
     Validation/conversion errors caught from the numerical pipeline
     (``AttributeError``, ``ValueError``, ``TypeError``) are logged
@@ -297,15 +302,22 @@ def feature_contributions(
         Row index of the sample to explain.
     scores : np.ndarray, shape (n_samples,)
         Anomaly scores (currently unused; reserved for future weighting).
+    feature_names : list of str or None
+        Optional feature labels in column order. When provided, each
+        entry's ``'name'`` is the corresponding label; otherwise the
+        name defaults to ``f'feature_{column_index}'``.
 
     Returns
     -------
     list of dict or None
-        Up to five entries, each with keys ``'feature'`` (int column
-        index) and ``'z_score'`` (float, absolute z-score), sorted by
-        descending z-score. Returns ``None`` if `X` is not 2D or if a
-        caught ``(AttributeError, ValueError, TypeError)`` is raised
-        during computation.
+        Up to five entries, sorted by descending absolute z-score.
+        Each entry has keys: ``'feature'`` (int column index),
+        ``'name'`` (str), ``'value'`` (float, raw value at this row),
+        ``'mean'`` (float, column mean), ``'z_score'`` (float,
+        absolute z-score), ``'direction'`` (`'high'` or `'low'`).
+        Returns ``None`` if `X` is not 2D or if a caught
+        ``(AttributeError, ValueError, TypeError)`` is raised during
+        computation.
     """
     try:
         X_arr = np.asarray(X, dtype=np.float64)
@@ -313,14 +325,94 @@ def feature_contributions(
             return None
         means = np.mean(X_arr, axis=0)
         stds = np.std(X_arr, axis=0)
-        stds[stds == 0] = 1.0
-        z = np.abs((X_arr[idx] - means) / stds)
-        top_feat = np.argsort(z)[::-1][:5]
-        return [{'feature': int(f), 'z_score': float(z[f])}
-                for f in top_feat]
+        stds_safe = np.where(stds == 0, 1.0, stds)
+        signed_z = (X_arr[idx] - means) / stds_safe
+        abs_z = np.abs(signed_z)
+        top_feat = np.argsort(abs_z)[::-1][:5]
+        results = []
+        for f in top_feat:
+            f_int = int(f)
+            if (feature_names is not None
+                    and f_int < len(feature_names)):
+                name = feature_names[f_int]
+            else:
+                name = f'feature_{f_int}'
+            results.append({
+                'feature': f_int,
+                'name': name,
+                'value': float(X_arr[idx, f_int]),
+                'mean': float(means[f_int]),
+                'z_score': float(abs_z[f_int]),
+                'direction': (
+                    'high' if signed_z[f_int] >= 0 else 'low'),
+            })
+        return results
     except (AttributeError, ValueError, TypeError) as exc:
         logger.debug('feature_contributions: %s', exc)
         return None
+
+
+def label_metrics(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    scores: np.ndarray,
+) -> dict:
+    """Compute label-based validation metrics for one detector or
+    consensus.
+
+    Returns binary precision / recall / F1 (sklearn `'binary'` average,
+    `zero_division=0`), ROC AUC, and average precision. ROC AUC and AP
+    require both classes in `y_true`; if only one class is present,
+    those fields come back as ``None`` rather than raising.
+
+    Parameters
+    ----------
+    y_true : array-like, shape (n_samples,)
+        Ground-truth binary labels (0 = inlier, 1 = anomaly).
+    y_pred : array-like, shape (n_samples,)
+        Predicted binary labels.
+    scores : array-like, shape (n_samples,)
+        Continuous anomaly scores (used for ROC AUC and AP).
+
+    Returns
+    -------
+    dict
+        Keys: ``precision``, ``recall``, ``f1`` (floats);
+        ``roc_auc`` (float or None); ``average_precision`` (float or
+        None); ``n_flagged`` (int, count of `y_pred` == 1);
+        ``n_true_positive`` (int, count where both `y_pred` == 1 and
+        `y_true` == 1).
+    """
+    from sklearn.metrics import (
+        average_precision_score,
+        precision_recall_fscore_support,
+        roc_auc_score,
+    )
+
+    y_true_arr = np.asarray(y_true).astype(int)
+    y_pred_arr = np.asarray(y_pred).astype(int)
+    scores_arr = np.asarray(scores)
+
+    p, r, f, _ = precision_recall_fscore_support(
+        y_true_arr, y_pred_arr, average='binary', zero_division=0)
+
+    if len(np.unique(y_true_arr)) > 1:
+        roc = float(roc_auc_score(y_true_arr, scores_arr))
+        ap = float(average_precision_score(y_true_arr, scores_arr))
+    else:
+        roc = None
+        ap = None
+
+    return {
+        'precision': float(p),
+        'recall': float(r),
+        'f1': float(f),
+        'roc_auc': roc,
+        'average_precision': ap,
+        'n_flagged': int(y_pred_arr.sum()),
+        'n_true_positive': int(
+            ((y_pred_arr == 1) & (y_true_arr == 1)).sum()),
+    }
 
 
 def compute_consensus(

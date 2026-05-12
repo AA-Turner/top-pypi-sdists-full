@@ -4,7 +4,6 @@ import asyncio
 import builtins
 import logging
 import re
-from datetime import datetime
 from pathlib import Path
 from time import monotonic
 from typing import Any
@@ -24,6 +23,7 @@ from .types import (
     SourceNotFoundError,
     SourceProcessingError,
     SourceTimeoutError,
+    _extract_source_created_at,
     _extract_source_url,
 )
 
@@ -128,14 +128,7 @@ class SourcesAPI:
                 url = _extract_source_url(src[2] if len(src) > 2 else None, allow_bare_http=False)
 
                 # Extract timestamp from src[2][2] - [seconds, nanoseconds]
-                created_at = None
-                if len(src) > 2 and isinstance(src[2], list) and len(src[2]) > 2:
-                    timestamp_list = src[2][2]
-                    if isinstance(timestamp_list, list) and len(timestamp_list) > 0:
-                        try:
-                            created_at = datetime.fromtimestamp(timestamp_list[0])
-                        except (TypeError, ValueError):
-                            pass
+                created_at = _extract_source_created_at(src[2] if len(src) > 2 else None)
 
                 # Extract status from src[3][1]
                 # See SourceStatus enum for valid values
@@ -729,15 +722,13 @@ class SourcesAPI:
             if len(result) > 0 and isinstance(result[0], list) and len(result[0]) > 1:
                 title = result[0][1] if isinstance(result[0][1], str) else ""
 
-                # Source type at result[0][2][4]
+                # Source type at result[0][2][4]; source URLs may be stored
+                # at [7][0] for web/PDF sources or [5][0] for YouTube sources.
                 if len(result[0]) > 2 and isinstance(result[0][2], list):
-                    if len(result[0][2]) > 4:
-                        source_type = result[0][2][4]
-
-                    # URL at result[0][2][7][0]
-                    if len(result[0][2]) > 7 and isinstance(result[0][2][7], list):
-                        if len(result[0][2][7]) > 0:
-                            url = result[0][2][7][0]
+                    metadata = result[0][2]
+                    if len(metadata) > 4:
+                        source_type = metadata[4]
+                    url = _extract_source_url(metadata, allow_bare_http=False)
 
             # Content blocks at result[3][0]
             # Each block may be nested arrays with text strings
@@ -964,7 +955,6 @@ class SourcesAPI:
         headers = {
             "Accept": "*/*",
             "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-            "Cookie": self._core.auth.cookie_header,
             "Origin": "https://notebooklm.google.com",
             "Referer": "https://notebooklm.google.com/",
             "x-goog-authuser": "0",
@@ -981,7 +971,19 @@ class SourcesAPI:
             }
         )
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        # Pass the live cookie jar (not a flat Cookie header) so httpx scopes
+        # cookies by Domain attribute, matching browser behavior. The /upload/_/
+        # endpoint is served by Scotty, which validates host-sensitive cookies
+        # (notably OSID) against the request host: an OSID issued for
+        # myaccount.google.com leaked to notebooklm.google.com is rejected with
+        # HTTP 500 and x-goog-upload-status: final. A real browser would never
+        # send the foreign-host OSID; Domain-scoping the jar enforces the same.
+        # Using get_http_client().cookies (instead of auth.cookie_jar) so we
+        # pick up SIDCC/SIDTS rotations applied during the live session. See #373.
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(10.0, read=60.0),
+            cookies=self._core.get_http_client().cookies,
+        ) as client:
             response = await client.post(url, headers=headers, content=body)
             response.raise_for_status()
 
@@ -1006,7 +1008,6 @@ class SourcesAPI:
         headers = {
             "Accept": "*/*",
             "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
-            "Cookie": self._core.auth.cookie_header,
             "Origin": "https://notebooklm.google.com",
             "Referer": "https://notebooklm.google.com/",
             "x-goog-authuser": "0",
@@ -1020,6 +1021,12 @@ class SourcesAPI:
                 while chunk := f.read(65536):  # 64KB chunks
                     yield chunk
 
-        async with httpx.AsyncClient(timeout=300.0) as client:
+        # See _start_resumable_upload: pass the live cookie jar so httpx scopes
+        # cookies per Domain attribute. Scotty validates OSID against host
+        # and rejects foreign-host cookies. (#373)
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(10.0, read=300.0),
+            cookies=self._core.get_http_client().cookies,
+        ) as client:
             response = await client.post(upload_url, headers=headers, content=file_stream())
             response.raise_for_status()

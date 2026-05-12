@@ -108,11 +108,21 @@ class GroupServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def CreateOrUpdateGroup(self, request, context):
-        """Org-scoped upsert: creates a new group if Group.rid is absent (server assigns the rid),
-        or fully replaces an existing group if Group.rid is present (identified by org_rid + rid).
-        group_id must be unique within the organization — it cannot conflict with any other group's group_id,
-        including groups not targeted by this upsert.
-        Throws HTTP 409 / gRPC 6 if the operation would result in duplicate group_ids within the organization.
+        """Org-scoped upsert.
+
+        Creates a new group if Group.rid is empty in the request (server assigns the rid).
+        Both Group.org_rid and Group.group_id are required on create, and the new group_id
+        must be unique within the organization.
+
+        Updates an existing group if Group.rid is present in the request.
+        Group.org_rid and Group.group_id are immutable: when set on the update request they
+        must match the existing values, but they may be omitted to leave them unchanged.
+        Fields in the group message marked as OUTPUT_ONLY are ignored when present in the input request.
+        All other mutable fields are fully overwritten, and will be cleared if not set in the request.
+
+        Throws HTTP 400 / gRPC 3 if a supplied immutable field does not match the existing group.
+        Throws HTTP 404 / gRPC 5 if the group identified by Group.rid for an update does not exist.
+        Throws HTTP 409 / gRPC 6 if a create would result in duplicate group_ids within the organization.
         Throws HTTP 403 / gRPC 7 if the caller is not authorized.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

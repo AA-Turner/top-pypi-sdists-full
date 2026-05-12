@@ -526,6 +526,39 @@ class TestRepoFileOperations:
             assert kwargs["json"]["ref"] == "main"
             assert "rev" not in kwargs["json"]
 
+    @pytest.mark.asyncio
+    async def test_grep_ephemeral_in_body(self, git_storage_options: dict) -> None:
+        """grep ephemeral=True must surface as body['ephemeral']=True."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        grep_response = MagicMock()
+        grep_response.status_code = 200
+        grep_response.is_success = True
+        grep_response.raise_for_status = MagicMock()
+        grep_response.json.return_value = {
+            "query": {"pattern": "SEARCHME", "case_sensitive": True},
+            "repo": {"ref": "feature", "commit": "deadbeef"},
+            "matches": [],
+            "next_cursor": None,
+            "has_more": False,
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(side_effect=[create_response, grep_response])
+
+            repo = await storage.create_repo(id="test-repo")
+            await repo.grep(pattern="SEARCHME", ref="feature", ephemeral=True)
+
+            _, kwargs = client_instance.post.call_args
+            assert kwargs["json"]["ephemeral"] is True
+            assert kwargs["json"]["ref"] == "feature"
+
 
 class TestRepoBranchOperations:
     """Tests for branch operations."""
@@ -618,6 +651,40 @@ class TestRepoBranchOperations:
             assert result is not None
             assert result["next_cursor"] == "next-page-token"
             assert result["has_more"] is True
+
+    @pytest.mark.asyncio
+    async def test_list_branches_ephemeral_query_param(
+        self, git_storage_options: dict
+    ) -> None:
+        """ephemeral=True must surface as ephemeral=true in the query string."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        branches_response = MagicMock()
+        branches_response.status_code = 200
+        branches_response.is_success = True
+        branches_response.json.return_value = {
+            "branches": [],
+            "next_cursor": None,
+            "has_more": False,
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                return_value=create_response
+            )
+            mock_get = AsyncMock(return_value=branches_response)
+            mock_client.return_value.__aenter__.return_value.get = mock_get
+
+            repo = await storage.create_repo(id="test-repo")
+            await repo.list_branches(ephemeral=True)
+
+            called_url = mock_get.await_args.args[0]
+            assert "ephemeral=true" in called_url
 
     @pytest.mark.asyncio
     async def test_create_branch_prefers_base_ref(self, git_storage_options: dict) -> None:
@@ -1209,6 +1276,323 @@ class TestRepoCommitOperations:
             assert len(result["commits"]) == 2
             assert result["commits"][0]["sha"] == "abc123"
             assert result["commits"][0]["message"] == "Initial commit"
+
+    @pytest.mark.asyncio
+    async def test_list_commits_ephemeral_query_param(
+        self, git_storage_options: dict
+    ) -> None:
+        """ephemeral=True must surface as ephemeral=true in the query string."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        commits_response = MagicMock()
+        commits_response.status_code = 200
+        commits_response.is_success = True
+        commits_response.json.return_value = {
+            "commits": [],
+            "next_cursor": None,
+            "has_more": False,
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                return_value=create_response
+            )
+            mock_get = AsyncMock(return_value=commits_response)
+            mock_client.return_value.__aenter__.return_value.get = mock_get
+
+            repo = await storage.create_repo(id="test-repo")
+            await repo.list_commits(branch="feature", ephemeral=True)
+
+            called_url = mock_get.await_args.args[0]
+            assert "ephemeral=true" in called_url
+            assert "branch=feature" in called_url
+
+    @pytest.mark.asyncio
+    async def test_get_commit(self, git_storage_options: dict) -> None:
+        """Test fetching a single commit's metadata."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        commit_response = MagicMock()
+        commit_response.status_code = 200
+        commit_response.is_success = True
+        commit_response.raise_for_status = MagicMock()
+        commit_response.json.return_value = {
+            "commit": {
+                "sha": "abc123",
+                "message": "feat: add endpoint",
+                "author_name": "Jane Doe",
+                "author_email": "jane@example.com",
+                "committer_name": "Jane Doe",
+                "committer_email": "jane@example.com",
+                "date": "2024-01-15T14:32:18Z",
+            },
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(return_value=create_response)
+            client_instance.get = AsyncMock(return_value=commit_response)
+
+            repo = await storage.create_repo(id="test-repo")
+            result = await repo.get_commit(sha="abc123")
+
+            commit = result["commit"]
+            assert commit["sha"] == "abc123"
+            assert commit["message"] == "feat: add endpoint"
+            assert commit["author_name"] == "Jane Doe"
+            assert commit["author_email"] == "jane@example.com"
+            assert commit["committer_name"] == "Jane Doe"
+            assert commit["committer_email"] == "jane@example.com"
+            assert commit["raw_date"] == "2024-01-15T14:32:18Z"
+            assert isinstance(commit["date"], datetime)
+            assert commit["date"] == datetime(2024, 1, 15, 14, 32, 18, tzinfo=timezone.utc)
+
+            called_url = client_instance.get.call_args.args[0]
+            parsed = urlparse(called_url)
+            assert parsed.path.endswith("/api/v1/repos/commit")
+            assert parse_qs(parsed.query) == {"sha": ["abc123"]}
+
+            headers = client_instance.get.call_args.kwargs["headers"]
+            assert headers["Code-Storage-Agent"] == get_user_agent()
+            token = headers["Authorization"].replace("Bearer ", "")
+            payload = jwt.decode(token, options={"verify_signature": False})
+            assert payload["scopes"] == ["git:read"]
+            assert payload["repo"] == "test-repo"
+
+    @pytest.mark.asyncio
+    async def test_get_commit_trims_sha_and_honors_ttl(self, git_storage_options: dict) -> None:
+        """get_commit should strip surrounding whitespace and apply ttl override."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        commit_response = MagicMock()
+        commit_response.status_code = 200
+        commit_response.is_success = True
+        commit_response.raise_for_status = MagicMock()
+        commit_response.json.return_value = {
+            "commit": {
+                "sha": "abc123",
+                "message": "msg",
+                "author_name": "A",
+                "author_email": "a@example.com",
+                "committer_name": "A",
+                "committer_email": "a@example.com",
+                "date": "2024-01-15T14:32:18Z",
+            },
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(return_value=create_response)
+            client_instance.get = AsyncMock(return_value=commit_response)
+
+            repo = await storage.create_repo(id="test-repo")
+            await repo.get_commit(sha="  abc123  ", ttl=600)
+
+            called_url = client_instance.get.call_args.args[0]
+            parsed = urlparse(called_url)
+            assert parse_qs(parsed.query) == {"sha": ["abc123"]}
+
+            headers = client_instance.get.call_args.kwargs["headers"]
+            token = headers["Authorization"].replace("Bearer ", "")
+            payload = jwt.decode(token, options={"verify_signature": False})
+            assert payload["exp"] - payload["iat"] == 600
+
+    @pytest.mark.asyncio
+    async def test_get_commit_requires_sha(self, git_storage_options: dict) -> None:
+        """get_commit should reject blank or whitespace-only sha values."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(return_value=create_response)
+            client_instance.get = AsyncMock()
+
+            repo = await storage.create_repo(id="test-repo")
+
+            with pytest.raises(ValueError, match="get_commit sha is required"):
+                await repo.get_commit(sha="")
+
+            with pytest.raises(ValueError, match="get_commit sha is required"):
+                await repo.get_commit(sha="   ")
+
+            client_instance.get.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_blame(self, git_storage_options: dict) -> None:
+        """Test blaming a file."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        blame_response = MagicMock()
+        blame_response.status_code = 200
+        blame_response.is_success = True
+        blame_response.raise_for_status = MagicMock()
+        blame_response.json.return_value = {
+            "ref": "main",
+            "path": "src/x.go",
+            "commit_sha": "aaa111",
+            "lines": [
+                {
+                    "line_number": 10,
+                    "commit_sha": "bbb222",
+                    "original_line_number": 5,
+                    "original_path": "src/x.go",
+                    "previous_commit_sha": "zzz000",
+                    "author_name": "Alice",
+                    "author_email": "alice@example.com",
+                    "author_time": "2024-01-15T14:32:18Z",
+                    "committer_name": "Alice",
+                    "committer_email": "alice@example.com",
+                    "committer_time": "2024-01-15T14:32:18Z",
+                    "summary": "init",
+                },
+                {
+                    "line_number": 11,
+                    "commit_sha": "ccc333",
+                    "original_line_number": 11,
+                    "original_path": "src/old.go",
+                    "author_name": "Bob",
+                    "author_email": "bob@example.com",
+                    "author_time": "2024-02-20T09:00:00Z",
+                    "committer_name": "Bob",
+                    "committer_email": "bob@example.com",
+                    "committer_time": "2024-02-20T09:00:00Z",
+                    "summary": "fix",
+                },
+            ],
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(return_value=create_response)
+            client_instance.get = AsyncMock(return_value=blame_response)
+
+            repo = await storage.create_repo(id="test-repo")
+            result = await repo.get_blame(
+                path="src/x.go",
+                ref="main",
+                ranges=["10,20", "/getUser/,+30"],
+                detect_moves=True,
+            )
+
+            assert result["ref"] == "main"
+            assert result["path"] == "src/x.go"
+            assert result["commit_sha"] == "aaa111"
+            assert len(result["lines"]) == 2
+
+            first = result["lines"][0]
+            assert first["commit_sha"] == "bbb222"
+            assert first["author_name"] == "Alice"
+            assert first["previous_commit_sha"] == "zzz000"
+            assert first["raw_author_time"] == "2024-01-15T14:32:18Z"
+            assert isinstance(first["author_time"], datetime)
+            assert first["author_time"] == datetime(
+                2024, 1, 15, 14, 32, 18, tzinfo=timezone.utc
+            )
+
+            second = result["lines"][1]
+            assert second["original_path"] == "src/old.go"
+            assert "previous_commit_sha" not in second
+            assert second["author_name"] == "Bob"
+
+            called_url = client_instance.get.call_args.args[0]
+            parsed = urlparse(called_url)
+            assert parsed.path.endswith("/api/v1/repos/blame")
+            assert parse_qs(parsed.query) == {
+                "path": ["src/x.go"],
+                "ref": ["main"],
+                "range": ["10,20", "/getUser/,+30"],
+                "detect_moves": ["true"],
+            }
+
+            headers = client_instance.get.call_args.kwargs["headers"]
+            assert headers["Code-Storage-Agent"] == get_user_agent()
+            token = headers["Authorization"].replace("Bearer ", "")
+            payload = jwt.decode(token, options={"verify_signature": False})
+            assert payload["scopes"] == ["git:read"]
+            assert payload["repo"] == "test-repo"
+
+    @pytest.mark.asyncio
+    async def test_get_blame_omits_optional_params(self, git_storage_options: dict) -> None:
+        """blame should send only the path when no other knobs are supplied."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        blame_response = MagicMock()
+        blame_response.status_code = 200
+        blame_response.is_success = True
+        blame_response.raise_for_status = MagicMock()
+        blame_response.json.return_value = {
+            "ref": "main",
+            "path": "src/x.go",
+            "commit_sha": "sha",
+            "lines": [],
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(return_value=create_response)
+            client_instance.get = AsyncMock(return_value=blame_response)
+
+            repo = await storage.create_repo(id="test-repo")
+            await repo.get_blame(path="src/x.go")
+
+            called_url = client_instance.get.call_args.args[0]
+            parsed = urlparse(called_url)
+            assert parse_qs(parsed.query) == {"path": ["src/x.go"]}
+
+    @pytest.mark.asyncio
+    async def test_get_blame_requires_path(self, git_storage_options: dict) -> None:
+        """blame should reject blank or whitespace-only path values."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(return_value=create_response)
+            client_instance.get = AsyncMock()
+
+            repo = await storage.create_repo(id="test-repo")
+
+            with pytest.raises(ValueError, match="get_blame path is required"):
+                await repo.get_blame(path="")
+
+            with pytest.raises(ValueError, match="get_blame path is required"):
+                await repo.get_blame(path="   ")
+
+            client_instance.get.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_restore_commit(self, git_storage_options: dict) -> None:

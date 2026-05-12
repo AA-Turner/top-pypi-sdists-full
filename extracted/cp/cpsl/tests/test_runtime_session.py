@@ -2,6 +2,7 @@ import os
 import sys
 import unittest
 import json
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -9,12 +10,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from cpsl.app import App
 from cpsl.clients.capsule import (
+    GetSessionResponse,
+    InboundMessage,
+    SaveSessionDataResponse,
     UploadFileResponse,
     WaitForApprovalResponse,
     WaitForIntegrationResponse,
 )
 from cpsl.db import reset_active_identity, set_active_identity
 from cpsl.msg import Message
+from cpsl.runner.session import RunnerSessionMixin
 from cpsl.session import (
     Block,
     IntegrationTimeout,
@@ -23,6 +28,9 @@ from cpsl.session import (
     SessionChannel,
     UserInfo,
     current_session,
+    session_data_base_checksum,
+    session_data_checksum,
+    session_data_revision,
     session_data_json,
 )
 from cpsl.task_types import TaskDescriptor
@@ -120,6 +128,357 @@ class RuntimeSessionTests(unittest.TestCase):
         self.assertEqual(decoded["payload"], {"value": 3})
         self.assertEqual(decoded["bytes"], "hello")
         self.assertEqual(decoded["opaque"], "opaque")
+
+
+class RuntimeSessionPersistenceTests(unittest.IsolatedAsyncioTestCase):
+    class StubSessionService:
+        def __init__(self):
+            self.data_json = "{}"
+            self.saved: list[dict] = []
+            self.requests = []
+            self.conflict_once = False
+            self.raise_once = False
+            self.reject_once = False
+
+        def get_session(self, _req):
+            return GetSessionResponse(
+                session_id="sess-1",
+                channel_type="chat",
+                user_id="user-1",
+                data_json=self.data_json,
+            )
+
+        def save_session_data(self, req):
+            self.requests.append(req)
+            if self.raise_once:
+                self.raise_once = False
+                raise RuntimeError("save failed")
+            data = json.loads(req.data_json or "{}")
+            expected_checksum = session_data_checksum(data)
+            if req.checksum != expected_checksum:
+                return SaveSessionDataResponse(ok=False, checksum=expected_checksum)
+            if self.conflict_once:
+                self.conflict_once = False
+                current = {"server": "current", "remove": True, "__cpsl_session_rev": 5}
+                current["__cpsl_session_checksum"] = session_data_checksum(current)
+                self.data_json = json.dumps(current)
+                return SaveSessionDataResponse(
+                    ok=False,
+                    conflict=True,
+                    revision=5,
+                    checksum=current["__cpsl_session_checksum"],
+                    data_json=self.data_json,
+                )
+            if self.reject_once:
+                self.reject_once = False
+                return SaveSessionDataResponse(ok=False)
+            current = json.loads(self.data_json or "{}")
+            current_revision = session_data_revision(current)
+            current_checksum = session_data_base_checksum(current)
+            if req.base_revision != current_revision or req.base_checksum != current_checksum:
+                return SaveSessionDataResponse(
+                    ok=False,
+                    conflict=True,
+                    revision=current_revision,
+                    checksum=current_checksum,
+                    data_json=self.data_json or "{}",
+                )
+            revision = current_revision + 1
+            checksum = session_data_checksum(data)
+            data["__cpsl_session_rev"] = revision
+            data["__cpsl_session_checksum"] = checksum
+            if req.nonce:
+                data["__cpsl_session_nonce"] = req.nonce
+            self.data_json = json.dumps(data)
+            self.saved.append(json.loads(req.data_json))
+            return SaveSessionDataResponse(
+                ok=True,
+                revision=revision,
+                checksum=checksum,
+                data_json=self.data_json,
+            )
+
+    class StubRunner(RunnerSessionMixin):
+        def __init__(self):
+            self._sessions = {}
+            self._session_locks = {}
+            self._active_lock = asyncio.Lock()
+            self._active_count = 0
+            self._last_activity = 0.0
+            self._keep_warm = 0
+            self._session_stub = RuntimeSessionPersistenceTests.StubSessionService()
+            self._runner_stub = None
+            self._data_stub = None
+            self._data_app_id = ""
+            self._app_id = "app-1"
+            self._version_type = "serve"
+            self._stop_event = None
+            self._hooks = {}
+            self._session_handlers = {}
+            self._action_handlers = {}
+            self._message_handlers = {}
+            self._workflows = {}
+            self.submitted: list[tuple[str, bool]] = []
+            self.widget_updates = 0
+            self.session_data_snapshots: list[dict] = []
+
+        async def _run_rpc(self, fn, *args):
+            return fn(*args)
+
+        def _submit(self, _request_id, text, done, session_id=None):
+            self.submitted.append((text, done))
+
+        async def _stream_chunks(self, *_args, **_kwargs):
+            return None
+
+        def _submit_block(self, *_args, **_kwargs):
+            return None
+
+        def _submit_widget_update(self, *_args, **_kwargs):
+            self.widget_updates += 1
+
+        def _submit_session_data_snapshot(self, _session_id, data_json):
+            self.session_data_snapshots.append(json.loads(data_json))
+
+    def inbound(
+        self,
+        *,
+        action_name: str = "set_value",
+        payload: dict | None = None,
+        chat_name: str = "",
+    ):
+        return InboundMessage(
+            request_id="req-1",
+            session_id="sess-1",
+            channel_type="chat",
+            user_id="user-1",
+            action_name=action_name,
+            action_payload_json=json.dumps(payload or {}),
+            chat_name=chat_name,
+        )
+
+    async def test_cached_session_rehydrates_from_durable_state_between_actions(self):
+        runner = self.StubRunner()
+        runner._session_stub.data_json = json.dumps({"value": "persisted"})
+
+        session, is_new = await runner._get_session(self.inbound())
+        self.assertTrue(is_new)
+        self.assertEqual(session.data["value"], "persisted")
+
+        session.data["value"] = "local"
+        runner._session_stub.data_json = json.dumps({"value": "stale"})
+
+        same_session, is_new = await runner._get_session(self.inbound())
+        self.assertFalse(is_new)
+        self.assertIs(same_session, session)
+        self.assertEqual(same_session.data["value"], "stale")
+
+    async def test_action_persists_before_handle_returns(self):
+        runner = self.StubRunner()
+
+        async def set_value(session, event):
+            await session.data.set("value", event.payload["value"])
+
+        runner._action_handlers["set_value"] = set_value
+
+        await runner._handle(self.inbound(payload={"value": "handled"}))
+
+        self.assertEqual(runner._session_stub.saved[-1]["value"], "handled")
+        self.assertEqual(len(runner._session_stub.saved), 1)
+        self.assertEqual(runner.widget_updates, 0)
+        self.assertEqual(runner.session_data_snapshots[-1]["value"], "handled")
+        self.assertIn(("", True), runner.submitted)
+
+    async def test_minimal_state_repro_persists_and_rehydrates(self):
+        runner = self.StubRunner()
+
+        async def set_probe(session, event):
+            await session.data.set("probe", event.payload["value"])
+
+        runner._action_handlers["set_value"] = set_probe
+
+        await runner._handle(self.inbound(payload={"value": "boring"}))
+
+        req = runner._session_stub.requests[-1]
+        self.assertEqual(json.loads(req.data_json), {"probe": "boring"})
+        self.assertEqual(req.base_revision, 0)
+        self.assertEqual(req.base_checksum, session_data_checksum({}))
+        self.assertEqual(runner.session_data_snapshots[-1]["probe"], "boring")
+        self.assertEqual(runner.session_data_snapshots[-1]["__cpsl_session_rev"], 1)
+
+        runner._sessions.clear()
+        session, _is_new = await runner._get_session(self.inbound())
+        self.assertEqual(session.data["probe"], "boring")
+        self.assertEqual(session.data["__cpsl_session_rev"], 1)
+
+    async def test_first_save_uses_empty_server_base_despite_handler_metadata(self):
+        runner = self.StubRunner()
+
+        async def set_value(session, event):
+            await session.data.set("value", event.payload["value"])
+
+        runner._action_handlers["set_value"] = set_value
+
+        await runner._handle(self.inbound(payload={"value": "handled"}, chat_name="chat"))
+
+        req = runner._session_stub.requests[-1]
+        self.assertEqual(req.base_revision, 0)
+        self.assertEqual(req.base_checksum, session_data_checksum({}))
+        self.assertEqual(runner._session_stub.saved[-1]["__chat_name__"], "chat")
+        self.assertEqual(runner._session_stub.saved[-1]["value"], "handled")
+
+    async def test_save_rejection_does_not_drop_dirty_state(self):
+        runner = self.StubRunner()
+        runner._session_stub.reject_once = True
+
+        async def set_value(session, _event):
+            await session.data.set("value", "eventually-persisted")
+
+        runner._action_handlers["set_value"] = set_value
+
+        await runner._handle(self.inbound())
+
+        self.assertEqual(len(runner._session_stub.requests), 2)
+        self.assertEqual(runner._session_stub.saved[-1]["value"], "eventually-persisted")
+        self.assertEqual(runner.session_data_snapshots[-1]["value"], "eventually-persisted")
+
+    async def test_save_exception_does_not_drop_dirty_state(self):
+        runner = self.StubRunner()
+        runner._session_stub.raise_once = True
+
+        async def set_value(session, _event):
+            await session.data.set("value", "after-error")
+
+        runner._action_handlers["set_value"] = set_value
+
+        await runner._handle(self.inbound())
+
+        self.assertEqual(len(runner._session_stub.requests), 2)
+        self.assertEqual(runner._session_stub.saved[-1]["value"], "after-error")
+
+    async def test_multiple_session_data_sets_persist_once(self):
+        runner = self.StubRunner()
+
+        async def set_values(session, _event):
+            await session.data.set("a", 1)
+            await session.data.set("b", 2)
+            await session.data.set("c", 3)
+
+        runner._action_handlers["set_value"] = set_values
+
+        await runner._handle(self.inbound())
+
+        self.assertEqual(len(runner._session_stub.saved), 1)
+        self.assertEqual(runner._session_stub.saved[-1]["a"], 1)
+        self.assertEqual(runner._session_stub.saved[-1]["b"], 2)
+        self.assertEqual(runner._session_stub.saved[-1]["c"], 3)
+        self.assertEqual(runner.widget_updates, 0)
+        self.assertEqual(len(runner.session_data_snapshots), 1)
+        self.assertEqual(runner.session_data_snapshots[0]["c"], 3)
+
+    async def test_persistence_sends_base_revision_and_checksum_from_hydrated_state(self):
+        runner = self.StubRunner()
+        hydrated = {"existing": True, "__cpsl_session_rev": 7}
+        hydrated["__cpsl_session_checksum"] = session_data_checksum(hydrated)
+        runner._session_stub.data_json = json.dumps(hydrated)
+
+        async def set_value(session, _event):
+            await session.data.set("value", "next")
+
+        runner._action_handlers["set_value"] = set_value
+
+        await runner._handle(self.inbound())
+
+        req = runner._session_stub.requests[-1]
+        self.assertEqual(req.base_revision, 7)
+        self.assertEqual(req.base_checksum, hydrated["__cpsl_session_checksum"])
+        self.assertTrue(req.nonce)
+        self.assertEqual(req.checksum, session_data_checksum(json.loads(req.data_json)))
+
+    async def test_conflict_response_rehydrates_and_retries_once(self):
+        runner = self.StubRunner()
+        runner._session_stub.conflict_once = True
+
+        async def set_value(session, _event):
+            await session.data.set("value", "client")
+
+        runner._action_handlers["set_value"] = set_value
+
+        await runner._handle(self.inbound())
+
+        self.assertEqual(len(runner._session_stub.requests), 2)
+        self.assertEqual(runner._session_stub.requests[1].base_revision, 5)
+        self.assertEqual(runner._session_stub.saved[-1]["server"], "current")
+        self.assertEqual(runner._session_stub.saved[-1]["value"], "client")
+        self.assertEqual(runner._sessions["sess-1"].data["value"], "client")
+
+    async def test_conflict_retry_preserves_intended_deletes(self):
+        runner = self.StubRunner()
+        hydrated = {"remove": True, "__cpsl_session_rev": 1}
+        hydrated["__cpsl_session_checksum"] = session_data_checksum(hydrated)
+        runner._session_stub.data_json = json.dumps(hydrated)
+        runner._session_stub.conflict_once = True
+
+        async def delete_value(session, _event):
+            session.data.pop("remove")
+
+        runner._action_handlers["set_value"] = delete_value
+
+        await runner._handle(self.inbound())
+
+        self.assertEqual(len(runner._session_stub.requests), 2)
+        self.assertNotIn("remove", runner._session_stub.saved[-1])
+        self.assertNotIn("remove", runner._sessions["sess-1"].data)
+
+    async def test_publish_flushes_intermediate_snapshot(self):
+        runner = self.StubRunner()
+
+        async def publish_status(session, _event):
+            await session.data.set("before", True)
+            await session.publish("status", "drafting")
+            await session.data.set("after", True)
+
+        runner._action_handlers["set_value"] = publish_status
+
+        await runner._handle(self.inbound())
+
+        self.assertEqual(len(runner._session_stub.saved), 2)
+        self.assertEqual(runner._session_stub.saved[0]["before"], True)
+        self.assertEqual(runner._session_stub.saved[0]["status"], "drafting")
+        self.assertNotIn("after", runner._session_stub.saved[0])
+        self.assertEqual(runner._session_stub.saved[1]["after"], True)
+        self.assertEqual(len(runner.session_data_snapshots), 2)
+        self.assertNotIn("after", runner.session_data_snapshots[0])
+        self.assertEqual(runner.session_data_snapshots[1]["after"], True)
+        self.assertEqual(runner.widget_updates, 0)
+
+    async def test_flush_data_without_changes_is_noop(self):
+        runner = self.StubRunner()
+
+        async def flush_clean(session, _event):
+            await session.flush_data()
+
+        runner._action_handlers["set_value"] = flush_clean
+
+        await runner._handle(self.inbound())
+
+        self.assertEqual(runner._session_stub.saved, [])
+
+    async def test_internal_session_set_action_persists_data(self):
+        runner = self.StubRunner()
+
+        await runner._handle(
+            self.inbound(
+                action_name="__session_set__",
+                payload={"key": "selected_id", "value": "row-1"},
+            )
+        )
+
+        self.assertEqual(runner._sessions["sess-1"].data["selected_id"], "row-1")
+        self.assertEqual(runner._session_stub.saved[-1]["selected_id"], "row-1")
+        self.assertEqual(len(runner._session_stub.saved), 1)
+        self.assertEqual(runner.widget_updates, 0)
+        self.assertEqual(runner.session_data_snapshots[-1]["selected_id"], "row-1")
 
 
 class SessionPromptTests(unittest.IsolatedAsyncioTestCase):

@@ -464,7 +464,13 @@ class Geocif:
         self._filter_to_country()
 
     def _standardize_geodata_columns(self):
-        """Standardize column names in geodata using config-driven mapping."""
+        """Standardize column names in geodata using config-driven mapping.
+
+        Delegates to :func:`geocif.utils.load_country_boundary_gdf` for the
+        rename / conflict-drop / Tanzania-fix block — except this method
+        operates on an already-loaded GeoDataFrame (``self.dg``), so it
+        inlines the same steps without re-reading the file.
+        """
         from geoprepare.georegion import get_boundary_col_mapping
 
         rename = get_boundary_col_mapping(self.parser, self.name_shapefile)
@@ -510,30 +516,14 @@ class Geocif:
 
     def _setup_geodata_pooled(self, countries: list):
         """Load and concatenate shapefiles for multiple countries."""
-        from geoprepare.georegion import get_boundary_col_mapping
+        from geocif.utils import load_country_boundary_gdf
 
         all_gdf = []
         for country in countries:
             shp_file = self.parser.get(country, "boundary_file")
-            dg = gp.read_file(
-                self.dir_boundary_files / shp_file, engine="pyogrio"
+            dg = load_country_boundary_gdf(
+                self.parser, self.dir_boundary_files / shp_file
             )
-            rename = get_boundary_col_mapping(self.parser, shp_file)
-            adm0_src = next(
-                (k for k, v in rename.items() if v == "ADM0_NAME"), "ADM0_NAME"
-            )
-            if adm0_src in dg.columns:
-                dg[adm0_src] = dg[adm0_src].replace(
-                    "Tanzania", "United Republic of Tanzania"
-                )
-            targets = set(rename.values())
-            sources = set(rename.keys())
-            conflicting = [
-                c for c in dg.columns if c in targets and c not in sources
-            ]
-            if conflicting:
-                dg = dg.drop(columns=conflicting)
-            dg = dg.rename(columns=rename)
             all_gdf.append(dg)
 
         self.dg = pd.concat(all_gdf, ignore_index=True)
@@ -755,41 +745,22 @@ class Geocif:
 
     def _is_forecast_only(self) -> bool:
         """Check if use_cids contains only forecast types (FLDAS/S2S)."""
-        forecast_types = {"FLDAS", "S2S"}
-        return (
-            "all" not in self.use_cids
-            and all(c in forecast_types for c in self.use_cids)
-        )
+        from geocif.utils import is_forecast_only
+        return is_forecast_only(self.use_cids)
 
     def _get_pre_season_init_months(self, include_in_season: bool = False) -> list[int]:
-        """Build the sequence of init months for pre-season (and optionally in-season).
+        """Pre-season init months for the ML stage.
 
-        Args:
-            include_in_season: If True, extend through current month (for
-                forecast-only mode where in-season also uses init-month rows).
-
-        Returns months from (planting - max_lead) to stop_month.
+        Thin wrapper around :func:`geocif.utils.get_pre_season_init_months` —
+        single source of truth shared with the CID stage to avoid drift.
         """
-        planting_month = self._get_season_start_month()
-        max_lead = 6
-        earliest = (planting_month - max_lead - 1) % 12 + 1
+        from geocif.utils import get_pre_season_init_months
 
-        if include_in_season:
-            # Extend through current month (pre-season + in-season)
-            stop_month = ar.utcnow().month
-        else:
-            stop_month = (planting_month - 1) if planting_month > 1 else 12
-
-        months = []
-        m = earliest
-        while True:
-            months.append(m)
-            if m == stop_month:
-                break
-            m = m % 12 + 1
-            if len(months) > 12:
-                break
-        return months
+        extend = ar.utcnow().month if include_in_season else None
+        return get_pre_season_init_months(
+            self._get_season_start_month(),
+            extend_to_month=extend,
+        )
 
     def _execute_pre_season(self, include_in_season: bool = False):
         """Pre-season pipeline — one model per init month, multi-step.

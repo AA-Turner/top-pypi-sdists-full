@@ -726,7 +726,7 @@ class WebUI:
             "is_distributed": is_distributed,
             "user_count": self.environment.runner.user_count,
             "version": version,
-            "host": host if host else "",
+            "host": host or "",
             "history": request_stats.history if request_stats.num_requests > 0 else [],
             "override_host_warning": override_host_warning,
             "missing_host_warning": missing_host_warning,

@@ -6,13 +6,13 @@ import time
 import functools
 from contextlib import contextmanager
 from typing import Callable
+import threading
 
 # ======================================== LOCAL THREAD ========================================
-import threading
 _active_profiler: threading.local = threading.local()
 
-
-def _get_active() -> "Profiler | None":
+def _get_active() -> Profiler | None:
+    """Renvoie le profiler actif"""
     return getattr(_active_profiler, "profiler", None)
 
 # ======================================== STATS ========================================
@@ -49,7 +49,7 @@ class _Stats:
 
     @property
     def p95(self) -> float:
-        """P95"""
+        """95ème percentile"""
         if not self.samples:
             return 0.0
         s = sorted(self.samples)
@@ -59,16 +59,7 @@ class _Stats:
 
 # ======================================== DECORATOR ========================================
 def profile_section(name: str):
-    """
-    Décorateur optionnel pour instrumenter manuellement une méthode.
-
-    Exemple :
-        class Renderer:
-            @profile_section("renderer.draw_sprites")
-            def draw(self): ...
-
-    Si aucun profiler n'est actif, la méthode s'exécute normalement (no-op).
-    """
+    """Décorateur optionnel pour instrumenter manuellement une méthode"""
     def decorator(fn):
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
@@ -83,6 +74,10 @@ def profile_section(name: str):
 # ======================================== PROFILER ========================================
 class Profiler:
     """Accumulateur de timings par section"""
+    __slots__ = (
+        "_sections",
+        "_frame_count", "_frame_start", "_frame_times",
+    )
 
     def __init__(self):
         self._sections: dict[str, _Stats] = {}
@@ -93,6 +88,7 @@ class Profiler:
     # ======================================== CONTEXT ========================================
     @contextmanager
     def track(self, name: str):
+        """Contexte de suivi d'une fonction"""
         t0 = time.perf_counter()
         try:
             yield
@@ -104,17 +100,23 @@ class Profiler:
 
     # ======================================== FRAME BOUNDARIES ========================================
     def begin_frame(self):
+        """Début de la frame courante"""
         self._frame_start = time.perf_counter()
 
     def end_frame(self):
+        """Fin de la frame courante"""
         self._frame_count += 1
         self._frame_times.append((time.perf_counter() - self._frame_start) * 1_000)
 
     # ======================================== REPORT ========================================
     def report(self, group_by_prefix: bool = True) -> str:
-        """Génère un rapport de profiling"""
+        """Génère un rapport de profiling
+        
+        Args:
+            group_by_prefix: regroupage récursif par préfixe
+        """
         if not self._frame_times:
-            return "No frames recorded."
+            return "No frames recorded"
 
         n = self._frame_count
         total_time = sum(self._frame_times)
@@ -206,20 +208,31 @@ class Profiler:
         return "\n".join(lines)
 
     def export(self, path: str) -> None:
+        """Export le rapport
+        
+        Args:
+            path: chemin vers le fichier
+        """
         with open(path, "w", encoding="utf-8") as f:
             f.write(self.report())
         print(f"[Profiler] Report exported → {path}")
 
 # ======================================== HELPERS ========================================
 def _mini_bar(pct: float, width: int = 6, ch: str = "█") -> str:
-    """Barre de progression ASCII proportionnelle à pct (0-100)."""
+    """Barre de progression ASCII proportionnelle à pct (0-100)
+    
+    Args:
+        pct: pourcentage
+        width: largeur de la barre
+        ch: caractère composite
+    """
     filled = min(width, round(pct / 100 * width))
     empty  = width - filled
     return ch * filled + "·" * empty
 
 # ======================================== RUN CONFIGURATION ========================================
 class ProfiledRun:
-    """Wrapper autour de engine.run() qui instrumente la boucle principale.
+    """Configuration d'éxécution permettant le profiling
 
     Args:
         engine: module engine
@@ -246,6 +259,7 @@ class ProfiledRun:
 
     # ======================================== ENTRY POINT ========================================
     def run(self) -> None:
+        """Lance l'éxécution"""
         eng  = self._engine
         prof = self._profiler
 
@@ -301,6 +315,7 @@ class ProfiledRun:
             self._finish()
 
     def _finish(self) -> None:
+        """Met fin à l'éxécution"""
         if _active_profiler.profiler is None:
             return
         _active_profiler.profiler = None

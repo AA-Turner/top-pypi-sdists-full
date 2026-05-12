@@ -37302,6 +37302,177 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def list_scheduler_events_api_v2_scheduler_events_get(self, **kwargs):  # noqa: E501
+        """List Scheduler Events  # noqa: E501
+
+        List scheduler events for the caller's organization.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_scheduler_events_api_v2_scheduler_events_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: Filter by cloud_id
+        :param str cluster_id: Filter by cluster_id
+        :param str queue_name: Filter by queue_name
+        :param str flavor_name: Filter by flavor_name
+        :param str project_id: Filter by project_id
+        :param str cloud_resource_id: Filter by cloud_resource_id
+        :param list[EventLevel] level: Return events matching any of the specified levels
+        :param list[SchedulerEventType] event_type: Return events matching any of the specified event types
+        :param datetime start_time: Inclusive lower bound on emission time; beginning of time if unset
+        :param datetime end_time: Inclusive upper bound on emission time; now if unset
+        :param str paging_token:
+        :param int count:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: SchedulereventrecordListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_scheduler_events_api_v2_scheduler_events_get_with_http_info(**kwargs)  # noqa: E501
+
+    def list_scheduler_events_api_v2_scheduler_events_get_with_http_info(self, **kwargs):  # noqa: E501
+        """List Scheduler Events  # noqa: E501
+
+        List scheduler events for the caller's organization.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_scheduler_events_api_v2_scheduler_events_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: Filter by cloud_id
+        :param str cluster_id: Filter by cluster_id
+        :param str queue_name: Filter by queue_name
+        :param str flavor_name: Filter by flavor_name
+        :param str project_id: Filter by project_id
+        :param str cloud_resource_id: Filter by cloud_resource_id
+        :param list[EventLevel] level: Return events matching any of the specified levels
+        :param list[SchedulerEventType] event_type: Return events matching any of the specified event types
+        :param datetime start_time: Inclusive lower bound on emission time; beginning of time if unset
+        :param datetime end_time: Inclusive upper bound on emission time; now if unset
+        :param str paging_token:
+        :param int count:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(SchedulereventrecordListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'cluster_id',
+            'queue_name',
+            'flavor_name',
+            'project_id',
+            'cloud_resource_id',
+            'level',
+            'event_type',
+            'start_time',
+            'end_time',
+            'paging_token',
+            'count'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_scheduler_events_api_v2_scheduler_events_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 50:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_scheduler_events_api_v2_scheduler_events_get`, must be a value less than or equal to `50`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_scheduler_events_api_v2_scheduler_events_get`, must be a value greater than or equal to `0`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
+            query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
+        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
+            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'queue_name' in local_var_params and local_var_params['queue_name'] is not None:  # noqa: E501
+            query_params.append(('queue_name', local_var_params['queue_name']))  # noqa: E501
+        if 'flavor_name' in local_var_params and local_var_params['flavor_name'] is not None:  # noqa: E501
+            query_params.append(('flavor_name', local_var_params['flavor_name']))  # noqa: E501
+        if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
+            query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
+        if 'cloud_resource_id' in local_var_params and local_var_params['cloud_resource_id'] is not None:  # noqa: E501
+            query_params.append(('cloud_resource_id', local_var_params['cloud_resource_id']))  # noqa: E501
+        if 'level' in local_var_params and local_var_params['level'] is not None:  # noqa: E501
+            query_params.append(('level', local_var_params['level']))  # noqa: E501
+            collection_formats['level'] = 'multi'  # noqa: E501
+        if 'event_type' in local_var_params and local_var_params['event_type'] is not None:  # noqa: E501
+            query_params.append(('event_type', local_var_params['event_type']))  # noqa: E501
+            collection_formats['event_type'] = 'multi'  # noqa: E501
+        if 'start_time' in local_var_params and local_var_params['start_time'] is not None:  # noqa: E501
+            query_params.append(('start_time', local_var_params['start_time']))  # noqa: E501
+        if 'end_time' in local_var_params and local_var_params['end_time'] is not None:  # noqa: E501
+            query_params.append(('end_time', local_var_params['end_time']))  # noqa: E501
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/scheduler/events', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='SchedulereventrecordListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def list_schemas_in_catalog_api_v2_data_catalogs_connections_connection_id_catalogs_catalog_id_schemas_get(self, connection_id, catalog_id, **kwargs):  # noqa: E501
         """List Schemas In Catalog  # noqa: E501
 

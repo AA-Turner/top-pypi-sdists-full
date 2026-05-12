@@ -1,11 +1,22 @@
 import asyncio
 from datetime import datetime, timedelta
+from typing import Awaitable, Callable
 
 import pytest
 
-from pgqueuer.buffers import HeartbeatBuffer
-from pgqueuer.heartbeat import Heartbeat
+from pgqueuer.core.buffers import HeartbeatBuffer
+from pgqueuer.core.heartbeat import Heartbeat
 from pgqueuer.types import JobId
+
+
+class _FakeHeartbeatSink:
+    """Test double satisfying the HeartbeatSink protocol."""
+
+    def __init__(self, fn: Callable[[list[JobId]], Awaitable[None]]) -> None:
+        self._fn = fn
+
+    async def update_heartbeat(self, job_ids: list[JobId]) -> None:
+        await self._fn(job_ids)
 
 
 @pytest.mark.parametrize(
@@ -26,7 +37,7 @@ async def test_heartbeat_interval(interval: timedelta) -> None:
         HeartbeatBuffer(
             max_size=1_000,
             timeout=interval,
-            callback=callback,
+            repository=_FakeHeartbeatSink(callback),
         ) as buffer,
         Heartbeat(
             JobId(1),
@@ -51,7 +62,7 @@ async def test_heartbeat_max_size(max_size: int) -> None:
         HeartbeatBuffer(
             max_size=max_size,
             timeout=timedelta(seconds=0.01),
-            callback=callback,
+            repository=_FakeHeartbeatSink(callback),
         ) as buffer,
         Heartbeat(
             JobId(1),
@@ -64,16 +75,47 @@ async def test_heartbeat_max_size(max_size: int) -> None:
     assert len(callbacks) >= 2
 
 
-async def test_heartbeat_keeps_buffer_ticking() -> None:
-    async def noop(_: list[JobId]) -> None:
-        pass
+async def test_no_heartbeat_when_job_completes_before_interval() -> None:
+    """Fast-completing jobs must never write to the heartbeat buffer.
+
+    The heartbeat loop should wait the full interval before sending.
+    If shutdown fires during that wait, the buffer should remain untouched.
+    """
+
+    class _NoopSink:
+        async def update_heartbeat(self, _: list[JobId]) -> None:
+            pass
 
     class DummyBuffer(HeartbeatBuffer):
         def __init__(self) -> None:
             super().__init__(
                 max_size=10,
                 timeout=timedelta(seconds=0),
-                callback=noop,
+                repository=_NoopSink(),
+            )
+            self.received = 0
+
+        async def add(self, _: object) -> None:
+            self.received += 1
+
+    hbuf = DummyBuffer()
+    # Interval is 10s but we exit immediately — no heartbeat should fire.
+    async with Heartbeat(JobId(1), timedelta(seconds=10), hbuf):
+        await asyncio.sleep(0)
+    assert hbuf.received == 0, f"Expected 0 heartbeat writes, got {hbuf.received}"
+
+
+async def test_heartbeat_keeps_buffer_ticking() -> None:
+    class _NoopSink:
+        async def update_heartbeat(self, _: list[JobId]) -> None:
+            pass
+
+    class DummyBuffer(HeartbeatBuffer):
+        def __init__(self) -> None:
+            super().__init__(
+                max_size=10,
+                timeout=timedelta(seconds=0),
+                repository=_NoopSink(),
             )
             self.received = 0
 

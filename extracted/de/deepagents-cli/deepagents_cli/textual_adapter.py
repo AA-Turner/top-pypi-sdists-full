@@ -1150,10 +1150,32 @@ async def execute_task_textual(
                                 ]
                             },
                         )
-                        future = await adapter._request_approval(
-                            action_requests, assistant_id
-                        )
-                        decision = await future
+                        # Hide shell tool widgets while the approval renders the
+                        # same command; restore before processing the decision
+                        # so subsequent status updates render on the visible
+                        # widget.
+                        suppressed_tool_msgs = [
+                            tool_msg
+                            for tool_msg in adapter._current_tool_messages.values()
+                            if tool_msg.tool_name == "execute"
+                        ]
+                        for tool_msg in suppressed_tool_msgs:
+                            tool_msg.set_awaiting_approval()
+                        try:
+                            future = await adapter._request_approval(
+                                action_requests, assistant_id
+                            )
+                            decision = await future
+                        finally:
+                            for tool_msg in suppressed_tool_msgs:
+                                try:
+                                    tool_msg.clear_awaiting_approval()
+                                except Exception:
+                                    logger.exception(
+                                        "Failed to clear awaiting-approval "
+                                        "state on tool widget %s",
+                                        tool_msg.tool_name,
+                                    )
 
                         if isinstance(decision, dict):
                             decision_type = decision.get("type")
@@ -1206,17 +1228,35 @@ async def execute_task_textual(
                                             )
 
                             elif decision_type == "reject":
-                                decisions = [
-                                    RejectDecision(type="reject")
-                                    for _ in action_requests
-                                ]
+                                reject_message = decision.get("message")
+                                reject_message = (
+                                    reject_message
+                                    if isinstance(reject_message, str)
+                                    and reject_message.strip()
+                                    else None
+                                )
+                                reject_decision: RejectDecision = (
+                                    RejectDecision(
+                                        type="reject", message=reject_message
+                                    )
+                                    if reject_message
+                                    else RejectDecision(type="reject")
+                                )
+                                decisions = [reject_decision for _ in action_requests]
                                 tool_msgs = list(
                                     adapter._current_tool_messages.values()
                                 )
                                 for tool_msg in tool_msgs:
-                                    tool_msg.set_rejected()
+                                    tool_msg.set_rejected(reason=reject_message)
                                 adapter._current_tool_messages.clear()
-                                any_rejected = True
+                                # Bare reject aborts the turn and shows the
+                                # canned "Command rejected" banner so the user
+                                # can redirect. When a reason is supplied, the
+                                # reason itself serves as feedback for the
+                                # agent: keep `any_rejected=False` so the
+                                # stream resumes and the banner is suppressed.
+                                if reject_message is None:
+                                    any_rejected = True
                             else:
                                 logger.warning(
                                     "Unexpected HITL decision type: %s",
@@ -1392,13 +1432,22 @@ async def _persist_context_tokens(
 ) -> None:
     """Best-effort persist of the context token count into graph state.
 
+    The `aupdate_state` call is wrapped in `tracing_context(enabled=False)` so
+    this purely-internal bookkeeping write does not surface as a separate
+    `UpdateState` run in LangSmith. `_context_tokens` is already marked
+    `PrivateStateAttr`, but `aupdate_state` itself creates its own traced run
+    that would otherwise clutter the project's traces.
+
     Args:
         agent: The LangGraph agent (must support `aupdate_state`).
         config: Runnable config with `thread_id`.
         tokens: Total context tokens to persist.
     """
+    from langsmith import tracing_context
+
     try:
-        await agent.aupdate_state(config, {"_context_tokens": tokens})
+        with tracing_context(enabled=False):
+            await agent.aupdate_state(config, {"_context_tokens": tokens})
     except (httpx.TransportError, httpx.TimeoutException) as e:
         logger.warning(
             "Could not persist _context_tokens=%d (network): %s; "

@@ -388,8 +388,6 @@ static int mutbitset_ior_field(NyMutBitSetObject *v, NyBitField *w);
 
 static int mutbitset_iop_PyLongObject(NyMutBitSetObject *ms, int op, PyObject *v);
 
-static PyObject *NyBitSet_FormMethod;
-
 static NyImmBitSetObject * cplbitset_cpl(NyCplBitSetObject*v);
 
 NyImmBitSetObject *sf_slice(NySetField *ss, NySetField *se, NyBit ilow, NyBit ihigh);
@@ -408,7 +406,9 @@ PyTypeObject NyBitSet_Type = {
 
 #ifndef Py_TRACE_REFS
 # define _Py_ForgetReference(op) do {} while (0)
-# define _Py_DEC_REFTOTAL do {} while (0)
+#endif
+#ifndef Py_REF_DEBUG
+# define _Py_DecRefTotal(op) do {} while (0)
 #endif
 
 #define NOSET  0
@@ -724,7 +724,8 @@ NyImmBitSet_SubtypeNewArg(PyTypeObject *type, PyObject *v)
     if (vt == BITSET) {
         NyImmBitSetObject *bs = (NyImmBitSetObject *)v;
         NyImmBitSetObject *ret = NyImmBitSet_SubtypeNew(type, Py_SIZE(bs));
-        memcpy(ret->ob_field, bs->ob_field, sizeof(NyBitField) * Py_SIZE(bs));
+        if (ret)
+            memcpy(ret->ob_field, bs->ob_field, sizeof(NyBitField) * Py_SIZE(bs));
         return ret;
     }
     if (vt == MUTSET) {
@@ -791,9 +792,9 @@ mutbitset_initset(NyMutBitSetObject *v, NyImmBitSetObject *set)
         sf->hi = set->ob_field + Py_SIZE(set);
     } else {
         sf->set = immbitset_realloc(0, 1);
-        sf->lo = sf->hi = sf->set->ob_field;
         if (!sf->set)
             return -1;
+        sf->lo = sf->hi = sf->set->ob_field;
     }
     return 0;
 }
@@ -897,11 +898,17 @@ union_realloc(NyUnionObject *self, NyBit size)
         return PyObject_NewVar(NyUnionObject, &NyUnion_Type, size);
     else {
         NyUnionObject *ret;
-        assert(Py_REFCNT(self) == 1);
+        assert(PyUnstable_Object_IsUniquelyReferenced((PyObject *)self));
         _Py_ForgetReference((PyObject *)self);
-        _Py_DEC_REFTOTAL;
+        /* PyObject_InitVar -> _PyObject_Init -> _Py_NewReference -> _Py_IncRefTotal */
+        _Py_DecRefTotal(PyThreadState_GET());
         ret = PyObject_Realloc(self,
             Py_TYPE(self)->tp_basicsize + Py_TYPE(self)->tp_itemsize * size);
+        if (!ret) {
+            _Py_NewReference((PyObject *)self);
+            PyErr_NoMemory();
+            return NULL;
+        }
         ret = (void *) PyObject_InitVar((void *)ret, Py_TYPE(ret), size);
         return ret;
     }
@@ -954,11 +961,17 @@ immbitset_realloc(NyImmBitSetObject *self, NyBit size)
         ret = NyImmBitSet_New(upsize);
         return ret;
     } else {
-        assert(Py_REFCNT(self) == 1);
+        assert(PyUnstable_Object_IsUniquelyReferenced((PyObject *)self));
         _Py_ForgetReference((PyObject *)self);
-        _Py_DEC_REFTOTAL;
+        /* PyObject_InitVar -> _PyObject_Init -> _Py_NewReference -> _Py_IncRefTotal */
+        _Py_DecRefTotal(PyThreadState_GET());
         ret = PyObject_Realloc(self,
             Py_TYPE(self)->tp_basicsize + Py_TYPE(self)->tp_itemsize * upsize);
+        if (!ret) {
+            _Py_NewReference((PyObject *)self);
+            PyErr_NoMemory();
+            return NULL;
+        }
         ret = (void *) PyObject_InitVar((void *)ret, Py_TYPE(ret), upsize);
         return ret;
     }
@@ -975,7 +988,7 @@ sf_getrange(NySetField *v, NyBitField **shi)
 static int
 sf_getrange_mut(NySetField *sf, NyBitField **slo, NyBitField **shi)
 {
-    if (Py_REFCNT(sf->set) > 1) {
+    if (!PyUnstable_Object_IsUniquelyReferenced((PyObject *)sf->set)) {
         NyImmBitSetObject *oset = sf->set;
         NyBit lo = sf->lo - oset->ob_field;
         NyBit hi = sf->hi - oset->ob_field;
@@ -1159,7 +1172,8 @@ mutbitset_findpos_mut(NyMutBitSetObject *v, NyBit pos)
             /* Not found so we are not going to update. */
             f = 0;
         else {
-            if (Py_REFCNT(root) > 1 || Py_REFCNT(sf->set) > 1) {
+            if (!PyUnstable_Object_IsUniquelyReferenced((PyObject *)root) ||
+                    !PyUnstable_Object_IsUniquelyReferenced((PyObject *)sf->set)) {
                 /* It was found but some struct needs to be copied.
                    Just research in ins mode. */
                 f = mutbitset_findpos_ins(v, pos);
@@ -1222,7 +1236,7 @@ static int
 mutbitset_getrange_mut(NyMutBitSetObject *v, NySetField **slo, NySetField **shi)
 {
     NyUnionObject *root = v->root;
-    if (Py_REFCNT(root) > 1) {
+    if (!PyUnstable_Object_IsUniquelyReferenced((PyObject *)root)) {
         NyUnionObject *nroot = PyObject_NewVar(NyUnionObject, &NyUnion_Type, Py_SIZE(root));
         NyBit i;
         if (!nroot)
@@ -1349,7 +1363,7 @@ mutbitset_clear(NyMutBitSetObject *v)
     } else {
         NyBit i;
         for (i = 0; i < v->root->cur_size; i++)
-            Py_DECREF(v->root->ob_field[i].set);
+            Py_XDECREF(v->root->ob_field[i].set);
     }
     v->cur_field = 0;
     v->root = &v->fst_root;
@@ -2956,6 +2970,8 @@ sf_slice(NySetField *ss, NySetField *se, NyBit ilow, NyBit ihigh)
                 break;
         }
         bs = NyImmBitSet_New(nfields);
+        if (!bs)
+            return NULL;
         g = bs->ob_field;
         i = 0;
         for (s = ss; s < se; s++) {
@@ -2996,6 +3012,8 @@ sf_slice(NySetField *ss, NySetField *se, NyBit ilow, NyBit ihigh)
                 break;
         }
         bs = NyImmBitSet_New(nfields);
+        if (!bs)
+            return NULL;
         g = bs->ob_field + nfields - 1;
         i = 0;
         for (s = se; --s >= ss;) {
@@ -3814,6 +3832,9 @@ immbitset_mutable_copy(PyObject *self, PyObject *args)
 }
 
 static PyObject *
+NyBitSet_Form_Get_CFunction(void);
+
+static PyObject *
 immbitset_reduce_flags(NyImmBitSetObject *self, int flags)
 {
     PyObject *a = PyTuple_New(2);
@@ -3821,18 +3842,21 @@ immbitset_reduce_flags(NyImmBitSetObject *self, int flags)
     PyObject *c = PyLong_FromSsize_t(flags);
     PyObject *d = PyBytes_FromStringAndSize((char *)self->ob_field,
                                             Py_SIZE(self) * sizeof(self->ob_field[0]));
-    if (!(a && b && c && d)) {
+    PyObject *m = NyBitSet_Form_Get_CFunction();
+
+    if (!(a && b && c && d && m)) {
         Py_XDECREF(a);
         Py_XDECREF(b);
         Py_XDECREF(c);
         Py_XDECREF(d);
+        Py_XDECREF(m);
         return 0;
     }
-    PyTuple_SET_ITEM(a, 0, NyBitSet_FormMethod);
-    Py_INCREF(NyBitSet_FormMethod);
+    PyTuple_SET_ITEM(a, 0, m);
     PyTuple_SET_ITEM(a, 1, b);
     PyTuple_SET_ITEM(b, 0, c);
     PyTuple_SET_ITEM(b, 1, d);
+
     return a;
 }
 
@@ -4369,6 +4393,28 @@ _NyImmBitSet_Range(PyObject *unused, PyObject *args)
 }
 
 static PyObject *
+NyBitSet_Form_Get_CFunction(void)
+{
+    /* XXX: Ideally, there'd be some way to access this more easily.
+       Putting it in the module state requires a reference to the module
+       object, same as getting it from the dict. But getting the module object
+       is non-trivial; all easy paths require converting the bitset types to
+       heap types, which require callers to be heap types as well to in order
+       to find the correct type object...
+       I miss the ease of THIS_MODULE :( Luckily, pickle isn't really a
+       performance-sensitive code path. */
+
+    PyObject *m = PyImport_ImportModule("guppy.sets.setsc");
+    if (!m)
+        return NULL;
+
+    PyObject *_bs = PyObject_GetAttrString(m, "_bs");
+
+    Py_DECREF(m);
+    return _bs;
+}
+
+static PyObject *
 NyBitSet_Form(PyObject *args)
 {
     PyObject *str;
@@ -4448,8 +4494,6 @@ static NyBitSet_Exports nybitset_exports = {
 
 int fsb_dx_nybitset_init(PyObject *m)
 {
-    PyObject *d;
-
     Py_SET_TYPE(&_NyImmBitSet_EmptyStruct, &NyImmBitSet_Type);
     Py_SET_TYPE(&_NyImmBitSet_OmegaStruct, &NyCplBitSet_Type);
 
@@ -4460,24 +4504,22 @@ int fsb_dx_nybitset_init(PyObject *m)
     NYFILL(NyImmBitSetIter_Type);
     NYFILL(NyUnion_Type);
 
-    d = PyModule_GetDict(m);
-    PyDict_SetItemString(d, "BitSet", (PyObject *)&NyBitSet_Type);
-    PyDict_SetItemString(d, "CplBitSet", (PyObject *)&NyCplBitSet_Type);
-    PyDict_SetItemString(d, "ImmBitSet", (PyObject *)&NyImmBitSet_Type);
-    PyDict_SetItemString(d, "MutBitSet", (PyObject *)&NyMutBitSet_Type);
-    PyDict_SetItemString(d,
-                         "NyBitSet_Exports",
-                         PyCapsule_New(
-                             &nybitset_exports,
-                             "guppy.sets.setsc.NybitSet_Exports",
-                             0)
-                         );
+    if (PyModule_AddType(m, &NyBitSet_Type) == -1)
+        return -1;
+    if (PyModule_AddType(m, &NyCplBitSet_Type) == -1)
+        return -1;
+    if (PyModule_AddType(m, &NyImmBitSet_Type) == -1)
+        return -1;
+    if (PyModule_AddType(m, &NyMutBitSet_Type) == -1)
+        return -1;
+    if (PyModule_Add(m, "NyBitSet_Exports",
+            PyCapsule_New(&nybitset_exports, "guppy.sets.setsc.NybitSet_Exports", 0)
+    ) == -1)
+        return -1;
 
-    if (fsb_dx_addmethods(m, nybitset_methods, 0) == -1)
+    if (PyModule_AddFunctions(m, nybitset_methods) == -1)
         goto error;
-    NyBitSet_FormMethod = PyObject_GetAttrString(m, "_bs");
-    if (!NyBitSet_FormMethod)
-        goto error;
+
     {
         int i;
         /* initialize len() helper */

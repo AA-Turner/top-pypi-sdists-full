@@ -1,6 +1,6 @@
 [project]
 name = "cmk-werk-zeug"
-version = "0.3.1"
+version = "0.3.2"
 description = "cmk-werk-zeug"
 authors = [
     {name = "Benedikt Seidl", email = "benedikt.seidl@checkmk.com"},

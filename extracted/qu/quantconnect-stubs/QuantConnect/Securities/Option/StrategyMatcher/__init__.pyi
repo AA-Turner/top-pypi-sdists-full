@@ -183,22 +183,22 @@ class OptionPosition(System.IEquatable[QuantConnect_Securities_Option_StrategyMa
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Indicates whether this instance and a specified object are equal.
-        
-        :param obj: The object to compare with the current instance.
-        :returns: true if obj and this instance are the same type and represent the same value; otherwise, false.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> bool:
         """
         Indicates whether the current object is equal to another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Indicates whether this instance and a specified object are equal.
+        
+        :param obj: The object to compare with the current instance.
+        :returns: true if obj and this instance are the same type and represent the same value; otherwise, false.
         """
         ...
 
@@ -579,22 +579,22 @@ class OptionStrategyLegDefinitionMatch(System.IEquatable[QuantConnect_Securities
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Indicates whether this instance and a specified object are equal.
-        
-        :param obj: The object to compare with the current instance.
-        :returns: true if obj and this instance are the same type and represent the same value; otherwise, false.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch) -> bool:
         """
         Indicates whether the current object is equal to another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Indicates whether this instance and a specified object are equal.
+        
+        :param obj: The object to compare with the current instance.
+        :returns: true if obj and this instance are the same type and represent the same value; otherwise, false.
         """
         ...
 
@@ -749,15 +749,15 @@ class OptionStrategyLegDefinition(System.Object, typing.Iterable[QuantConnect.Se
         """Creates a new OptionStrategyLegDefinition matching the specified parameters"""
         ...
 
-    @overload
-    def create_leg_data(self, match: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch) -> QuantConnect.Orders.Leg:
-        """Creates the appropriate Leg for the specified match"""
-        ...
-
     @staticmethod
     @overload
     def create_leg_data(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int) -> QuantConnect.Orders.Leg:
         """Creates the appropriate OptionStrategy.LegData with the specified quantity"""
+        ...
+
+    @overload
+    def create_leg_data(self, match: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch) -> QuantConnect.Orders.Leg:
+        """Creates the appropriate Leg for the specified match"""
         ...
 
     def filter(self, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection, include_underlying: bool = True) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
@@ -1473,22 +1473,22 @@ class OptionStrategyDefinitionMatch(System.Object, System.IEquatable[QuantConnec
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
         """
         Indicates whether the current object is equal to another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
         """
         ...
 

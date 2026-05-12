@@ -23,14 +23,47 @@ __all__ = [
     'AccountNetworkPolicyEgressNetworkAccess',
     'AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestination',
     'AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestination',
+    'AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestination',
     'AccountNetworkPolicyEgressNetworkAccessPolicyEnforcement',
     'AccountNetworkPolicyIngress',
     'AccountNetworkPolicyIngressDryRun',
+    'AccountNetworkPolicyIngressDryRunPrivateAccess',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRule',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthentication',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentity',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestination',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApi',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOne',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUi',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntime',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntime',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApi',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUi',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOrigin',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpoints',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRule',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthentication',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentity',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestination',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApi',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOne',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUi',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntime',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntime',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApi',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUi',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOrigin',
+    'AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpoints',
     'AccountNetworkPolicyIngressDryRunPublicAccess',
     'AccountNetworkPolicyIngressDryRunPublicAccessAllowRule',
     'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthentication',
     'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentity',
     'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApi',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOne',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUi',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntime',
+    'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntime',
     'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApi',
     'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUi',
     'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOrigin',
@@ -40,16 +73,53 @@ __all__ = [
     'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthentication',
     'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentity',
     'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApi',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOne',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUi',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntime',
+    'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntime',
     'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApi',
     'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUi',
     'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOrigin',
     'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRanges',
     'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRanges',
+    'AccountNetworkPolicyIngressPrivateAccess',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRule',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthentication',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentity',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleDestination',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApi',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOne',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUi',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntime',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntime',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApi',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUi',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleOrigin',
+    'AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpoints',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRule',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthentication',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentity',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleDestination',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApi',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOne',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUi',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntime',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntime',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApi',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUi',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleOrigin',
+    'AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpoints',
     'AccountNetworkPolicyIngressPublicAccess',
     'AccountNetworkPolicyIngressPublicAccessAllowRule',
     'AccountNetworkPolicyIngressPublicAccessAllowRuleAuthentication',
     'AccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentity',
     'AccountNetworkPolicyIngressPublicAccessAllowRuleDestination',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApi',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOne',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUi',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntime',
+    'AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntime',
     'AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApi',
     'AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUi',
     'AccountNetworkPolicyIngressPublicAccessAllowRuleOrigin',
@@ -59,6 +129,11 @@ __all__ = [
     'AccountNetworkPolicyIngressPublicAccessDenyRuleAuthentication',
     'AccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentity',
     'AccountNetworkPolicyIngressPublicAccessDenyRuleDestination',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApi',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOne',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUi',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntime',
+    'AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntime',
     'AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApi',
     'AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUi',
     'AccountNetworkPolicyIngressPublicAccessDenyRuleOrigin',
@@ -275,6 +350,11 @@ __all__ = [
     'DisableLegacyDbfsSettingProviderConfig',
     'DisableLegacyFeaturesSettingDisableLegacyFeatures',
     'DisableLegacyFeaturesSettingProviderConfig',
+    'DisasterRecoveryFailoverGroupUnityCatalogAssets',
+    'DisasterRecoveryFailoverGroupUnityCatalogAssetsCatalog',
+    'DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMapping',
+    'DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingUriByRegion',
+    'DisasterRecoveryFailoverGroupWorkspaceSet',
     'EndpointAzurePrivateEndpointInfo',
     'EnhancedSecurityMonitoringWorkspaceSettingEnhancedSecurityMonitoringWorkspace',
     'EnhancedSecurityMonitoringWorkspaceSettingProviderConfig',
@@ -813,14 +893,20 @@ __all__ = [
     'PipelineIngestionDefinitionObjectReportTableConfigurationWorkdayReportParametersReportParameter',
     'PipelineIngestionDefinitionObjectSchema',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptions',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsConfluenceOptions',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptions',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptions',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptions',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptions',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptions',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptions',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptions',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptions',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsSmartsheetOptions',
     'PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions',
+    'PipelineIngestionDefinitionObjectSchemaConnectorOptionsZendeskSupportOptions',
     'PipelineIngestionDefinitionObjectSchemaTableConfiguration',
     'PipelineIngestionDefinitionObjectSchemaTableConfigurationAutoFullRefreshPolicy',
     'PipelineIngestionDefinitionObjectSchemaTableConfigurationQueryBasedConnectorConfig',
@@ -828,14 +914,20 @@ __all__ = [
     'PipelineIngestionDefinitionObjectSchemaTableConfigurationWorkdayReportParametersReportParameter',
     'PipelineIngestionDefinitionObjectTable',
     'PipelineIngestionDefinitionObjectTableConnectorOptions',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsConfluenceOptions',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptions',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptions',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptionsFileIngestionOptionsFileFilter',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptions',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptions',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptions',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptions',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptions',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptions',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFileIngestionOptionsFileFilter',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsSmartsheetOptions',
     'PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions',
+    'PipelineIngestionDefinitionObjectTableConnectorOptionsZendeskSupportOptions',
     'PipelineIngestionDefinitionObjectTableTableConfiguration',
     'PipelineIngestionDefinitionObjectTableTableConfigurationAutoFullRefreshPolicy',
     'PipelineIngestionDefinitionObjectTableTableConfigurationQueryBasedConnectorConfig',
@@ -845,6 +937,7 @@ __all__ = [
     'PipelineIngestionDefinitionSourceConfigurationCatalog',
     'PipelineIngestionDefinitionSourceConfigurationCatalogPostgres',
     'PipelineIngestionDefinitionSourceConfigurationCatalogPostgresSlotConfig',
+    'PipelineIngestionDefinitionSourceConfigurationGoogleAdsConfig',
     'PipelineIngestionDefinitionTableConfiguration',
     'PipelineIngestionDefinitionTableConfigurationAutoFullRefreshPolicy',
     'PipelineIngestionDefinitionTableConfigurationQueryBasedConnectorConfig',
@@ -953,6 +1046,7 @@ __all__ = [
     'SecretProviderConfig',
     'SecretScopeKeyvaultMetadata',
     'SecretScopeProviderConfig',
+    'SecretUcProviderConfig',
     'ServicePrincipalFederationPolicyOidcPolicy',
     'ServicePrincipalProviderConfig',
     'ServicePrincipalRoleProviderConfig',
@@ -1008,6 +1102,14 @@ __all__ = [
     'StorageCredentialDatabricksGcpServiceAccount',
     'StorageCredentialGcpServiceAccountKey',
     'StorageCredentialProviderConfig',
+    'SupervisorAgentProviderConfig',
+    'SupervisorAgentToolApp',
+    'SupervisorAgentToolGenieSpace',
+    'SupervisorAgentToolKnowledgeAssistant',
+    'SupervisorAgentToolProviderConfig',
+    'SupervisorAgentToolUcConnection',
+    'SupervisorAgentToolUcFunction',
+    'SupervisorAgentToolVolume',
     'SystemSchemaProviderConfig',
     'TableColumn',
     'TableProviderConfig',
@@ -1067,14 +1169,47 @@ __all__ = [
     'GetAccountNetworkPoliciesItemEgressNetworkAccessResult',
     'GetAccountNetworkPoliciesItemEgressNetworkAccessAllowedInternetDestinationResult',
     'GetAccountNetworkPoliciesItemEgressNetworkAccessAllowedStorageDestinationResult',
+    'GetAccountNetworkPoliciesItemEgressNetworkAccessBlockedInternetDestinationResult',
     'GetAccountNetworkPoliciesItemEgressNetworkAccessPolicyEnforcementResult',
     'GetAccountNetworkPoliciesItemIngressResult',
     'GetAccountNetworkPoliciesItemIngressDryRunResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleAuthenticationResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountApiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountUiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleOriginResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleOriginEndpointsResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleAuthenticationResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountApiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountUiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleOriginResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleOriginEndpointsResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationIdentityResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountApiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountUiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginResult',
@@ -1084,16 +1219,53 @@ __all__ = [
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationIdentityResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountApiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountUiResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesResult',
     'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleAuthenticationResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountApiResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountUiResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleOriginResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleOriginEndpointsResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleAuthenticationResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountApiResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountUiResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleOriginResult',
+    'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleOriginEndpointsResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationIdentityResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountApiResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountUiResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationLakebaseRuntimeResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceApiResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceUiResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginResult',
@@ -1103,6 +1275,11 @@ __all__ = [
     'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationIdentityResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountApiResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountUiResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationLakebaseRuntimeResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceApiResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceUiResult',
     'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginResult',
@@ -1112,14 +1289,47 @@ __all__ = [
     'GetAccountNetworkPolicyEgressNetworkAccessResult',
     'GetAccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationResult',
     'GetAccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationResult',
+    'GetAccountNetworkPolicyEgressNetworkAccessBlockedInternetDestinationResult',
     'GetAccountNetworkPolicyEgressNetworkAccessPolicyEnforcementResult',
     'GetAccountNetworkPolicyIngressResult',
     'GetAccountNetworkPolicyIngressDryRunResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApiResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUiResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpointsResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApiResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUiResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginResult',
+    'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpointsResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIdentityResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApiResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUiResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginResult',
@@ -1129,16 +1339,53 @@ __all__ = [
     'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIdentityResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApiResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUiResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginExcludedIpRangesResult',
     'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRangesResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApiResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUiResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleOriginResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpointsResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentityResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApiResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUiResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApiResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUiResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleOriginResult',
+    'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpointsResult',
     'GetAccountNetworkPolicyIngressPublicAccessResult',
     'GetAccountNetworkPolicyIngressPublicAccessAllowRuleResult',
     'GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationResult',
     'GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityResult',
     'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApiResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUiResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntimeResult',
     'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiResult',
     'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiResult',
     'GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginResult',
@@ -1148,6 +1395,11 @@ __all__ = [
     'GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationResult',
     'GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityResult',
     'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApiResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOneResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUiResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntimeResult',
+    'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntimeResult',
     'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiResult',
     'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiResult',
     'GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginResult',
@@ -1474,6 +1726,18 @@ __all__ = [
     'GetDbfsFilePathsProviderConfigResult',
     'GetDbfsFileProviderConfigResult',
     'GetDirectoryProviderConfigResult',
+    'GetDisasterRecoveryFailoverGroupUnityCatalogAssetsResult',
+    'GetDisasterRecoveryFailoverGroupUnityCatalogAssetsCatalogResult',
+    'GetDisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingResult',
+    'GetDisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingUriByRegionResult',
+    'GetDisasterRecoveryFailoverGroupWorkspaceSetResult',
+    'GetDisasterRecoveryFailoverGroupsFailoverGroupResult',
+    'GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsResult',
+    'GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsCatalogResult',
+    'GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsLocationMappingResult',
+    'GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsLocationMappingUriByRegionResult',
+    'GetDisasterRecoveryFailoverGroupsFailoverGroupWorkspaceSetResult',
+    'GetDisasterRecoveryStableUrlsStableUrlResult',
     'GetEndpointAzurePrivateEndpointInfoResult',
     'GetEndpointsItemResult',
     'GetEndpointsItemAzurePrivateEndpointInfoResult',
@@ -2020,6 +2284,10 @@ __all__ = [
     'GetSchemaSchemaInfoResult',
     'GetSchemaSchemaInfoEffectivePredictiveOptimizationFlagResult',
     'GetSchemasProviderConfigResult',
+    'GetSecretUcProviderConfigResult',
+    'GetSecretUcsProviderConfigResult',
+    'GetSecretUcsSecretResult',
+    'GetSecretUcsSecretProviderConfigResult',
     'GetServicePrincipalFederationPoliciesPolicyResult',
     'GetServicePrincipalFederationPoliciesPolicyOidcPolicyResult',
     'GetServicePrincipalFederationPolicyOidcPolicyResult',
@@ -2078,6 +2346,26 @@ __all__ = [
     'GetStorageCredentialStorageCredentialInfoCloudflareApiTokenResult',
     'GetStorageCredentialStorageCredentialInfoDatabricksGcpServiceAccountResult',
     'GetStorageCredentialsProviderConfigResult',
+    'GetSupervisorAgentProviderConfigResult',
+    'GetSupervisorAgentToolAppResult',
+    'GetSupervisorAgentToolGenieSpaceResult',
+    'GetSupervisorAgentToolKnowledgeAssistantResult',
+    'GetSupervisorAgentToolProviderConfigResult',
+    'GetSupervisorAgentToolUcConnectionResult',
+    'GetSupervisorAgentToolUcFunctionResult',
+    'GetSupervisorAgentToolVolumeResult',
+    'GetSupervisorAgentToolsProviderConfigResult',
+    'GetSupervisorAgentToolsToolResult',
+    'GetSupervisorAgentToolsToolAppResult',
+    'GetSupervisorAgentToolsToolGenieSpaceResult',
+    'GetSupervisorAgentToolsToolKnowledgeAssistantResult',
+    'GetSupervisorAgentToolsToolProviderConfigResult',
+    'GetSupervisorAgentToolsToolUcConnectionResult',
+    'GetSupervisorAgentToolsToolUcFunctionResult',
+    'GetSupervisorAgentToolsToolVolumeResult',
+    'GetSupervisorAgentsProviderConfigResult',
+    'GetSupervisorAgentsSupervisorAgentResult',
+    'GetSupervisorAgentsSupervisorAgentProviderConfigResult',
     'GetTableProviderConfigResult',
     'GetTableTableInfoResult',
     'GetTableTableInfoColumnResult',
@@ -2248,12 +2536,13 @@ class AccessControlRuleSetProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -2436,6 +2725,8 @@ class AccountNetworkPolicyEgressNetworkAccess(dict):
             suggest = "allowed_internet_destinations"
         elif key == "allowedStorageDestinations":
             suggest = "allowed_storage_destinations"
+        elif key == "blockedInternetDestinations":
+            suggest = "blocked_internet_destinations"
         elif key == "policyEnforcement":
             suggest = "policy_enforcement"
 
@@ -2454,10 +2745,14 @@ class AccountNetworkPolicyEgressNetworkAccess(dict):
                  restriction_mode: _builtins.str,
                  allowed_internet_destinations: Optional[Sequence['outputs.AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestination']] = None,
                  allowed_storage_destinations: Optional[Sequence['outputs.AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestination']] = None,
+                 blocked_internet_destinations: Optional[Sequence['outputs.AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestination']] = None,
                  policy_enforcement: Optional['outputs.AccountNetworkPolicyEgressNetworkAccessPolicyEnforcement'] = None):
         """
         :param Sequence['AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationArgs'] allowed_internet_destinations: List of internet destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
         :param Sequence['AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationArgs'] allowed_storage_destinations: List of storage destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
+        :param Sequence['AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestinationArgs'] blocked_internet_destinations: List of internet destinations that serverless workloads are blocked from accessing.
+               These destinations are enforced when restriction mode is RESTRICTED_ACCESS or DRY_RUN.
+               Currently supports DNS_NAME type only; IP_RANGE support is planned
         :param 'AccountNetworkPolicyEgressNetworkAccessPolicyEnforcementArgs' policy_enforcement: Optional. When policy_enforcement is not provided, we default to ENFORCE_MODE_ALL_SERVICES
         """
         pulumi.set(__self__, "restriction_mode", restriction_mode)
@@ -2465,6 +2760,8 @@ class AccountNetworkPolicyEgressNetworkAccess(dict):
             pulumi.set(__self__, "allowed_internet_destinations", allowed_internet_destinations)
         if allowed_storage_destinations is not None:
             pulumi.set(__self__, "allowed_storage_destinations", allowed_storage_destinations)
+        if blocked_internet_destinations is not None:
+            pulumi.set(__self__, "blocked_internet_destinations", blocked_internet_destinations)
         if policy_enforcement is not None:
             pulumi.set(__self__, "policy_enforcement", policy_enforcement)
 
@@ -2488,6 +2785,16 @@ class AccountNetworkPolicyEgressNetworkAccess(dict):
         List of storage destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
         """
         return pulumi.get(self, "allowed_storage_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="blockedInternetDestinations")
+    def blocked_internet_destinations(self) -> Optional[Sequence['outputs.AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestination']]:
+        """
+        List of internet destinations that serverless workloads are blocked from accessing.
+        These destinations are enforced when restriction mode is RESTRICTED_ACCESS or DRY_RUN.
+        Currently supports DNS_NAME type only; IP_RANGE support is planned
+        """
+        return pulumi.get(self, "blocked_internet_destinations")
 
     @_builtins.property
     @pulumi.getter(name="policyEnforcement")
@@ -2625,6 +2932,50 @@ class AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestination(dict):
 
 
 @pulumi.output_type
+class AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestination(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "internetDestinationType":
+            suggest = "internet_destination_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestination. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestination.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestination.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 destination: Optional[_builtins.str] = None,
+                 internet_destination_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str internet_destination_type: The type of internet destination. Currently only DNS_NAME is supported. Possible values are: `DNS_NAME`
+        """
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if internet_destination_type is not None:
+            pulumi.set(__self__, "internet_destination_type", internet_destination_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter(name="internetDestinationType")
+    def internet_destination_type(self) -> Optional[_builtins.str]:
+        """
+        The type of internet destination. Currently only DNS_NAME is supported. Possible values are: `DNS_NAME`
+        """
+        return pulumi.get(self, "internet_destination_type")
+
+
+@pulumi.output_type
 class AccountNetworkPolicyEgressNetworkAccessPolicyEnforcement(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -2685,7 +3036,9 @@ class AccountNetworkPolicyIngress(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "publicAccess":
+        if key == "privateAccess":
+            suggest = "private_access"
+        elif key == "publicAccess":
             suggest = "public_access"
 
         if suggest:
@@ -2700,13 +3053,35 @@ class AccountNetworkPolicyIngress(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 private_access: Optional['outputs.AccountNetworkPolicyIngressPrivateAccess'] = None,
                  public_access: Optional['outputs.AccountNetworkPolicyIngressPublicAccess'] = None):
+        """
+        :param 'AccountNetworkPolicyIngressPrivateAccessArgs' private_access: The network policy restrictions for private access to the workspace.
+               Configures how registered private endpoints are allowed or denied access
+        :param 'AccountNetworkPolicyIngressPublicAccessArgs' public_access: The network policy restrictions for public access to the workspace.
+               Configures how public internet traffic is allowed or denied access
+        """
+        if private_access is not None:
+            pulumi.set(__self__, "private_access", private_access)
         if public_access is not None:
             pulumi.set(__self__, "public_access", public_access)
 
     @_builtins.property
+    @pulumi.getter(name="privateAccess")
+    def private_access(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccess']:
+        """
+        The network policy restrictions for private access to the workspace.
+        Configures how registered private endpoints are allowed or denied access
+        """
+        return pulumi.get(self, "private_access")
+
+    @_builtins.property
     @pulumi.getter(name="publicAccess")
     def public_access(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccess']:
+        """
+        The network policy restrictions for public access to the workspace.
+        Configures how public internet traffic is allowed or denied access
+        """
         return pulumi.get(self, "public_access")
 
 
@@ -2715,7 +3090,9 @@ class AccountNetworkPolicyIngressDryRun(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "publicAccess":
+        if key == "privateAccess":
+            suggest = "private_access"
+        elif key == "publicAccess":
             suggest = "public_access"
 
         if suggest:
@@ -2730,14 +3107,1175 @@ class AccountNetworkPolicyIngressDryRun(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 private_access: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccess'] = None,
                  public_access: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccess'] = None):
+        """
+        :param 'AccountNetworkPolicyIngressDryRunPrivateAccessArgs' private_access: The network policy restrictions for private access to the workspace.
+               Configures how registered private endpoints are allowed or denied access
+        :param 'AccountNetworkPolicyIngressDryRunPublicAccessArgs' public_access: The network policy restrictions for public access to the workspace.
+               Configures how public internet traffic is allowed or denied access
+        """
+        if private_access is not None:
+            pulumi.set(__self__, "private_access", private_access)
         if public_access is not None:
             pulumi.set(__self__, "public_access", public_access)
 
     @_builtins.property
+    @pulumi.getter(name="privateAccess")
+    def private_access(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccess']:
+        """
+        The network policy restrictions for private access to the workspace.
+        Configures how registered private endpoints are allowed or denied access
+        """
+        return pulumi.get(self, "private_access")
+
+    @_builtins.property
     @pulumi.getter(name="publicAccess")
     def public_access(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccess']:
+        """
+        The network policy restrictions for public access to the workspace.
+        Configures how public internet traffic is allowed or denied access
+        """
         return pulumi.get(self, "public_access")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccess(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "restrictionMode":
+            suggest = "restriction_mode"
+        elif key == "allowRules":
+            suggest = "allow_rules"
+        elif key == "denyRules":
+            suggest = "deny_rules"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccess. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccess.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccess.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRule']] = None,
+                 deny_rules: Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRule']] = None):
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRule']]:
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRule']]:
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRule(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthentication'] = None,
+                 destination: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestination'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOrigin'] = None):
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthentication']:
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestination']:
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOrigin']:
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthentication(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "identityType":
+            suggest = "identity_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthentication. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthentication.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthentication.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentity']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityArgs'] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentity']]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentity(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "principalId":
+            suggest = "principal_id"
+        elif key == "principalType":
+            suggest = "principal_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentity. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentity.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentity.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.str] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestination(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "accountApi":
+            suggest = "account_api"
+        elif key == "accountDatabricksOne":
+            suggest = "account_databricks_one"
+        elif key == "accountUi":
+            suggest = "account_ui"
+        elif key == "allDestinations":
+            suggest = "all_destinations"
+        elif key == "appsRuntime":
+            suggest = "apps_runtime"
+        elif key == "lakebaseRuntime":
+            suggest = "lakebase_runtime"
+        elif key == "workspaceApi":
+            suggest = "workspace_api"
+        elif key == "workspaceUi":
+            suggest = "workspace_ui"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestination. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestination.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestination.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApi'] = None,
+                 account_databricks_one: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOne'] = None,
+                 account_ui: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUi'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntime'] = None,
+                 lakebase_runtime: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntime'] = None,
+                 workspace_api: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApi'] = None,
+                 workspace_ui: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUi'] = None):
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApi']:
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOne']:
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUi']:
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntime']:
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntime']:
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApi']:
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUi']:
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOne(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOne. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOrigin(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allPrivateAccess":
+            suggest = "all_private_access"
+        elif key == "allRegisteredEndpoints":
+            suggest = "all_registered_endpoints"
+        elif key == "azureWorkspacePrivateLink":
+            suggest = "azure_workspace_private_link"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOrigin. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOrigin.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOrigin.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpoints'] = None):
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpoints']:
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpoints(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "endpointIds":
+            suggest = "endpoint_ids"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpoints. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpoints.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpoints.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "endpoint_ids")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRule(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthentication'] = None,
+                 destination: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestination'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOrigin'] = None):
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthentication']:
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestination']:
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOrigin']:
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthentication(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "identityType":
+            suggest = "identity_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthentication. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthentication.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthentication.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentity']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityArgs'] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentity']]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentity(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "principalId":
+            suggest = "principal_id"
+        elif key == "principalType":
+            suggest = "principal_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentity. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentity.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentity.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.str] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestination(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "accountApi":
+            suggest = "account_api"
+        elif key == "accountDatabricksOne":
+            suggest = "account_databricks_one"
+        elif key == "accountUi":
+            suggest = "account_ui"
+        elif key == "allDestinations":
+            suggest = "all_destinations"
+        elif key == "appsRuntime":
+            suggest = "apps_runtime"
+        elif key == "lakebaseRuntime":
+            suggest = "lakebase_runtime"
+        elif key == "workspaceApi":
+            suggest = "workspace_api"
+        elif key == "workspaceUi":
+            suggest = "workspace_ui"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestination. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestination.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestination.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApi'] = None,
+                 account_databricks_one: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOne'] = None,
+                 account_ui: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUi'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntime'] = None,
+                 lakebase_runtime: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntime'] = None,
+                 workspace_api: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApi'] = None,
+                 workspace_ui: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUi'] = None):
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApi']:
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOne']:
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUi']:
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntime']:
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntime']:
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApi']:
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUi']:
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOne(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOne. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOrigin(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allPrivateAccess":
+            suggest = "all_private_access"
+        elif key == "allRegisteredEndpoints":
+            suggest = "all_registered_endpoints"
+        elif key == "azureWorkspacePrivateLink":
+            suggest = "azure_workspace_private_link"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOrigin. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOrigin.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOrigin.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpoints'] = None):
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpoints']:
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpoints(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "endpointIds":
+            suggest = "endpoint_ids"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpoints. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpoints.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpoints.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "endpoint_ids")
 
 
 @pulumi.output_type
@@ -2796,10 +4334,6 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRule(dict):
                  destination: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination'] = None,
                  label: Optional[_builtins.str] = None,
                  origin: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOrigin'] = None):
-        """
-        :param _builtins.str label: User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
-        """
         if authentication is not None:
             pulumi.set(__self__, "authentication", authentication)
         if destination is not None:
@@ -2822,10 +4356,6 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRule(dict):
     @_builtins.property
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
-        """
-        User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
-        """
         return pulumi.get(self, "label")
 
     @_builtins.property
@@ -2933,8 +4463,18 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "allDestinations":
+        if key == "accountApi":
+            suggest = "account_api"
+        elif key == "accountDatabricksOne":
+            suggest = "account_databricks_one"
+        elif key == "accountUi":
+            suggest = "account_ui"
+        elif key == "allDestinations":
             suggest = "all_destinations"
+        elif key == "appsRuntime":
+            suggest = "apps_runtime"
+        elif key == "lakebaseRuntime":
+            suggest = "lakebase_runtime"
         elif key == "workspaceApi":
             suggest = "workspace_api"
         elif key == "workspaceUi":
@@ -2952,23 +4492,60 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 account_api: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApi'] = None,
+                 account_databricks_one: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOne'] = None,
+                 account_ui: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUi'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntime'] = None,
+                 lakebase_runtime: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntime'] = None,
                  workspace_api: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApi'] = None,
                  workspace_ui: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUi'] = None):
-        """
-        :param 'AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: Workspace destinations
-        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
 
     @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApi']:
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOne']:
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUi']:
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
     @pulumi.getter(name="allDestinations")
     def all_destinations(self) -> Optional[_builtins.bool]:
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntime']:
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntime']:
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -2978,18 +4555,198 @@ class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestination(dict):
     @_builtins.property
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUi']:
-        """
-        Workspace destinations
-        """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApi(dict):
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApi.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOne(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOne. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -3170,10 +4927,6 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRule(dict):
                  destination: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination'] = None,
                  label: Optional[_builtins.str] = None,
                  origin: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOrigin'] = None):
-        """
-        :param _builtins.str label: User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
-        """
         if authentication is not None:
             pulumi.set(__self__, "authentication", authentication)
         if destination is not None:
@@ -3196,10 +4949,6 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRule(dict):
     @_builtins.property
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
-        """
-        User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
-        """
         return pulumi.get(self, "label")
 
     @_builtins.property
@@ -3307,8 +5056,18 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "allDestinations":
+        if key == "accountApi":
+            suggest = "account_api"
+        elif key == "accountDatabricksOne":
+            suggest = "account_databricks_one"
+        elif key == "accountUi":
+            suggest = "account_ui"
+        elif key == "allDestinations":
             suggest = "all_destinations"
+        elif key == "appsRuntime":
+            suggest = "apps_runtime"
+        elif key == "lakebaseRuntime":
+            suggest = "lakebase_runtime"
         elif key == "workspaceApi":
             suggest = "workspace_api"
         elif key == "workspaceUi":
@@ -3326,23 +5085,60 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 account_api: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApi'] = None,
+                 account_databricks_one: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOne'] = None,
+                 account_ui: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUi'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntime'] = None,
+                 lakebase_runtime: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntime'] = None,
                  workspace_api: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApi'] = None,
                  workspace_ui: Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUi'] = None):
-        """
-        :param 'AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: Workspace destinations
-        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
 
     @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApi']:
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOne']:
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUi']:
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
     @pulumi.getter(name="allDestinations")
     def all_destinations(self) -> Optional[_builtins.bool]:
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntime']:
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntime']:
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -3352,18 +5148,198 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestination(dict):
     @_builtins.property
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUi']:
-        """
-        Workspace destinations
-        """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApi(dict):
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApi.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOne(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOne. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -3538,6 +5514,1145 @@ class AccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRange
 
 
 @pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccess(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "restrictionMode":
+            suggest = "restriction_mode"
+        elif key == "allowRules":
+            suggest = "allow_rules"
+        elif key == "denyRules":
+            suggest = "deny_rules"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccess. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccess.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccess.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRule']] = None,
+                 deny_rules: Optional[Sequence['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRule']] = None):
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRule']]:
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRule']]:
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRule(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthentication'] = None,
+                 destination: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestination'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleOrigin'] = None):
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthentication']:
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestination']:
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleOrigin']:
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthentication(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "identityType":
+            suggest = "identity_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthentication. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthentication.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthentication.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentity']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentityArgs'] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentity']]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentity(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "principalId":
+            suggest = "principal_id"
+        elif key == "principalType":
+            suggest = "principal_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentity. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentity.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentity.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.str] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestination(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "accountApi":
+            suggest = "account_api"
+        elif key == "accountDatabricksOne":
+            suggest = "account_databricks_one"
+        elif key == "accountUi":
+            suggest = "account_ui"
+        elif key == "allDestinations":
+            suggest = "all_destinations"
+        elif key == "appsRuntime":
+            suggest = "apps_runtime"
+        elif key == "lakebaseRuntime":
+            suggest = "lakebase_runtime"
+        elif key == "workspaceApi":
+            suggest = "workspace_api"
+        elif key == "workspaceUi":
+            suggest = "workspace_ui"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleDestination. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestination.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestination.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApi'] = None,
+                 account_databricks_one: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOne'] = None,
+                 account_ui: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUi'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntime'] = None,
+                 lakebase_runtime: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntime'] = None,
+                 workspace_api: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApi'] = None,
+                 workspace_ui: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUi'] = None):
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApi']:
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOne']:
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUi']:
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntime']:
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntime']:
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApi']:
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUi']:
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOne(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOne. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleOrigin(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allPrivateAccess":
+            suggest = "all_private_access"
+        elif key == "allRegisteredEndpoints":
+            suggest = "all_registered_endpoints"
+        elif key == "azureWorkspacePrivateLink":
+            suggest = "azure_workspace_private_link"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleOrigin. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleOrigin.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleOrigin.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpoints'] = None):
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpoints']:
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpoints(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "endpointIds":
+            suggest = "endpoint_ids"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpoints. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpoints.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpoints.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "endpoint_ids")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRule(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthentication'] = None,
+                 destination: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestination'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleOrigin'] = None):
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthentication']:
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestination']:
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleOrigin']:
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthentication(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "identityType":
+            suggest = "identity_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthentication. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthentication.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthentication.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentity']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentityArgs'] identities: Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentity']]:
+        """
+        Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentity(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "principalId":
+            suggest = "principal_id"
+        elif key == "principalType":
+            suggest = "principal_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentity. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentity.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentity.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.str] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str principal_type: Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestination(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "accountApi":
+            suggest = "account_api"
+        elif key == "accountDatabricksOne":
+            suggest = "account_databricks_one"
+        elif key == "accountUi":
+            suggest = "account_ui"
+        elif key == "allDestinations":
+            suggest = "all_destinations"
+        elif key == "appsRuntime":
+            suggest = "apps_runtime"
+        elif key == "lakebaseRuntime":
+            suggest = "lakebase_runtime"
+        elif key == "workspaceApi":
+            suggest = "workspace_api"
+        elif key == "workspaceUi":
+            suggest = "workspace_ui"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleDestination. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestination.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestination.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApi'] = None,
+                 account_databricks_one: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOne'] = None,
+                 account_ui: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUi'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntime'] = None,
+                 lakebase_runtime: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntime'] = None,
+                 workspace_api: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApi'] = None,
+                 workspace_ui: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUi'] = None):
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApi']:
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOne']:
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUi']:
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntime']:
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntime']:
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApi']:
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUi']:
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOne(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOne. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleOrigin(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allPrivateAccess":
+            suggest = "all_private_access"
+        elif key == "allRegisteredEndpoints":
+            suggest = "all_registered_endpoints"
+        elif key == "azureWorkspacePrivateLink":
+            suggest = "azure_workspace_private_link"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleOrigin. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleOrigin.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleOrigin.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpoints'] = None):
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpoints']:
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpoints(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "endpointIds":
+            suggest = "endpoint_ids"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpoints. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpoints.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpoints.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "endpoint_ids")
+
+
+@pulumi.output_type
 class AccountNetworkPolicyIngressPublicAccess(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -3593,10 +6708,6 @@ class AccountNetworkPolicyIngressPublicAccessAllowRule(dict):
                  destination: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestination'] = None,
                  label: Optional[_builtins.str] = None,
                  origin: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleOrigin'] = None):
-        """
-        :param _builtins.str label: User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
-        """
         if authentication is not None:
             pulumi.set(__self__, "authentication", authentication)
         if destination is not None:
@@ -3619,10 +6730,6 @@ class AccountNetworkPolicyIngressPublicAccessAllowRule(dict):
     @_builtins.property
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
-        """
-        User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
-        """
         return pulumi.get(self, "label")
 
     @_builtins.property
@@ -3730,8 +6837,18 @@ class AccountNetworkPolicyIngressPublicAccessAllowRuleDestination(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "allDestinations":
+        if key == "accountApi":
+            suggest = "account_api"
+        elif key == "accountDatabricksOne":
+            suggest = "account_databricks_one"
+        elif key == "accountUi":
+            suggest = "account_ui"
+        elif key == "allDestinations":
             suggest = "all_destinations"
+        elif key == "appsRuntime":
+            suggest = "apps_runtime"
+        elif key == "lakebaseRuntime":
+            suggest = "lakebase_runtime"
         elif key == "workspaceApi":
             suggest = "workspace_api"
         elif key == "workspaceUi":
@@ -3749,23 +6866,60 @@ class AccountNetworkPolicyIngressPublicAccessAllowRuleDestination(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 account_api: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApi'] = None,
+                 account_databricks_one: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOne'] = None,
+                 account_ui: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUi'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntime'] = None,
+                 lakebase_runtime: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntime'] = None,
                  workspace_api: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApi'] = None,
                  workspace_ui: Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUi'] = None):
-        """
-        :param 'AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: Workspace destinations
-        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
 
     @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApi']:
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOne']:
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUi']:
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
     @pulumi.getter(name="allDestinations")
     def all_destinations(self) -> Optional[_builtins.bool]:
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntime']:
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntime']:
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -3775,18 +6929,198 @@ class AccountNetworkPolicyIngressPublicAccessAllowRuleDestination(dict):
     @_builtins.property
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUi']:
-        """
-        Workspace destinations
-        """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApi(dict):
+class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApi.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOne(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOne. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -3967,10 +7301,6 @@ class AccountNetworkPolicyIngressPublicAccessDenyRule(dict):
                  destination: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestination'] = None,
                  label: Optional[_builtins.str] = None,
                  origin: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleOrigin'] = None):
-        """
-        :param _builtins.str label: User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
-        """
         if authentication is not None:
             pulumi.set(__self__, "authentication", authentication)
         if destination is not None:
@@ -3993,10 +7323,6 @@ class AccountNetworkPolicyIngressPublicAccessDenyRule(dict):
     @_builtins.property
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
-        """
-        User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
-        """
         return pulumi.get(self, "label")
 
     @_builtins.property
@@ -4104,8 +7430,18 @@ class AccountNetworkPolicyIngressPublicAccessDenyRuleDestination(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "allDestinations":
+        if key == "accountApi":
+            suggest = "account_api"
+        elif key == "accountDatabricksOne":
+            suggest = "account_databricks_one"
+        elif key == "accountUi":
+            suggest = "account_ui"
+        elif key == "allDestinations":
             suggest = "all_destinations"
+        elif key == "appsRuntime":
+            suggest = "apps_runtime"
+        elif key == "lakebaseRuntime":
+            suggest = "lakebase_runtime"
         elif key == "workspaceApi":
             suggest = "workspace_api"
         elif key == "workspaceUi":
@@ -4123,23 +7459,60 @@ class AccountNetworkPolicyIngressPublicAccessDenyRuleDestination(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 account_api: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApi'] = None,
+                 account_databricks_one: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOne'] = None,
+                 account_ui: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUi'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntime'] = None,
+                 lakebase_runtime: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntime'] = None,
                  workspace_api: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApi'] = None,
                  workspace_ui: Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUi'] = None):
-        """
-        :param 'AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: Workspace destinations
-        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
 
     @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApi']:
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOne']:
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUi']:
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
     @pulumi.getter(name="allDestinations")
     def all_destinations(self) -> Optional[_builtins.bool]:
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntime']:
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntime']:
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -4149,18 +7522,198 @@ class AccountNetworkPolicyIngressPublicAccessDenyRuleDestination(dict):
     @_builtins.property
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUi']:
-        """
-        Workspace destinations
-        """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApi(dict):
+class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApi.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOne(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOne. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOne.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntime(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allDestinations":
+            suggest = "all_destinations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntime. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntime.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApi(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "scopeQualifier":
+            suggest = "scope_qualifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApi. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        AccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApi.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -5255,15 +8808,16 @@ class AibiDashboardEmbeddingAccessPolicySettingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -5325,15 +8879,16 @@ class AibiDashboardEmbeddingApprovedDomainsSettingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -5548,15 +9103,16 @@ class AlertProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -6004,15 +9560,16 @@ class AlertV2ProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -7566,15 +11123,16 @@ class AppSpaceProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -8491,15 +12049,16 @@ class AppsSettingsCustomTemplateProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -8572,15 +12131,16 @@ class ArtifactAllowlistProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -8819,12 +12379,13 @@ class AutomaticClusterUpdateWorkspaceSettingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -9331,15 +12892,16 @@ class CatalogProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -9379,15 +12941,16 @@ class CatalogWorkspaceBindingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: ID of the workspace. Change forces creation of a new resource.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         ID of the workspace. Change forces creation of a new resource.
         """
@@ -10222,6 +13785,8 @@ class ClusterGcpAttributes(dict):
         suggest = None
         if key == "bootDiskSize":
             suggest = "boot_disk_size"
+        elif key == "confidentialComputeType":
+            suggest = "confidential_compute_type"
         elif key == "firstOnDemand":
             suggest = "first_on_demand"
         elif key == "googleServiceAccount":
@@ -10247,6 +13812,7 @@ class ClusterGcpAttributes(dict):
     def __init__(__self__, *,
                  availability: Optional[_builtins.str] = None,
                  boot_disk_size: Optional[_builtins.int] = None,
+                 confidential_compute_type: Optional[_builtins.str] = None,
                  first_on_demand: Optional[_builtins.int] = None,
                  google_service_account: Optional[_builtins.str] = None,
                  local_ssd_count: Optional[_builtins.int] = None,
@@ -10268,6 +13834,8 @@ class ClusterGcpAttributes(dict):
             pulumi.set(__self__, "availability", availability)
         if boot_disk_size is not None:
             pulumi.set(__self__, "boot_disk_size", boot_disk_size)
+        if confidential_compute_type is not None:
+            pulumi.set(__self__, "confidential_compute_type", confidential_compute_type)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if google_service_account is not None:
@@ -10294,6 +13862,11 @@ class ClusterGcpAttributes(dict):
         Boot disk size in GB
         """
         return pulumi.get(self, "boot_disk_size")
+
+    @_builtins.property
+    @pulumi.getter(name="confidentialComputeType")
+    def confidential_compute_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "confidential_compute_type")
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -10913,15 +14486,16 @@ class ClusterPolicyLibraryProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -10968,15 +14542,16 @@ class ClusterPolicyProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -11003,7 +14578,7 @@ class ClusterProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
                
@@ -11031,11 +14606,12 @@ class ClusterProviderConfig(dict):
                    })
                ```
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
 
@@ -11227,12 +14803,13 @@ class ComplianceSecurityProfileWorkspaceSettingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -11256,15 +14833,16 @@ class ConnectionProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -11554,15 +15132,16 @@ class CredentialProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -11659,15 +15238,16 @@ class DashboardProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -11700,7 +15280,8 @@ class DataClassificationCatalogConfigAutoTagConfig(dict):
                  classification_tag: _builtins.str):
         """
         :param _builtins.str auto_tagging_mode: Whether auto-tagging is enabled or disabled for this classification tag. Possible values are: `AUTO_TAGGING_DISABLED`, `AUTO_TAGGING_ENABLED`
-        :param _builtins.str classification_tag: The Classification Tag (e.g., "class.name", "class.location")
+        :param _builtins.str classification_tag: The Classification Tag. For built-in classes this is a system tag (e.g., "class.name",
+               "class.location"); for custom classes it is a user-defined governance tag key
         """
         pulumi.set(__self__, "auto_tagging_mode", auto_tagging_mode)
         pulumi.set(__self__, "classification_tag", classification_tag)
@@ -11717,7 +15298,8 @@ class DataClassificationCatalogConfigAutoTagConfig(dict):
     @pulumi.getter(name="classificationTag")
     def classification_tag(self) -> _builtins.str:
         """
-        The Classification Tag (e.g., "class.name", "class.location")
+        The Classification Tag. For built-in classes this is a system tag (e.g., "class.name",
+        "class.location"); for custom classes it is a user-defined governance tag key
         """
         return pulumi.get(self, "classification_tag")
 
@@ -11754,15 +15336,16 @@ class DataClassificationCatalogConfigProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -12456,15 +16039,16 @@ class DataQualityMonitorProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -12491,15 +16075,16 @@ class DataQualityRefreshProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -12526,15 +16111,16 @@ class DatabaseDatabaseCatalogProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -12851,15 +16437,16 @@ class DatabaseInstanceProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -13670,15 +17257,16 @@ class DatabaseSyncedDatabaseTableProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -13921,15 +17509,16 @@ class DbfsFileProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -13975,15 +17564,16 @@ class DefaultNamespaceSettingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -14010,15 +17600,16 @@ class DirectoryProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -14063,15 +17654,16 @@ class DisableLegacyAccessSettingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -14116,15 +17708,16 @@ class DisableLegacyDbfsSettingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -14169,13 +17762,257 @@ class DisableLegacyFeaturesSettingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    @_utilities.deprecated("""workspace_id is ignored for account-only resources.""")
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class DisasterRecoveryFailoverGroupUnityCatalogAssets(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "dataReplicationWorkspaceSet":
+            suggest = "data_replication_workspace_set"
+        elif key == "locationMappings":
+            suggest = "location_mappings"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DisasterRecoveryFailoverGroupUnityCatalogAssets. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DisasterRecoveryFailoverGroupUnityCatalogAssets.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DisasterRecoveryFailoverGroupUnityCatalogAssets.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 catalogs: Sequence['outputs.DisasterRecoveryFailoverGroupUnityCatalogAssetsCatalog'],
+                 data_replication_workspace_set: _builtins.str,
+                 location_mappings: Optional[Sequence['outputs.DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMapping']] = None):
+        """
+        :param Sequence['DisasterRecoveryFailoverGroupUnityCatalogAssetsCatalogArgs'] catalogs: UC catalogs to replicate
+        :param _builtins.str data_replication_workspace_set: The workspace set whose workspaces will be used for data replication
+               of all UC catalogs' underlying storage
+        :param Sequence['DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingArgs'] location_mappings: Location mappings - storage URI per region for each location
+        """
+        pulumi.set(__self__, "catalogs", catalogs)
+        pulumi.set(__self__, "data_replication_workspace_set", data_replication_workspace_set)
+        if location_mappings is not None:
+            pulumi.set(__self__, "location_mappings", location_mappings)
+
+    @_builtins.property
+    @pulumi.getter
+    def catalogs(self) -> Sequence['outputs.DisasterRecoveryFailoverGroupUnityCatalogAssetsCatalog']:
+        """
+        UC catalogs to replicate
+        """
+        return pulumi.get(self, "catalogs")
+
+    @_builtins.property
+    @pulumi.getter(name="dataReplicationWorkspaceSet")
+    def data_replication_workspace_set(self) -> _builtins.str:
+        """
+        The workspace set whose workspaces will be used for data replication
+        of all UC catalogs' underlying storage
+        """
+        return pulumi.get(self, "data_replication_workspace_set")
+
+    @_builtins.property
+    @pulumi.getter(name="locationMappings")
+    def location_mappings(self) -> Optional[Sequence['outputs.DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMapping']]:
+        """
+        Location mappings - storage URI per region for each location
+        """
+        return pulumi.get(self, "location_mappings")
+
+
+@pulumi.output_type
+class DisasterRecoveryFailoverGroupUnityCatalogAssetsCatalog(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: (string) - Fully qualified resource name in the format
+               accounts/{account_id}/failover-groups/{failover_group_id}
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Fully qualified resource name in the format
+        accounts/{account_id}/failover-groups/{failover_group_id}
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMapping(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "uriByRegions":
+            suggest = "uri_by_regions"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMapping. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMapping.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMapping.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 uri_by_regions: Sequence['outputs.DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingUriByRegion']):
+        """
+        :param _builtins.str name: (string) - Fully qualified resource name in the format
+               accounts/{account_id}/failover-groups/{failover_group_id}
+        :param Sequence['DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingUriByRegionArgs'] uri_by_regions: URI for each region. Each entry maps a region name to a storage URI
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "uri_by_regions", uri_by_regions)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Fully qualified resource name in the format
+        accounts/{account_id}/failover-groups/{failover_group_id}
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="uriByRegions")
+    def uri_by_regions(self) -> Sequence['outputs.DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingUriByRegion']:
+        """
+        URI for each region. Each entry maps a region name to a storage URI
+        """
+        return pulumi.get(self, "uri_by_regions")
+
+
+@pulumi.output_type
+class DisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingUriByRegion(dict):
+    def __init__(__self__, *,
+                 region: _builtins.str,
+                 uri: _builtins.str):
+        """
+        :param _builtins.str region: The region name
+        :param _builtins.str uri: The storage URI for this region
+        """
+        pulumi.set(__self__, "region", region)
+        pulumi.set(__self__, "uri", uri)
+
+    @_builtins.property
+    @pulumi.getter
+    def region(self) -> _builtins.str:
+        """
+        The region name
+        """
+        return pulumi.get(self, "region")
+
+    @_builtins.property
+    @pulumi.getter
+    def uri(self) -> _builtins.str:
+        """
+        The storage URI for this region
+        """
+        return pulumi.get(self, "uri")
+
+
+@pulumi.output_type
+class DisasterRecoveryFailoverGroupWorkspaceSet(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "replicateWorkspaceAssets":
+            suggest = "replicate_workspace_assets"
+        elif key == "workspaceIds":
+            suggest = "workspace_ids"
+        elif key == "stableUrlNames":
+            suggest = "stable_url_names"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DisasterRecoveryFailoverGroupWorkspaceSet. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DisasterRecoveryFailoverGroupWorkspaceSet.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DisasterRecoveryFailoverGroupWorkspaceSet.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 replicate_workspace_assets: _builtins.bool,
+                 workspace_ids: Sequence[_builtins.str],
+                 stable_url_names: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str name: (string) - Fully qualified resource name in the format
+               accounts/{account_id}/failover-groups/{failover_group_id}
+        :param _builtins.bool replicate_workspace_assets: Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
+               Requires all workspaces in the set to be Mission Critical tier
+        :param Sequence[_builtins.str] workspace_ids: Workspace IDs in this set. The system derives and validates regions.
+               EA: exactly 2 workspaces (one per region)
+        :param Sequence[_builtins.str] stable_url_names: Resource names of stable URLs associated with this workspace set.
+               Format: accounts/{account_id}/stable-urls/{stable_url_id}.
+               The referenced stable URLs must already exist (via CreateStableUrl)
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "replicate_workspace_assets", replicate_workspace_assets)
+        pulumi.set(__self__, "workspace_ids", workspace_ids)
+        if stable_url_names is not None:
+            pulumi.set(__self__, "stable_url_names", stable_url_names)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Fully qualified resource name in the format
+        accounts/{account_id}/failover-groups/{failover_group_id}
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="replicateWorkspaceAssets")
+    def replicate_workspace_assets(self) -> _builtins.bool:
+        """
+        Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
+        Requires all workspaces in the set to be Mission Critical tier
+        """
+        return pulumi.get(self, "replicate_workspace_assets")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceIds")
+    def workspace_ids(self) -> Sequence[_builtins.str]:
+        """
+        Workspace IDs in this set. The system derives and validates regions.
+        EA: exactly 2 workspaces (one per region)
+        """
+        return pulumi.get(self, "workspace_ids")
+
+    @_builtins.property
+    @pulumi.getter(name="stableUrlNames")
+    def stable_url_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Resource names of stable URLs associated with this workspace set.
+        Format: accounts/{account_id}/stable-urls/{stable_url_id}.
+        The referenced stable URLs must already exist (via CreateStableUrl)
+        """
+        return pulumi.get(self, "stable_url_names")
 
 
 @pulumi.output_type
@@ -14305,12 +18142,13 @@ class EnhancedSecurityMonitoringWorkspaceSettingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -14334,15 +18172,16 @@ class EntitlementsProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -14369,15 +18208,16 @@ class EntityTagAssignmentProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -14404,15 +18244,16 @@ class EnvironmentsDefaultWorkspaceBaseEnvironmentProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -14439,15 +18280,16 @@ class EnvironmentsWorkspaceBaseEnvironmentProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -15413,15 +19255,16 @@ class ExternalLocationProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -15448,15 +19291,16 @@ class ExternalMetadataProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -16237,15 +20081,16 @@ class FeatureEngineeringFeatureProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -16878,7 +20723,9 @@ class FeatureEngineeringKafkaConfigBackfillSource(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "deltaTableSource":
+        if key == "deltaTableName":
+            suggest = "delta_table_name"
+        elif key == "deltaTableSource":
             suggest = "delta_table_source"
 
         if suggest:
@@ -16893,20 +20740,34 @@ class FeatureEngineeringKafkaConfigBackfillSource(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 delta_table_name: Optional[_builtins.str] = None,
                  delta_table_source: Optional['outputs.FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSource'] = None):
         """
-        :param 'FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgs' delta_table_source: The Delta table source containing the historic data to backfill.
-               Only the delta table name is used for backfill, the entity columns and timeseries column are ignored as they are defined by the associated KafkaSource
+        :param _builtins.str delta_table_name: The full three-part name (catalog, schema, name) of the Delta table containing the historical data to backfill
+        :param 'FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgs' delta_table_source: Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
+               The Delta table source containing the historical data to backfill.
+               Only the delta table name is used for backfill, other fields are ignored
         """
+        if delta_table_name is not None:
+            pulumi.set(__self__, "delta_table_name", delta_table_name)
         if delta_table_source is not None:
             pulumi.set(__self__, "delta_table_source", delta_table_source)
+
+    @_builtins.property
+    @pulumi.getter(name="deltaTableName")
+    def delta_table_name(self) -> Optional[_builtins.str]:
+        """
+        The full three-part name (catalog, schema, name) of the Delta table containing the historical data to backfill
+        """
+        return pulumi.get(self, "delta_table_name")
 
     @_builtins.property
     @pulumi.getter(name="deltaTableSource")
     def delta_table_source(self) -> Optional['outputs.FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSource']:
         """
-        The Delta table source containing the historic data to backfill.
-        Only the delta table name is used for backfill, the entity columns and timeseries column are ignored as they are defined by the associated KafkaSource
+        Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
+        The Delta table source containing the historical data to backfill.
+        Only the delta table name is used for backfill, other fields are ignored
         """
         return pulumi.get(self, "delta_table_source")
 
@@ -17084,15 +20945,16 @@ class FeatureEngineeringKafkaConfigProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -17326,15 +21188,16 @@ class FeatureEngineeringMaterializedFeatureProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -17361,15 +21224,16 @@ class FileProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -17396,15 +21260,16 @@ class GitCredentialProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -17431,15 +21296,16 @@ class GlobalInitScriptProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -17466,12 +21332,13 @@ class GrantProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -17514,12 +21381,13 @@ class GrantsProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -17543,12 +21411,13 @@ class GroupInstanceProfileProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -17572,12 +21441,13 @@ class GroupMemberProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -17601,12 +21471,13 @@ class GroupProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -17630,12 +21501,13 @@ class GroupRoleProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -18251,15 +22123,16 @@ class InstancePoolProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -18286,15 +22159,16 @@ class InstanceProfileProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -18321,15 +22195,16 @@ class IpAccessListProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -20083,6 +23958,8 @@ class JobJobClusterNewClusterGcpAttributes(dict):
         suggest = None
         if key == "bootDiskSize":
             suggest = "boot_disk_size"
+        elif key == "confidentialComputeType":
+            suggest = "confidential_compute_type"
         elif key == "firstOnDemand":
             suggest = "first_on_demand"
         elif key == "googleServiceAccount":
@@ -20108,6 +23985,7 @@ class JobJobClusterNewClusterGcpAttributes(dict):
     def __init__(__self__, *,
                  availability: Optional[_builtins.str] = None,
                  boot_disk_size: Optional[_builtins.int] = None,
+                 confidential_compute_type: Optional[_builtins.str] = None,
                  first_on_demand: Optional[_builtins.int] = None,
                  google_service_account: Optional[_builtins.str] = None,
                  local_ssd_count: Optional[_builtins.int] = None,
@@ -20117,6 +23995,8 @@ class JobJobClusterNewClusterGcpAttributes(dict):
             pulumi.set(__self__, "availability", availability)
         if boot_disk_size is not None:
             pulumi.set(__self__, "boot_disk_size", boot_disk_size)
+        if confidential_compute_type is not None:
+            pulumi.set(__self__, "confidential_compute_type", confidential_compute_type)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if google_service_account is not None:
@@ -20137,6 +24017,11 @@ class JobJobClusterNewClusterGcpAttributes(dict):
     @pulumi.getter(name="bootDiskSize")
     def boot_disk_size(self) -> Optional[_builtins.int]:
         return pulumi.get(self, "boot_disk_size")
+
+    @_builtins.property
+    @pulumi.getter(name="confidentialComputeType")
+    def confidential_compute_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "confidential_compute_type")
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -20548,15 +24433,16 @@ class JobJobClusterNewClusterLibraryProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -20603,15 +24489,16 @@ class JobJobClusterNewClusterProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -20842,15 +24729,16 @@ class JobLibraryProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -21863,6 +25751,8 @@ class JobNewClusterGcpAttributes(dict):
         suggest = None
         if key == "bootDiskSize":
             suggest = "boot_disk_size"
+        elif key == "confidentialComputeType":
+            suggest = "confidential_compute_type"
         elif key == "firstOnDemand":
             suggest = "first_on_demand"
         elif key == "googleServiceAccount":
@@ -21888,6 +25778,7 @@ class JobNewClusterGcpAttributes(dict):
     def __init__(__self__, *,
                  availability: Optional[_builtins.str] = None,
                  boot_disk_size: Optional[_builtins.int] = None,
+                 confidential_compute_type: Optional[_builtins.str] = None,
                  first_on_demand: Optional[_builtins.int] = None,
                  google_service_account: Optional[_builtins.str] = None,
                  local_ssd_count: Optional[_builtins.int] = None,
@@ -21897,6 +25788,8 @@ class JobNewClusterGcpAttributes(dict):
             pulumi.set(__self__, "availability", availability)
         if boot_disk_size is not None:
             pulumi.set(__self__, "boot_disk_size", boot_disk_size)
+        if confidential_compute_type is not None:
+            pulumi.set(__self__, "confidential_compute_type", confidential_compute_type)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if google_service_account is not None:
@@ -21917,6 +25810,11 @@ class JobNewClusterGcpAttributes(dict):
     @pulumi.getter(name="bootDiskSize")
     def boot_disk_size(self) -> Optional[_builtins.int]:
         return pulumi.get(self, "boot_disk_size")
+
+    @_builtins.property
+    @pulumi.getter(name="confidentialComputeType")
+    def confidential_compute_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "confidential_compute_type")
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -22328,15 +26226,16 @@ class JobNewClusterLibraryProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -22383,15 +26282,16 @@ class JobNewClusterProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -22696,15 +26596,16 @@ class JobProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -26134,15 +30035,16 @@ class JobTaskForEachTaskTaskLibraryProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -27155,6 +31057,8 @@ class JobTaskForEachTaskTaskNewClusterGcpAttributes(dict):
         suggest = None
         if key == "bootDiskSize":
             suggest = "boot_disk_size"
+        elif key == "confidentialComputeType":
+            suggest = "confidential_compute_type"
         elif key == "firstOnDemand":
             suggest = "first_on_demand"
         elif key == "googleServiceAccount":
@@ -27180,6 +31084,7 @@ class JobTaskForEachTaskTaskNewClusterGcpAttributes(dict):
     def __init__(__self__, *,
                  availability: Optional[_builtins.str] = None,
                  boot_disk_size: Optional[_builtins.int] = None,
+                 confidential_compute_type: Optional[_builtins.str] = None,
                  first_on_demand: Optional[_builtins.int] = None,
                  google_service_account: Optional[_builtins.str] = None,
                  local_ssd_count: Optional[_builtins.int] = None,
@@ -27189,6 +31094,8 @@ class JobTaskForEachTaskTaskNewClusterGcpAttributes(dict):
             pulumi.set(__self__, "availability", availability)
         if boot_disk_size is not None:
             pulumi.set(__self__, "boot_disk_size", boot_disk_size)
+        if confidential_compute_type is not None:
+            pulumi.set(__self__, "confidential_compute_type", confidential_compute_type)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if google_service_account is not None:
@@ -27209,6 +31116,11 @@ class JobTaskForEachTaskTaskNewClusterGcpAttributes(dict):
     @pulumi.getter(name="bootDiskSize")
     def boot_disk_size(self) -> Optional[_builtins.int]:
         return pulumi.get(self, "boot_disk_size")
+
+    @_builtins.property
+    @pulumi.getter(name="confidentialComputeType")
+    def confidential_compute_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "confidential_compute_type")
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -27620,15 +31532,16 @@ class JobTaskForEachTaskTaskNewClusterLibraryProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -27675,15 +31588,16 @@ class JobTaskForEachTaskTaskNewClusterProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -29631,15 +33545,16 @@ class JobTaskLibraryProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -30662,6 +34577,8 @@ class JobTaskNewClusterGcpAttributes(dict):
         suggest = None
         if key == "bootDiskSize":
             suggest = "boot_disk_size"
+        elif key == "confidentialComputeType":
+            suggest = "confidential_compute_type"
         elif key == "firstOnDemand":
             suggest = "first_on_demand"
         elif key == "googleServiceAccount":
@@ -30687,6 +34604,7 @@ class JobTaskNewClusterGcpAttributes(dict):
     def __init__(__self__, *,
                  availability: Optional[_builtins.str] = None,
                  boot_disk_size: Optional[_builtins.int] = None,
+                 confidential_compute_type: Optional[_builtins.str] = None,
                  first_on_demand: Optional[_builtins.int] = None,
                  google_service_account: Optional[_builtins.str] = None,
                  local_ssd_count: Optional[_builtins.int] = None,
@@ -30696,6 +34614,8 @@ class JobTaskNewClusterGcpAttributes(dict):
             pulumi.set(__self__, "availability", availability)
         if boot_disk_size is not None:
             pulumi.set(__self__, "boot_disk_size", boot_disk_size)
+        if confidential_compute_type is not None:
+            pulumi.set(__self__, "confidential_compute_type", confidential_compute_type)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if google_service_account is not None:
@@ -30716,6 +34636,11 @@ class JobTaskNewClusterGcpAttributes(dict):
     @pulumi.getter(name="bootDiskSize")
     def boot_disk_size(self) -> Optional[_builtins.int]:
         return pulumi.get(self, "boot_disk_size")
+
+    @_builtins.property
+    @pulumi.getter(name="confidentialComputeType")
+    def confidential_compute_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "confidential_compute_type")
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -31127,15 +35052,16 @@ class JobTaskNewClusterLibraryProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -31182,15 +35108,16 @@ class JobTaskNewClusterProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -33424,15 +37351,16 @@ class KnowledgeAssistantKnowledgeSourceProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -33459,15 +37387,16 @@ class KnowledgeAssistantProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -33811,12 +37740,13 @@ class LakehouseMonitorProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -34091,15 +38021,16 @@ class MaterializedFeaturesFeatureTagProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -34126,15 +38057,16 @@ class MetastoreAssignmentProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -34436,15 +38368,16 @@ class MetastoreDataAccessProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -34471,15 +38404,16 @@ class MetastoreProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -34506,15 +38440,16 @@ class MetastoreProviderProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -34541,15 +38476,16 @@ class MlflowExperimentProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -34597,15 +38533,16 @@ class MlflowModelProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -34786,15 +38723,16 @@ class MlflowWebhookProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -37013,15 +40951,16 @@ class ModelServingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -37780,15 +41719,16 @@ class ModelServingProvisionedThroughputProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -38151,12 +42091,13 @@ class MountProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -39107,13 +43048,13 @@ class MwsNetworksGcpNetworkInfo(dict):
 
     @_builtins.property
     @pulumi.getter(name="podIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def pod_ip_range_name(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "pod_ip_range_name")
 
     @_builtins.property
     @pulumi.getter(name="serviceIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def service_ip_range_name(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "service_ip_range_name")
 
@@ -39385,13 +43326,13 @@ class MwsWorkspacesGcpManagedNetworkConfig(dict):
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterPodIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_pod_ip_range(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "gke_cluster_pod_ip_range")
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterServiceIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.113.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.115.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_service_ip_range(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "gke_cluster_service_ip_range")
 
@@ -39524,15 +43465,16 @@ class NotebookProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -40030,17 +43972,18 @@ class NotificationDestinationProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
                
                > **NOTE** If the type of notification destination is changed, the existing notification destination will be deleted and a new notification destination will be created with the new type.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
 
@@ -40069,15 +44012,16 @@ class OboTokenProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -40104,15 +44048,16 @@ class OnlineStoreProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -40139,15 +44084,16 @@ class OnlineTableProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -40768,15 +44714,16 @@ class PermissionAssignmentProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -40885,15 +44832,16 @@ class PermissionsProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -41509,7 +45457,9 @@ class PipelineClusterGcpAttributes(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "firstOnDemand":
+        if key == "confidentialComputeType":
+            suggest = "confidential_compute_type"
+        elif key == "firstOnDemand":
             suggest = "first_on_demand"
         elif key == "googleServiceAccount":
             suggest = "google_service_account"
@@ -41531,12 +45481,15 @@ class PipelineClusterGcpAttributes(dict):
 
     def __init__(__self__, *,
                  availability: Optional[_builtins.str] = None,
+                 confidential_compute_type: Optional[_builtins.str] = None,
                  first_on_demand: Optional[_builtins.int] = None,
                  google_service_account: Optional[_builtins.str] = None,
                  local_ssd_count: Optional[_builtins.int] = None,
                  zone_id: Optional[_builtins.str] = None):
         if availability is not None:
             pulumi.set(__self__, "availability", availability)
+        if confidential_compute_type is not None:
+            pulumi.set(__self__, "confidential_compute_type", confidential_compute_type)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if google_service_account is not None:
@@ -41550,6 +45503,11 @@ class PipelineClusterGcpAttributes(dict):
     @pulumi.getter
     def availability(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "availability")
+
+    @_builtins.property
+    @pulumi.getter(name="confidentialComputeType")
+    def confidential_compute_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "confidential_compute_type")
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -42811,14 +46769,26 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptions(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "gdriveOptions":
+        if key == "confluenceOptions":
+            suggest = "confluence_options"
+        elif key == "gdriveOptions":
             suggest = "gdrive_options"
         elif key == "googleAdsOptions":
             suggest = "google_ads_options"
+        elif key == "jiraOptions":
+            suggest = "jira_options"
+        elif key == "metaAdsOptions":
+            suggest = "meta_ads_options"
+        elif key == "outlookOptions":
+            suggest = "outlook_options"
         elif key == "sharepointOptions":
             suggest = "sharepoint_options"
+        elif key == "smartsheetOptions":
+            suggest = "smartsheet_options"
         elif key == "tiktokAdsOptions":
             suggest = "tiktok_ads_options"
+        elif key == "zendeskSupportOptions":
+            suggest = "zendesk_support_options"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptions. Access the value via the '{suggest}' property getter instead.")
@@ -42832,18 +46802,41 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptions(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 confluence_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsConfluenceOptions'] = None,
                  gdrive_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsGdriveOptions'] = None,
                  google_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptions'] = None,
+                 jira_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptions'] = None,
+                 meta_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptions'] = None,
+                 outlook_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptions'] = None,
                  sharepoint_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptions'] = None,
-                 tiktok_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions'] = None):
+                 smartsheet_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsSmartsheetOptions'] = None,
+                 tiktok_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions'] = None,
+                 zendesk_support_options: Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsZendeskSupportOptions'] = None):
+        if confluence_options is not None:
+            pulumi.set(__self__, "confluence_options", confluence_options)
         if gdrive_options is not None:
             pulumi.set(__self__, "gdrive_options", gdrive_options)
         if google_ads_options is not None:
             pulumi.set(__self__, "google_ads_options", google_ads_options)
+        if jira_options is not None:
+            pulumi.set(__self__, "jira_options", jira_options)
+        if meta_ads_options is not None:
+            pulumi.set(__self__, "meta_ads_options", meta_ads_options)
+        if outlook_options is not None:
+            pulumi.set(__self__, "outlook_options", outlook_options)
         if sharepoint_options is not None:
             pulumi.set(__self__, "sharepoint_options", sharepoint_options)
+        if smartsheet_options is not None:
+            pulumi.set(__self__, "smartsheet_options", smartsheet_options)
         if tiktok_ads_options is not None:
             pulumi.set(__self__, "tiktok_ads_options", tiktok_ads_options)
+        if zendesk_support_options is not None:
+            pulumi.set(__self__, "zendesk_support_options", zendesk_support_options)
+
+    @_builtins.property
+    @pulumi.getter(name="confluenceOptions")
+    def confluence_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsConfluenceOptions']:
+        return pulumi.get(self, "confluence_options")
 
     @_builtins.property
     @pulumi.getter(name="gdriveOptions")
@@ -42856,14 +46849,69 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptions(dict):
         return pulumi.get(self, "google_ads_options")
 
     @_builtins.property
+    @pulumi.getter(name="jiraOptions")
+    def jira_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptions']:
+        return pulumi.get(self, "jira_options")
+
+    @_builtins.property
+    @pulumi.getter(name="metaAdsOptions")
+    def meta_ads_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptions']:
+        return pulumi.get(self, "meta_ads_options")
+
+    @_builtins.property
+    @pulumi.getter(name="outlookOptions")
+    def outlook_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptions']:
+        return pulumi.get(self, "outlook_options")
+
+    @_builtins.property
     @pulumi.getter(name="sharepointOptions")
     def sharepoint_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptions']:
         return pulumi.get(self, "sharepoint_options")
 
     @_builtins.property
+    @pulumi.getter(name="smartsheetOptions")
+    def smartsheet_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsSmartsheetOptions']:
+        return pulumi.get(self, "smartsheet_options")
+
+    @_builtins.property
     @pulumi.getter(name="tiktokAdsOptions")
     def tiktok_ads_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions']:
         return pulumi.get(self, "tiktok_ads_options")
+
+    @_builtins.property
+    @pulumi.getter(name="zendeskSupportOptions")
+    def zendesk_support_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectSchemaConnectorOptionsZendeskSupportOptions']:
+        return pulumi.get(self, "zendesk_support_options")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsConfluenceOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "includeConfluenceSpaces":
+            suggest = "include_confluence_spaces"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsConfluenceOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsConfluenceOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsConfluenceOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 include_confluence_spaces: Optional[Sequence[_builtins.str]] = None):
+        if include_confluence_spaces is not None:
+            pulumi.set(__self__, "include_confluence_spaces", include_confluence_spaces)
+
+    @_builtins.property
+    @pulumi.getter(name="includeConfluenceSpaces")
+    def include_confluence_spaces(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_confluence_spaces")
 
 
 @pulumi.output_type
@@ -43148,6 +47196,252 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsGoogleAdsOptions(di
 
 
 @pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "includeJiraSpaces":
+            suggest = "include_jira_spaces"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsJiraOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 include_jira_spaces: Optional[Sequence[_builtins.str]] = None):
+        if include_jira_spaces is not None:
+            pulumi.set(__self__, "include_jira_spaces", include_jira_spaces)
+
+    @_builtins.property
+    @pulumi.getter(name="includeJiraSpaces")
+    def include_jira_spaces(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_jira_spaces")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "actionAttributionWindows":
+            suggest = "action_attribution_windows"
+        elif key == "actionBreakdowns":
+            suggest = "action_breakdowns"
+        elif key == "actionReportTime":
+            suggest = "action_report_time"
+        elif key == "customInsightsLookbackWindow":
+            suggest = "custom_insights_lookback_window"
+        elif key == "startDate":
+            suggest = "start_date"
+        elif key == "timeIncrement":
+            suggest = "time_increment"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsMetaAdsOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 action_attribution_windows: Optional[Sequence[_builtins.str]] = None,
+                 action_breakdowns: Optional[Sequence[_builtins.str]] = None,
+                 action_report_time: Optional[_builtins.str] = None,
+                 breakdowns: Optional[Sequence[_builtins.str]] = None,
+                 custom_insights_lookback_window: Optional[_builtins.int] = None,
+                 level: Optional[_builtins.str] = None,
+                 start_date: Optional[_builtins.str] = None,
+                 time_increment: Optional[_builtins.str] = None):
+        if action_attribution_windows is not None:
+            pulumi.set(__self__, "action_attribution_windows", action_attribution_windows)
+        if action_breakdowns is not None:
+            pulumi.set(__self__, "action_breakdowns", action_breakdowns)
+        if action_report_time is not None:
+            pulumi.set(__self__, "action_report_time", action_report_time)
+        if breakdowns is not None:
+            pulumi.set(__self__, "breakdowns", breakdowns)
+        if custom_insights_lookback_window is not None:
+            pulumi.set(__self__, "custom_insights_lookback_window", custom_insights_lookback_window)
+        if level is not None:
+            pulumi.set(__self__, "level", level)
+        if start_date is not None:
+            pulumi.set(__self__, "start_date", start_date)
+        if time_increment is not None:
+            pulumi.set(__self__, "time_increment", time_increment)
+
+    @_builtins.property
+    @pulumi.getter(name="actionAttributionWindows")
+    def action_attribution_windows(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "action_attribution_windows")
+
+    @_builtins.property
+    @pulumi.getter(name="actionBreakdowns")
+    def action_breakdowns(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "action_breakdowns")
+
+    @_builtins.property
+    @pulumi.getter(name="actionReportTime")
+    def action_report_time(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "action_report_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def breakdowns(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "breakdowns")
+
+    @_builtins.property
+    @pulumi.getter(name="customInsightsLookbackWindow")
+    def custom_insights_lookback_window(self) -> Optional[_builtins.int]:
+        return pulumi.get(self, "custom_insights_lookback_window")
+
+    @_builtins.property
+    @pulumi.getter
+    def level(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "level")
+
+    @_builtins.property
+    @pulumi.getter(name="startDate")
+    def start_date(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "start_date")
+
+    @_builtins.property
+    @pulumi.getter(name="timeIncrement")
+    def time_increment(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "time_increment")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "attachmentMode":
+            suggest = "attachment_mode"
+        elif key == "bodyFormat":
+            suggest = "body_format"
+        elif key == "folderFilters":
+            suggest = "folder_filters"
+        elif key == "includeFolders":
+            suggest = "include_folders"
+        elif key == "includeMailboxes":
+            suggest = "include_mailboxes"
+        elif key == "includeSenders":
+            suggest = "include_senders"
+        elif key == "includeSubjects":
+            suggest = "include_subjects"
+        elif key == "senderFilters":
+            suggest = "sender_filters"
+        elif key == "startDate":
+            suggest = "start_date"
+        elif key == "subjectFilters":
+            suggest = "subject_filters"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsOutlookOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 attachment_mode: Optional[_builtins.str] = None,
+                 body_format: Optional[_builtins.str] = None,
+                 folder_filters: Optional[Sequence[_builtins.str]] = None,
+                 include_folders: Optional[Sequence[_builtins.str]] = None,
+                 include_mailboxes: Optional[Sequence[_builtins.str]] = None,
+                 include_senders: Optional[Sequence[_builtins.str]] = None,
+                 include_subjects: Optional[Sequence[_builtins.str]] = None,
+                 sender_filters: Optional[Sequence[_builtins.str]] = None,
+                 start_date: Optional[_builtins.str] = None,
+                 subject_filters: Optional[Sequence[_builtins.str]] = None):
+        if attachment_mode is not None:
+            pulumi.set(__self__, "attachment_mode", attachment_mode)
+        if body_format is not None:
+            pulumi.set(__self__, "body_format", body_format)
+        if folder_filters is not None:
+            pulumi.set(__self__, "folder_filters", folder_filters)
+        if include_folders is not None:
+            pulumi.set(__self__, "include_folders", include_folders)
+        if include_mailboxes is not None:
+            pulumi.set(__self__, "include_mailboxes", include_mailboxes)
+        if include_senders is not None:
+            pulumi.set(__self__, "include_senders", include_senders)
+        if include_subjects is not None:
+            pulumi.set(__self__, "include_subjects", include_subjects)
+        if sender_filters is not None:
+            pulumi.set(__self__, "sender_filters", sender_filters)
+        if start_date is not None:
+            pulumi.set(__self__, "start_date", start_date)
+        if subject_filters is not None:
+            pulumi.set(__self__, "subject_filters", subject_filters)
+
+    @_builtins.property
+    @pulumi.getter(name="attachmentMode")
+    def attachment_mode(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "attachment_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="bodyFormat")
+    def body_format(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "body_format")
+
+    @_builtins.property
+    @pulumi.getter(name="folderFilters")
+    def folder_filters(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "folder_filters")
+
+    @_builtins.property
+    @pulumi.getter(name="includeFolders")
+    def include_folders(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_folders")
+
+    @_builtins.property
+    @pulumi.getter(name="includeMailboxes")
+    def include_mailboxes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_mailboxes")
+
+    @_builtins.property
+    @pulumi.getter(name="includeSenders")
+    def include_senders(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_senders")
+
+    @_builtins.property
+    @pulumi.getter(name="includeSubjects")
+    def include_subjects(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_subjects")
+
+    @_builtins.property
+    @pulumi.getter(name="senderFilters")
+    def sender_filters(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "sender_filters")
+
+    @_builtins.property
+    @pulumi.getter(name="startDate")
+    def start_date(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "start_date")
+
+    @_builtins.property
+    @pulumi.getter(name="subjectFilters")
+    def subject_filters(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "subject_filters")
+
+
+@pulumi.output_type
 class PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptions(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -43380,6 +47674,36 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsSharepointOptionsFi
 
 
 @pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsSmartsheetOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "enforceSchema":
+            suggest = "enforce_schema"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsSmartsheetOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsSmartsheetOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsSmartsheetOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 enforce_schema: Optional[_builtins.bool] = None):
+        if enforce_schema is not None:
+            pulumi.set(__self__, "enforce_schema", enforce_schema)
+
+    @_builtins.property
+    @pulumi.getter(name="enforceSchema")
+    def enforce_schema(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "enforce_schema")
+
+
+@pulumi.output_type
 class PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -43463,6 +47787,36 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsTiktokAdsOptions(di
     @pulumi.getter(name="syncStartDate")
     def sync_start_date(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "sync_start_date")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectSchemaConnectorOptionsZendeskSupportOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "startDate":
+            suggest = "start_date"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectSchemaConnectorOptionsZendeskSupportOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsZendeskSupportOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectSchemaConnectorOptionsZendeskSupportOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 start_date: Optional[_builtins.str] = None):
+        if start_date is not None:
+            pulumi.set(__self__, "start_date", start_date)
+
+    @_builtins.property
+    @pulumi.getter(name="startDate")
+    def start_date(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "start_date")
 
 
 @pulumi.output_type
@@ -43841,14 +48195,26 @@ class PipelineIngestionDefinitionObjectTableConnectorOptions(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "gdriveOptions":
+        if key == "confluenceOptions":
+            suggest = "confluence_options"
+        elif key == "gdriveOptions":
             suggest = "gdrive_options"
         elif key == "googleAdsOptions":
             suggest = "google_ads_options"
+        elif key == "jiraOptions":
+            suggest = "jira_options"
+        elif key == "metaAdsOptions":
+            suggest = "meta_ads_options"
+        elif key == "outlookOptions":
+            suggest = "outlook_options"
         elif key == "sharepointOptions":
             suggest = "sharepoint_options"
+        elif key == "smartsheetOptions":
+            suggest = "smartsheet_options"
         elif key == "tiktokAdsOptions":
             suggest = "tiktok_ads_options"
+        elif key == "zendeskSupportOptions":
+            suggest = "zendesk_support_options"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptions. Access the value via the '{suggest}' property getter instead.")
@@ -43862,18 +48228,41 @@ class PipelineIngestionDefinitionObjectTableConnectorOptions(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 confluence_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsConfluenceOptions'] = None,
                  gdrive_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsGdriveOptions'] = None,
                  google_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptions'] = None,
+                 jira_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptions'] = None,
+                 meta_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptions'] = None,
+                 outlook_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptions'] = None,
                  sharepoint_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptions'] = None,
-                 tiktok_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions'] = None):
+                 smartsheet_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsSmartsheetOptions'] = None,
+                 tiktok_ads_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions'] = None,
+                 zendesk_support_options: Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsZendeskSupportOptions'] = None):
+        if confluence_options is not None:
+            pulumi.set(__self__, "confluence_options", confluence_options)
         if gdrive_options is not None:
             pulumi.set(__self__, "gdrive_options", gdrive_options)
         if google_ads_options is not None:
             pulumi.set(__self__, "google_ads_options", google_ads_options)
+        if jira_options is not None:
+            pulumi.set(__self__, "jira_options", jira_options)
+        if meta_ads_options is not None:
+            pulumi.set(__self__, "meta_ads_options", meta_ads_options)
+        if outlook_options is not None:
+            pulumi.set(__self__, "outlook_options", outlook_options)
         if sharepoint_options is not None:
             pulumi.set(__self__, "sharepoint_options", sharepoint_options)
+        if smartsheet_options is not None:
+            pulumi.set(__self__, "smartsheet_options", smartsheet_options)
         if tiktok_ads_options is not None:
             pulumi.set(__self__, "tiktok_ads_options", tiktok_ads_options)
+        if zendesk_support_options is not None:
+            pulumi.set(__self__, "zendesk_support_options", zendesk_support_options)
+
+    @_builtins.property
+    @pulumi.getter(name="confluenceOptions")
+    def confluence_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsConfluenceOptions']:
+        return pulumi.get(self, "confluence_options")
 
     @_builtins.property
     @pulumi.getter(name="gdriveOptions")
@@ -43886,14 +48275,69 @@ class PipelineIngestionDefinitionObjectTableConnectorOptions(dict):
         return pulumi.get(self, "google_ads_options")
 
     @_builtins.property
+    @pulumi.getter(name="jiraOptions")
+    def jira_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptions']:
+        return pulumi.get(self, "jira_options")
+
+    @_builtins.property
+    @pulumi.getter(name="metaAdsOptions")
+    def meta_ads_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptions']:
+        return pulumi.get(self, "meta_ads_options")
+
+    @_builtins.property
+    @pulumi.getter(name="outlookOptions")
+    def outlook_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptions']:
+        return pulumi.get(self, "outlook_options")
+
+    @_builtins.property
     @pulumi.getter(name="sharepointOptions")
     def sharepoint_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptions']:
         return pulumi.get(self, "sharepoint_options")
 
     @_builtins.property
+    @pulumi.getter(name="smartsheetOptions")
+    def smartsheet_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsSmartsheetOptions']:
+        return pulumi.get(self, "smartsheet_options")
+
+    @_builtins.property
     @pulumi.getter(name="tiktokAdsOptions")
     def tiktok_ads_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions']:
         return pulumi.get(self, "tiktok_ads_options")
+
+    @_builtins.property
+    @pulumi.getter(name="zendeskSupportOptions")
+    def zendesk_support_options(self) -> Optional['outputs.PipelineIngestionDefinitionObjectTableConnectorOptionsZendeskSupportOptions']:
+        return pulumi.get(self, "zendesk_support_options")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsConfluenceOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "includeConfluenceSpaces":
+            suggest = "include_confluence_spaces"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsConfluenceOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsConfluenceOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsConfluenceOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 include_confluence_spaces: Optional[Sequence[_builtins.str]] = None):
+        if include_confluence_spaces is not None:
+            pulumi.set(__self__, "include_confluence_spaces", include_confluence_spaces)
+
+    @_builtins.property
+    @pulumi.getter(name="includeConfluenceSpaces")
+    def include_confluence_spaces(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_confluence_spaces")
 
 
 @pulumi.output_type
@@ -44178,6 +48622,252 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsGoogleAdsOptions(dic
 
 
 @pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "includeJiraSpaces":
+            suggest = "include_jira_spaces"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsJiraOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 include_jira_spaces: Optional[Sequence[_builtins.str]] = None):
+        if include_jira_spaces is not None:
+            pulumi.set(__self__, "include_jira_spaces", include_jira_spaces)
+
+    @_builtins.property
+    @pulumi.getter(name="includeJiraSpaces")
+    def include_jira_spaces(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_jira_spaces")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "actionAttributionWindows":
+            suggest = "action_attribution_windows"
+        elif key == "actionBreakdowns":
+            suggest = "action_breakdowns"
+        elif key == "actionReportTime":
+            suggest = "action_report_time"
+        elif key == "customInsightsLookbackWindow":
+            suggest = "custom_insights_lookback_window"
+        elif key == "startDate":
+            suggest = "start_date"
+        elif key == "timeIncrement":
+            suggest = "time_increment"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsMetaAdsOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 action_attribution_windows: Optional[Sequence[_builtins.str]] = None,
+                 action_breakdowns: Optional[Sequence[_builtins.str]] = None,
+                 action_report_time: Optional[_builtins.str] = None,
+                 breakdowns: Optional[Sequence[_builtins.str]] = None,
+                 custom_insights_lookback_window: Optional[_builtins.int] = None,
+                 level: Optional[_builtins.str] = None,
+                 start_date: Optional[_builtins.str] = None,
+                 time_increment: Optional[_builtins.str] = None):
+        if action_attribution_windows is not None:
+            pulumi.set(__self__, "action_attribution_windows", action_attribution_windows)
+        if action_breakdowns is not None:
+            pulumi.set(__self__, "action_breakdowns", action_breakdowns)
+        if action_report_time is not None:
+            pulumi.set(__self__, "action_report_time", action_report_time)
+        if breakdowns is not None:
+            pulumi.set(__self__, "breakdowns", breakdowns)
+        if custom_insights_lookback_window is not None:
+            pulumi.set(__self__, "custom_insights_lookback_window", custom_insights_lookback_window)
+        if level is not None:
+            pulumi.set(__self__, "level", level)
+        if start_date is not None:
+            pulumi.set(__self__, "start_date", start_date)
+        if time_increment is not None:
+            pulumi.set(__self__, "time_increment", time_increment)
+
+    @_builtins.property
+    @pulumi.getter(name="actionAttributionWindows")
+    def action_attribution_windows(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "action_attribution_windows")
+
+    @_builtins.property
+    @pulumi.getter(name="actionBreakdowns")
+    def action_breakdowns(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "action_breakdowns")
+
+    @_builtins.property
+    @pulumi.getter(name="actionReportTime")
+    def action_report_time(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "action_report_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def breakdowns(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "breakdowns")
+
+    @_builtins.property
+    @pulumi.getter(name="customInsightsLookbackWindow")
+    def custom_insights_lookback_window(self) -> Optional[_builtins.int]:
+        return pulumi.get(self, "custom_insights_lookback_window")
+
+    @_builtins.property
+    @pulumi.getter
+    def level(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "level")
+
+    @_builtins.property
+    @pulumi.getter(name="startDate")
+    def start_date(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "start_date")
+
+    @_builtins.property
+    @pulumi.getter(name="timeIncrement")
+    def time_increment(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "time_increment")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "attachmentMode":
+            suggest = "attachment_mode"
+        elif key == "bodyFormat":
+            suggest = "body_format"
+        elif key == "folderFilters":
+            suggest = "folder_filters"
+        elif key == "includeFolders":
+            suggest = "include_folders"
+        elif key == "includeMailboxes":
+            suggest = "include_mailboxes"
+        elif key == "includeSenders":
+            suggest = "include_senders"
+        elif key == "includeSubjects":
+            suggest = "include_subjects"
+        elif key == "senderFilters":
+            suggest = "sender_filters"
+        elif key == "startDate":
+            suggest = "start_date"
+        elif key == "subjectFilters":
+            suggest = "subject_filters"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsOutlookOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 attachment_mode: Optional[_builtins.str] = None,
+                 body_format: Optional[_builtins.str] = None,
+                 folder_filters: Optional[Sequence[_builtins.str]] = None,
+                 include_folders: Optional[Sequence[_builtins.str]] = None,
+                 include_mailboxes: Optional[Sequence[_builtins.str]] = None,
+                 include_senders: Optional[Sequence[_builtins.str]] = None,
+                 include_subjects: Optional[Sequence[_builtins.str]] = None,
+                 sender_filters: Optional[Sequence[_builtins.str]] = None,
+                 start_date: Optional[_builtins.str] = None,
+                 subject_filters: Optional[Sequence[_builtins.str]] = None):
+        if attachment_mode is not None:
+            pulumi.set(__self__, "attachment_mode", attachment_mode)
+        if body_format is not None:
+            pulumi.set(__self__, "body_format", body_format)
+        if folder_filters is not None:
+            pulumi.set(__self__, "folder_filters", folder_filters)
+        if include_folders is not None:
+            pulumi.set(__self__, "include_folders", include_folders)
+        if include_mailboxes is not None:
+            pulumi.set(__self__, "include_mailboxes", include_mailboxes)
+        if include_senders is not None:
+            pulumi.set(__self__, "include_senders", include_senders)
+        if include_subjects is not None:
+            pulumi.set(__self__, "include_subjects", include_subjects)
+        if sender_filters is not None:
+            pulumi.set(__self__, "sender_filters", sender_filters)
+        if start_date is not None:
+            pulumi.set(__self__, "start_date", start_date)
+        if subject_filters is not None:
+            pulumi.set(__self__, "subject_filters", subject_filters)
+
+    @_builtins.property
+    @pulumi.getter(name="attachmentMode")
+    def attachment_mode(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "attachment_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="bodyFormat")
+    def body_format(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "body_format")
+
+    @_builtins.property
+    @pulumi.getter(name="folderFilters")
+    def folder_filters(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "folder_filters")
+
+    @_builtins.property
+    @pulumi.getter(name="includeFolders")
+    def include_folders(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_folders")
+
+    @_builtins.property
+    @pulumi.getter(name="includeMailboxes")
+    def include_mailboxes(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_mailboxes")
+
+    @_builtins.property
+    @pulumi.getter(name="includeSenders")
+    def include_senders(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_senders")
+
+    @_builtins.property
+    @pulumi.getter(name="includeSubjects")
+    def include_subjects(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "include_subjects")
+
+    @_builtins.property
+    @pulumi.getter(name="senderFilters")
+    def sender_filters(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "sender_filters")
+
+    @_builtins.property
+    @pulumi.getter(name="startDate")
+    def start_date(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "start_date")
+
+    @_builtins.property
+    @pulumi.getter(name="subjectFilters")
+    def subject_filters(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "subject_filters")
+
+
+@pulumi.output_type
 class PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptions(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -44410,6 +49100,36 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsSharepointOptionsFil
 
 
 @pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsSmartsheetOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "enforceSchema":
+            suggest = "enforce_schema"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsSmartsheetOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsSmartsheetOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsSmartsheetOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 enforce_schema: Optional[_builtins.bool] = None):
+        if enforce_schema is not None:
+            pulumi.set(__self__, "enforce_schema", enforce_schema)
+
+    @_builtins.property
+    @pulumi.getter(name="enforceSchema")
+    def enforce_schema(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "enforce_schema")
+
+
+@pulumi.output_type
 class PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -44493,6 +49213,36 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsTiktokAdsOptions(dic
     @pulumi.getter(name="syncStartDate")
     def sync_start_date(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "sync_start_date")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionObjectTableConnectorOptionsZendeskSupportOptions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "startDate":
+            suggest = "start_date"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionObjectTableConnectorOptionsZendeskSupportOptions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsZendeskSupportOptions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionObjectTableConnectorOptionsZendeskSupportOptions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 start_date: Optional[_builtins.str] = None):
+        if start_date is not None:
+            pulumi.set(__self__, "start_date", start_date)
+
+    @_builtins.property
+    @pulumi.getter(name="startDate")
+    def start_date(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "start_date")
 
 
 @pulumi.output_type
@@ -44771,13 +49521,33 @@ class PipelineIngestionDefinitionObjectTableTableConfigurationWorkdayReportParam
 
 @pulumi.output_type
 class PipelineIngestionDefinitionSourceConfiguration(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "googleAdsConfig":
+            suggest = "google_ads_config"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionSourceConfiguration. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionSourceConfiguration.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionSourceConfiguration.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 catalog: Optional['outputs.PipelineIngestionDefinitionSourceConfigurationCatalog'] = None):
+                 catalog: Optional['outputs.PipelineIngestionDefinitionSourceConfigurationCatalog'] = None,
+                 google_ads_config: Optional['outputs.PipelineIngestionDefinitionSourceConfigurationGoogleAdsConfig'] = None):
         """
         :param 'PipelineIngestionDefinitionSourceConfigurationCatalogArgs' catalog: The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
         """
         if catalog is not None:
             pulumi.set(__self__, "catalog", catalog)
+        if google_ads_config is not None:
+            pulumi.set(__self__, "google_ads_config", google_ads_config)
 
     @_builtins.property
     @pulumi.getter
@@ -44786,6 +49556,11 @@ class PipelineIngestionDefinitionSourceConfiguration(dict):
         The name of default catalog in Unity Catalog. *Change of this parameter forces recreation of the pipeline if you switch from `storage` to `catalog` or vice versa.  If pipeline was already created with `catalog` set, the value could be changed.* (Conflicts with `storage`).
         """
         return pulumi.get(self, "catalog")
+
+    @_builtins.property
+    @pulumi.getter(name="googleAdsConfig")
+    def google_ads_config(self) -> Optional['outputs.PipelineIngestionDefinitionSourceConfigurationGoogleAdsConfig']:
+        return pulumi.get(self, "google_ads_config")
 
 
 @pulumi.output_type
@@ -44894,6 +49669,36 @@ class PipelineIngestionDefinitionSourceConfigurationCatalogPostgresSlotConfig(di
     @pulumi.getter(name="slotName")
     def slot_name(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "slot_name")
+
+
+@pulumi.output_type
+class PipelineIngestionDefinitionSourceConfigurationGoogleAdsConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "managerAccountId":
+            suggest = "manager_account_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineIngestionDefinitionSourceConfigurationGoogleAdsConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineIngestionDefinitionSourceConfigurationGoogleAdsConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineIngestionDefinitionSourceConfigurationGoogleAdsConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 manager_account_id: Optional[_builtins.str] = None):
+        if manager_account_id is not None:
+            pulumi.set(__self__, "manager_account_id", manager_account_id)
+
+    @_builtins.property
+    @pulumi.getter(name="managerAccountId")
+    def manager_account_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "manager_account_id")
 
 
 @pulumi.output_type
@@ -45432,12 +50237,13 @@ class PipelineProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -45759,15 +50565,16 @@ class PolicyInfoProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -45858,15 +50665,16 @@ class PostgresBranchProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -46199,15 +51007,16 @@ class PostgresCatalogProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -46379,15 +51188,16 @@ class PostgresDatabaseProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -46520,15 +51330,16 @@ class PostgresEndpointProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -47189,15 +52000,16 @@ class PostgresProjectProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -47812,15 +52624,16 @@ class PostgresRoleProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -48071,15 +52884,16 @@ class PostgresSyncedTableProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -49274,15 +54088,16 @@ class QualityMonitorV2ProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -50040,15 +54855,16 @@ class QueryProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -50129,15 +54945,16 @@ class RecipientProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -50374,15 +55191,16 @@ class RegisteredModelProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -50409,15 +55227,16 @@ class RepoProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -50466,15 +55285,16 @@ class RestrictWorkspaceAdminsSettingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -50682,15 +55502,16 @@ class RfaAccessRequestDestinationsProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -50785,15 +55606,16 @@ class SchemaProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -50820,15 +55642,16 @@ class SecretAclProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -50855,15 +55678,16 @@ class SecretProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -50928,15 +55752,52 @@ class SecretScopeProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class SecretUcProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SecretUcProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SecretUcProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SecretUcProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -51095,12 +55956,13 @@ class ServicePrincipalProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -51124,12 +55986,13 @@ class ServicePrincipalRoleProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -51153,15 +56016,16 @@ class ServicePrincipalSecretProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -51659,12 +56523,13 @@ class SqlAlertProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -51688,15 +56553,16 @@ class SqlDashboardProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -51895,15 +56761,16 @@ class SqlEndpointProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -51979,15 +56846,16 @@ class SqlGlobalConfigProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -52091,12 +56959,13 @@ class SqlPermissionsProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -52646,15 +57515,16 @@ class SqlQueryProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -52949,15 +57819,16 @@ class SqlTableProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -52984,15 +57855,16 @@ class SqlVisualizationProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -53155,15 +58027,16 @@ class SqlWidgetProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -53549,19 +58422,235 @@ class StorageCredentialProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
         return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class SupervisorAgentProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SupervisorAgentProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SupervisorAgentProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SupervisorAgentProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> Optional[_builtins.str]:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class SupervisorAgentToolApp(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: App name
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        App name
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class SupervisorAgentToolGenieSpace(dict):
+    def __init__(__self__, *,
+                 id: _builtins.str):
+        """
+        :param _builtins.str id: (string, deprecated) - Deprecated: Use tool_id instead
+        """
+        pulumi.set(__self__, "id", id)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        (string, deprecated) - Deprecated: Use tool_id instead
+        """
+        return pulumi.get(self, "id")
+
+
+@pulumi.output_type
+class SupervisorAgentToolKnowledgeAssistant(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "knowledgeAssistantId":
+            suggest = "knowledge_assistant_id"
+        elif key == "servingEndpointName":
+            suggest = "serving_endpoint_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SupervisorAgentToolKnowledgeAssistant. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SupervisorAgentToolKnowledgeAssistant.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SupervisorAgentToolKnowledgeAssistant.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 knowledge_assistant_id: _builtins.str,
+                 serving_endpoint_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str knowledge_assistant_id: The ID of the knowledge assistant
+        :param _builtins.str serving_endpoint_name: Deprecated: use knowledge_assistant_id instead
+        """
+        pulumi.set(__self__, "knowledge_assistant_id", knowledge_assistant_id)
+        if serving_endpoint_name is not None:
+            pulumi.set(__self__, "serving_endpoint_name", serving_endpoint_name)
+
+    @_builtins.property
+    @pulumi.getter(name="knowledgeAssistantId")
+    def knowledge_assistant_id(self) -> _builtins.str:
+        """
+        The ID of the knowledge assistant
+        """
+        return pulumi.get(self, "knowledge_assistant_id")
+
+    @_builtins.property
+    @pulumi.getter(name="servingEndpointName")
+    def serving_endpoint_name(self) -> Optional[_builtins.str]:
+        """
+        Deprecated: use knowledge_assistant_id instead
+        """
+        return pulumi.get(self, "serving_endpoint_name")
+
+
+@pulumi.output_type
+class SupervisorAgentToolProviderConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "workspaceId":
+            suggest = "workspace_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SupervisorAgentToolProviderConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SupervisorAgentToolProviderConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SupervisorAgentToolProviderConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 workspace_id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> Optional[_builtins.str]:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class SupervisorAgentToolUcConnection(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: (string) - Full resource name:
+               supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Full resource name:
+        supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class SupervisorAgentToolUcFunction(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: (string) - Full resource name:
+               supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Full resource name:
+        supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class SupervisorAgentToolVolume(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: Full uc volume name
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Full uc volume name
+        """
+        return pulumi.get(self, "name")
 
 
 @pulumi.output_type
@@ -53584,15 +58673,16 @@ class SystemSchemaProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -53737,12 +58827,13 @@ class TableProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -53766,15 +58857,16 @@ class TagPolicyProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -53813,15 +58905,16 @@ class TokenProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -53848,12 +58941,13 @@ class UserInstanceProfileProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -53877,12 +58971,13 @@ class UserProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -53906,12 +59001,13 @@ class UserRoleProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
-        pulumi.set(__self__, "workspace_id", workspace_id)
+                 workspace_id: Optional[_builtins.str] = None):
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "workspace_id")
 
 
@@ -53966,15 +59062,16 @@ class VectorSearchEndpointProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -53986,8 +59083,8 @@ class VectorSearchEndpointScalingInfo(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "requestedMinQps":
-            suggest = "requested_min_qps"
+        if key == "requestedTargetQps":
+            suggest = "requested_target_qps"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in VectorSearchEndpointScalingInfo. Access the value via the '{suggest}' property getter instead.")
@@ -54001,20 +59098,20 @@ class VectorSearchEndpointScalingInfo(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 requested_min_qps: Optional[_builtins.int] = None,
+                 requested_target_qps: Optional[_builtins.int] = None,
                  state: Optional[_builtins.str] = None):
         """
         :param _builtins.str state: Current state of the endpoint. Currently following values are supported: `PROVISIONING`, `ONLINE`, and `OFFLINE`.
         """
-        if requested_min_qps is not None:
-            pulumi.set(__self__, "requested_min_qps", requested_min_qps)
+        if requested_target_qps is not None:
+            pulumi.set(__self__, "requested_target_qps", requested_target_qps)
         if state is not None:
             pulumi.set(__self__, "state", state)
 
     @_builtins.property
-    @pulumi.getter(name="requestedMinQps")
-    def requested_min_qps(self) -> Optional[_builtins.int]:
-        return pulumi.get(self, "requested_min_qps")
+    @pulumi.getter(name="requestedTargetQps")
+    def requested_target_qps(self) -> Optional[_builtins.int]:
+        return pulumi.get(self, "requested_target_qps")
 
     @_builtins.property
     @pulumi.getter
@@ -54030,7 +59127,11 @@ class VectorSearchIndexDeltaSyncIndexSpec(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "embeddingSourceColumns":
+        if key == "columnsToIndices":
+            suggest = "columns_to_indices"
+        elif key == "columnsToSyncs":
+            suggest = "columns_to_syncs"
+        elif key == "embeddingSourceColumns":
             suggest = "embedding_source_columns"
         elif key == "embeddingVectorColumns":
             suggest = "embedding_vector_columns"
@@ -54055,6 +59156,8 @@ class VectorSearchIndexDeltaSyncIndexSpec(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 columns_to_indices: Optional[Sequence[_builtins.str]] = None,
+                 columns_to_syncs: Optional[Sequence[_builtins.str]] = None,
                  embedding_source_columns: Optional[Sequence['outputs.VectorSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumn']] = None,
                  embedding_vector_columns: Optional[Sequence['outputs.VectorSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumn']] = None,
                  embedding_writeback_table: Optional[_builtins.str] = None,
@@ -54062,6 +59165,7 @@ class VectorSearchIndexDeltaSyncIndexSpec(dict):
                  pipeline_type: Optional[_builtins.str] = None,
                  source_table: Optional[_builtins.str] = None):
         """
+        :param Sequence[_builtins.str] columns_to_syncs: list of columns to sync. If not specified, all columns are syncronized.
         :param Sequence['VectorSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgs'] embedding_source_columns: array of objects representing columns that contain the embedding source.  Each entry consists of:
         :param Sequence['VectorSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgs'] embedding_vector_columns: array of objects representing columns that contain the embedding vectors. Each entry consists of:
         :param _builtins.str embedding_writeback_table: Automatically sync the vector index contents and computed embeddings to the specified Delta table. The only supported table name is the index name with the suffix `_writeback_table`.
@@ -54071,6 +59175,10 @@ class VectorSearchIndexDeltaSyncIndexSpec(dict):
                * `CONTINUOUS`: If the pipeline uses continuous execution, the pipeline processes new data as it arrives in the source table to keep the vector index fresh.
         :param _builtins.str source_table: The name of the source table.
         """
+        if columns_to_indices is not None:
+            pulumi.set(__self__, "columns_to_indices", columns_to_indices)
+        if columns_to_syncs is not None:
+            pulumi.set(__self__, "columns_to_syncs", columns_to_syncs)
         if embedding_source_columns is not None:
             pulumi.set(__self__, "embedding_source_columns", embedding_source_columns)
         if embedding_vector_columns is not None:
@@ -54083,6 +59191,19 @@ class VectorSearchIndexDeltaSyncIndexSpec(dict):
             pulumi.set(__self__, "pipeline_type", pipeline_type)
         if source_table is not None:
             pulumi.set(__self__, "source_table", source_table)
+
+    @_builtins.property
+    @pulumi.getter(name="columnsToIndices")
+    def columns_to_indices(self) -> Optional[Sequence[_builtins.str]]:
+        return pulumi.get(self, "columns_to_indices")
+
+    @_builtins.property
+    @pulumi.getter(name="columnsToSyncs")
+    def columns_to_syncs(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        list of columns to sync. If not specified, all columns are syncronized.
+        """
+        return pulumi.get(self, "columns_to_syncs")
 
     @_builtins.property
     @pulumi.getter(name="embeddingSourceColumns")
@@ -54439,15 +59560,16 @@ class VectorSearchIndexProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -54548,15 +59670,16 @@ class VolumeProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -54583,15 +59706,16 @@ class WarehousesDefaultWarehouseOverrideProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -54618,15 +59742,16 @@ class WorkspaceBindingProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -54653,15 +59778,16 @@ class WorkspaceConfProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -54688,15 +59814,16 @@ class WorkspaceEntityTagAssignmentProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -54723,15 +59850,16 @@ class WorkspaceFileProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -55510,15 +60638,16 @@ class WorkspaceSettingV2ProviderConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 workspace_id: _builtins.str):
+                 workspace_id: Optional[_builtins.str] = None):
         """
         :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
-        pulumi.set(__self__, "workspace_id", workspace_id)
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
-    def workspace_id(self) -> _builtins.str:
+    def workspace_id(self) -> Optional[_builtins.str]:
         """
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
@@ -56005,11 +61134,15 @@ class GetAccountNetworkPoliciesItemEgressNetworkAccessResult(dict):
                  restriction_mode: _builtins.str,
                  allowed_internet_destinations: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemEgressNetworkAccessAllowedInternetDestinationResult']] = None,
                  allowed_storage_destinations: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemEgressNetworkAccessAllowedStorageDestinationResult']] = None,
+                 blocked_internet_destinations: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemEgressNetworkAccessBlockedInternetDestinationResult']] = None,
                  policy_enforcement: Optional['outputs.GetAccountNetworkPoliciesItemEgressNetworkAccessPolicyEnforcementResult'] = None):
         """
         :param _builtins.str restriction_mode: (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
         :param Sequence['GetAccountNetworkPoliciesItemEgressNetworkAccessAllowedInternetDestinationArgs'] allowed_internet_destinations: (list of EgressNetworkPolicyNetworkAccessPolicyInternetDestination) - List of internet destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
         :param Sequence['GetAccountNetworkPoliciesItemEgressNetworkAccessAllowedStorageDestinationArgs'] allowed_storage_destinations: (list of EgressNetworkPolicyNetworkAccessPolicyStorageDestination) - List of storage destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
+        :param Sequence['GetAccountNetworkPoliciesItemEgressNetworkAccessBlockedInternetDestinationArgs'] blocked_internet_destinations: (list of EgressNetworkPolicyNetworkAccessPolicyInternetDestination) - List of internet destinations that serverless workloads are blocked from accessing.
+               These destinations are enforced when restriction mode is RESTRICTED_ACCESS or DRY_RUN.
+               Currently supports DNS_NAME type only; IP_RANGE support is planned
         :param 'GetAccountNetworkPoliciesItemEgressNetworkAccessPolicyEnforcementArgs' policy_enforcement: (EgressNetworkPolicyNetworkAccessPolicyPolicyEnforcement) - Optional. When policy_enforcement is not provided, we default to ENFORCE_MODE_ALL_SERVICES
         """
         pulumi.set(__self__, "restriction_mode", restriction_mode)
@@ -56017,6 +61150,8 @@ class GetAccountNetworkPoliciesItemEgressNetworkAccessResult(dict):
             pulumi.set(__self__, "allowed_internet_destinations", allowed_internet_destinations)
         if allowed_storage_destinations is not None:
             pulumi.set(__self__, "allowed_storage_destinations", allowed_storage_destinations)
+        if blocked_internet_destinations is not None:
+            pulumi.set(__self__, "blocked_internet_destinations", blocked_internet_destinations)
         if policy_enforcement is not None:
             pulumi.set(__self__, "policy_enforcement", policy_enforcement)
 
@@ -56043,6 +61178,16 @@ class GetAccountNetworkPoliciesItemEgressNetworkAccessResult(dict):
         (list of EgressNetworkPolicyNetworkAccessPolicyStorageDestination) - List of storage destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
         """
         return pulumi.get(self, "allowed_storage_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="blockedInternetDestinations")
+    def blocked_internet_destinations(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemEgressNetworkAccessBlockedInternetDestinationResult']]:
+        """
+        (list of EgressNetworkPolicyNetworkAccessPolicyInternetDestination) - List of internet destinations that serverless workloads are blocked from accessing.
+        These destinations are enforced when restriction mode is RESTRICTED_ACCESS or DRY_RUN.
+        Currently supports DNS_NAME type only; IP_RANGE support is planned
+        """
+        return pulumi.get(self, "blocked_internet_destinations")
 
     @_builtins.property
     @pulumi.getter(name="policyEnforcement")
@@ -56152,6 +61297,37 @@ class GetAccountNetworkPoliciesItemEgressNetworkAccessAllowedStorageDestinationR
 
 
 @pulumi.output_type
+class GetAccountNetworkPoliciesItemEgressNetworkAccessBlockedInternetDestinationResult(dict):
+    def __init__(__self__, *,
+                 destination: Optional[_builtins.str] = None,
+                 internet_destination_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str internet_destination_type: (string) - The type of internet destination. Currently only DNS_NAME is supported. Possible values are: `DNS_NAME`
+        """
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if internet_destination_type is not None:
+            pulumi.set(__self__, "internet_destination_type", internet_destination_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional[_builtins.str]:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter(name="internetDestinationType")
+    def internet_destination_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - The type of internet destination. Currently only DNS_NAME is supported. Possible values are: `DNS_NAME`
+        """
+        return pulumi.get(self, "internet_destination_type")
+
+
+@pulumi.output_type
 class GetAccountNetworkPoliciesItemEgressNetworkAccessPolicyEnforcementResult(dict):
     def __init__(__self__, *,
                  dry_run_mode_product_filters: Optional[Sequence[_builtins.str]] = None,
@@ -56191,18 +61367,34 @@ class GetAccountNetworkPoliciesItemEgressNetworkAccessPolicyEnforcementResult(di
 @pulumi.output_type
 class GetAccountNetworkPoliciesItemIngressResult(dict):
     def __init__(__self__, *,
+                 private_access: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessResult'] = None,
                  public_access: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessResult'] = None):
         """
-        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessArgs' private_access: (CustomerFacingIngressNetworkPolicyPrivateAccess) - The network policy restrictions for private access to the workspace.
+               Configures how registered private endpoints are allowed or denied access
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess) - The network policy restrictions for public access to the workspace.
+               Configures how public internet traffic is allowed or denied access
         """
+        if private_access is not None:
+            pulumi.set(__self__, "private_access", private_access)
         if public_access is not None:
             pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="privateAccess")
+    def private_access(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPrivateAccess) - The network policy restrictions for private access to the workspace.
+        Configures how registered private endpoints are allowed or denied access
+        """
+        return pulumi.get(self, "private_access")
 
     @_builtins.property
     @pulumi.getter(name="publicAccess")
     def public_access(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessResult']:
         """
-        (CustomerFacingIngressNetworkPolicyPublicAccess)
+        (CustomerFacingIngressNetworkPolicyPublicAccess) - The network policy restrictions for public access to the workspace.
+        Configures how public internet traffic is allowed or denied access
         """
         return pulumi.get(self, "public_access")
 
@@ -56210,20 +61402,980 @@ class GetAccountNetworkPoliciesItemIngressResult(dict):
 @pulumi.output_type
 class GetAccountNetworkPoliciesItemIngressDryRunResult(dict):
     def __init__(__self__, *,
+                 private_access: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessResult'] = None,
                  public_access: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessResult'] = None):
         """
-        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessArgs' private_access: (CustomerFacingIngressNetworkPolicyPrivateAccess) - The network policy restrictions for private access to the workspace.
+               Configures how registered private endpoints are allowed or denied access
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess) - The network policy restrictions for public access to the workspace.
+               Configures how public internet traffic is allowed or denied access
         """
+        if private_access is not None:
+            pulumi.set(__self__, "private_access", private_access)
         if public_access is not None:
             pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="privateAccess")
+    def private_access(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPrivateAccess) - The network policy restrictions for private access to the workspace.
+        Configures how registered private endpoints are allowed or denied access
+        """
+        return pulumi.get(self, "private_access")
 
     @_builtins.property
     @pulumi.getter(name="publicAccess")
     def public_access(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessResult']:
         """
-        (CustomerFacingIngressNetworkPolicyPublicAccess)
+        (CustomerFacingIngressNetworkPolicyPublicAccess) - The network policy restrictions for public access to the workspace.
+        Configures how public internet traffic is allowed or denied access
         """
         return pulumi.get(self, "public_access")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessResult(dict):
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleResult']] = None,
+                 deny_rules: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleResult']] = None):
+        """
+        :param _builtins.str restriction_mode: (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        :param Sequence['GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleArgs'] allow_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        :param Sequence['GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleArgs'] deny_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        """
+        (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        """
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - The label for this ingress rule
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - The label for this ingress rule
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountUiResult'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeResult'] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleOriginEndpointsResult'] = None):
+        """
+        :param _builtins.bool all_private_access: (boolean)
+        :param _builtins.bool all_registered_endpoints: (boolean)
+        :param _builtins.bool azure_workspace_private_link: (boolean)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleOriginEndpointsArgs' endpoints: (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleOriginEndpointsResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessAllowRuleOriginEndpointsResult(dict):
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] endpoint_ids: (list of string)
+        """
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "endpoint_ids")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - The label for this ingress rule
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - The label for this ingress rule
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountUiResult'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeResult'] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleOriginEndpointsResult'] = None):
+        """
+        :param _builtins.bool all_private_access: (boolean)
+        :param _builtins.bool all_registered_endpoints: (boolean)
+        :param _builtins.bool azure_workspace_private_link: (boolean)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleOriginEndpointsArgs' endpoints: (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleOriginEndpointsResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPrivateAccessDenyRuleOriginEndpointsResult(dict):
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] endpoint_ids: (list of string)
+        """
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "endpoint_ids")
 
 
 @pulumi.output_type
@@ -56278,8 +62430,7 @@ class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleResult(dict
         """
         :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
         :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
-        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
+        :param _builtins.str label: (string) - The label for this ingress rule
         :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
         """
         if authentication is not None:
@@ -56311,8 +62462,7 @@ class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleResult(dict
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
         """
-        (string) - User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
+        (string) - The label for this ingress rule
         """
         return pulumi.get(self, "label")
 
@@ -56390,20 +62540,64 @@ class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleAuthenticat
 @pulumi.output_type
 class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationResult(dict):
     def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountUiResult'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeResult'] = None,
                  workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult'] = None,
                  workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult'] = None):
         """
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
         :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
         :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
-        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
 
     @_builtins.property
     @pulumi.getter(name="allDestinations")
@@ -56412,6 +62606,22 @@ class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestination
         (boolean) - Must be set to true
         """
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -56425,20 +62635,139 @@ class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestination
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult']:
         """
-        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountApiResult(dict):
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
         """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
         :param Sequence[_builtins.str] scopes: (list of string)
         """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -56559,8 +62888,7 @@ class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleResult(dict)
         """
         :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
         :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
-        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
+        :param _builtins.str label: (string) - The label for this ingress rule
         :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
         """
         if authentication is not None:
@@ -56592,8 +62920,7 @@ class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleResult(dict)
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
         """
-        (string) - User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
+        (string) - The label for this ingress rule
         """
         return pulumi.get(self, "label")
 
@@ -56671,20 +62998,64 @@ class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleAuthenticati
 @pulumi.output_type
 class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationResult(dict):
     def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountUiResult'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeResult'] = None,
                  workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult'] = None,
                  workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult'] = None):
         """
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
         :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
         :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
-        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        :param 'GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
 
     @_builtins.property
     @pulumi.getter(name="allDestinations")
@@ -56693,6 +63064,22 @@ class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationR
         (boolean) - Must be set to true
         """
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -56706,20 +63093,139 @@ class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationR
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult']:
         """
-        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountApiResult(dict):
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
         """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
         :param Sequence[_builtins.str] scopes: (list of string)
         """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -56831,6 +63337,950 @@ class GetAccountNetworkPoliciesItemIngressDryRunPublicAccessDenyRuleOriginInclud
 
 
 @pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessResult(dict):
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleResult']] = None,
+                 deny_rules: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleResult']] = None):
+        """
+        :param _builtins.str restriction_mode: (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        :param Sequence['GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleArgs'] allow_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        :param Sequence['GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleArgs'] deny_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        """
+        (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        """
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - The label for this ingress rule
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - The label for this ingress rule
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountUiResult'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeResult'] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleOriginEndpointsResult'] = None):
+        """
+        :param _builtins.bool all_private_access: (boolean)
+        :param _builtins.bool all_registered_endpoints: (boolean)
+        :param _builtins.bool azure_workspace_private_link: (boolean)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleOriginEndpointsArgs' endpoints: (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleOriginEndpointsResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessAllowRuleOriginEndpointsResult(dict):
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] endpoint_ids: (list of string)
+        """
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "endpoint_ids")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - The label for this ingress rule
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - The label for this ingress rule
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountUiResult'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeResult'] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleOriginEndpointsResult'] = None):
+        """
+        :param _builtins.bool all_private_access: (boolean)
+        :param _builtins.bool all_registered_endpoints: (boolean)
+        :param _builtins.bool azure_workspace_private_link: (boolean)
+        :param 'GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleOriginEndpointsArgs' endpoints: (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleOriginEndpointsResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPrivateAccessDenyRuleOriginEndpointsResult(dict):
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] endpoint_ids: (list of string)
+        """
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "endpoint_ids")
+
+
+@pulumi.output_type
 class GetAccountNetworkPoliciesItemIngressPublicAccessResult(dict):
     def __init__(__self__, *,
                  restriction_mode: _builtins.str,
@@ -56882,8 +64332,7 @@ class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleResult(dict):
         """
         :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
         :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
-        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
+        :param _builtins.str label: (string) - The label for this ingress rule
         :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
         """
         if authentication is not None:
@@ -56915,8 +64364,7 @@ class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleResult(dict):
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
         """
-        (string) - User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
+        (string) - The label for this ingress rule
         """
         return pulumi.get(self, "label")
 
@@ -56994,20 +64442,64 @@ class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleAuthenticationIde
 @pulumi.output_type
 class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationResult(dict):
     def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountUiResult'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationLakebaseRuntimeResult'] = None,
                  workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceApiResult'] = None,
                  workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceUiResult'] = None):
         """
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
         :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
         :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
-        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
 
     @_builtins.property
     @pulumi.getter(name="allDestinations")
@@ -57016,6 +64508,22 @@ class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationResult
         (boolean) - Must be set to true
         """
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -57029,20 +64537,139 @@ class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationResult
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceUiResult']:
         """
-        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountApiResult(dict):
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
         """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
         :param Sequence[_builtins.str] scopes: (list of string)
         """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -57163,8 +64790,7 @@ class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleResult(dict):
         """
         :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
         :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
-        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
+        :param _builtins.str label: (string) - The label for this ingress rule
         :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
         """
         if authentication is not None:
@@ -57196,8 +64822,7 @@ class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleResult(dict):
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
         """
-        (string) - User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
+        (string) - The label for this ingress rule
         """
         return pulumi.get(self, "label")
 
@@ -57275,20 +64900,64 @@ class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleAuthenticationIden
 @pulumi.output_type
 class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationResult(dict):
     def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountUiResult'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationLakebaseRuntimeResult'] = None,
                  workspace_api: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceApiResult'] = None,
                  workspace_ui: Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceUiResult'] = None):
         """
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
         :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
         :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
-        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        :param 'GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
 
     @_builtins.property
     @pulumi.getter(name="allDestinations")
@@ -57297,6 +64966,22 @@ class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationResult(
         (boolean) - Must be set to true
         """
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -57310,20 +64995,139 @@ class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationResult(
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceUiResult']:
         """
-        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountApiResult(dict):
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
         """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
         :param Sequence[_builtins.str] scopes: (list of string)
         """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPoliciesItemIngressPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -57459,11 +65263,15 @@ class GetAccountNetworkPolicyEgressNetworkAccessResult(dict):
                  restriction_mode: _builtins.str,
                  allowed_internet_destinations: Optional[Sequence['outputs.GetAccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationResult']] = None,
                  allowed_storage_destinations: Optional[Sequence['outputs.GetAccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationResult']] = None,
+                 blocked_internet_destinations: Optional[Sequence['outputs.GetAccountNetworkPolicyEgressNetworkAccessBlockedInternetDestinationResult']] = None,
                  policy_enforcement: Optional['outputs.GetAccountNetworkPolicyEgressNetworkAccessPolicyEnforcementResult'] = None):
         """
         :param _builtins.str restriction_mode: (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
         :param Sequence['GetAccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationArgs'] allowed_internet_destinations: (list of EgressNetworkPolicyNetworkAccessPolicyInternetDestination) - List of internet destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
         :param Sequence['GetAccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationArgs'] allowed_storage_destinations: (list of EgressNetworkPolicyNetworkAccessPolicyStorageDestination) - List of storage destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
+        :param Sequence['GetAccountNetworkPolicyEgressNetworkAccessBlockedInternetDestinationArgs'] blocked_internet_destinations: (list of EgressNetworkPolicyNetworkAccessPolicyInternetDestination) - List of internet destinations that serverless workloads are blocked from accessing.
+               These destinations are enforced when restriction mode is RESTRICTED_ACCESS or DRY_RUN.
+               Currently supports DNS_NAME type only; IP_RANGE support is planned
         :param 'GetAccountNetworkPolicyEgressNetworkAccessPolicyEnforcementArgs' policy_enforcement: (EgressNetworkPolicyNetworkAccessPolicyPolicyEnforcement) - Optional. When policy_enforcement is not provided, we default to ENFORCE_MODE_ALL_SERVICES
         """
         pulumi.set(__self__, "restriction_mode", restriction_mode)
@@ -57471,6 +65279,8 @@ class GetAccountNetworkPolicyEgressNetworkAccessResult(dict):
             pulumi.set(__self__, "allowed_internet_destinations", allowed_internet_destinations)
         if allowed_storage_destinations is not None:
             pulumi.set(__self__, "allowed_storage_destinations", allowed_storage_destinations)
+        if blocked_internet_destinations is not None:
+            pulumi.set(__self__, "blocked_internet_destinations", blocked_internet_destinations)
         if policy_enforcement is not None:
             pulumi.set(__self__, "policy_enforcement", policy_enforcement)
 
@@ -57497,6 +65307,16 @@ class GetAccountNetworkPolicyEgressNetworkAccessResult(dict):
         (list of EgressNetworkPolicyNetworkAccessPolicyStorageDestination) - List of storage destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
         """
         return pulumi.get(self, "allowed_storage_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="blockedInternetDestinations")
+    def blocked_internet_destinations(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyEgressNetworkAccessBlockedInternetDestinationResult']]:
+        """
+        (list of EgressNetworkPolicyNetworkAccessPolicyInternetDestination) - List of internet destinations that serverless workloads are blocked from accessing.
+        These destinations are enforced when restriction mode is RESTRICTED_ACCESS or DRY_RUN.
+        Currently supports DNS_NAME type only; IP_RANGE support is planned
+        """
+        return pulumi.get(self, "blocked_internet_destinations")
 
     @_builtins.property
     @pulumi.getter(name="policyEnforcement")
@@ -57606,6 +65426,37 @@ class GetAccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationResult(
 
 
 @pulumi.output_type
+class GetAccountNetworkPolicyEgressNetworkAccessBlockedInternetDestinationResult(dict):
+    def __init__(__self__, *,
+                 destination: Optional[_builtins.str] = None,
+                 internet_destination_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str internet_destination_type: (string) - The type of internet destination. Currently only DNS_NAME is supported. Possible values are: `DNS_NAME`
+        """
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if internet_destination_type is not None:
+            pulumi.set(__self__, "internet_destination_type", internet_destination_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional[_builtins.str]:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter(name="internetDestinationType")
+    def internet_destination_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - The type of internet destination. Currently only DNS_NAME is supported. Possible values are: `DNS_NAME`
+        """
+        return pulumi.get(self, "internet_destination_type")
+
+
+@pulumi.output_type
 class GetAccountNetworkPolicyEgressNetworkAccessPolicyEnforcementResult(dict):
     def __init__(__self__, *,
                  dry_run_mode_product_filters: Optional[Sequence[_builtins.str]] = None,
@@ -57645,18 +65496,34 @@ class GetAccountNetworkPolicyEgressNetworkAccessPolicyEnforcementResult(dict):
 @pulumi.output_type
 class GetAccountNetworkPolicyIngressResult(dict):
     def __init__(__self__, *,
+                 private_access: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessResult'] = None,
                  public_access: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessResult'] = None):
         """
-        :param 'GetAccountNetworkPolicyIngressPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessArgs' private_access: (CustomerFacingIngressNetworkPolicyPrivateAccess) - The network policy restrictions for private access to the workspace.
+               Configures how registered private endpoints are allowed or denied access
+        :param 'GetAccountNetworkPolicyIngressPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess) - The network policy restrictions for public access to the workspace.
+               Configures how public internet traffic is allowed or denied access
         """
+        if private_access is not None:
+            pulumi.set(__self__, "private_access", private_access)
         if public_access is not None:
             pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="privateAccess")
+    def private_access(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPrivateAccess) - The network policy restrictions for private access to the workspace.
+        Configures how registered private endpoints are allowed or denied access
+        """
+        return pulumi.get(self, "private_access")
 
     @_builtins.property
     @pulumi.getter(name="publicAccess")
     def public_access(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessResult']:
         """
-        (CustomerFacingIngressNetworkPolicyPublicAccess)
+        (CustomerFacingIngressNetworkPolicyPublicAccess) - The network policy restrictions for public access to the workspace.
+        Configures how public internet traffic is allowed or denied access
         """
         return pulumi.get(self, "public_access")
 
@@ -57664,20 +65531,980 @@ class GetAccountNetworkPolicyIngressResult(dict):
 @pulumi.output_type
 class GetAccountNetworkPolicyIngressDryRunResult(dict):
     def __init__(__self__, *,
+                 private_access: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessResult'] = None,
                  public_access: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessResult'] = None):
         """
-        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessArgs' private_access: (CustomerFacingIngressNetworkPolicyPrivateAccess) - The network policy restrictions for private access to the workspace.
+               Configures how registered private endpoints are allowed or denied access
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessArgs' public_access: (CustomerFacingIngressNetworkPolicyPublicAccess) - The network policy restrictions for public access to the workspace.
+               Configures how public internet traffic is allowed or denied access
         """
+        if private_access is not None:
+            pulumi.set(__self__, "private_access", private_access)
         if public_access is not None:
             pulumi.set(__self__, "public_access", public_access)
+
+    @_builtins.property
+    @pulumi.getter(name="privateAccess")
+    def private_access(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPrivateAccess) - The network policy restrictions for private access to the workspace.
+        Configures how registered private endpoints are allowed or denied access
+        """
+        return pulumi.get(self, "private_access")
 
     @_builtins.property
     @pulumi.getter(name="publicAccess")
     def public_access(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessResult']:
         """
-        (CustomerFacingIngressNetworkPolicyPublicAccess)
+        (CustomerFacingIngressNetworkPolicyPublicAccess) - The network policy restrictions for public access to the workspace.
+        Configures how public internet traffic is allowed or denied access
         """
         return pulumi.get(self, "public_access")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessResult(dict):
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleResult']] = None,
+                 deny_rules: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleResult']] = None):
+        """
+        :param _builtins.str restriction_mode: (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        :param Sequence['GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleArgs'] allow_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        :param Sequence['GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleArgs'] deny_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        """
+        (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        """
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - The label for this ingress rule
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - The label for this ingress rule
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUiResult'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeResult'] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpointsResult'] = None):
+        """
+        :param _builtins.bool all_private_access: (boolean)
+        :param _builtins.bool all_registered_endpoints: (boolean)
+        :param _builtins.bool azure_workspace_private_link: (boolean)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpointsArgs' endpoints: (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpointsResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessAllowRuleOriginEndpointsResult(dict):
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] endpoint_ids: (list of string)
+        """
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "endpoint_ids")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - The label for this ingress rule
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - The label for this ingress rule
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUiResult'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeResult'] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpointsResult'] = None):
+        """
+        :param _builtins.bool all_private_access: (boolean)
+        :param _builtins.bool all_registered_endpoints: (boolean)
+        :param _builtins.bool azure_workspace_private_link: (boolean)
+        :param 'GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpointsArgs' endpoints: (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpointsResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPrivateAccessDenyRuleOriginEndpointsResult(dict):
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] endpoint_ids: (list of string)
+        """
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "endpoint_ids")
 
 
 @pulumi.output_type
@@ -57732,8 +66559,7 @@ class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleResult(dict):
         """
         :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
         :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
-        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
+        :param _builtins.str label: (string) - The label for this ingress rule
         :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
         """
         if authentication is not None:
@@ -57765,8 +66591,7 @@ class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleResult(dict):
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
         """
-        (string) - User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
+        (string) - The label for this ingress rule
         """
         return pulumi.get(self, "label")
 
@@ -57844,20 +66669,64 @@ class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleAuthenticationIde
 @pulumi.output_type
 class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationResult(dict):
     def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUiResult'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeResult'] = None,
                  workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult'] = None,
                  workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult'] = None):
         """
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
         :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
         :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
-        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
 
     @_builtins.property
     @pulumi.getter(name="allDestinations")
@@ -57866,6 +66735,22 @@ class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationResult
         (boolean) - Must be set to true
         """
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -57879,20 +66764,139 @@ class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationResult
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceUiResult']:
         """
-        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountApiResult(dict):
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
         """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
         :param Sequence[_builtins.str] scopes: (list of string)
         """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -58013,8 +67017,7 @@ class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleResult(dict):
         """
         :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
         :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
-        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
+        :param _builtins.str label: (string) - The label for this ingress rule
         :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
         """
         if authentication is not None:
@@ -58046,8 +67049,7 @@ class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleResult(dict):
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
         """
-        (string) - User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
+        (string) - The label for this ingress rule
         """
         return pulumi.get(self, "label")
 
@@ -58125,20 +67127,64 @@ class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleAuthenticationIden
 @pulumi.output_type
 class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationResult(dict):
     def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUiResult'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeResult'] = None,
                  workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult'] = None,
                  workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult'] = None):
         """
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
         :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
         :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
-        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        :param 'GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
 
     @_builtins.property
     @pulumi.getter(name="allDestinations")
@@ -58147,6 +67193,22 @@ class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationResult(
         (boolean) - Must be set to true
         """
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -58160,20 +67222,139 @@ class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationResult(
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceUiResult']:
         """
-        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountApiResult(dict):
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
         """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
         :param Sequence[_builtins.str] scopes: (list of string)
         """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -58285,6 +67466,950 @@ class GetAccountNetworkPolicyIngressDryRunPublicAccessDenyRuleOriginIncludedIpRa
 
 
 @pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessResult(dict):
+    def __init__(__self__, *,
+                 restriction_mode: _builtins.str,
+                 allow_rules: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleResult']] = None,
+                 deny_rules: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleResult']] = None):
+        """
+        :param _builtins.str restriction_mode: (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        :param Sequence['GetAccountNetworkPolicyIngressPrivateAccessAllowRuleArgs'] allow_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        :param Sequence['GetAccountNetworkPolicyIngressPrivateAccessDenyRuleArgs'] deny_rules: (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allow_rules is not None:
+            pulumi.set(__self__, "allow_rules", allow_rules)
+        if deny_rules is not None:
+            pulumi.set(__self__, "deny_rules", deny_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="restrictionMode")
+    def restriction_mode(self) -> _builtins.str:
+        """
+        (string) - The restriction mode that controls how serverless workloads can access the internet. Possible values are: `FULL_ACCESS`, `RESTRICTED_ACCESS`
+        """
+        return pulumi.get(self, "restriction_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="allowRules")
+    def allow_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "allow_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="denyRules")
+    def deny_rules(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyPublicIngressRule)
+        """
+        return pulumi.get(self, "deny_rules")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - The label for this ingress rule
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - The label for this ingress rule
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUiResult'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeResult'] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpointsResult'] = None):
+        """
+        :param _builtins.bool all_private_access: (boolean)
+        :param _builtins.bool all_registered_endpoints: (boolean)
+        :param _builtins.bool azure_workspace_private_link: (boolean)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpointsArgs' endpoints: (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpointsResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessAllowRuleOriginEndpointsResult(dict):
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] endpoint_ids: (list of string)
+        """
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "endpoint_ids")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleResult(dict):
+    def __init__(__self__, *,
+                 authentication: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationResult'] = None,
+                 destination: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationResult'] = None,
+                 label: Optional[_builtins.str] = None,
+                 origin: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleOriginResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        :param _builtins.str label: (string) - The label for this ingress rule
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        if authentication is not None:
+            pulumi.set(__self__, "authentication", authentication)
+        if destination is not None:
+            pulumi.set(__self__, "destination", destination)
+        if label is not None:
+            pulumi.set(__self__, "label", label)
+        if origin is not None:
+            pulumi.set(__self__, "origin", origin)
+
+    @_builtins.property
+    @pulumi.getter
+    def authentication(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAuthentication)
+        """
+        return pulumi.get(self, "authentication")
+
+    @_builtins.property
+    @pulumi.getter
+    def destination(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationResult']:
+        """
+        (string) - The internet destination to which access will be allowed. Format dependent on the destination type
+        """
+        return pulumi.get(self, "destination")
+
+    @_builtins.property
+    @pulumi.getter
+    def label(self) -> Optional[_builtins.str]:
+        """
+        (string) - The label for this ingress rule
+        """
+        return pulumi.get(self, "label")
+
+    @_builtins.property
+    @pulumi.getter
+    def origin(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleOriginResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
+        """
+        return pulumi.get(self, "origin")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationResult(dict):
+    def __init__(__self__, *,
+                 identities: Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentityResult']] = None,
+                 identity_type: Optional[_builtins.str] = None):
+        """
+        :param Sequence['GetAccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentityArgs'] identities: (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        :param _builtins.str identity_type: (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+        if identity_type is not None:
+            pulumi.set(__self__, "identity_type", identity_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentityResult']]:
+        """
+        (list of CustomerFacingIngressNetworkPolicyAuthenticationIdentity) - Valid only when IdentityType is IDENTITY_TYPE_SELECTED_IDENTITIES
+        """
+        return pulumi.get(self, "identities")
+
+    @_builtins.property
+    @pulumi.getter(name="identityType")
+    def identity_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `IDENTITY_TYPE_ALL_SERVICE_PRINCIPALS`, `IDENTITY_TYPE_ALL_USERS`, `IDENTITY_TYPE_SELECTED_IDENTITIES`
+        """
+        return pulumi.get(self, "identity_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleAuthenticationIdentityResult(dict):
+    def __init__(__self__, *,
+                 principal_id: Optional[_builtins.int] = None,
+                 principal_type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.int principal_id: (integer)
+        :param _builtins.str principal_type: (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        if principal_id is not None:
+            pulumi.set(__self__, "principal_id", principal_id)
+        if principal_type is not None:
+            pulumi.set(__self__, "principal_type", principal_type)
+
+    @_builtins.property
+    @pulumi.getter(name="principalId")
+    def principal_id(self) -> Optional[_builtins.int]:
+        """
+        (integer)
+        """
+        return pulumi.get(self, "principal_id")
+
+    @_builtins.property
+    @pulumi.getter(name="principalType")
+    def principal_type(self) -> Optional[_builtins.str]:
+        """
+        (string) - Possible values are: `PRINCIPAL_TYPE_SERVICE_PRINCIPAL`, `PRINCIPAL_TYPE_USER`
+        """
+        return pulumi.get(self, "principal_type")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationResult(dict):
+    def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUiResult'] = None,
+                 all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeResult'] = None,
+                 workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApiResult'] = None,
+                 workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUiResult'] = None):
+        """
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
+        if workspace_api is not None:
+            pulumi.set(__self__, "workspace_api", workspace_api)
+        if workspace_ui is not None:
+            pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceApi")
+    def workspace_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
+        """
+        return pulumi.get(self, "workspace_api")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceUi")
+    def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
+        """
+        return pulumi.get(self, "workspace_ui")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleDestinationWorkspaceUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleOriginResult(dict):
+    def __init__(__self__, *,
+                 all_private_access: Optional[_builtins.bool] = None,
+                 all_registered_endpoints: Optional[_builtins.bool] = None,
+                 azure_workspace_private_link: Optional[_builtins.bool] = None,
+                 endpoints: Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpointsResult'] = None):
+        """
+        :param _builtins.bool all_private_access: (boolean)
+        :param _builtins.bool all_registered_endpoints: (boolean)
+        :param _builtins.bool azure_workspace_private_link: (boolean)
+        :param 'GetAccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpointsArgs' endpoints: (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        if all_private_access is not None:
+            pulumi.set(__self__, "all_private_access", all_private_access)
+        if all_registered_endpoints is not None:
+            pulumi.set(__self__, "all_registered_endpoints", all_registered_endpoints)
+        if azure_workspace_private_link is not None:
+            pulumi.set(__self__, "azure_workspace_private_link", azure_workspace_private_link)
+        if endpoints is not None:
+            pulumi.set(__self__, "endpoints", endpoints)
+
+    @_builtins.property
+    @pulumi.getter(name="allPrivateAccess")
+    def all_private_access(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_private_access")
+
+    @_builtins.property
+    @pulumi.getter(name="allRegisteredEndpoints")
+    def all_registered_endpoints(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "all_registered_endpoints")
+
+    @_builtins.property
+    @pulumi.getter(name="azureWorkspacePrivateLink")
+    def azure_workspace_private_link(self) -> Optional[_builtins.bool]:
+        """
+        (boolean)
+        """
+        return pulumi.get(self, "azure_workspace_private_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoints(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpointsResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyEndpoints)
+        """
+        return pulumi.get(self, "endpoints")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPrivateAccessDenyRuleOriginEndpointsResult(dict):
+    def __init__(__self__, *,
+                 endpoint_ids: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] endpoint_ids: (list of string)
+        """
+        if endpoint_ids is not None:
+            pulumi.set(__self__, "endpoint_ids", endpoint_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointIds")
+    def endpoint_ids(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "endpoint_ids")
+
+
+@pulumi.output_type
 class GetAccountNetworkPolicyIngressPublicAccessResult(dict):
     def __init__(__self__, *,
                  restriction_mode: _builtins.str,
@@ -58336,8 +68461,7 @@ class GetAccountNetworkPolicyIngressPublicAccessAllowRuleResult(dict):
         """
         :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
         :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
-        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
+        :param _builtins.str label: (string) - The label for this ingress rule
         :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
         """
         if authentication is not None:
@@ -58369,8 +68493,7 @@ class GetAccountNetworkPolicyIngressPublicAccessAllowRuleResult(dict):
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
         """
-        (string) - User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
+        (string) - The label for this ingress rule
         """
         return pulumi.get(self, "label")
 
@@ -58448,20 +68571,64 @@ class GetAccountNetworkPolicyIngressPublicAccessAllowRuleAuthenticationIdentityR
 @pulumi.output_type
 class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationResult(dict):
     def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUiResult'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntimeResult'] = None,
                  workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiResult'] = None,
                  workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiResult'] = None):
         """
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
         :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
         :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
-        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        :param 'GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
 
     @_builtins.property
     @pulumi.getter(name="allDestinations")
@@ -58470,6 +68637,22 @@ class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationResult(dict)
         (boolean) - Must be set to true
         """
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -58483,20 +68666,139 @@ class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationResult(dict)
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceUiResult']:
         """
-        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountApiResult(dict):
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
         """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
         :param Sequence[_builtins.str] scopes: (list of string)
         """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessAllowRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -58617,8 +68919,7 @@ class GetAccountNetworkPolicyIngressPublicAccessDenyRuleResult(dict):
         """
         :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationArgs' authentication: (CustomerFacingIngressNetworkPolicyAuthentication)
         :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationArgs' destination: (string) - The internet destination to which access will be allowed. Format dependent on the destination type
-        :param _builtins.str label: (string) - User-provided name for this ingress rule. Helps identify which rule
-               caused a request to be denied or dry-run denied
+        :param _builtins.str label: (string) - The label for this ingress rule
         :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleOriginArgs' origin: (CustomerFacingIngressNetworkPolicyPublicRequestOrigin)
         """
         if authentication is not None:
@@ -58650,8 +68951,7 @@ class GetAccountNetworkPolicyIngressPublicAccessDenyRuleResult(dict):
     @pulumi.getter
     def label(self) -> Optional[_builtins.str]:
         """
-        (string) - User-provided name for this ingress rule. Helps identify which rule
-        caused a request to be denied or dry-run denied
+        (string) - The label for this ingress rule
         """
         return pulumi.get(self, "label")
 
@@ -58729,20 +69029,64 @@ class GetAccountNetworkPolicyIngressPublicAccessDenyRuleAuthenticationIdentityRe
 @pulumi.output_type
 class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationResult(dict):
     def __init__(__self__, *,
+                 account_api: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApiResult'] = None,
+                 account_databricks_one: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOneResult'] = None,
+                 account_ui: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUiResult'] = None,
                  all_destinations: Optional[_builtins.bool] = None,
+                 apps_runtime: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntimeResult'] = None,
+                 lakebase_runtime: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntimeResult'] = None,
                  workspace_api: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiResult'] = None,
                  workspace_ui: Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiResult'] = None):
         """
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApiArgs' account_api: (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOneArgs' account_databricks_one: (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUiArgs' account_ui: (CustomerFacingIngressNetworkPolicyAccountUiDestination)
         :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntimeArgs' apps_runtime: (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntimeArgs' lakebase_runtime: (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
         :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiArgs' workspace_api: (CustomerFacingIngressNetworkPolicyWorkspaceApiDestination)
-        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        :param 'GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiArgs' workspace_ui: (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
+        if account_api is not None:
+            pulumi.set(__self__, "account_api", account_api)
+        if account_databricks_one is not None:
+            pulumi.set(__self__, "account_databricks_one", account_databricks_one)
+        if account_ui is not None:
+            pulumi.set(__self__, "account_ui", account_ui)
         if all_destinations is not None:
             pulumi.set(__self__, "all_destinations", all_destinations)
+        if apps_runtime is not None:
+            pulumi.set(__self__, "apps_runtime", apps_runtime)
+        if lakebase_runtime is not None:
+            pulumi.set(__self__, "lakebase_runtime", lakebase_runtime)
         if workspace_api is not None:
             pulumi.set(__self__, "workspace_api", workspace_api)
         if workspace_ui is not None:
             pulumi.set(__self__, "workspace_ui", workspace_ui)
+
+    @_builtins.property
+    @pulumi.getter(name="accountApi")
+    def account_api(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountApiDestination)
+        """
+        return pulumi.get(self, "account_api")
+
+    @_builtins.property
+    @pulumi.getter(name="accountDatabricksOne")
+    def account_databricks_one(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOneResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountDatabricksOneDestination)
+        """
+        return pulumi.get(self, "account_databricks_one")
+
+    @_builtins.property
+    @pulumi.getter(name="accountUi")
+    def account_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUiResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAccountUiDestination)
+        """
+        return pulumi.get(self, "account_ui")
 
     @_builtins.property
     @pulumi.getter(name="allDestinations")
@@ -58751,6 +69095,22 @@ class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationResult(dict):
         (boolean) - Must be set to true
         """
         return pulumi.get(self, "all_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="appsRuntime")
+    def apps_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyAppsRuntimeDestination)
+        """
+        return pulumi.get(self, "apps_runtime")
+
+    @_builtins.property
+    @pulumi.getter(name="lakebaseRuntime")
+    def lakebase_runtime(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntimeResult']:
+        """
+        (CustomerFacingIngressNetworkPolicyLakebaseRuntimeDestination)
+        """
+        return pulumi.get(self, "lakebase_runtime")
 
     @_builtins.property
     @pulumi.getter(name="workspaceApi")
@@ -58764,20 +69124,139 @@ class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationResult(dict):
     @pulumi.getter(name="workspaceUi")
     def workspace_ui(self) -> Optional['outputs.GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceUiResult']:
         """
-        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination) - Workspace destinations
+        (CustomerFacingIngressNetworkPolicyWorkspaceUiDestination)
         """
         return pulumi.get(self, "workspace_ui")
 
 
 @pulumi.output_type
-class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountApiResult(dict):
     def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
                  scopes: Optional[Sequence[_builtins.str]] = None):
         """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
         :param Sequence[_builtins.str] scopes: (list of string)
         """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
         if scopes is not None:
             pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
+
+    @_builtins.property
+    @pulumi.getter
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string)
+        """
+        return pulumi.get(self, "scopes")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountDatabricksOneResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAccountUiResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationAppsRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationLakebaseRuntimeResult(dict):
+    def __init__(__self__, *,
+                 all_destinations: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool all_destinations: (boolean) - Must be set to true
+        """
+        if all_destinations is not None:
+            pulumi.set(__self__, "all_destinations", all_destinations)
+
+    @_builtins.property
+    @pulumi.getter(name="allDestinations")
+    def all_destinations(self) -> Optional[_builtins.bool]:
+        """
+        (boolean) - Must be set to true
+        """
+        return pulumi.get(self, "all_destinations")
+
+
+@pulumi.output_type
+class GetAccountNetworkPolicyIngressPublicAccessDenyRuleDestinationWorkspaceApiResult(dict):
+    def __init__(__self__, *,
+                 scope_qualifier: Optional[_builtins.str] = None,
+                 scopes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str scope_qualifier: (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        :param Sequence[_builtins.str] scopes: (list of string)
+        """
+        if scope_qualifier is not None:
+            pulumi.set(__self__, "scope_qualifier", scope_qualifier)
+        if scopes is not None:
+            pulumi.set(__self__, "scopes", scopes)
+
+    @_builtins.property
+    @pulumi.getter(name="scopeQualifier")
+    def scope_qualifier(self) -> Optional[_builtins.str]:
+        """
+        (string) - Qualifies the breadth of API access for the listed scopes. See ApiScopeQualifier. Possible values are: `API_SCOPE_QUALIFIER_ALL`, `API_SCOPE_QUALIFIER_READ`
+        """
+        return pulumi.get(self, "scope_qualifier")
 
     @_builtins.property
     @pulumi.getter
@@ -60837,6 +71316,7 @@ class GetAppAppResult(dict):
                  service_principal_client_id: _builtins.str,
                  service_principal_id: _builtins.int,
                  service_principal_name: _builtins.str,
+                 thumbnail_url: _builtins.str,
                  update_time: _builtins.str,
                  updater: _builtins.str,
                  url: _builtins.str,
@@ -60887,6 +71367,7 @@ class GetAppAppResult(dict):
         pulumi.set(__self__, "service_principal_client_id", service_principal_client_id)
         pulumi.set(__self__, "service_principal_id", service_principal_id)
         pulumi.set(__self__, "service_principal_name", service_principal_name)
+        pulumi.set(__self__, "thumbnail_url", thumbnail_url)
         pulumi.set(__self__, "update_time", update_time)
         pulumi.set(__self__, "updater", updater)
         pulumi.set(__self__, "url", url)
@@ -61029,6 +71510,11 @@ class GetAppAppResult(dict):
         name of the app service principal
         """
         return pulumi.get(self, "service_principal_name")
+
+    @_builtins.property
+    @pulumi.getter(name="thumbnailUrl")
+    def thumbnail_url(self) -> _builtins.str:
+        return pulumi.get(self, "thumbnail_url")
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
@@ -63615,6 +74101,7 @@ class GetAppsAppResult(dict):
                  service_principal_client_id: _builtins.str,
                  service_principal_id: _builtins.int,
                  service_principal_name: _builtins.str,
+                 thumbnail_url: _builtins.str,
                  update_time: _builtins.str,
                  updater: _builtins.str,
                  url: _builtins.str,
@@ -63665,6 +74152,7 @@ class GetAppsAppResult(dict):
         pulumi.set(__self__, "service_principal_client_id", service_principal_client_id)
         pulumi.set(__self__, "service_principal_id", service_principal_id)
         pulumi.set(__self__, "service_principal_name", service_principal_name)
+        pulumi.set(__self__, "thumbnail_url", thumbnail_url)
         pulumi.set(__self__, "update_time", update_time)
         pulumi.set(__self__, "updater", updater)
         pulumi.set(__self__, "url", url)
@@ -63807,6 +74295,11 @@ class GetAppsAppResult(dict):
         name of the app service principal
         """
         return pulumi.get(self, "service_principal_name")
+
+    @_builtins.property
+    @pulumi.getter(name="thumbnailUrl")
+    def thumbnail_url(self) -> _builtins.str:
+        return pulumi.get(self, "thumbnail_url")
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
@@ -67363,6 +77856,7 @@ class GetClusterClusterInfoGcpAttributesResult(dict):
     def __init__(__self__, *,
                  availability: Optional[_builtins.str] = None,
                  boot_disk_size: Optional[_builtins.int] = None,
+                 confidential_compute_type: Optional[_builtins.str] = None,
                  first_on_demand: Optional[_builtins.int] = None,
                  google_service_account: Optional[_builtins.str] = None,
                  local_ssd_count: Optional[_builtins.int] = None,
@@ -67372,6 +77866,8 @@ class GetClusterClusterInfoGcpAttributesResult(dict):
             pulumi.set(__self__, "availability", availability)
         if boot_disk_size is not None:
             pulumi.set(__self__, "boot_disk_size", boot_disk_size)
+        if confidential_compute_type is not None:
+            pulumi.set(__self__, "confidential_compute_type", confidential_compute_type)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if google_service_account is not None:
@@ -67392,6 +77888,11 @@ class GetClusterClusterInfoGcpAttributesResult(dict):
     @pulumi.getter(name="bootDiskSize")
     def boot_disk_size(self) -> Optional[_builtins.int]:
         return pulumi.get(self, "boot_disk_size")
+
+    @_builtins.property
+    @pulumi.getter(name="confidentialComputeType")
+    def confidential_compute_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "confidential_compute_type")
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -67621,6 +78122,7 @@ class GetClusterClusterInfoSpecResult(dict):
                  enable_elastic_disk: _builtins.bool,
                  enable_local_disk_encryption: _builtins.bool,
                  node_type_id: _builtins.str,
+                 provider_config: 'outputs.GetClusterClusterInfoSpecProviderConfigResult',
                  apply_policy_default_values: Optional[_builtins.bool] = None,
                  autoscale: Optional['outputs.GetClusterClusterInfoSpecAutoscaleResult'] = None,
                  aws_attributes: Optional['outputs.GetClusterClusterInfoSpecAwsAttributesResult'] = None,
@@ -67641,7 +78143,6 @@ class GetClusterClusterInfoSpecResult(dict):
                  libraries: Optional[Sequence['outputs.GetClusterClusterInfoSpecLibraryResult']] = None,
                  num_workers: Optional[_builtins.int] = None,
                  policy_id: Optional[_builtins.str] = None,
-                 provider_config: Optional['outputs.GetClusterClusterInfoSpecProviderConfigResult'] = None,
                  remote_disk_throughput: Optional[_builtins.int] = None,
                  runtime_engine: Optional[_builtins.str] = None,
                  single_user_name: Optional[_builtins.str] = None,
@@ -67660,13 +78161,13 @@ class GetClusterClusterInfoSpecResult(dict):
         :param _builtins.bool enable_elastic_disk: Use autoscaling local storage.
         :param _builtins.bool enable_local_disk_encryption: Enable local disk encryption.
         :param _builtins.str node_type_id: Any supported get_node_type id.
+        :param 'GetClusterClusterInfoSpecProviderConfigArgs' provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param _builtins.str cluster_name: The exact name of the cluster to search. Can only be specified if there is exactly one cluster with the provided name.
         :param Mapping[str, _builtins.str] custom_tags: Additional tags for cluster resources.
         :param _builtins.str data_security_mode: Security features of the cluster. Unity Catalog requires `SINGLE_USER` or `USER_ISOLATION` mode. `LEGACY_PASSTHROUGH` for passthrough cluster and `LEGACY_TABLE_ACL` for Table ACL cluster. Default to `NONE`, i.e. no security feature enabled.
         :param _builtins.str idempotency_token: An optional token to guarantee the idempotency of cluster creation requests.
         :param _builtins.str instance_pool_id: The pool of idle instances the cluster is attached to.
         :param _builtins.str policy_id: Identifier of Cluster Policy to validate cluster and preset certain defaults.
-        :param 'GetClusterClusterInfoSpecProviderConfigArgs' provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         :param _builtins.str runtime_engine: The type of runtime of the cluster
         :param _builtins.str single_user_name: The optional user name of the user to assign to an interactive cluster. This field is required when using standard AAD Passthrough for Azure Data Lake Storage (ADLS) with a single-user cluster (i.e., not high-concurrency clusters).
         :param Mapping[str, _builtins.str] spark_conf: Map with key-value pairs to fine-tune Spark clusters.
@@ -67680,6 +78181,7 @@ class GetClusterClusterInfoSpecResult(dict):
         pulumi.set(__self__, "enable_elastic_disk", enable_elastic_disk)
         pulumi.set(__self__, "enable_local_disk_encryption", enable_local_disk_encryption)
         pulumi.set(__self__, "node_type_id", node_type_id)
+        pulumi.set(__self__, "provider_config", provider_config)
         if apply_policy_default_values is not None:
             pulumi.set(__self__, "apply_policy_default_values", apply_policy_default_values)
         if autoscale is not None:
@@ -67720,8 +78222,6 @@ class GetClusterClusterInfoSpecResult(dict):
             pulumi.set(__self__, "num_workers", num_workers)
         if policy_id is not None:
             pulumi.set(__self__, "policy_id", policy_id)
-        if provider_config is not None:
-            pulumi.set(__self__, "provider_config", provider_config)
         if remote_disk_throughput is not None:
             pulumi.set(__self__, "remote_disk_throughput", remote_disk_throughput)
         if runtime_engine is not None:
@@ -67792,6 +78292,14 @@ class GetClusterClusterInfoSpecResult(dict):
         Any supported get_node_type id.
         """
         return pulumi.get(self, "node_type_id")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> 'outputs.GetClusterClusterInfoSpecProviderConfigResult':
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter(name="applyPolicyDefaultValues")
@@ -67910,14 +78418,6 @@ class GetClusterClusterInfoSpecResult(dict):
         Identifier of Cluster Policy to validate cluster and preset certain defaults.
         """
         return pulumi.get(self, "policy_id")
-
-    @_builtins.property
-    @pulumi.getter(name="providerConfig")
-    def provider_config(self) -> Optional['outputs.GetClusterClusterInfoSpecProviderConfigResult']:
-        """
-        Configure the provider for management through account provider. This block consists of the following fields:
-        """
-        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter(name="remoteDiskThroughput")
@@ -68374,6 +78874,7 @@ class GetClusterClusterInfoSpecGcpAttributesResult(dict):
     def __init__(__self__, *,
                  availability: Optional[_builtins.str] = None,
                  boot_disk_size: Optional[_builtins.int] = None,
+                 confidential_compute_type: Optional[_builtins.str] = None,
                  first_on_demand: Optional[_builtins.int] = None,
                  google_service_account: Optional[_builtins.str] = None,
                  local_ssd_count: Optional[_builtins.int] = None,
@@ -68383,6 +78884,8 @@ class GetClusterClusterInfoSpecGcpAttributesResult(dict):
             pulumi.set(__self__, "availability", availability)
         if boot_disk_size is not None:
             pulumi.set(__self__, "boot_disk_size", boot_disk_size)
+        if confidential_compute_type is not None:
+            pulumi.set(__self__, "confidential_compute_type", confidential_compute_type)
         if first_on_demand is not None:
             pulumi.set(__self__, "first_on_demand", first_on_demand)
         if google_service_account is not None:
@@ -68403,6 +78906,11 @@ class GetClusterClusterInfoSpecGcpAttributesResult(dict):
     @pulumi.getter(name="bootDiskSize")
     def boot_disk_size(self) -> Optional[_builtins.int]:
         return pulumi.get(self, "boot_disk_size")
+
+    @_builtins.property
+    @pulumi.getter(name="confidentialComputeType")
+    def confidential_compute_type(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "confidential_compute_type")
 
     @_builtins.property
     @pulumi.getter(name="firstOnDemand")
@@ -68627,17 +79135,18 @@ class GetClusterClusterInfoSpecInitScriptWorkspaceResult(dict):
 @pulumi.output_type
 class GetClusterClusterInfoSpecLibraryResult(dict):
     def __init__(__self__, *,
+                 provider_config: 'outputs.GetClusterClusterInfoSpecLibraryProviderConfigResult',
                  cran: Optional['outputs.GetClusterClusterInfoSpecLibraryCranResult'] = None,
                  egg: Optional[_builtins.str] = None,
                  jar: Optional[_builtins.str] = None,
                  maven: Optional['outputs.GetClusterClusterInfoSpecLibraryMavenResult'] = None,
-                 provider_config: Optional['outputs.GetClusterClusterInfoSpecLibraryProviderConfigResult'] = None,
                  pypi: Optional['outputs.GetClusterClusterInfoSpecLibraryPypiResult'] = None,
                  requirements: Optional[_builtins.str] = None,
                  whl: Optional[_builtins.str] = None):
         """
         :param 'GetClusterClusterInfoSpecLibraryProviderConfigArgs' provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
+        pulumi.set(__self__, "provider_config", provider_config)
         if cran is not None:
             pulumi.set(__self__, "cran", cran)
         if egg is not None:
@@ -68646,14 +79155,20 @@ class GetClusterClusterInfoSpecLibraryResult(dict):
             pulumi.set(__self__, "jar", jar)
         if maven is not None:
             pulumi.set(__self__, "maven", maven)
-        if provider_config is not None:
-            pulumi.set(__self__, "provider_config", provider_config)
         if pypi is not None:
             pulumi.set(__self__, "pypi", pypi)
         if requirements is not None:
             pulumi.set(__self__, "requirements", requirements)
         if whl is not None:
             pulumi.set(__self__, "whl", whl)
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> 'outputs.GetClusterClusterInfoSpecLibraryProviderConfigResult':
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter
@@ -68675,14 +79190,6 @@ class GetClusterClusterInfoSpecLibraryResult(dict):
     @pulumi.getter
     def maven(self) -> Optional['outputs.GetClusterClusterInfoSpecLibraryMavenResult']:
         return pulumi.get(self, "maven")
-
-    @_builtins.property
-    @pulumi.getter(name="providerConfig")
-    def provider_config(self) -> Optional['outputs.GetClusterClusterInfoSpecLibraryProviderConfigResult']:
-        """
-        Configure the provider for management through account provider. This block consists of the following fields:
-        """
-        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter
@@ -69426,7 +79933,8 @@ class GetDataClassificationCatalogConfigAutoTagConfigResult(dict):
                  classification_tag: _builtins.str):
         """
         :param _builtins.str auto_tagging_mode: (string) - Whether auto-tagging is enabled or disabled for this classification tag. Possible values are: `AUTO_TAGGING_DISABLED`, `AUTO_TAGGING_ENABLED`
-        :param _builtins.str classification_tag: (string) - The Classification Tag (e.g., "class.name", "class.location")
+        :param _builtins.str classification_tag: (string) - The Classification Tag. For built-in classes this is a system tag (e.g., "class.name",
+               "class.location"); for custom classes it is a user-defined governance tag key
         """
         pulumi.set(__self__, "auto_tagging_mode", auto_tagging_mode)
         pulumi.set(__self__, "classification_tag", classification_tag)
@@ -69443,7 +79951,8 @@ class GetDataClassificationCatalogConfigAutoTagConfigResult(dict):
     @pulumi.getter(name="classificationTag")
     def classification_tag(self) -> _builtins.str:
         """
-        (string) - The Classification Tag (e.g., "class.name", "class.location")
+        (string) - The Classification Tag. For built-in classes this is a system tag (e.g., "class.name",
+        "class.location"); for custom classes it is a user-defined governance tag key
         """
         return pulumi.get(self, "classification_tag")
 
@@ -73469,6 +83978,556 @@ class GetDirectoryProviderConfigResult(dict):
         Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
         """
         return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryFailoverGroupUnityCatalogAssetsResult(dict):
+    def __init__(__self__, *,
+                 catalogs: Sequence['outputs.GetDisasterRecoveryFailoverGroupUnityCatalogAssetsCatalogResult'],
+                 data_replication_workspace_set: _builtins.str,
+                 location_mappings: Optional[Sequence['outputs.GetDisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingResult']] = None):
+        """
+        :param Sequence['GetDisasterRecoveryFailoverGroupUnityCatalogAssetsCatalogArgs'] catalogs: (list of UcCatalog) - UC catalogs to replicate
+        :param _builtins.str data_replication_workspace_set: (string) - The workspace set whose workspaces will be used for data replication
+               of all UC catalogs' underlying storage
+        :param Sequence['GetDisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingArgs'] location_mappings: (list of LocationMapping) - Location mappings - storage URI per region for each location
+        """
+        pulumi.set(__self__, "catalogs", catalogs)
+        pulumi.set(__self__, "data_replication_workspace_set", data_replication_workspace_set)
+        if location_mappings is not None:
+            pulumi.set(__self__, "location_mappings", location_mappings)
+
+    @_builtins.property
+    @pulumi.getter
+    def catalogs(self) -> Sequence['outputs.GetDisasterRecoveryFailoverGroupUnityCatalogAssetsCatalogResult']:
+        """
+        (list of UcCatalog) - UC catalogs to replicate
+        """
+        return pulumi.get(self, "catalogs")
+
+    @_builtins.property
+    @pulumi.getter(name="dataReplicationWorkspaceSet")
+    def data_replication_workspace_set(self) -> _builtins.str:
+        """
+        (string) - The workspace set whose workspaces will be used for data replication
+        of all UC catalogs' underlying storage
+        """
+        return pulumi.get(self, "data_replication_workspace_set")
+
+    @_builtins.property
+    @pulumi.getter(name="locationMappings")
+    def location_mappings(self) -> Optional[Sequence['outputs.GetDisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingResult']]:
+        """
+        (list of LocationMapping) - Location mappings - storage URI per region for each location
+        """
+        return pulumi.get(self, "location_mappings")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryFailoverGroupUnityCatalogAssetsCatalogResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: Fully qualified resource name in the format
+               accounts/{account_id}/failover-groups/{failover_group_id}
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Fully qualified resource name in the format
+        accounts/{account_id}/failover-groups/{failover_group_id}
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 uri_by_regions: Sequence['outputs.GetDisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingUriByRegionResult']):
+        """
+        :param _builtins.str name: Fully qualified resource name in the format
+               accounts/{account_id}/failover-groups/{failover_group_id}
+        :param Sequence['GetDisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingUriByRegionArgs'] uri_by_regions: (list of LocationMappingEntry) - URI for each region. Each entry maps a region name to a storage URI
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "uri_by_regions", uri_by_regions)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Fully qualified resource name in the format
+        accounts/{account_id}/failover-groups/{failover_group_id}
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="uriByRegions")
+    def uri_by_regions(self) -> Sequence['outputs.GetDisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingUriByRegionResult']:
+        """
+        (list of LocationMappingEntry) - URI for each region. Each entry maps a region name to a storage URI
+        """
+        return pulumi.get(self, "uri_by_regions")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryFailoverGroupUnityCatalogAssetsLocationMappingUriByRegionResult(dict):
+    def __init__(__self__, *,
+                 region: _builtins.str,
+                 uri: _builtins.str):
+        """
+        :param _builtins.str region: (string) - The region name
+        :param _builtins.str uri: (string) - The storage URI for this region
+        """
+        pulumi.set(__self__, "region", region)
+        pulumi.set(__self__, "uri", uri)
+
+    @_builtins.property
+    @pulumi.getter
+    def region(self) -> _builtins.str:
+        """
+        (string) - The region name
+        """
+        return pulumi.get(self, "region")
+
+    @_builtins.property
+    @pulumi.getter
+    def uri(self) -> _builtins.str:
+        """
+        (string) - The storage URI for this region
+        """
+        return pulumi.get(self, "uri")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryFailoverGroupWorkspaceSetResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 replicate_workspace_assets: _builtins.bool,
+                 workspace_ids: Sequence[_builtins.str],
+                 stable_url_names: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str name: Fully qualified resource name in the format
+               accounts/{account_id}/failover-groups/{failover_group_id}
+        :param _builtins.bool replicate_workspace_assets: (boolean) - Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
+               Requires all workspaces in the set to be Mission Critical tier
+        :param Sequence[_builtins.str] workspace_ids: (list of string) - Workspace IDs in this set. The system derives and validates regions.
+               EA: exactly 2 workspaces (one per region)
+        :param Sequence[_builtins.str] stable_url_names: (list of string) - Resource names of stable URLs associated with this workspace set.
+               Format: accounts/{account_id}/stable-urls/{stable_url_id}.
+               The referenced stable URLs must already exist (via CreateStableUrl)
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "replicate_workspace_assets", replicate_workspace_assets)
+        pulumi.set(__self__, "workspace_ids", workspace_ids)
+        if stable_url_names is not None:
+            pulumi.set(__self__, "stable_url_names", stable_url_names)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Fully qualified resource name in the format
+        accounts/{account_id}/failover-groups/{failover_group_id}
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="replicateWorkspaceAssets")
+    def replicate_workspace_assets(self) -> _builtins.bool:
+        """
+        (boolean) - Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
+        Requires all workspaces in the set to be Mission Critical tier
+        """
+        return pulumi.get(self, "replicate_workspace_assets")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceIds")
+    def workspace_ids(self) -> Sequence[_builtins.str]:
+        """
+        (list of string) - Workspace IDs in this set. The system derives and validates regions.
+        EA: exactly 2 workspaces (one per region)
+        """
+        return pulumi.get(self, "workspace_ids")
+
+    @_builtins.property
+    @pulumi.getter(name="stableUrlNames")
+    def stable_url_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - Resource names of stable URLs associated with this workspace set.
+        Format: accounts/{account_id}/stable-urls/{stable_url_id}.
+        The referenced stable URLs must already exist (via CreateStableUrl)
+        """
+        return pulumi.get(self, "stable_url_names")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryFailoverGroupsFailoverGroupResult(dict):
+    def __init__(__self__, *,
+                 create_time: _builtins.str,
+                 effective_primary_region: _builtins.str,
+                 etag: _builtins.str,
+                 initial_primary_region: _builtins.str,
+                 name: _builtins.str,
+                 regions: Sequence[_builtins.str],
+                 replication_point: _builtins.str,
+                 state: _builtins.str,
+                 unity_catalog_assets: 'outputs.GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsResult',
+                 update_time: _builtins.str,
+                 workspace_sets: Sequence['outputs.GetDisasterRecoveryFailoverGroupsFailoverGroupWorkspaceSetResult']):
+        """
+        :param _builtins.str create_time: (string) - Time at which this failover group was created
+        :param _builtins.str effective_primary_region: (string) - Current effective primary region. Replication flows FROM workspaces in this region.
+               Changes after a successful failover
+        :param _builtins.str etag: (string) - Opaque version string for optimistic locking. Server-generated, returned in responses.
+               Must be provided on Update requests to prevent concurrent modifications
+        :param _builtins.str initial_primary_region: (string) - Initial primary region. Used only in Create requests to set the starting
+               primary region. Not returned in responses
+        :param _builtins.str name: (string) - Resource name for this workspace set
+        :param Sequence[_builtins.str] regions: (list of string) - List of all regions participating in this failover group
+        :param _builtins.str replication_point: (string) - The latest point in time to which data has been replicated
+        :param _builtins.str state: (string) - Aggregate state of the failover group. Possible values are: `ACTIVE`, `CREATING`, `CREATION_FAILED`, `DELETING`, `DELETION_FAILED`, `FAILING_OVER`, `FAILOVER_FAILED`, `INITIAL_REPLICATION`
+        :param 'GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsArgs' unity_catalog_assets: (UcReplicationConfig) - Unity Catalog replication configuration
+        :param _builtins.str update_time: (string) - Time at which this failover group was last modified
+        :param Sequence['GetDisasterRecoveryFailoverGroupsFailoverGroupWorkspaceSetArgs'] workspace_sets: (list of WorkspaceSet) - Workspace sets, each containing workspaces that replicate to each other
+        """
+        pulumi.set(__self__, "create_time", create_time)
+        pulumi.set(__self__, "effective_primary_region", effective_primary_region)
+        pulumi.set(__self__, "etag", etag)
+        pulumi.set(__self__, "initial_primary_region", initial_primary_region)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "regions", regions)
+        pulumi.set(__self__, "replication_point", replication_point)
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "unity_catalog_assets", unity_catalog_assets)
+        pulumi.set(__self__, "update_time", update_time)
+        pulumi.set(__self__, "workspace_sets", workspace_sets)
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> _builtins.str:
+        """
+        (string) - Time at which this failover group was created
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="effectivePrimaryRegion")
+    def effective_primary_region(self) -> _builtins.str:
+        """
+        (string) - Current effective primary region. Replication flows FROM workspaces in this region.
+        Changes after a successful failover
+        """
+        return pulumi.get(self, "effective_primary_region")
+
+    @_builtins.property
+    @pulumi.getter
+    def etag(self) -> _builtins.str:
+        """
+        (string) - Opaque version string for optimistic locking. Server-generated, returned in responses.
+        Must be provided on Update requests to prevent concurrent modifications
+        """
+        return pulumi.get(self, "etag")
+
+    @_builtins.property
+    @pulumi.getter(name="initialPrimaryRegion")
+    def initial_primary_region(self) -> _builtins.str:
+        """
+        (string) - Initial primary region. Used only in Create requests to set the starting
+        primary region. Not returned in responses
+        """
+        return pulumi.get(self, "initial_primary_region")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Resource name for this workspace set
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def regions(self) -> Sequence[_builtins.str]:
+        """
+        (list of string) - List of all regions participating in this failover group
+        """
+        return pulumi.get(self, "regions")
+
+    @_builtins.property
+    @pulumi.getter(name="replicationPoint")
+    def replication_point(self) -> _builtins.str:
+        """
+        (string) - The latest point in time to which data has been replicated
+        """
+        return pulumi.get(self, "replication_point")
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> _builtins.str:
+        """
+        (string) - Aggregate state of the failover group. Possible values are: `ACTIVE`, `CREATING`, `CREATION_FAILED`, `DELETING`, `DELETION_FAILED`, `FAILING_OVER`, `FAILOVER_FAILED`, `INITIAL_REPLICATION`
+        """
+        return pulumi.get(self, "state")
+
+    @_builtins.property
+    @pulumi.getter(name="unityCatalogAssets")
+    def unity_catalog_assets(self) -> 'outputs.GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsResult':
+        """
+        (UcReplicationConfig) - Unity Catalog replication configuration
+        """
+        return pulumi.get(self, "unity_catalog_assets")
+
+    @_builtins.property
+    @pulumi.getter(name="updateTime")
+    def update_time(self) -> _builtins.str:
+        """
+        (string) - Time at which this failover group was last modified
+        """
+        return pulumi.get(self, "update_time")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceSets")
+    def workspace_sets(self) -> Sequence['outputs.GetDisasterRecoveryFailoverGroupsFailoverGroupWorkspaceSetResult']:
+        """
+        (list of WorkspaceSet) - Workspace sets, each containing workspaces that replicate to each other
+        """
+        return pulumi.get(self, "workspace_sets")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsResult(dict):
+    def __init__(__self__, *,
+                 catalogs: Sequence['outputs.GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsCatalogResult'],
+                 data_replication_workspace_set: _builtins.str,
+                 location_mappings: Optional[Sequence['outputs.GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsLocationMappingResult']] = None):
+        """
+        :param Sequence['GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsCatalogArgs'] catalogs: (list of UcCatalog) - UC catalogs to replicate
+        :param _builtins.str data_replication_workspace_set: (string) - The workspace set whose workspaces will be used for data replication
+               of all UC catalogs' underlying storage
+        :param Sequence['GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsLocationMappingArgs'] location_mappings: (list of LocationMapping) - Location mappings - storage URI per region for each location
+        """
+        pulumi.set(__self__, "catalogs", catalogs)
+        pulumi.set(__self__, "data_replication_workspace_set", data_replication_workspace_set)
+        if location_mappings is not None:
+            pulumi.set(__self__, "location_mappings", location_mappings)
+
+    @_builtins.property
+    @pulumi.getter
+    def catalogs(self) -> Sequence['outputs.GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsCatalogResult']:
+        """
+        (list of UcCatalog) - UC catalogs to replicate
+        """
+        return pulumi.get(self, "catalogs")
+
+    @_builtins.property
+    @pulumi.getter(name="dataReplicationWorkspaceSet")
+    def data_replication_workspace_set(self) -> _builtins.str:
+        """
+        (string) - The workspace set whose workspaces will be used for data replication
+        of all UC catalogs' underlying storage
+        """
+        return pulumi.get(self, "data_replication_workspace_set")
+
+    @_builtins.property
+    @pulumi.getter(name="locationMappings")
+    def location_mappings(self) -> Optional[Sequence['outputs.GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsLocationMappingResult']]:
+        """
+        (list of LocationMapping) - Location mappings - storage URI per region for each location
+        """
+        return pulumi.get(self, "location_mappings")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsCatalogResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: (string) - Resource name for this workspace set
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Resource name for this workspace set
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsLocationMappingResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 uri_by_regions: Sequence['outputs.GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsLocationMappingUriByRegionResult']):
+        """
+        :param _builtins.str name: (string) - Resource name for this workspace set
+        :param Sequence['GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsLocationMappingUriByRegionArgs'] uri_by_regions: (list of LocationMappingEntry) - URI for each region. Each entry maps a region name to a storage URI
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "uri_by_regions", uri_by_regions)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Resource name for this workspace set
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="uriByRegions")
+    def uri_by_regions(self) -> Sequence['outputs.GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsLocationMappingUriByRegionResult']:
+        """
+        (list of LocationMappingEntry) - URI for each region. Each entry maps a region name to a storage URI
+        """
+        return pulumi.get(self, "uri_by_regions")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryFailoverGroupsFailoverGroupUnityCatalogAssetsLocationMappingUriByRegionResult(dict):
+    def __init__(__self__, *,
+                 region: _builtins.str,
+                 uri: _builtins.str):
+        """
+        :param _builtins.str region: (string) - The region name
+        :param _builtins.str uri: (string) - The storage URI for this region
+        """
+        pulumi.set(__self__, "region", region)
+        pulumi.set(__self__, "uri", uri)
+
+    @_builtins.property
+    @pulumi.getter
+    def region(self) -> _builtins.str:
+        """
+        (string) - The region name
+        """
+        return pulumi.get(self, "region")
+
+    @_builtins.property
+    @pulumi.getter
+    def uri(self) -> _builtins.str:
+        """
+        (string) - The storage URI for this region
+        """
+        return pulumi.get(self, "uri")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryFailoverGroupsFailoverGroupWorkspaceSetResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 replicate_workspace_assets: _builtins.bool,
+                 workspace_ids: Sequence[_builtins.str],
+                 stable_url_names: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str name: (string) - Resource name for this workspace set
+        :param _builtins.bool replicate_workspace_assets: (boolean) - Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
+               Requires all workspaces in the set to be Mission Critical tier
+        :param Sequence[_builtins.str] workspace_ids: (list of string) - Workspace IDs in this set. The system derives and validates regions.
+               EA: exactly 2 workspaces (one per region)
+        :param Sequence[_builtins.str] stable_url_names: (list of string) - Resource names of stable URLs associated with this workspace set.
+               Format: accounts/{account_id}/stable-urls/{stable_url_id}.
+               The referenced stable URLs must already exist (via CreateStableUrl)
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "replicate_workspace_assets", replicate_workspace_assets)
+        pulumi.set(__self__, "workspace_ids", workspace_ids)
+        if stable_url_names is not None:
+            pulumi.set(__self__, "stable_url_names", stable_url_names)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Resource name for this workspace set
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="replicateWorkspaceAssets")
+    def replicate_workspace_assets(self) -> _builtins.bool:
+        """
+        (boolean) - Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
+        Requires all workspaces in the set to be Mission Critical tier
+        """
+        return pulumi.get(self, "replicate_workspace_assets")
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceIds")
+    def workspace_ids(self) -> Sequence[_builtins.str]:
+        """
+        (list of string) - Workspace IDs in this set. The system derives and validates regions.
+        EA: exactly 2 workspaces (one per region)
+        """
+        return pulumi.get(self, "workspace_ids")
+
+    @_builtins.property
+    @pulumi.getter(name="stableUrlNames")
+    def stable_url_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (list of string) - Resource names of stable URLs associated with this workspace set.
+        Format: accounts/{account_id}/stable-urls/{stable_url_id}.
+        The referenced stable URLs must already exist (via CreateStableUrl)
+        """
+        return pulumi.get(self, "stable_url_names")
+
+
+@pulumi.output_type
+class GetDisasterRecoveryStableUrlsStableUrlResult(dict):
+    def __init__(__self__, *,
+                 initial_workspace_id: _builtins.str,
+                 name: _builtins.str,
+                 url: _builtins.str):
+        """
+        :param _builtins.str initial_workspace_id: (string) - The workspace this stable URL is initially bound to. Used only in Create
+               requests to associate the stable URL with a workspace. Not returned in
+               responses. Mirrors FailoverGroup.initial_primary_region semantics
+        :param _builtins.str name: (string) - Fully qualified resource name.
+               Format: accounts/{account_id}/stable-urls/{stable_url_id}
+        :param _builtins.str url: (string) - The stable URL endpoint. Generated by the backend on creation and
+               immutable thereafter. For non-Private-Link workspaces this is
+               `https://<spog_host>/?c=<connection_id>`. For Private-Link workspaces
+               this is the per-connection hostname
+        """
+        pulumi.set(__self__, "initial_workspace_id", initial_workspace_id)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "url", url)
+
+    @_builtins.property
+    @pulumi.getter(name="initialWorkspaceId")
+    def initial_workspace_id(self) -> _builtins.str:
+        """
+        (string) - The workspace this stable URL is initially bound to. Used only in Create
+        requests to associate the stable URL with a workspace. Not returned in
+        responses. Mirrors FailoverGroup.initial_primary_region semantics
+        """
+        return pulumi.get(self, "initial_workspace_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Fully qualified resource name.
+        Format: accounts/{account_id}/stable-urls/{stable_url_id}
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def url(self) -> _builtins.str:
+        """
+        (string) - The stable URL endpoint. Generated by the backend on creation and
+        immutable thereafter. For non-Private-Link workspaces this is
+        `https://<spog_host>/?c=<connection_id>`. For Private-Link workspaces
+        this is the per-connection hostname
+        """
+        return pulumi.get(self, "url")
 
 
 @pulumi.output_type
@@ -77681,20 +88740,34 @@ class GetFeatureEngineeringKafkaConfigAuthConfigResult(dict):
 @pulumi.output_type
 class GetFeatureEngineeringKafkaConfigBackfillSourceResult(dict):
     def __init__(__self__, *,
+                 delta_table_name: Optional[_builtins.str] = None,
                  delta_table_source: Optional['outputs.GetFeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceResult'] = None):
         """
-        :param 'GetFeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgs' delta_table_source: (DeltaTableSource) - The Delta table source containing the historic data to backfill.
-               Only the delta table name is used for backfill, the entity columns and timeseries column are ignored as they are defined by the associated KafkaSource
+        :param _builtins.str delta_table_name: (string) - The full three-part name (catalog, schema, name) of the Delta table containing the historical data to backfill
+        :param 'GetFeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgs' delta_table_source: (DeltaTableSource, deprecated) - Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
+               The Delta table source containing the historical data to backfill.
+               Only the delta table name is used for backfill, other fields are ignored
         """
+        if delta_table_name is not None:
+            pulumi.set(__self__, "delta_table_name", delta_table_name)
         if delta_table_source is not None:
             pulumi.set(__self__, "delta_table_source", delta_table_source)
+
+    @_builtins.property
+    @pulumi.getter(name="deltaTableName")
+    def delta_table_name(self) -> Optional[_builtins.str]:
+        """
+        (string) - The full three-part name (catalog, schema, name) of the Delta table containing the historical data to backfill
+        """
+        return pulumi.get(self, "delta_table_name")
 
     @_builtins.property
     @pulumi.getter(name="deltaTableSource")
     def delta_table_source(self) -> Optional['outputs.GetFeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceResult']:
         """
-        (DeltaTableSource) - The Delta table source containing the historic data to backfill.
-        Only the delta table name is used for backfill, the entity columns and timeseries column are ignored as they are defined by the associated KafkaSource
+        (DeltaTableSource, deprecated) - Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
+        The Delta table source containing the historical data to backfill.
+        Only the delta table name is used for backfill, other fields are ignored
         """
         return pulumi.get(self, "delta_table_source")
 
@@ -78025,20 +89098,34 @@ class GetFeatureEngineeringKafkaConfigsKafkaConfigAuthConfigResult(dict):
 @pulumi.output_type
 class GetFeatureEngineeringKafkaConfigsKafkaConfigBackfillSourceResult(dict):
     def __init__(__self__, *,
+                 delta_table_name: Optional[_builtins.str] = None,
                  delta_table_source: Optional['outputs.GetFeatureEngineeringKafkaConfigsKafkaConfigBackfillSourceDeltaTableSourceResult'] = None):
         """
-        :param 'GetFeatureEngineeringKafkaConfigsKafkaConfigBackfillSourceDeltaTableSourceArgs' delta_table_source: (DeltaTableSource) - The Delta table source containing the historic data to backfill.
-               Only the delta table name is used for backfill, the entity columns and timeseries column are ignored as they are defined by the associated KafkaSource
+        :param _builtins.str delta_table_name: (string) - The full three-part name (catalog, schema, name) of the Delta table containing the historical data to backfill
+        :param 'GetFeatureEngineeringKafkaConfigsKafkaConfigBackfillSourceDeltaTableSourceArgs' delta_table_source: (DeltaTableSource, deprecated) - Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
+               The Delta table source containing the historical data to backfill.
+               Only the delta table name is used for backfill, other fields are ignored
         """
+        if delta_table_name is not None:
+            pulumi.set(__self__, "delta_table_name", delta_table_name)
         if delta_table_source is not None:
             pulumi.set(__self__, "delta_table_source", delta_table_source)
+
+    @_builtins.property
+    @pulumi.getter(name="deltaTableName")
+    def delta_table_name(self) -> Optional[_builtins.str]:
+        """
+        (string) - The full three-part name (catalog, schema, name) of the Delta table containing the historical data to backfill
+        """
+        return pulumi.get(self, "delta_table_name")
 
     @_builtins.property
     @pulumi.getter(name="deltaTableSource")
     def delta_table_source(self) -> Optional['outputs.GetFeatureEngineeringKafkaConfigsKafkaConfigBackfillSourceDeltaTableSourceResult']:
         """
-        (DeltaTableSource) - The Delta table source containing the historic data to backfill.
-        Only the delta table name is used for backfill, the entity columns and timeseries column are ignored as they are defined by the associated KafkaSource
+        (DeltaTableSource, deprecated) - Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
+        The Delta table source containing the historical data to backfill.
+        Only the delta table name is used for backfill, other fields are ignored
         """
         return pulumi.get(self, "delta_table_source")
 
@@ -81517,17 +92604,18 @@ class GetJobJobSettingsSettingsJobClusterNewClusterWorkloadTypeClientsResult(dic
 @pulumi.output_type
 class GetJobJobSettingsSettingsLibraryResult(dict):
     def __init__(__self__, *,
+                 provider_config: 'outputs.GetJobJobSettingsSettingsLibraryProviderConfigResult',
                  cran: Optional['outputs.GetJobJobSettingsSettingsLibraryCranResult'] = None,
                  egg: Optional[_builtins.str] = None,
                  jar: Optional[_builtins.str] = None,
                  maven: Optional['outputs.GetJobJobSettingsSettingsLibraryMavenResult'] = None,
-                 provider_config: Optional['outputs.GetJobJobSettingsSettingsLibraryProviderConfigResult'] = None,
                  pypi: Optional['outputs.GetJobJobSettingsSettingsLibraryPypiResult'] = None,
                  requirements: Optional[_builtins.str] = None,
                  whl: Optional[_builtins.str] = None):
         """
         :param 'GetJobJobSettingsSettingsLibraryProviderConfigArgs' provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
+        pulumi.set(__self__, "provider_config", provider_config)
         if cran is not None:
             pulumi.set(__self__, "cran", cran)
         if egg is not None:
@@ -81536,14 +92624,20 @@ class GetJobJobSettingsSettingsLibraryResult(dict):
             pulumi.set(__self__, "jar", jar)
         if maven is not None:
             pulumi.set(__self__, "maven", maven)
-        if provider_config is not None:
-            pulumi.set(__self__, "provider_config", provider_config)
         if pypi is not None:
             pulumi.set(__self__, "pypi", pypi)
         if requirements is not None:
             pulumi.set(__self__, "requirements", requirements)
         if whl is not None:
             pulumi.set(__self__, "whl", whl)
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> 'outputs.GetJobJobSettingsSettingsLibraryProviderConfigResult':
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter
@@ -81565,14 +92659,6 @@ class GetJobJobSettingsSettingsLibraryResult(dict):
     @pulumi.getter
     def maven(self) -> Optional['outputs.GetJobJobSettingsSettingsLibraryMavenResult']:
         return pulumi.get(self, "maven")
-
-    @_builtins.property
-    @pulumi.getter(name="providerConfig")
-    def provider_config(self) -> Optional['outputs.GetJobJobSettingsSettingsLibraryProviderConfigResult']:
-        """
-        Configure the provider for management through account provider. This block consists of the following fields:
-        """
-        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter
@@ -83819,17 +94905,18 @@ class GetJobJobSettingsSettingsTaskForEachTaskTaskHealthRuleResult(dict):
 @pulumi.output_type
 class GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryResult(dict):
     def __init__(__self__, *,
+                 provider_config: 'outputs.GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryProviderConfigResult',
                  cran: Optional['outputs.GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryCranResult'] = None,
                  egg: Optional[_builtins.str] = None,
                  jar: Optional[_builtins.str] = None,
                  maven: Optional['outputs.GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryMavenResult'] = None,
-                 provider_config: Optional['outputs.GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryProviderConfigResult'] = None,
                  pypi: Optional['outputs.GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryPypiResult'] = None,
                  requirements: Optional[_builtins.str] = None,
                  whl: Optional[_builtins.str] = None):
         """
         :param 'GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryProviderConfigArgs' provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
+        pulumi.set(__self__, "provider_config", provider_config)
         if cran is not None:
             pulumi.set(__self__, "cran", cran)
         if egg is not None:
@@ -83838,14 +94925,20 @@ class GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryResult(dict):
             pulumi.set(__self__, "jar", jar)
         if maven is not None:
             pulumi.set(__self__, "maven", maven)
-        if provider_config is not None:
-            pulumi.set(__self__, "provider_config", provider_config)
         if pypi is not None:
             pulumi.set(__self__, "pypi", pypi)
         if requirements is not None:
             pulumi.set(__self__, "requirements", requirements)
         if whl is not None:
             pulumi.set(__self__, "whl", whl)
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> 'outputs.GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryProviderConfigResult':
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter
@@ -83867,14 +94960,6 @@ class GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryResult(dict):
     @pulumi.getter
     def maven(self) -> Optional['outputs.GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryMavenResult']:
         return pulumi.get(self, "maven")
-
-    @_builtins.property
-    @pulumi.getter(name="providerConfig")
-    def provider_config(self) -> Optional['outputs.GetJobJobSettingsSettingsTaskForEachTaskTaskLibraryProviderConfigResult']:
-        """
-        Configure the provider for management through account provider. This block consists of the following fields:
-        """
-        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter
@@ -85505,17 +96590,18 @@ class GetJobJobSettingsSettingsTaskHealthRuleResult(dict):
 @pulumi.output_type
 class GetJobJobSettingsSettingsTaskLibraryResult(dict):
     def __init__(__self__, *,
+                 provider_config: 'outputs.GetJobJobSettingsSettingsTaskLibraryProviderConfigResult',
                  cran: Optional['outputs.GetJobJobSettingsSettingsTaskLibraryCranResult'] = None,
                  egg: Optional[_builtins.str] = None,
                  jar: Optional[_builtins.str] = None,
                  maven: Optional['outputs.GetJobJobSettingsSettingsTaskLibraryMavenResult'] = None,
-                 provider_config: Optional['outputs.GetJobJobSettingsSettingsTaskLibraryProviderConfigResult'] = None,
                  pypi: Optional['outputs.GetJobJobSettingsSettingsTaskLibraryPypiResult'] = None,
                  requirements: Optional[_builtins.str] = None,
                  whl: Optional[_builtins.str] = None):
         """
         :param 'GetJobJobSettingsSettingsTaskLibraryProviderConfigArgs' provider_config: Configure the provider for management through account provider. This block consists of the following fields:
         """
+        pulumi.set(__self__, "provider_config", provider_config)
         if cran is not None:
             pulumi.set(__self__, "cran", cran)
         if egg is not None:
@@ -85524,14 +96610,20 @@ class GetJobJobSettingsSettingsTaskLibraryResult(dict):
             pulumi.set(__self__, "jar", jar)
         if maven is not None:
             pulumi.set(__self__, "maven", maven)
-        if provider_config is not None:
-            pulumi.set(__self__, "provider_config", provider_config)
         if pypi is not None:
             pulumi.set(__self__, "pypi", pypi)
         if requirements is not None:
             pulumi.set(__self__, "requirements", requirements)
         if whl is not None:
             pulumi.set(__self__, "whl", whl)
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> 'outputs.GetJobJobSettingsSettingsTaskLibraryProviderConfigResult':
+        """
+        Configure the provider for management through account provider. This block consists of the following fields:
+        """
+        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter
@@ -85553,14 +96645,6 @@ class GetJobJobSettingsSettingsTaskLibraryResult(dict):
     @pulumi.getter
     def maven(self) -> Optional['outputs.GetJobJobSettingsSettingsTaskLibraryMavenResult']:
         return pulumi.get(self, "maven")
-
-    @_builtins.property
-    @pulumi.getter(name="providerConfig")
-    def provider_config(self) -> Optional['outputs.GetJobJobSettingsSettingsTaskLibraryProviderConfigResult']:
-        """
-        Configure the provider for management through account provider. This block consists of the following fields:
-        """
-        return pulumi.get(self, "provider_config")
 
     @_builtins.property
     @pulumi.getter
@@ -88616,15 +99700,16 @@ class GetMwsCredentialsProviderConfigResult(dict):
     def __init__(__self__, *,
                  workspace_id: _builtins.str):
         """
-        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        :param _builtins.str workspace_id: Ignored. This data source always operates against the account configured on the provider.
         """
         pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
+    @_utilities.deprecated("""workspace_id is ignored for account-only resources.""")
     def workspace_id(self) -> _builtins.str:
         """
-        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        Ignored. This data source always operates against the account configured on the provider.
         """
         return pulumi.get(self, "workspace_id")
 
@@ -89079,15 +100164,16 @@ class GetMwsWorkspacesProviderConfigResult(dict):
     def __init__(__self__, *,
                  workspace_id: _builtins.str):
         """
-        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        :param _builtins.str workspace_id: Ignored. This data source always operates against the account configured on the provider.
         """
         pulumi.set(__self__, "workspace_id", workspace_id)
 
     @_builtins.property
     @pulumi.getter(name="workspaceId")
+    @_utilities.deprecated("""workspace_id is ignored for account-only resources.""")
     def workspace_id(self) -> _builtins.str:
         """
-        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        Ignored. This data source always operates against the account configured on the provider.
         """
         return pulumi.get(self, "workspace_id")
 
@@ -96012,6 +107098,288 @@ class GetSchemasProviderConfigResult(dict):
 
 
 @pulumi.output_type
+class GetSecretUcProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GetSecretUcsProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GetSecretUcsSecretResult(dict):
+    def __init__(__self__, *,
+                 browse_only: _builtins.bool,
+                 catalog_name: _builtins.str,
+                 comment: _builtins.str,
+                 create_time: _builtins.str,
+                 created_by: _builtins.str,
+                 effective_owner: _builtins.str,
+                 effective_value: _builtins.str,
+                 expire_time: _builtins.str,
+                 external_secret_id: _builtins.str,
+                 full_name: _builtins.str,
+                 metastore_id: _builtins.str,
+                 name: _builtins.str,
+                 owner: _builtins.str,
+                 schema_name: _builtins.str,
+                 update_time: _builtins.str,
+                 updated_by: _builtins.str,
+                 value: _builtins.str,
+                 provider_config: Optional['outputs.GetSecretUcsSecretProviderConfigResult'] = None):
+        """
+        :param _builtins.bool browse_only: (boolean) - Indicates whether the principal is limited to retrieving metadata for the associated object
+               through the **BROWSE** privilege when **include_browse** is enabled in the request
+        :param _builtins.str catalog_name: The name of the catalog under which to list secrets. Both **catalog_name** and
+               **schema_name** must be specified together
+        :param _builtins.str comment: (string) - User-provided free-form text description of the secret
+        :param _builtins.str create_time: (string) - The time at which this secret was created
+        :param _builtins.str created_by: (string) - The principal that created the secret
+        :param _builtins.str effective_owner: (string) - The effective owner of the secret, which may differ from the directly-set **owner** due to
+               inheritance
+        :param _builtins.str effective_value: (string) - The secret value. Only populated in responses when you have the **READ_SECRET**
+               privilege and **include_value** is set to true in the request. The maximum size is 60 KiB
+        :param _builtins.str expire_time: (string) - User-provided expiration time of the secret. This field indicates when the secret should no
+               longer be used and may be displayed as a warning in the UI. It is purely informational and
+               does not trigger any automatic actions or affect the secret's lifecycle
+        :param _builtins.str external_secret_id: (string)
+        :param _builtins.str full_name: (string) - The three-level (fully qualified) name of the secret, in the form of **catalog_name.schema_name.secret_name**
+        :param _builtins.str metastore_id: (string) - Unique identifier of the metastore hosting the secret
+        :param _builtins.str name: (string) - The name of the secret, relative to its parent schema
+        :param _builtins.str owner: (string) - The owner of the secret. Defaults to the creating principal on creation. Can be updated to
+               transfer ownership of the secret to another principal
+        :param _builtins.str schema_name: The name of the schema under which to list secrets. Both **catalog_name** and
+               **schema_name** must be specified together
+        :param _builtins.str update_time: (string) - The time at which this secret was last updated
+        :param _builtins.str updated_by: (string) - The principal that last updated the secret
+        :param _builtins.str value: (string) - The secret value to store. This field is input-only and is not returned in responses — use
+               the **effective_value** field (via GetSecret with **include_value** set to true) to read the
+               secret value. The maximum size is 60 KiB (pre-encryption). Accepted content includes
+               passwords, tokens, keys, and other sensitive credential data
+        :param 'GetSecretUcsSecretProviderConfigArgs' provider_config: Configure the provider for management through account provider.
+        """
+        pulumi.set(__self__, "browse_only", browse_only)
+        pulumi.set(__self__, "catalog_name", catalog_name)
+        pulumi.set(__self__, "comment", comment)
+        pulumi.set(__self__, "create_time", create_time)
+        pulumi.set(__self__, "created_by", created_by)
+        pulumi.set(__self__, "effective_owner", effective_owner)
+        pulumi.set(__self__, "effective_value", effective_value)
+        pulumi.set(__self__, "expire_time", expire_time)
+        pulumi.set(__self__, "external_secret_id", external_secret_id)
+        pulumi.set(__self__, "full_name", full_name)
+        pulumi.set(__self__, "metastore_id", metastore_id)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "owner", owner)
+        pulumi.set(__self__, "schema_name", schema_name)
+        pulumi.set(__self__, "update_time", update_time)
+        pulumi.set(__self__, "updated_by", updated_by)
+        pulumi.set(__self__, "value", value)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
+
+    @_builtins.property
+    @pulumi.getter(name="browseOnly")
+    def browse_only(self) -> _builtins.bool:
+        """
+        (boolean) - Indicates whether the principal is limited to retrieving metadata for the associated object
+        through the **BROWSE** privilege when **include_browse** is enabled in the request
+        """
+        return pulumi.get(self, "browse_only")
+
+    @_builtins.property
+    @pulumi.getter(name="catalogName")
+    def catalog_name(self) -> _builtins.str:
+        """
+        The name of the catalog under which to list secrets. Both **catalog_name** and
+        **schema_name** must be specified together
+        """
+        return pulumi.get(self, "catalog_name")
+
+    @_builtins.property
+    @pulumi.getter
+    def comment(self) -> _builtins.str:
+        """
+        (string) - User-provided free-form text description of the secret
+        """
+        return pulumi.get(self, "comment")
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> _builtins.str:
+        """
+        (string) - The time at which this secret was created
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter(name="createdBy")
+    def created_by(self) -> _builtins.str:
+        """
+        (string) - The principal that created the secret
+        """
+        return pulumi.get(self, "created_by")
+
+    @_builtins.property
+    @pulumi.getter(name="effectiveOwner")
+    def effective_owner(self) -> _builtins.str:
+        """
+        (string) - The effective owner of the secret, which may differ from the directly-set **owner** due to
+        inheritance
+        """
+        return pulumi.get(self, "effective_owner")
+
+    @_builtins.property
+    @pulumi.getter(name="effectiveValue")
+    def effective_value(self) -> _builtins.str:
+        """
+        (string) - The secret value. Only populated in responses when you have the **READ_SECRET**
+        privilege and **include_value** is set to true in the request. The maximum size is 60 KiB
+        """
+        return pulumi.get(self, "effective_value")
+
+    @_builtins.property
+    @pulumi.getter(name="expireTime")
+    def expire_time(self) -> _builtins.str:
+        """
+        (string) - User-provided expiration time of the secret. This field indicates when the secret should no
+        longer be used and may be displayed as a warning in the UI. It is purely informational and
+        does not trigger any automatic actions or affect the secret's lifecycle
+        """
+        return pulumi.get(self, "expire_time")
+
+    @_builtins.property
+    @pulumi.getter(name="externalSecretId")
+    def external_secret_id(self) -> _builtins.str:
+        """
+        (string)
+        """
+        return pulumi.get(self, "external_secret_id")
+
+    @_builtins.property
+    @pulumi.getter(name="fullName")
+    def full_name(self) -> _builtins.str:
+        """
+        (string) - The three-level (fully qualified) name of the secret, in the form of **catalog_name.schema_name.secret_name**
+        """
+        return pulumi.get(self, "full_name")
+
+    @_builtins.property
+    @pulumi.getter(name="metastoreId")
+    def metastore_id(self) -> _builtins.str:
+        """
+        (string) - Unique identifier of the metastore hosting the secret
+        """
+        return pulumi.get(self, "metastore_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - The name of the secret, relative to its parent schema
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def owner(self) -> _builtins.str:
+        """
+        (string) - The owner of the secret. Defaults to the creating principal on creation. Can be updated to
+        transfer ownership of the secret to another principal
+        """
+        return pulumi.get(self, "owner")
+
+    @_builtins.property
+    @pulumi.getter(name="schemaName")
+    def schema_name(self) -> _builtins.str:
+        """
+        The name of the schema under which to list secrets. Both **catalog_name** and
+        **schema_name** must be specified together
+        """
+        return pulumi.get(self, "schema_name")
+
+    @_builtins.property
+    @pulumi.getter(name="updateTime")
+    def update_time(self) -> _builtins.str:
+        """
+        (string) - The time at which this secret was last updated
+        """
+        return pulumi.get(self, "update_time")
+
+    @_builtins.property
+    @pulumi.getter(name="updatedBy")
+    def updated_by(self) -> _builtins.str:
+        """
+        (string) - The principal that last updated the secret
+        """
+        return pulumi.get(self, "updated_by")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        (string) - The secret value to store. This field is input-only and is not returned in responses — use
+        the **effective_value** field (via GetSecret with **include_value** set to true) to read the
+        secret value. The maximum size is 60 KiB (pre-encryption). Accepted content includes
+        passwords, tokens, keys, and other sensitive credential data
+        """
+        return pulumi.get(self, "value")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional['outputs.GetSecretUcsSecretProviderConfigResult']:
+        """
+        Configure the provider for management through account provider.
+        """
+        return pulumi.get(self, "provider_config")
+
+
+@pulumi.output_type
+class GetSecretUcsSecretProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
 class GetServicePrincipalFederationPoliciesPolicyResult(dict):
     def __init__(__self__, *,
                  create_time: _builtins.str,
@@ -98441,6 +109809,633 @@ class GetStorageCredentialStorageCredentialInfoDatabricksGcpServiceAccountResult
 
 @pulumi.output_type
 class GetStorageCredentialsProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GetSupervisorAgentProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolAppResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: Full resource name:
+               supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Full resource name:
+        supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolGenieSpaceResult(dict):
+    def __init__(__self__, *,
+                 id: _builtins.str):
+        """
+        :param _builtins.str id: (string) - The ID of the genie space
+        """
+        pulumi.set(__self__, "id", id)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        (string) - The ID of the genie space
+        """
+        return pulumi.get(self, "id")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolKnowledgeAssistantResult(dict):
+    def __init__(__self__, *,
+                 knowledge_assistant_id: _builtins.str,
+                 serving_endpoint_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str knowledge_assistant_id: (string) - The ID of the knowledge assistant
+        :param _builtins.str serving_endpoint_name: (string, deprecated) - Deprecated: use knowledge_assistant_id instead
+        """
+        pulumi.set(__self__, "knowledge_assistant_id", knowledge_assistant_id)
+        if serving_endpoint_name is not None:
+            pulumi.set(__self__, "serving_endpoint_name", serving_endpoint_name)
+
+    @_builtins.property
+    @pulumi.getter(name="knowledgeAssistantId")
+    def knowledge_assistant_id(self) -> _builtins.str:
+        """
+        (string) - The ID of the knowledge assistant
+        """
+        return pulumi.get(self, "knowledge_assistant_id")
+
+    @_builtins.property
+    @pulumi.getter(name="servingEndpointName")
+    def serving_endpoint_name(self) -> Optional[_builtins.str]:
+        """
+        (string, deprecated) - Deprecated: use knowledge_assistant_id instead
+        """
+        return pulumi.get(self, "serving_endpoint_name")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolUcConnectionResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: Full resource name:
+               supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Full resource name:
+        supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolUcFunctionResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: Full resource name:
+               supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Full resource name:
+        supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolVolumeResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: Full resource name:
+               supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Full resource name:
+        supervisor-agents/{supervisor_agent_id}/tools/{tool_id}
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolsProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolsToolResult(dict):
+    def __init__(__self__, *,
+                 app: 'outputs.GetSupervisorAgentToolsToolAppResult',
+                 description: _builtins.str,
+                 genie_space: 'outputs.GetSupervisorAgentToolsToolGenieSpaceResult',
+                 id: _builtins.str,
+                 knowledge_assistant: 'outputs.GetSupervisorAgentToolsToolKnowledgeAssistantResult',
+                 name: _builtins.str,
+                 tool_id: _builtins.str,
+                 tool_type: _builtins.str,
+                 uc_connection: 'outputs.GetSupervisorAgentToolsToolUcConnectionResult',
+                 uc_function: 'outputs.GetSupervisorAgentToolsToolUcFunctionResult',
+                 volume: 'outputs.GetSupervisorAgentToolsToolVolumeResult',
+                 provider_config: Optional['outputs.GetSupervisorAgentToolsToolProviderConfigResult'] = None):
+        """
+        :param 'GetSupervisorAgentToolsToolAppArgs' app: (App)
+        :param _builtins.str description: (string) - Description of what this tool does (user-facing)
+        :param 'GetSupervisorAgentToolsToolGenieSpaceArgs' genie_space: (GenieSpace)
+        :param _builtins.str id: (string) - The ID of the genie space
+        :param 'GetSupervisorAgentToolsToolKnowledgeAssistantArgs' knowledge_assistant: (KnowledgeAssistant)
+        :param _builtins.str name: (string) - Full uc volume name
+        :param _builtins.str tool_id: (string) - User specified id of the Tool
+        :param _builtins.str tool_type: (string) - Tool type. Must be one of: "genie_space", "knowledge_assistant", "uc_function", "uc_connection", "app", "volume", "lakeview_dashboard", "serving_endpoint", "uc_table", "vector_search_index", "catalog", "schema", "supervisor_agent", "web_search"
+        :param 'GetSupervisorAgentToolsToolUcConnectionArgs' uc_connection: (UcConnection)
+        :param 'GetSupervisorAgentToolsToolUcFunctionArgs' uc_function: (UcFunction)
+        :param 'GetSupervisorAgentToolsToolVolumeArgs' volume: (Volume)
+        :param 'GetSupervisorAgentToolsToolProviderConfigArgs' provider_config: Configure the provider for management through account provider.
+        """
+        pulumi.set(__self__, "app", app)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "genie_space", genie_space)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "knowledge_assistant", knowledge_assistant)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "tool_id", tool_id)
+        pulumi.set(__self__, "tool_type", tool_type)
+        pulumi.set(__self__, "uc_connection", uc_connection)
+        pulumi.set(__self__, "uc_function", uc_function)
+        pulumi.set(__self__, "volume", volume)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
+
+    @_builtins.property
+    @pulumi.getter
+    def app(self) -> 'outputs.GetSupervisorAgentToolsToolAppResult':
+        """
+        (App)
+        """
+        return pulumi.get(self, "app")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        (string) - Description of what this tool does (user-facing)
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="genieSpace")
+    def genie_space(self) -> 'outputs.GetSupervisorAgentToolsToolGenieSpaceResult':
+        """
+        (GenieSpace)
+        """
+        return pulumi.get(self, "genie_space")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        (string) - The ID of the genie space
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="knowledgeAssistant")
+    def knowledge_assistant(self) -> 'outputs.GetSupervisorAgentToolsToolKnowledgeAssistantResult':
+        """
+        (KnowledgeAssistant)
+        """
+        return pulumi.get(self, "knowledge_assistant")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Full uc volume name
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="toolId")
+    def tool_id(self) -> _builtins.str:
+        """
+        (string) - User specified id of the Tool
+        """
+        return pulumi.get(self, "tool_id")
+
+    @_builtins.property
+    @pulumi.getter(name="toolType")
+    def tool_type(self) -> _builtins.str:
+        """
+        (string) - Tool type. Must be one of: "genie_space", "knowledge_assistant", "uc_function", "uc_connection", "app", "volume", "lakeview_dashboard", "serving_endpoint", "uc_table", "vector_search_index", "catalog", "schema", "supervisor_agent", "web_search"
+        """
+        return pulumi.get(self, "tool_type")
+
+    @_builtins.property
+    @pulumi.getter(name="ucConnection")
+    def uc_connection(self) -> 'outputs.GetSupervisorAgentToolsToolUcConnectionResult':
+        """
+        (UcConnection)
+        """
+        return pulumi.get(self, "uc_connection")
+
+    @_builtins.property
+    @pulumi.getter(name="ucFunction")
+    def uc_function(self) -> 'outputs.GetSupervisorAgentToolsToolUcFunctionResult':
+        """
+        (UcFunction)
+        """
+        return pulumi.get(self, "uc_function")
+
+    @_builtins.property
+    @pulumi.getter
+    def volume(self) -> 'outputs.GetSupervisorAgentToolsToolVolumeResult':
+        """
+        (Volume)
+        """
+        return pulumi.get(self, "volume")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional['outputs.GetSupervisorAgentToolsToolProviderConfigResult']:
+        """
+        Configure the provider for management through account provider.
+        """
+        return pulumi.get(self, "provider_config")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolsToolAppResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: (string) - Full uc volume name
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Full uc volume name
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolsToolGenieSpaceResult(dict):
+    def __init__(__self__, *,
+                 id: _builtins.str):
+        """
+        :param _builtins.str id: (string) - The ID of the genie space
+        """
+        pulumi.set(__self__, "id", id)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        (string) - The ID of the genie space
+        """
+        return pulumi.get(self, "id")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolsToolKnowledgeAssistantResult(dict):
+    def __init__(__self__, *,
+                 knowledge_assistant_id: _builtins.str,
+                 serving_endpoint_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str knowledge_assistant_id: (string) - The ID of the knowledge assistant
+        :param _builtins.str serving_endpoint_name: (string, deprecated) - Deprecated: use knowledge_assistant_id instead
+        """
+        pulumi.set(__self__, "knowledge_assistant_id", knowledge_assistant_id)
+        if serving_endpoint_name is not None:
+            pulumi.set(__self__, "serving_endpoint_name", serving_endpoint_name)
+
+    @_builtins.property
+    @pulumi.getter(name="knowledgeAssistantId")
+    def knowledge_assistant_id(self) -> _builtins.str:
+        """
+        (string) - The ID of the knowledge assistant
+        """
+        return pulumi.get(self, "knowledge_assistant_id")
+
+    @_builtins.property
+    @pulumi.getter(name="servingEndpointName")
+    def serving_endpoint_name(self) -> Optional[_builtins.str]:
+        """
+        (string, deprecated) - Deprecated: use knowledge_assistant_id instead
+        """
+        return pulumi.get(self, "serving_endpoint_name")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolsToolProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolsToolUcConnectionResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: (string) - Full uc volume name
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Full uc volume name
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolsToolUcFunctionResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: (string) - Full uc volume name
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Full uc volume name
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetSupervisorAgentToolsToolVolumeResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str):
+        """
+        :param _builtins.str name: (string) - Full uc volume name
+        """
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - Full uc volume name
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetSupervisorAgentsProviderConfigResult(dict):
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+
+@pulumi.output_type
+class GetSupervisorAgentsSupervisorAgentResult(dict):
+    def __init__(__self__, *,
+                 create_time: _builtins.str,
+                 creator: _builtins.str,
+                 description: _builtins.str,
+                 display_name: _builtins.str,
+                 endpoint_name: _builtins.str,
+                 experiment_id: _builtins.str,
+                 id: _builtins.str,
+                 instructions: _builtins.str,
+                 name: _builtins.str,
+                 supervisor_agent_id: _builtins.str,
+                 provider_config: Optional['outputs.GetSupervisorAgentsSupervisorAgentProviderConfigResult'] = None):
+        """
+        :param _builtins.str create_time: (string) - Creation timestamp
+        :param _builtins.str creator: (string) - The creator of the Supervisor Agent
+        :param _builtins.str description: (string) - Description of what this agent can do (user-facing)
+        :param _builtins.str display_name: (string) - The display name of the Supervisor Agent, unique at workspace level
+        :param _builtins.str endpoint_name: (string) - The name of the supervisor agent's serving endpoint
+        :param _builtins.str experiment_id: (string) - The MLflow experiment ID
+        :param _builtins.str id: (string, deprecated) - Deprecated: Use supervisor_agent_id instead
+        :param _builtins.str instructions: (string) - Optional natural-language instructions for the supervisor agent
+        :param _builtins.str name: (string) - The resource name of the SupervisorAgent.
+               Format: supervisor-agents/{supervisor_agent_id}
+        :param _builtins.str supervisor_agent_id: (string) - The universally unique identifier (UUID) of the Supervisor Agent
+        :param 'GetSupervisorAgentsSupervisorAgentProviderConfigArgs' provider_config: Configure the provider for management through account provider.
+        """
+        pulumi.set(__self__, "create_time", create_time)
+        pulumi.set(__self__, "creator", creator)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "endpoint_name", endpoint_name)
+        pulumi.set(__self__, "experiment_id", experiment_id)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "instructions", instructions)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "supervisor_agent_id", supervisor_agent_id)
+        if provider_config is not None:
+            pulumi.set(__self__, "provider_config", provider_config)
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> _builtins.str:
+        """
+        (string) - Creation timestamp
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def creator(self) -> _builtins.str:
+        """
+        (string) - The creator of the Supervisor Agent
+        """
+        return pulumi.get(self, "creator")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        (string) - Description of what this agent can do (user-facing)
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="displayName")
+    def display_name(self) -> _builtins.str:
+        """
+        (string) - The display name of the Supervisor Agent, unique at workspace level
+        """
+        return pulumi.get(self, "display_name")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointName")
+    def endpoint_name(self) -> _builtins.str:
+        """
+        (string) - The name of the supervisor agent's serving endpoint
+        """
+        return pulumi.get(self, "endpoint_name")
+
+    @_builtins.property
+    @pulumi.getter(name="experimentId")
+    def experiment_id(self) -> _builtins.str:
+        """
+        (string) - The MLflow experiment ID
+        """
+        return pulumi.get(self, "experiment_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        (string, deprecated) - Deprecated: Use supervisor_agent_id instead
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def instructions(self) -> _builtins.str:
+        """
+        (string) - Optional natural-language instructions for the supervisor agent
+        """
+        return pulumi.get(self, "instructions")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        (string) - The resource name of the SupervisorAgent.
+        Format: supervisor-agents/{supervisor_agent_id}
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="supervisorAgentId")
+    def supervisor_agent_id(self) -> _builtins.str:
+        """
+        (string) - The universally unique identifier (UUID) of the Supervisor Agent
+        """
+        return pulumi.get(self, "supervisor_agent_id")
+
+    @_builtins.property
+    @pulumi.getter(name="providerConfig")
+    def provider_config(self) -> Optional['outputs.GetSupervisorAgentsSupervisorAgentProviderConfigResult']:
+        """
+        Configure the provider for management through account provider.
+        """
+        return pulumi.get(self, "provider_config")
+
+
+@pulumi.output_type
+class GetSupervisorAgentsSupervisorAgentProviderConfigResult(dict):
     def __init__(__self__, *,
                  workspace_id: _builtins.str):
         """

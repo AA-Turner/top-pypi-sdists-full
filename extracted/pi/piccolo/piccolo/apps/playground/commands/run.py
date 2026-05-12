@@ -16,6 +16,7 @@ from piccolo.columns import (
     UUID,
     Array,
     Boolean,
+    Char,
     Date,
     ForeignKey,
     Integer,
@@ -24,6 +25,7 @@ from piccolo.columns import (
     Numeric,
     Serial,
     Text,
+    Time,
     Timestamp,
     Timestamptz,
     Varchar,
@@ -72,6 +74,8 @@ class Venue(Table):
     id: Serial
     name = Varchar(length=100)
     capacity = Integer(default=0)
+    address = Text(null=True)
+    country_code = Char(length=2)
 
     @classmethod
     def get_readable(cls) -> Readable:
@@ -140,6 +144,8 @@ class RecordingStudio(Table):
     id: Serial
     name = Varchar(length=100)
     facilities = JSON(null=True)
+    opens_at = Time()
+    closes_at = Time()
 
     @classmethod
     def get_readable(cls) -> Readable:
@@ -245,7 +251,7 @@ def populate():
     c_sharps = Band(name="C-Sharps", popularity=700, manager=anders.id)
     c_sharps.save().run_sync()
 
-    venue = Venue(name="Amazing Venue", capacity=5000)
+    venue = Venue(name="Amazing Venue", capacity=5000, country_code="GB")
     venue.save().run_sync()
 
     concert = Concert(
@@ -276,6 +282,8 @@ def populate():
                     {"name": "Bob Williams"},
                 ],
             },
+            RecordingStudio.opens_at: datetime.time(9, 0, 0),
+            RecordingStudio.closes_at: datetime.time(17, 0, 0),
         }
     )
     recording_studio_1.save().run_sync()
@@ -291,6 +299,8 @@ def populate():
                     {"name": "Frank Smith"},
                 ],
             },
+            RecordingStudio.opens_at: datetime.time(10, 0, 0),
+            RecordingStudio.closes_at: datetime.time(20, 0, 0),
         },
     )
     recording_studio_2.save().run_sync()

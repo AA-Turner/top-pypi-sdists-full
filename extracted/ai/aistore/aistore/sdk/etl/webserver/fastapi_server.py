@@ -4,7 +4,6 @@
 
 import os
 import asyncio
-from io import BytesIO
 from urllib.parse import quote
 from typing import BinaryIO, Iterator, Optional, List, Tuple
 
@@ -15,16 +14,28 @@ from fastapi import (
     Response,
     WebSocket,
 )
-from fastapi.responses import StreamingResponse
+from starlette.concurrency import iterate_in_threadpool
 import httpx
+import requests
 import aiofiles
 import uvicorn
 
-from aistore.sdk.etl.webserver.base_etl_server import ETLServer, CountingIterator
+from aistore.sdk.etl.webserver.base_etl_server import (
+    ETLServer,
+    CountingIterator,
+    RETRY_BACKOFF_BASE,
+    RETRY_BACKOFF_MAX,
+    _compute_replayable_retries,
+)
 from aistore.sdk.session_manager import resolve_ssl_config
+from aistore.sdk.etl.webserver.fastapi_streaming import (
+    _RequestStreamReader,
+    _DeferredStartStreamingResponse,
+)
 from aistore.sdk.etl.webserver.utils import (
     compose_etl_direct_put_url,
     parse_etl_pipeline,
+    _ResponseRawReader,
 )
 from aistore.sdk.errors import InvalidPipelineError, ETLDirectPutTransientError
 from aistore.sdk.const import (
@@ -34,10 +45,14 @@ from aistore.sdk.const import (
     HEADER_NODE_URL,
     HEADER_CONTENT_LENGTH,
     STATUS_OK,
+    STATUS_BAD_GATEWAY,
+    STATUS_SERVICE_UNAVAILABLE,
     ETL_WS_FQN,
     ETL_WS_PATH,
     ETL_WS_PIPELINE,
     HEADER_DIRECT_PUT_LENGTH,
+    HEADER_ETL_RETRY_REASON,
+    ETL_RETRY_REASON_DIRECT_PUT_TRANSIENT,
     QPARAM_ETL_ARGS,
     QPARAM_ETL_FQN,
     STATUS_INTERNAL_SERVER_ERROR,
@@ -50,17 +65,25 @@ HTTP_LIMITS = httpx.Limits(
     keepalive_expiry=int(os.getenv("KEEPALIVE_EXPIRY", "30")),
 )
 
-# Transient httpx errors that are safe to retry: the connection was lost before
-# a response arrived, but the server state is unknown so the caller can resend.
+# Transient httpx errors raised while forwarding the transformed body to the
+# next pipeline stage (`_direct_put_stream`). All represent transport-level
+# failures with no committed response — safe to retry against a replayable
+# source, or to bail-with-503 so AIS retries the whole PUT (one-shot body).
 _DIRECT_PUT_TRANSIENT_ERRORS = (
+    # Next-stage drops while we are reading its response (post-upload).
     httpx.ReadError,
+    # Next-stage drops while we are still uploading the body — the
+    # most common failure during streaming direct-put under load.
+    httpx.WriteError,
+    # Could not establish a TCP/TLS connection to next-stage at all.
     httpx.ConnectError,
+    # Peer violated HTTP framing mid-exchange (e.g., truncated, bad chunked).
     httpx.RemoteProtocolError,
+    # Any timeout flavor: ConnectTimeout, ReadTimeout, WriteTimeout,
+    # PoolTimeout. Next-stage is wedged or saturated; retrying after
+    # backoff often succeeds.
+    httpx.TimeoutException,
 )
-
-# Direct-put retry: exponential backoff with a cap.
-_RETRY_BACKOFF_BASE = 2.0  # seconds; delay = base ** attempt
-_RETRY_BACKOFF_MAX = 30.0  # seconds; upper bound on per-attempt delay
 
 
 class FastAPIServer(ETLServer):
@@ -76,7 +99,6 @@ class FastAPIServer(ETLServer):
         self.client: Optional[httpx.AsyncClient] = None
         self.active_connections: List[WebSocket] = []
         self.chunk_size: int = int(os.getenv(AIS_DIRECT_PUT_CHUNK_SIZE, str(MIB)))
-        self.direct_put_retries: int = int(os.getenv(AIS_DIRECT_PUT_RETRIES, "3"))
         self._setup_app()
 
     def _setup_app(self):
@@ -170,6 +192,30 @@ class FastAPIServer(ETLServer):
                     f"Error processing object {path!r}: file not found at {fs_path!r}."
                 ),
             ) from exc
+        except ETLDirectPutTransientError as e:
+            # Contract with AIS: 503 + `Ais-Etl-Retry-Reason: direct-put-transient`
+            # fires only when the ETL bailed without trying locally (one-shot
+            # body — currently the streaming no-FQN PUT path). Exhausted-retry
+            # cases keep emitting 502: the ETL already tried and AIS retrying
+            # on top is just amplification.
+            if e.bail_without_local_retry:
+                self.logger.error(
+                    "Direct put bailed (one-shot body); AIS will retry: %s", e
+                )
+                raise HTTPException(
+                    status_code=STATUS_SERVICE_UNAVAILABLE,
+                    detail=f"Direct put bailed (one-shot body): {str(e)}",
+                    headers={
+                        HEADER_ETL_RETRY_REASON: ETL_RETRY_REASON_DIRECT_PUT_TRANSIENT
+                    },
+                ) from e
+            self.logger.error(
+                "Direct put failed after %d retries: %s", self.direct_put_retries, e
+            )
+            raise HTTPException(
+                status_code=STATUS_BAD_GATEWAY,
+                detail=f"Direct put failed after retries: {str(e)}",
+            ) from e
         except httpx.HTTPStatusError as e:
             self.logger.warning(
                 "Target responded with error: %s", e.response.status_code
@@ -179,7 +225,20 @@ class FastAPIServer(ETLServer):
             ) from e
         except httpx.RequestError as e:
             self.logger.error("Network error: %s", str(e))
-            raise HTTPException(502, detail=f"Network error: {str(e)}") from e
+            raise HTTPException(
+                STATUS_BAD_GATEWAY, detail=f"Network error: {str(e)}"
+            ) from e
+        except requests.HTTPError as e:
+            status = (
+                e.response.status_code if e.response is not None else STATUS_BAD_GATEWAY
+            )
+            self.logger.debug("Upstream GET returned %s", status)
+            raise HTTPException(status, detail="Target request failed") from e
+        except requests.RequestException as e:
+            self.logger.error("Network error on upstream GET: %s", str(e))
+            raise HTTPException(
+                STATUS_BAD_GATEWAY, detail=f"Network error: {str(e)}"
+            ) from e
         except Exception as e:
             self.logger.exception("Critical error during processing")
             raise HTTPException(500, detail=f"Processing error: {str(e)}") from e
@@ -258,14 +317,14 @@ class FastAPIServer(ETLServer):
                     headers=self.make_direct_put_headers(result[2]),
                 )
 
-        # No pipeline — open reader here; iter_and_close owns its lifecycle.
-        # transform_stream is a sync generator — creating it is instant (no I/O).
-        # StreamingResponse iterates sync iterators in a threadpool automatically,
-        # so the blocking generator body runs off the event loop.
         reader = await self._get_stream_reader(fqn, path, request, is_get)
         try:
             output_iter = self.transform_stream(reader, path, etl_args)
-            return StreamingResponse(
+            # _DeferredStartStreamingResponse (not StreamingResponse) — see its
+            # docstring: defers http.response.start until the first body chunk
+            # is pulled, so request.stream() iteration in transform_stream's
+            # reader still sees body chunks via receive().
+            return _DeferredStartStreamingResponse(
                 self.iter_and_close(output_iter, reader),
                 status_code=STATUS_OK,
                 media_type=self.get_mime_type(),
@@ -281,10 +340,30 @@ class FastAPIServer(ETLServer):
             # always receives a BinaryIO reader, never a path string.
             return open(self.sanitize_fqn(fqn), "rb")
         if is_get:
-            content = await self._get_network_content(path)
-            return BytesIO(content)
-        body = await request.body()
-        return BytesIO(body)
+            obj_path = quote(path, safe="@")
+            target_url = f"{self.host_target}/{obj_path}"
+            self.logger.debug("Forwarding GET (stream) to: %s", target_url)
+            return await asyncio.to_thread(self._open_sync_get_stream, target_url)
+        # Streaming no-FQN PUT: bridge Starlette's async request.stream() into
+        # a sync BinaryIO so transform_stream() can consume it from a worker
+        # thread. request.stream() is one-shot; _direct_put_stream_with_retry
+        # forces effective_retries=0 here (AIS retries the whole PUT instead).
+        return _RequestStreamReader(request)
+
+    def _open_sync_get_stream(self, target_url: str) -> BinaryIO:
+        """Open a streaming GET against the AIS target using the shared sync session.
+
+        Blocking — must be called via asyncio.to_thread from an async context.
+        Returns a _ResponseRawReader wrapping the response so close() releases
+        the connection back to the urllib3 keep-alive pool.
+        """
+        resp = self.session.get(target_url, stream=True, timeout=None)
+        try:
+            resp.raise_for_status()
+        except requests.HTTPError:
+            resp.close()
+            raise
+        return _ResponseRawReader(resp)
 
     async def _direct_put_stream_with_retry(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -299,16 +378,48 @@ class FastAPIServer(ETLServer):
         """
         Stream-put with exponential-backoff retry on transient network errors.
 
-        Each retry reopens the source and rebuilds the transform generator from scratch.
+        Each retry reopens the source and rebuilds the transform generator
+        from scratch. Sources that can be reopened: FQN-backed (re-open the
+        file) or GET (re-issue the upstream stream). Streaming no-FQN PUT is
+        not replayable — `request.stream()` is one-shot — so retries are
+        skipped for that case and AIS retries the whole PUT instead.
+
+        Args:
+            fqn (str): Local FQN of the source object on the target's
+                filesystem. Empty string when the body comes from
+                `request.stream()`.
+            path (str): Object path (e.g. `"bucket/object-name"`) forwarded
+                to the next pipeline stage and passed to `transform_stream`.
+            request (Request): Incoming `Request`; its body is the source
+                when `fqn` is empty and `is_get` is `False`.
+            is_get (bool): `True` for hpull GET, `False` for hpush PUT.
+            etl_args (str): Per-request transformation arguments (may be
+                empty).
+            first_url (str): First URL in the direct-put pipeline (next
+                stage).
+            remaining (str): Comma-separated remaining pipeline stages,
+                forwarded to the next stage via the `AIS-Node-Url` header.
 
         Returns:
-            (status_code, body, length) — see _direct_put_stream for semantics.
+            Tuple[int, bytes, int]: `(status_code, body, length)` — see
+                `_direct_put_stream` for semantics.
+
         Raises:
             ETLDirectPutTransientError: if all retry attempts are exhausted.
         """
+        replayable, effective_retries = _compute_replayable_retries(
+            fqn, is_get, self.direct_put_retries
+        )
+        if not replayable and self.direct_put_retries:
+            self.logger.debug(
+                "no-FQN PUT: source not replayable; "
+                "local retries skipped; transient direct-put error "
+                "will surface as transform failure"
+            )
+
         reader = await self._get_stream_reader(fqn, path, request, is_get)
         try:
-            for attempt in range(self.direct_put_retries + 1):
+            for attempt in range(effective_retries + 1):
                 try:
                     return await self._direct_put_stream(
                         first_url,
@@ -317,13 +428,18 @@ class FastAPIServer(ETLServer):
                         path,
                     )
                 except ETLDirectPutTransientError as exc:
-                    if attempt >= self.direct_put_retries:
+                    if attempt >= effective_retries:
+                        # Tag the bail-without-local-retry case so the outer
+                        # handler can ask AIS to retry (see contract on
+                        # ETLDirectPutTransientError).
+                        if not replayable:
+                            exc.bail_without_local_retry = True
                         raise
-                    delay = min(_RETRY_BACKOFF_BASE**attempt, _RETRY_BACKOFF_MAX)
+                    delay = min(RETRY_BACKOFF_BASE**attempt, RETRY_BACKOFF_MAX)
                     self.logger.warning(
                         "direct_put attempt %d/%d failed, retrying in %.1fs: %s",
                         attempt + 1,
-                        self.direct_put_retries + 1,
+                        effective_retries + 1,
                         delay,
                         exc,
                         exc_info=True,
@@ -358,7 +474,7 @@ class FastAPIServer(ETLServer):
 
             counted = CountingIterator(data_iter)
             resp = await self.client.put(
-                url, content=self._to_async_iter(counted), headers=headers
+                url, content=iterate_in_threadpool(counted), headers=headers
             )
             return self.handle_direct_put_response(
                 resp, b"", data_length=counted.bytes_sent
@@ -394,12 +510,6 @@ class FastAPIServer(ETLServer):
         return response.content
 
     @staticmethod
-    async def _to_async_iter(sync_iter):
-        """Wrap a sync iterator as an async generator for httpx.AsyncClient."""
-        for chunk in sync_iter:
-            yield chunk
-
-    @staticmethod
     async def _iter_chunks(data: bytes, chunk_size: int = MIB):
         """
         Yield `data` in `chunk_size` pieces as an async bytes generator.
@@ -433,7 +543,7 @@ class FastAPIServer(ETLServer):
             except ETLDirectPutTransientError as exc:
                 if attempt >= self.direct_put_retries:
                     raise
-                delay = min(_RETRY_BACKOFF_BASE**attempt, _RETRY_BACKOFF_MAX)
+                delay = min(RETRY_BACKOFF_BASE**attempt, RETRY_BACKOFF_MAX)
                 self.logger.warning(
                     "direct_put attempt %d/%d failed, retrying in %.1fs",
                     attempt + 1,

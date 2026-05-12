@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fyta_cli
-Version: 0.7.2
+Version: 0.7.3
 Summary: Python library to access the FYTA API
 Project-URL: Repository, https://github.com/dontinelli/fyta_cli.git
 Project-URL: Issues, https://github.com/dontinelli/fyta_cli/issues

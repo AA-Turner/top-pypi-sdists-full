@@ -37,14 +37,14 @@ class TestRule(unittest.TestCase):
         if include_optional:
             return Rule(
                 action = 'accept',
-                operation = 'signEndUserSolMessage',
-                criteria = [{type=solMessage, match=^hello ([a-z]+)$}]
+                operation = 'createEndUserEvmSwap',
+                criteria = [{type=evmNetwork, networks=[base, ethereum], operator=in}, {type=evmData, abi=erc20, conditions=[{function=transfer, params=[{name=value, operator=<=, value=10000}]}]}, {type=netUSDChange, changeCents=10000, operator=<=}]
             )
         else:
             return Rule(
                 action = 'accept',
-                operation = 'signEndUserSolMessage',
-                criteria = [{type=solMessage, match=^hello ([a-z]+)$}],
+                operation = 'createEndUserEvmSwap',
+                criteria = [{type=evmNetwork, networks=[base, ethereum], operator=in}, {type=evmData, abi=erc20, conditions=[{function=transfer, params=[{name=value, operator=<=, value=10000}]}]}, {type=netUSDChange, changeCents=10000, operator=<=}],
         )
         """
 

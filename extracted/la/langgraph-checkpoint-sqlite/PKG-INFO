@@ -1,22 +1,27 @@
 Metadata-Version: 2.4
 Name: langgraph-checkpoint-sqlite
-Version: 3.0.3
+Version: 3.1.0
 Summary: Library with a SQLite implementation of LangGraph checkpoint saver.
 Project-URL: Source, https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint-sqlite
-Project-URL: Twitter, https://x.com/LangChain
+Project-URL: Twitter, https://x.com/langchain_oss
 Project-URL: Slack, https://www.langchain.com/join-community
 Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.10
 Requires-Dist: aiosqlite>=0.20
-Requires-Dist: langgraph-checkpoint<5.0.0,>=3
+Requires-Dist: langgraph-checkpoint<5.0.0,>=4.1.0
 Requires-Dist: sqlite-vec>=0.1.6
 Description-Content-Type: text/markdown
 
 # LangGraph SQLite Checkpoint
 
 Implementation of LangGraph CheckpointSaver that uses SQLite DB (both sync and async, via `aiosqlite`)
+
+## Security
+
+> [!IMPORTANT]
+> Set `LANGGRAPH_STRICT_MSGPACK=true` or pass an explicit `allowed_msgpack_modules` list when creating your checkpointer. This restricts checkpoint deserialization to known-safe types, preventing code execution if the database is compromised. See the [langgraph-checkpoint README](https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint#serde) for details.
 
 ## Usage
 

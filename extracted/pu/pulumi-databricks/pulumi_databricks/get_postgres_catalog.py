@@ -138,6 +138,20 @@ def get_postgres_catalog(name: Optional[_builtins.str] = None,
     """
     [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
 
+    This data source retrieves a single Postgres catalog.
+
+    ## Example Usage
+
+    ### Retrieve Catalog by Name
+
+    ```python
+    import pulumi
+    import pulumi_databricks as databricks
+
+    this = databricks.get_postgres_catalog(name="catalogs/my_catalog")
+    pulumi.export("catalogPostgresDatabase", this.status.postgres_database)
+    ```
+
 
     :param _builtins.str name: Output only. The full resource path of the catalog.
            
@@ -159,11 +173,25 @@ def get_postgres_catalog(name: Optional[_builtins.str] = None,
         status=pulumi.get(__ret__, 'status'),
         uid=pulumi.get(__ret__, 'uid'),
         update_time=pulumi.get(__ret__, 'update_time'))
-def get_postgres_catalog_output(name: Optional[pulumi.Input[_builtins.str]] = None,
-                                provider_config: Optional[pulumi.Input[Optional[Union['GetPostgresCatalogProviderConfigArgs', 'GetPostgresCatalogProviderConfigArgsDict']]]] = None,
+def get_postgres_catalog_output(name: pulumi.Input[Optional[_builtins.str]] = None,
+                                provider_config: pulumi.Input[Optional[Optional[Union['GetPostgresCatalogProviderConfigArgs', 'GetPostgresCatalogProviderConfigArgsDict']]]] = None,
                                 opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetPostgresCatalogResult]:
     """
     [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
+
+    This data source retrieves a single Postgres catalog.
+
+    ## Example Usage
+
+    ### Retrieve Catalog by Name
+
+    ```python
+    import pulumi
+    import pulumi_databricks as databricks
+
+    this = databricks.get_postgres_catalog(name="catalogs/my_catalog")
+    pulumi.export("catalogPostgresDatabase", this.status.postgres_database)
+    ```
 
 
     :param _builtins.str name: Output only. The full resource path of the catalog.

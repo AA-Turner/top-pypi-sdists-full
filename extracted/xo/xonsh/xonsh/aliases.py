@@ -573,7 +573,12 @@ class Aliases(cabc.MutableMapping):
         func = getattr(alias, "func", None)
         if func is not None:
             doc = getattr(func, "__doc__", None)
-        elif isinstance(alias, (list, str)):
+        elif isinstance(alias, (list, str, ExecAlias)):
+            # ``ExecAlias`` has a class docstring ("Provides an exec alias
+            # for xonsh source code.") that would otherwise leak through as
+            # the description for every plain string alias with shell
+            # syntax — same pitfall as ``FuncAlias`` above. Treat it like
+            # list/str: no implicit description.
             return ""
         else:
             doc = getattr(alias, "__doc__", None)
@@ -997,6 +1002,7 @@ def source_foreign_fn(
     overwrite_aliases=False,
     suppress_skip_message=False,
     show=False,
+    show_output=False,
     dryrun=False,
     _stderr=None,
 ):
@@ -1041,7 +1047,12 @@ def source_foreign_fn(
     suppress_skip_message : --suppress-skip-message
         flag for whether or not skip messages should be suppressed.
     show : --show
-        show the script output.
+        show the generated shell command that will be sent to the foreign
+        shell (does not show what the sourced script prints — see
+        ``--show-output`` for that).
+    show_output : --show-output
+        forward stdout and stderr produced by the sourced script to the
+        xonsh terminal. By default they are silently discarded.
     dryrun : -d, --dry-run
         Will not actually source the file.
     """
@@ -1086,6 +1097,7 @@ def source_foreign_fn(
         seterrprevcmd=seterrprevcmd,
         seterrpostcmd=seterrpostcmd,
         show=show,
+        show_output=show_output,
         dryrun=dryrun,
         files=files,
     )
@@ -1230,6 +1242,7 @@ def source_cmd_fn(
     overwrite_aliases=False,
     suppress_skip_message=False,
     show=False,
+    show_output=False,
     dryrun=False,
     _stderr=None,
 ):
@@ -1261,7 +1274,12 @@ def source_cmd_fn(
     suppress_skip_message : --suppress-skip-message
         flag for whether or not skip messages should be suppressed.
     show : --show
-        show the script output.
+        show the generated shell command that will be sent to cmd.exe
+        (does not show what the sourced script prints — see
+        ``--show-output`` for that).
+    show_output : --show-output
+        forward stdout and stderr produced by the sourced script to the
+        xonsh terminal. By default they are silently discarded.
     dryrun : -d, --dry-run
         Will not actually source the file.
     """
@@ -1294,6 +1312,7 @@ def source_cmd_fn(
             overwrite_aliases=overwrite_aliases,
             suppress_skip_message=suppress_skip_message,
             show=show,
+            show_output=show_output,
             dryrun=dryrun,
         )
 
@@ -1555,6 +1574,55 @@ def _find_cmd_exe() -> str:
     return str(canonical) if canonical.is_file() else os.environ["COMSPEC"]
 
 
+WINDOWS_CMD_ALIASES = frozenset(
+    {
+        "cls",
+        "copy",
+        "del",
+        "dir",
+        "echo",
+        "erase",
+        "md",
+        "mkdir",
+        "mklink",
+        "move",
+        "rd",
+        "ren",
+        "rename",
+        "rmdir",
+        "time",
+        "type",
+        "vol",
+    }
+)
+"""Built-in commands of ``cmd.exe`` that xonsh borrows on Windows."""
+
+
+def win_sudo(args):
+    """Run a command with Windows UAC elevation.
+
+    Registered as the ``sudo`` alias on Windows only when no ``sudo`` binary
+    is found on ``$PATH`` (see issue #5706). Resolves the target via
+    :func:`xonsh.environ.locate_binary` and re-launches it through
+    ``ShellExecuteEx`` with the ``runas`` verb; ``cmd.exe`` built-ins
+    (``dir``, ``copy``, ...) are dispatched via ``cmd /D /C`` from the
+    current working directory. The elevated process opens in a new console
+    and does not inherit standard streams, so its output is not piped back.
+    """
+    import xonsh.platforms.winutils as winutils
+
+    if not args:
+        return ("", "sudo: missing executable to run as Administrator\n", 1)
+    cmd = args[0]
+    if (resolved := locate_binary(cmd)) is not None:
+        return winutils.sudo(os.path.normpath(resolved), args[1:])
+    elif cmd.lower() in WINDOWS_CMD_ALIASES:
+        cmd_args = ["/D", "/C", "CD", _get_cwd(), "&&"] + args
+        return winutils.sudo(_find_cmd_exe(), cmd_args)
+    else:
+        return ("", f'sudo: cannot find executable "{cmd}"\n', 127)
+
+
 def _output_to_path_object(lines):
     """Transform first output line into single path. Return None if the output is empty."""
     if lines and (path_str := lines[0].strip()):
@@ -1659,53 +1727,21 @@ def make_default_aliases():
     }
     if ON_WINDOWS:
         # Borrow builtin commands from cmd.exe.
-        windows_cmd_aliases = {
-            "cls",
-            "copy",
-            "del",
-            "dir",
-            "echo",
-            "erase",
-            "md",
-            "mkdir",
-            "mklink",
-            "move",
-            "rd",
-            "ren",
-            "rename",
-            "rmdir",
-            "time",
-            "type",
-            "vol",
-        }
-        for alias in windows_cmd_aliases:
+        for alias in WINDOWS_CMD_ALIASES:
             default_aliases[alias] = [_find_cmd_exe(), "/c", alias]
         default_aliases["call"] = ["source-cmd"]
         default_aliases["source-bat"] = ["source-cmd"]
         default_aliases["clear"] = "cls"
-        if ON_ANACONDA:
-            # Add aliases specific to the Anaconda python distribution.
+        if ON_ANACONDA or shutil.which("conda", path=XSH.env.get_detyped("PATH")):
+            # ON_ANACONDA only fires when xonsh itself is installed inside the
+            # conda env (sys.prefix has conda-meta/). Pip-installed xonsh +
+            # standalone Miniconda3 leaves it False, so also probe $PATH for
+            # a `conda` launcher to give those users a working fallback while
+            # `conda init xonsh` on Windows is broken — see xonsh/xonsh#3676.
             default_aliases["activate"] = ["source-cmd", "activate.bat"]
             default_aliases["deactivate"] = ["source-cmd", "deactivate.bat"]
-        if shutil.which("sudo", path=XSH.env.get_detyped("PATH")):
-            # XSH.commands_cache is not available during setup
-            import xonsh.platforms.winutils as winutils
-
-            def sudo(args):
-                if len(args) < 1:
-                    print("You need to provide an executable to run as Administrator.")
-                    return
-                cmd = args[0]
-                if locate_binary(cmd):
-                    return winutils.sudo(cmd, args[1:])
-                elif cmd.lower() in windows_cmd_aliases:
-                    args = ["/D", "/C", "CD", _get_cwd(), "&&"] + args
-                    return winutils.sudo("cmd", args)
-                else:
-                    msg = 'Cannot find the path for executable "{0}".'
-                    print(msg.format(cmd))
-
-            default_aliases["sudo"] = sudo
+        if not shutil.which("sudo", path=XSH.env.get_detyped("PATH")):
+            default_aliases["sudo"] = win_sudo
     elif ON_DARWIN:
         default_aliases["ls"] = ["ls", "-G"]
     elif ON_FREEBSD or ON_DRAGONFLY:

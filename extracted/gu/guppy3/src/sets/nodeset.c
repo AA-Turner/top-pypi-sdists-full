@@ -230,10 +230,10 @@ mutnsiter_iternext(NyMutNodeSetIterObject *hi)
     if (!bitobj)
         return 0;
     bitno = PyLong_AsSsize_t(bitobj);
+    Py_DECREF(bitobj);
     if (bitno == -1 && PyErr_Occurred())
         return 0;
     ret = nodeset_bitno_to_obj(bitno);
-    Py_DECREF(bitobj);
     if (hi->nodeset->flags & NS_HOLDOBJECTS) {
         Py_INCREF(ret);
     } else {
@@ -1187,40 +1187,23 @@ static NyNodeSet_Exports nynodeset_exports = {
 
 int fsb_dx_nynodeset_init(PyObject *m)
 {
-    PyObject *d;
-
     NYFILL(NyMutNodeSetIter_Type);
     NYFILL(NyNodeSet_Type);
     NYFILL(NyImmNodeSetIter_Type);
     NYFILL(NyImmNodeSet_Type);
     NYFILL(NyMutNodeSet_Type);
 
-    d = PyModule_GetDict(m);
+    if (PyModule_Add(m, "NyNodeSet_Exports",
+            PyCapsule_New(&nynodeset_exports, "guppy.sets.setsc.NyNodeSet_Exports", 0)
+    ) == -1)
+        return -1;
 
-    if (PyDict_SetItemString(d,
-                         "NyNodeSet_Exports",
-                         PyCapsule_New(
-                            &nynodeset_exports,
-                            "guppy.sets.setsc.NyNodeSet_Exports",
-                            0)
-                         ) == -1) goto Error;
+    if (PyModule_AddType(m, &NyNodeSet_Type) == -1)
+        return -1;
+    if (PyModule_AddType(m, &NyMutNodeSet_Type) == -1)
+        return -1;
+    if (PyModule_AddType(m, &NyImmNodeSet_Type) == -1)
+        return -1;
 
-    if (PyType_Ready(&NyNodeSet_Type) == -1)
-        goto Error;
-    if (PyDict_SetItemString(d, "NodeSet",
-                         (PyObject *)&NyNodeSet_Type) == -1)
-        goto Error;
-    if (PyType_Ready(&NyMutNodeSet_Type) == -1)
-        goto Error;
-    if (PyDict_SetItemString(d, "MutNodeSet",
-                         (PyObject *)&NyMutNodeSet_Type) == -1)
-        goto Error;
-    if (PyType_Ready(&NyImmNodeSet_Type) == -1)
-        goto Error;
-    if (PyDict_SetItemString(d, "ImmNodeSet",
-                         (PyObject *)&NyImmNodeSet_Type) == -1)
-        goto Error;
     return 0;
-Error:
-    return -1;
 }

@@ -6,8 +6,8 @@ repo_name: janbjorge/pgqueuer
 edit_uri: edit/main/docs/
 theme:
   name: material
-  logo: logo.png
-  favicon: logo.png
+  logo: favicon.svg
+  favicon: favicon.svg
   palette:
     - scheme: default
       primary: custom
@@ -79,9 +79,10 @@ nav:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quickstart.md
       - Core Concepts: getting-started/core-concepts.md
+      - Upgrading from 0.x: getting-started/upgrading.md
   - Guides:
       - Job Processing:
-          - Rate Limiting & Concurrency: guides/rate-limiting.md
+          - Concurrency Control: guides/rate-limiting.md
           - Custom Executors: guides/custom-executors.md
           - Job Cancellation: guides/job-cancellation.md
           - Completion Tracking: guides/completion-tracking.md
@@ -89,6 +90,8 @@ nav:
       - Scheduling: guides/scheduling.md
       - Reliability:
           - Reliability Model: guides/reliability.md
+          - Database-Level Retry: guides/retry.md
+          - Holding Failed Jobs: guides/hold-failed-jobs.md
           - Heartbeat Monitoring: guides/heartbeat.md
       - Shared Resources: guides/shared-resources.md
       - Performance & Deployment:
@@ -102,6 +105,7 @@ nav:
       - Database Permissions: reference/database-permissions.md
       - In-Memory Adapter: reference/in-memory.md
   - Integrations:
+      - MCP Server: integrations/mcp-server.md
       - Prometheus Metrics: integrations/prometheus.md
       - Distributed Tracing: integrations/tracing.md
       - PostgREST: integrations/postgrest.md

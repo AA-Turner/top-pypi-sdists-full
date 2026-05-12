@@ -53,7 +53,11 @@ _NAMES: dict[KeyManager.Key, str] = {
 
 # ======================================== MANAGER ========================================
 class KeyManager(Manager):
-    """Gestionnaire de la souris"""
+    """Gestionnaire de la souris
+    
+    Args:
+        context_manager: ``Manager`` gérant le contexte d'initialisation
+    """
     __slots__ = ("_step", "_pressed", "_released_this_frame")
 
     _ID: str = "key"

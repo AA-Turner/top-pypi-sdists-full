@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import random
 import signal
 import sys
 from contextlib import suppress
@@ -20,12 +19,12 @@ from pydantic import AwareDatetime, BaseModel
 from tabulate import tabulate
 from tqdm.asyncio import tqdm
 
-from pgqueuer import PgQueuer, logconfig, types
+from pgqueuer import PgQueuer, types
 from pgqueuer.adapters.inmemory import InMemoryDriver, InMemoryQueries
-from pgqueuer.db import AsyncpgDriver, AsyncpgPoolDriver, PsycopgDriver, dsn
+from pgqueuer.db import AsyncpgDriver, AsyncpgPoolDriver, PsycopgDriver
+from pgqueuer.domain.settings import add_prefix
 from pgqueuer.models import Job
 from pgqueuer.ports import RepositoryPort
-from pgqueuer.qb import add_prefix
 from pgqueuer.queries import Queries
 
 
@@ -182,8 +181,8 @@ _shared_inmem: RepositoryPort | None = None
 
 
 def _get_conninfo(driver: DriverEnum) -> str:
-    """Return connection string, or empty for the in-memory driver."""
-    return "" if driver == DriverEnum.mem else dsn()
+    """Return connection string. Empty means libpq env vars are used."""
+    return ""
 
 
 async def make_queries(driver: DriverEnum, conninfo: str = "") -> RepositoryPort:
@@ -222,12 +221,8 @@ class Consumer:
     mode: types.QueueExecutionMode = types.QueueExecutionMode.continuous
 
     async def run(self) -> None:
-        @self.pgq.entrypoint("asyncfetch")
-        async def asyncfetch(job: Job) -> None:
-            self.bar.update()
-
-        @self.pgq.entrypoint("syncfetch")
-        def syncfetch(job: Job) -> None:
+        @self.pgq.entrypoint("fetch")
+        async def fetch(job: Job) -> None:
             self.bar.update()
 
         await self.pgq.run(batch_size=self.batch_size, mode=self.mode)
@@ -241,10 +236,9 @@ class Producer:
     cnt: count
 
     async def run(self) -> None:
-        entrypoints = ["syncfetch", "asyncfetch"] * self.batch_size
         while not self.shutdown.is_set():
             await self.queries.enqueue(
-                random.sample(entrypoints, k=self.batch_size),
+                ["fetch"] * self.batch_size,
                 [f"{next(self.cnt)}".encode() for _ in range(self.batch_size)],
                 [0] * self.batch_size,
             )
@@ -388,9 +382,8 @@ class DrainStrategy:
         await queries.clear_statistics_log()
         await queries.clear_queue()
 
-        entrypoints = ["syncfetch", "asyncfetch"] * self.settings.jobs
         await queries.enqueue(
-            random.sample(entrypoints, k=self.settings.jobs),
+            ["fetch"] * self.settings.jobs,
             [b"" for _ in range(self.settings.jobs)],
             [0] * self.settings.jobs,
         )
@@ -492,29 +485,31 @@ def main(
 
 
 if __name__ == "__main__":
-    from pgqueuer import logconfig
+    from pgqueuer.core import logconfig as _logconfig
 
-    logconfig.setup_fancy_logger(logconfig.LogLevel.INFO)
+    _logconfig.setup_fancy_logger(_logconfig.LogLevel.INFO)
     if os.environ.get("LOGFIRE", "0") == "1":
         import logfire
 
-        from pgqueuer import tracing
+        from pgqueuer.adapters.tracing.logfire import LogfireTracing
+        from pgqueuer.ports.tracing import set_tracing_class
 
         logfire.configure(service_name="pgqueuer")
 
-        tracing.set_tracing_class(tracing.LogfireTracing())
+        set_tracing_class(LogfireTracing())
 
     if sentry_dsn := os.environ.get("SENTRY_DSN"):
         import sentry_sdk
 
-        from pgqueuer import tracing
+        from pgqueuer.adapters.tracing.sentry import SentryTracing
+        from pgqueuer.ports.tracing import set_tracing_class
 
         sentry_sdk.init(
             dsn=sentry_dsn,
             sample_rate=1,
             traces_sample_rate=1.0,
         )
-        tracing.set_tracing_class(tracing.SentryTracing())
+        set_tracing_class(SentryTracing())
 
     with suppress(KeyboardInterrupt):
         app()

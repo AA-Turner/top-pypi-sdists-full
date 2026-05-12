@@ -38,6 +38,12 @@ class TestConnectedAccounts:
         connected_account = client.connected_accounts.create(
             auth_config={"id": "id"},
             connection={
+                "account_type": "PRIVATE",
+                "acl_config_for_shared": {
+                    "allow_all_users": True,
+                    "allowed_user_ids": ["x"],
+                    "not_allowed_user_ids": ["x"],
+                },
                 "alias": "alias",
                 "callback_url": "https://example.com",
                 "data": {"foo": "bar"},
@@ -151,6 +157,7 @@ class TestConnectedAccounts:
     @parametrize
     def test_method_list_with_all_params(self, client: Composio) -> None:
         connected_account = client.connected_accounts.list(
+            account_type="PRIVATE",
             auth_config_ids=["string"],
             connected_account_ids=["string"],
             cursor="cursor",
@@ -234,6 +241,11 @@ class TestConnectedAccounts:
     def test_method_patch_with_all_params(self, client: Composio) -> None:
         connected_account = client.connected_accounts.patch(
             nanoid="ca_1a2b3c4d5e6f",
+            acl_config_for_shared={
+                "allow_all_users": True,
+                "allowed_user_ids": ["x"],
+                "not_allowed_user_ids": ["x"],
+            },
             alias="alias",
             connection={
                 "state": {
@@ -418,6 +430,12 @@ class TestAsyncConnectedAccounts:
         connected_account = await async_client.connected_accounts.create(
             auth_config={"id": "id"},
             connection={
+                "account_type": "PRIVATE",
+                "acl_config_for_shared": {
+                    "allow_all_users": True,
+                    "allowed_user_ids": ["x"],
+                    "not_allowed_user_ids": ["x"],
+                },
                 "alias": "alias",
                 "callback_url": "https://example.com",
                 "data": {"foo": "bar"},
@@ -531,6 +549,7 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncComposio) -> None:
         connected_account = await async_client.connected_accounts.list(
+            account_type="PRIVATE",
             auth_config_ids=["string"],
             connected_account_ids=["string"],
             cursor="cursor",
@@ -614,6 +633,11 @@ class TestAsyncConnectedAccounts:
     async def test_method_patch_with_all_params(self, async_client: AsyncComposio) -> None:
         connected_account = await async_client.connected_accounts.patch(
             nanoid="ca_1a2b3c4d5e6f",
+            acl_config_for_shared={
+                "allow_all_users": True,
+                "allowed_user_ids": ["x"],
+                "not_allowed_user_ids": ["x"],
+            },
             alias="alias",
             connection={
                 "state": {

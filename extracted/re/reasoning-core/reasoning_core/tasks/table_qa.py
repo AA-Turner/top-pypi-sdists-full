@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 import duckdb
 from faker import Faker
@@ -16,9 +17,11 @@ from rapidfuzz.distance import Levenshtein
 class TableQAConfig(Config):
     num_rows: int = 5
     num_columns: int = 2
+    num_tables: int = 1
     def update(self, c):
         self.num_rows = int(self.num_rows * (1+c))
         self.num_columns += c
+        self.num_tables = min(self.num_tables+c, 2)
 
 _faker = Faker()
 
@@ -35,16 +38,43 @@ def generate_random_table(config):
     cols = random.sample(pool, min(config.num_columns, len(pool)))
     return pd.DataFrame({n: [g() for _ in range(config.num_rows)] for n, g in cols})
 
+def format_float(x):
+    try:
+        s = f"{float(x):.12f}".rstrip('0').rstrip('.')
+        return s if '.' in s else f"{s}.0"
+    except (ValueError, TypeError):
+        return x
+
+
 def get_renderers(dataframe):
-    return [
-        (dataframe.to_string, 'to_string'),
-        (dataframe.to_markdown, 'to_markdown'),
-        (dataframe.to_csv, 'to_csv'),
-        (dataframe.to_html, 'to_html'),
-        (lambda index=False: dataframe.style.hide(axis='index' if not index else None).to_latex(), 'to_latex'),
-        (lambda index=False: dataframe.to_json(orient='records', date_format='iso', indent=4), 'to_json'),
-        (lambda index=False: yaml.dump(dataframe.to_dict(orient='records'), default_flow_style=False), 'to_yaml')
-    ]
+    return {
+        'to_string': lambda index=False: dataframe.to_string(index=index, float_format=format_float),
+        'to_markdown': lambda index=False: dataframe.to_markdown(index=index, floatfmt='.12g', disable_numparse=True),
+        'to_csv': lambda index=False: dataframe.to_csv(index=index, float_format=format_float),
+        'to_html': lambda index=False: dataframe.to_html(index=index, float_format=format_float),
+        'to_latex': lambda index=False: (dataframe.style.hide(axis="index") if not index else dataframe.style).format(format_float).to_latex(hrules=True),
+        'to_json': lambda index=False: dataframe.to_json(orient='records', date_format='iso', indent=4),
+        'to_yaml': lambda index=False: yaml.dump(dataframe.to_dict(orient='records'), default_flow_style=False, sort_keys=False),
+    }
+
+
+def split_table(dataframe, n):
+    n = max(1, min(n, len(dataframe) or 1))
+    q, r = divmod(len(dataframe), n)
+    out = []
+    start = 0
+    for i in range(n):
+        stop = start + q + (i < r)
+        out.append(dataframe.iloc[start:stop])
+        start = stop
+    return out
+
+
+def canonicalize_floats(dataframe):
+    dataframe = dataframe.copy()
+    for c in dataframe.select_dtypes(include='float').columns:
+        dataframe[c] = dataframe[c].map(format_float)
+    return dataframe
 
 class TableQA(Task):
     def __init__(self, config=TableQAConfig()):
@@ -85,32 +115,45 @@ class TableQA(Task):
             queries.append(f"SELECT COUNT(DISTINCT {c}) FROM dataframe")
             queries.append(f"SELECT COUNT(*) FROM dataframe WHERE {c} = '{val}'")
             if len(val) > 1:
-                queries.append(f"SELECT COUNT(*) FROM dataframe WHERE {c} LIKE '%{val[1:]}%'")
-        
+                queries.append(f"SELECT COUNT(*) FROM dataframe WHERE CAST({c} AS VARCHAR) LIKE '%{val[1:]}%'")
+
         return random.choice(queries) if queries else "SELECT COUNT(*) FROM dataframe"
     
     def generate(self):
         dataframe = generate_random_table(self.config)
         q = self._query(dataframe)
-        conn = duckdb.connect()  # fresh in-memory connection
+        conn = duckdb.connect()
         result = conn.execute(q).df()
-        render_func, fmt_name = random.choice(get_renderers(dataframe))
+        renderers = get_renderers(dataframe)
+        fmt_name = random.choice(list(renderers))
+        render_func = renderers[fmt_name]
         is_scalar = result.shape == (1, 1)
         
+        tables = [render_func(index=False)]
+        if self.config.level > 0 and self.config.num_tables > 1:
+            tables = [get_renderers(part)[fmt_name](index=False) for part in split_table(dataframe, self.config.num_tables)]
+
         return Problem(
             metadata={
-                "table": render_func(index=False), 
+                "table": tables[0],
+                "tables": tables,
                 "query": q,
                 "is_scalar": is_scalar,
                 "table_format": fmt_name
             },
             answer=result.to_csv(index=False, header=False).strip()
         )
-    
+
     def prompt(self, m):
-        fmt = "single value" if m['is_scalar'] else "CSV format (rows separated by newlines, values by commas)"
-        return f"Execute this SQL query on the table:\n\n{m['table']}\n\nSQL: {m['query']}\n\nReturn result as {fmt}."
-    
+        fmt = "single value" if m['is_scalar'] else "CSV format (rows separated by newlines, values by commas). Do not include column headers."
+        tables = m.get('tables') or [m['table']]
+        if len(tables) == 1:
+            preamble = "Execute this SQL query on the table named dataframe:"
+        else:
+            preamble = "The following tables are row-wise shards of one logical table named dataframe. Concatenate them in order to reconstruct dataframe, then execute the SQL query:"
+        presentation = "\n\n".join(f"Table {i}:\n{table}" for i, table in enumerate(tables, 1))
+        return f"{preamble}\n\n{presentation}\n\nSQL: {m['query']}\n\nThe answer is the result as {fmt}."
+
     def score_answer(self, ans, entry):
         def isnumeric(x):
             try: float(x); return True
@@ -118,6 +161,19 @@ class TableQA(Task):
                 
         if entry.metadata['is_scalar'] and isnumeric(entry.answer):
             return score_scalar(ans, entry)
+        
+        # Strip potential header line: if first line matches column names from query, remove it
+        def strip_header(s, reference):
+            lines = s.strip().splitlines()
+            ref_lines = reference.strip().splitlines()
+            if len(lines) == len(ref_lines) + 1:
+                # First line might be a header — check if remaining lines match
+                candidate = "\n".join(lines[1:])
+                if candidate.strip():
+                    return candidate
+            return s
+        
+        ans = strip_header(ans, entry.answer)
         
         if ans.strip() == entry.answer.strip(): return 1.0
         
@@ -132,7 +188,10 @@ class TableQA(Task):
                     try:
                         if abs(float(av) - float(ev)) > 0.01: return 0.0
                     except:
-                        if av.strip() != ev.strip(): return 0.0
+                        # Normalize date formats before comparing
+                        av_clean = av.strip().replace("T00:00:00.000", "").replace("T00:00:00", "")
+                        ev_clean = ev.strip().replace("T00:00:00.000", "").replace("T00:00:00", "")
+                        if av_clean != ev_clean: return 0.0
             return 1.0
         except:
             return 0.0
@@ -142,10 +201,10 @@ class TableConversion(Task):
         super().__init__(config=config)
 
     def generate(self):
-        dataframe = generate_random_table(self.config)
+        dataframe = canonicalize_floats(generate_random_table(self.config))
         renderers = get_renderers(dataframe)
-        
-        (src_func, src_name), (tgt_func, tgt_name) = random.sample(renderers, 2)
+        src_name, tgt_name = random.sample(list(renderers), 2)
+        src_func, tgt_func = renderers[src_name], renderers[tgt_name]
         
         return Problem(
             metadata={
@@ -157,15 +216,34 @@ class TableConversion(Task):
         )
 
     def prompt(self, m):
+        strip_to = lambda s: re.sub(r"^to_", "", s)
+        f1, f2 = strip_to(m['source_format']), strip_to(m['target_format'])
+
         return (
-            f"Convert the following table from {m['source_format']} to {m['target_format']}.\n\n"
+            f"Convert the following table from {f1} to {f2}.\n\n"
             f"{m['source_table']}\n\n"
-            f"Output only the converted table."
+            f"The answer is the converted table."
         )
 
     def score_answer(self, answer, entry):
         reference = entry['answer']
         if not answer: return 0.0
-        
-        # normalized_similarity returns 0.0 - 1.0 (float)
-        return Levenshtein.normalized_similarity(str(answer).strip(), str(reference).strip())
+
+        # Semantic pre-check for structured formats
+        fmt = entry['metadata'].get('target_format', '')
+        try:
+            if fmt == 'to_json':
+                if json.loads(str(answer).strip()) == json.loads(reference):
+                    return 1.0
+            elif fmt == 'to_yaml':
+                if yaml.safe_load(str(answer).strip()) == yaml.safe_load(reference):
+                    return 1.0
+            elif fmt == 'to_csv':
+                parse = lambda s: list(csv.reader(io.StringIO(s.strip())))
+                if parse(str(answer)) == parse(reference):
+                    return 1.0
+        except Exception:
+            pass
+
+        return Levenshtein.normalized_similarity(
+            str(answer).strip(), str(reference).strip())

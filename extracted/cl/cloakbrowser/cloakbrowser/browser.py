@@ -25,6 +25,7 @@ from .human.config import HumanConfigOverrides, HumanPreset
 
 logger = logging.getLogger("cloakbrowser")
 
+
 # Sentinel to distinguish "viewport not provided" from "viewport=None" (disable emulation)
 _VIEWPORT_UNSET = object()
 
@@ -813,6 +814,10 @@ def _normalize_socks_string_url(url: str) -> str:
     truncate them at special chars like '='. Idempotent: pre-encoded input stays
     the same (decoded then re-encoded).
 
+    Emits an INFO log when re-encoding actually changes the URL, so users who
+    previously hit silent SOCKS5 fallback (#157) can see what the wrapper did.
+    Silent on already-encoded inputs (no false-positive noise).
+
     On unparseable input (invalid port, broken IPv6 literal, etc.) logs a
     warning and returns the original string — preserves pre-fix pass-through
     behavior so Chromium's own error handling kicks in.
@@ -828,18 +833,30 @@ def _normalize_socks_string_url(url: str) -> str:
     # urlparse returns None for absent components, "" for present-but-empty.
     if parsed.username is None and parsed.password is None:
         return url
-    enc_user = quote(unquote(parsed.username), safe="") if parsed.username else ""
+    raw_user = parsed.username or ""
+    enc_user = quote(unquote(raw_user), safe="") if raw_user else ""
     # Preserve the colon separator when password component is present, even if
     # empty, so `user:@host` stays `user:@host`.
     if parsed.password is not None:
-        enc_pass = quote(unquote(parsed.password), safe="") if parsed.password else ""
+        raw_pass = parsed.password
+        enc_pass = quote(unquote(raw_pass), safe="") if raw_pass else ""
     else:
+        raw_pass = None
         enc_pass = None
-    return _assemble_socks_url(
+    normalized = _assemble_socks_url(
         parsed.scheme, parsed.hostname or "", parsed.port,
         enc_user, enc_pass,
         parsed.path, parsed.params, parsed.query, parsed.fragment,
     )
+    # Compare credentials, not the full URL: urlparse cosmetically lowercases
+    # scheme and hostname, so a full-string compare would falsely fire on
+    # `socks5://USER:pass@HOST.com:1080` even when no encoding work happened.
+    if enc_user != raw_user or enc_pass != raw_pass:
+        logger.info(
+            "Auto URL-encoded SOCKS5 proxy credentials (special characters "
+            "detected). Pre-encode the URL to suppress this notice."
+        )
+    return normalized
 
 
 def _extract_proxy_url(proxy: str | ProxySettings | None) -> str | None:
@@ -874,7 +891,7 @@ def maybe_resolve_geoip(
     if not geoip or not proxy:
         return timezone, locale, None
 
-    from .geoip import resolve_proxy_geo_with_ip
+    from .geoip import resolve_proxy_exit_ip, resolve_proxy_geo_with_ip
 
     proxy_url = _extract_proxy_url(proxy)
     if not proxy_url:
@@ -882,8 +899,7 @@ def maybe_resolve_geoip(
 
     # When both tz/locale are explicit, still resolve exit IP for WebRTC
     if timezone is not None and locale is not None:
-        from .geoip import _resolve_exit_ip
-        exit_ip = _resolve_exit_ip(proxy_url)
+        exit_ip = resolve_proxy_exit_ip(proxy_url)
         return timezone, locale, exit_ip
 
     geo_tz, geo_locale, exit_ip = resolve_proxy_geo_with_ip(proxy_url)
@@ -918,8 +934,8 @@ def _resolve_webrtc_args(
         del args[idx]
         return args
     try:
-        from .geoip import _resolve_exit_ip
-        exit_ip = _resolve_exit_ip(proxy_url)
+        from .geoip import resolve_proxy_exit_ip
+        exit_ip = resolve_proxy_exit_ip(proxy_url)
     except Exception:
         logger.warning("Failed to resolve proxy exit IP for WebRTC spoofing; removing --fingerprint-webrtc-ip=auto")
         args = list(args)

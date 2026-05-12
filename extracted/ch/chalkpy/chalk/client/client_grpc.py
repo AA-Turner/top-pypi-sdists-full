@@ -1285,7 +1285,7 @@ class ChalkGRPCClient:
         update_mataggs: bool = False,
         write_offline: bool = False,
         write_online: Optional[bool] = None,
-        branch: None | str | types.EllipsisType = None,
+        branch: None | str | types.EllipsisType = ...,
     ) -> UploadFeaturesResponse:
         """Upload data to Chalk to be inserted into the online & offline stores.
 
@@ -1355,7 +1355,7 @@ class ChalkGRPCClient:
         request_timeout: Optional[float] = None,
         headers: Mapping[str, str] | Sequence[tuple[str, str | bytes]] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
-        branch: str | None | types.EllipsisType = None,
+        branch: str | None | types.EllipsisType = ...,
     ) -> BulkOnlineQueryResponse:
         """Execute a series of independent requests in parallel."""
         requests: List[GenericSingleQuery] = []

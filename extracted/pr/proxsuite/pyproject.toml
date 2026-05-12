@@ -1,0 +1,42 @@
+[build-system]
+build-backend = "cmeel"
+requires = [
+  "cmeel-cereal",
+  "cmeel-eigen",
+  "cmeel-simde",
+  "cmeel[build]",
+  "jrl-cmakemodules",
+  "nanobind",
+  "numpy",
+  "scipy",
+  "typing-extensions"
+]
+
+[project]
+dependencies = ["numpy", "scipy"]
+description = "Quadratic Programming Solver for Robotics and beyond."
+license = "BSD-2-Clause"
+name = "proxsuite"
+readme = "README.md"
+requires-python = ">= 3.9"
+version = "0.7.3"
+
+[project.urls]
+homepage = "https://github.com/cmake-wheel/proxsuite"
+repository = "https://github.com/cmake-wheel/proxsuite.git"
+upstream = "https://github.com/Simple-Robotics/proxsuite"
+
+[tool.cmeel]
+configure-args = [
+  "-DBUILD_PYTHON_INTERFACE=ON",
+  "-DBUILD_TESTING=OFF",
+  "-DBUILD_WITH_OPENMP_SUPPORT=OFF",
+  "-DBUILD_WITH_VECTORIZATION_SUPPORT=ON",
+  "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.13",
+  "-DINSTALL_DOCUMENTATION=OFF"
+]
+
+[tool.ruff.lint]
+ignore = ["E741"]
+extend-select = ["W605"]
+exclude = ["cmake-module/*", "bindings/python/external/nanobind/*"]

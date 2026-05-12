@@ -13,6 +13,8 @@ import typer
 
 from ouroboros.auto.adapters import (
     HandlerInterviewBackend,
+    HandlerRalphPoller,
+    HandlerRalphStarter,
     HandlerRunStarter,
     HandlerSeedGenerator,
     load_seed,
@@ -24,12 +26,20 @@ from ouroboros.auto.progress import AutoProgressCallback, AutoProgressEvent
 from ouroboros.auto.provenance import resolve_provenance
 from ouroboros.auto.resume_render import render_resume_lines
 from ouroboros.auto.seed_repairer import SeedRepairer
-from ouroboros.auto.state import AutoPhase, AutoPipelineState, AutoStore
+from ouroboros.auto.state import (
+    DEFAULT_PIPELINE_TIMEOUT_SECONDS,
+    MAX_PIPELINE_TIMEOUT_SECONDS,
+    MIN_PIPELINE_TIMEOUT_SECONDS,
+    AutoPhase,
+    AutoPipelineState,
+    AutoStore,
+)
 from ouroboros.cli.formatters import console
 from ouroboros.cli.formatters.panels import print_error, print_info, print_success
 from ouroboros.config import get_opencode_mode
 from ouroboros.mcp.tools.authoring_handlers import GenerateSeedHandler, InterviewHandler
 from ouroboros.mcp.tools.execution_handlers import ExecuteSeedHandler, StartExecuteSeedHandler
+from ouroboros.mcp.tools.ralph_handlers import RalphHandler
 from ouroboros.orchestrator import resolve_agent_runtime_backend
 
 
@@ -141,6 +151,30 @@ def auto_command(
             help="Suppress live phase/grade/repair progress lines; only the final summary prints.",
         ),
     ] = False,
+    timeout: Annotated[
+        float | None,
+        typer.Option(
+            "--timeout",
+            help=(
+                "Top-level pipeline deadline in seconds. Defaults to "
+                f"{DEFAULT_PIPELINE_TIMEOUT_SECONDS:g}s (2h) for new sessions. "
+                f"Range: {MIN_PIPELINE_TIMEOUT_SECONDS:g}-{MAX_PIPELINE_TIMEOUT_SECONDS:g}. "
+                "On resume the deadline is preserved across process restarts; "
+                "passing --timeout on resume is rejected."
+            ),
+        ),
+    ] = None,
+    complete_product: Annotated[
+        bool,
+        typer.Option(
+            "--complete-product",
+            help=(
+                "Chain RUN → RALPH_HANDOFF after a successful run handoff so a "
+                "single ooo auto invocation iterates Ralph until QA passes, "
+                "convergence, or a budget bound trips. Default off."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Run an A-grade-gated auto pipeline.
 
@@ -161,6 +195,14 @@ def auto_command(
     if not resume and (goal is None or not goal.strip()):
         print_error("goal is required unless --resume is provided")
         raise typer.Exit(1)
+    if timeout is not None and not (
+        MIN_PIPELINE_TIMEOUT_SECONDS <= timeout <= MAX_PIPELINE_TIMEOUT_SECONDS
+    ):
+        print_error(
+            f"--timeout must be between {MIN_PIPELINE_TIMEOUT_SECONDS:g} and "
+            f"{MAX_PIPELINE_TIMEOUT_SECONDS:g} seconds"
+        )
+        raise typer.Exit(1)
     try:
         result = asyncio.run(
             _run_auto(
@@ -176,6 +218,8 @@ def auto_command(
                 attach_source=attach_source,
                 reconcile_run=reconcile_run,
                 reconcile_source=reconcile_source,
+                pipeline_timeout_seconds=timeout,
+                complete_product=complete_product,
                 progress_callback=_make_progress_renderer(quiet=quiet),
             )
         )
@@ -217,6 +261,8 @@ async def _run_auto(
     attach_source: str | None = None,
     reconcile_run: bool = False,
     reconcile_source: str | None = None,
+    pipeline_timeout_seconds: float | None = None,
+    complete_product: bool = False,
     progress_callback: AutoProgressCallback | None = None,
 ) -> AutoPipelineResult:
     store = AutoStore()
@@ -230,6 +276,11 @@ async def _run_auto(
     if reconcile_run and not resume:
         raise ValueError("--reconcile-run requires --resume")
     if resume:
+        if pipeline_timeout_seconds is not None:
+            raise ValueError(
+                "--timeout cannot be changed on resume; the original deadline "
+                "is preserved across process restarts"
+            )
         state = store.load(resume)
         persisted_runtime = state.runtime_backend
         if persisted_runtime is None and state.opencode_mode is not None:
@@ -268,6 +319,17 @@ async def _run_auto(
         else:
             state.max_repair_rounds = max_repair_rounds
         skip_run = skip_run or state.skip_run
+        # Q00/ouroboros#773 (review-3): ``--complete-product`` is durable
+        # session intent, not a per-invocation flag. Honor the persisted value
+        # on resume so a session originally started with ``--complete-product``
+        # keeps chaining RUN → RALPH_HANDOFF even when the operator forgets to
+        # re-pass the flag. Lowering on resume is rejected to mirror the
+        # ``--max-*-rounds`` policy: a bound that already shaped behavior must
+        # be raised explicitly, never silently tightened.
+        if state.complete_product and not complete_product:
+            complete_product = True
+        elif complete_product and not state.complete_product:
+            state.complete_product = True
     else:
         if goal is None or not goal.strip():
             raise ValueError("goal is required when not resuming")
@@ -281,6 +343,9 @@ async def _run_auto(
         state.skip_run = skip_run
         state.max_interview_rounds = max_interview_rounds
         state.max_repair_rounds = max_repair_rounds
+        state.complete_product = complete_product
+        if pipeline_timeout_seconds is not None:
+            state.pipeline_timeout_seconds = float(pipeline_timeout_seconds)
 
     if runtime == "opencode":
         opencode_mode = state.opencode_mode or get_opencode_mode()
@@ -323,6 +388,20 @@ async def _run_auto(
         max_rounds=max_interview_rounds,
         timeout_seconds=state.phase_timeout_seconds(AutoPhase.INTERVIEW),
     )
+    ralph_handler = (
+        RalphHandler(agent_runtime_backend=runtime, opencode_mode=opencode_mode)
+        if complete_product
+        else None
+    )
+    ralph_starter = HandlerRalphStarter(ralph_handler) if ralph_handler is not None else None
+    # Q00/ouroboros#773 (review-5 finding 1): wire a poller backed by the same
+    # ``RalphHandler`` so a session interrupted in ``RALPH_HANDOFF`` (e.g.
+    # client disconnects while the background Ralph job keeps running) can
+    # actually be reconciled to ``COMPLETE`` / ``BLOCKED`` / ``FAILED`` on
+    # ``--resume`` instead of being stranded in the non-terminal handoff
+    # state forever. Sharing the handler reuses the same ``JobManager``
+    # (and underlying ``EventStore``) so the poller sees the persisted job.
+    ralph_resumer = HandlerRalphPoller(ralph_handler) if ralph_handler is not None else None
     pipeline = AutoPipeline(
         driver,
         HandlerSeedGenerator(generate_seed),
@@ -338,6 +417,9 @@ async def _run_auto(
         attach_source=attach_source,
         reconcile_run=reconcile_run,
         reconcile_source=reconcile_source,
+        ralph_starter=ralph_starter,
+        ralph_resumer=ralph_resumer,
+        complete_product=complete_product,
         progress_callback=progress_callback,
     )
     result = await pipeline.run(state)

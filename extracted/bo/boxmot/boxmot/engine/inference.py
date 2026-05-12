@@ -11,6 +11,7 @@ inside the individual detector classes.
 
 import time
 import types
+import inspect
 from pathlib import Path
 from typing import Callable, Generator, List, Optional, Union
 import numpy as np
@@ -20,7 +21,7 @@ from boxmot.data import iter_source
 from boxmot.detectors import default_imgsz, get_detector_class
 from boxmot.detectors.base import Detections
 from boxmot.utils import logger as LOGGER
-from boxmot.utils.timing import TimingStats
+from boxmot.utils.timing import TimingStats, timed_reid_get_features
 from boxmot.utils.torch_utils import select_device
 
 
@@ -36,12 +37,9 @@ class TimedReIDModel:
         self._timing_stats = timing_stats
 
     def get_features(self, xyxys: np.ndarray, img: np.ndarray) -> np.ndarray:
-        t0 = time.perf_counter()
-        features = self._model.get_features(xyxys, img)
-        elapsed_ms = (time.perf_counter() - t0) * 1000
-        if self._timing_stats is not None:
-            self._timing_stats.add_reid_time(elapsed_ms)
-        return features
+        if self._timing_stats is None:
+            return self._model.get_features(xyxys, img)
+        return timed_reid_get_features(self._model, self._timing_stats, xyxys, img)
 
     def __getattr__(self, name):
         return getattr(self._model, name)
@@ -88,13 +86,17 @@ class DetectorReIDPipeline:
         imgsz: Optional[Union[int, List[int]]] = None,
         half: bool = False,
         reid_half: Optional[bool] = None,
+        reid_preprocess: Optional[str] = None,
         timing_stats: Optional[TimingStats] = None,
+        tracker_backend: Optional[str] = None,
     ):
         self.detector_path = Path(detector_path)
         self.device = select_device(device)
         self.reid_device = self.device if reid_device in (None, "") else select_device(reid_device)
         self.half = half
         self.reid_half = half if reid_half is None else bool(reid_half)
+        self.reid_preprocess = reid_preprocess
+        self.tracker_backend = (str(tracker_backend).strip().lower() if tracker_backend else None) or None
         self.timing_stats = timing_stats if timing_stats is not None else TimingStats()
 
         if imgsz is None:
@@ -131,13 +133,36 @@ class DetectorReIDPipeline:
         if isinstance(reid_model_paths, (str, Path)):
             reid_model_paths = [reid_model_paths]
 
+        use_cpp_reid = self.tracker_backend == "cpp"
+        cpp_reid_factory = None
+        if use_cpp_reid:
+            try:
+                from boxmot.native.reid_capi import CppOnnxReID
+                cpp_reid_factory = CppOnnxReID
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning(
+                    f"--tracker-backend cpp requested but native ReID C ABI is unavailable: "
+                    f"{exc}. Falling back to the Python ReID backend for embedding generation."
+                )
+                cpp_reid_factory = None
+
         for reid_path in reid_model_paths:
             reid_path = Path(reid_path)
-            backend = ReID(
-                weights=reid_path, device=self.reid_device, half=self.reid_half
-            )
-            self.reid_models.append(TimedReIDModel(backend.model, self.timing_stats))
-            self.reid_model_names.append(reid_path.stem)
+            if cpp_reid_factory is not None:
+                backend = cpp_reid_factory(
+                    weights=reid_path,
+                    preprocess_name=self.reid_preprocess,
+                )
+                self.reid_models.append(TimedReIDModel(backend.model, self.timing_stats))
+            else:
+                backend = ReID(
+                    weights=reid_path,
+                    device=self.reid_device,
+                    half=self.reid_half,
+                    preprocess_name=self.reid_preprocess,
+                )
+                self.reid_models.append(TimedReIDModel(backend.model, self.timing_stats))
+            self.reid_model_names.append(reid_path.name)
 
     # ------------------------------------------------------------------
     # Callback management
@@ -152,6 +177,83 @@ class DetectorReIDPipeline:
     def _fire(self, event: str, proxy: _PredictorProxy):
         for cb in self._callbacks[event]:
             cb(proxy)
+
+    @staticmethod
+    def _call_with_supported_kwargs(func: Callable, *args, **kwargs):
+        """Call a detector stage with only the kwargs its signature accepts."""
+        try:
+            signature = inspect.signature(func)
+        except (TypeError, ValueError):
+            return func(*args, **kwargs)
+
+        if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()):
+            return func(*args, **kwargs)
+
+        supported_kwargs = {
+            key: value
+            for key, value in kwargs.items()
+            if key in signature.parameters
+        }
+        return func(*args, **supported_kwargs)
+
+    def _predict_detector(
+        self,
+        images: list[np.ndarray],
+        *,
+        conf: float,
+        iou: float,
+        agnostic_nms: bool,
+        classes: Optional[List[int]],
+    ) -> list[Detections]:
+        if all(hasattr(self.detector, attr) for attr in ("preprocess", "process", "postprocess")):
+            preprocess_started = time.perf_counter()
+            try:
+                preprocessed = self.detector.preprocess(images)
+                self.timing_stats.add_detector_phase_time(
+                    "preprocess", (time.perf_counter() - preprocess_started) * 1000
+                )
+
+                process_started = time.perf_counter()
+                predictions = self._call_with_supported_kwargs(
+                    self.detector.process,
+                    preprocessed,
+                    conf=conf,
+                    iou=iou,
+                    classes=classes,
+                    agnostic_nms=agnostic_nms,
+                )
+                self.timing_stats.add_detector_phase_time(
+                    "process", (time.perf_counter() - process_started) * 1000
+                )
+
+                postprocess_started = time.perf_counter()
+                results = self._call_with_supported_kwargs(
+                    self.detector.postprocess,
+                    predictions,
+                    conf=conf,
+                    iou=iou,
+                    classes=classes,
+                    agnostic_nms=agnostic_nms,
+                )
+                self.timing_stats.add_detector_phase_time(
+                    "postprocess", (time.perf_counter() - postprocess_started) * 1000
+                )
+                return results
+            except NotImplementedError:
+                pass
+
+        fallback_started = time.perf_counter()
+        results = self.detector(
+            images,
+            conf=conf,
+            iou=iou,
+            classes=classes,
+            agnostic_nms=agnostic_nms,
+        )
+        self.timing_stats.add_detector_phase_time(
+            "process", (time.perf_counter() - fallback_started) * 1000
+        )
+        return results
 
     # ------------------------------------------------------------------
     # Inference
@@ -172,12 +274,13 @@ class DetectorReIDPipeline:
 
         for frame_idx, (path, frame) in enumerate(iter_source(source, vid_stride=vid_stride), start=1):
             self.timing_stats.start_frame()
-            t0 = time.perf_counter()
-            results = self.detector(
-                [frame], conf=conf, iou=iou,
-                classes=classes, agnostic_nms=agnostic_nms,
+            results = self._predict_detector(
+                [frame],
+                conf=conf,
+                iou=iou,
+                classes=classes,
+                agnostic_nms=agnostic_nms,
             )
-            self.timing_stats.totals["inference"] += (time.perf_counter() - t0) * 1000
             for result in results:
                 if not result.path:
                     result.path = path
@@ -200,12 +303,13 @@ class DetectorReIDPipeline:
         classes: Optional[List[int]],
     ) -> list:
         """Run batch detection and return a list of Detection objects."""
-        t0 = time.perf_counter()
-        results = self.detector(
-            images, conf=conf, iou=iou,
-            classes=classes, agnostic_nms=agnostic_nms,
+        results = self._predict_detector(
+            images,
+            conf=conf,
+            iou=iou,
+            classes=classes,
+            agnostic_nms=agnostic_nms,
         )
-        self.timing_stats.totals["inference"] += (time.perf_counter() - t0) * 1000
         return results
 
     # ------------------------------------------------------------------

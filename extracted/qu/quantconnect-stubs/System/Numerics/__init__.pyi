@@ -391,13 +391,13 @@ class Vector3(System.IEquatable[System_Numerics_Vector3], System.IFormattable):
     def dot(vector_1: System.Numerics.Vector3, vector_2: System.Numerics.Vector3) -> float:
         ...
 
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
     @staticmethod
     @overload
     def equals(left: System.Numerics.Vector3, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload
@@ -1272,10 +1272,6 @@ class Vector4(System.IEquatable[System_Numerics_Vector4], System.IFormattable):
     def dot(vector_1: System.Numerics.Vector4, vector_2: System.Numerics.Vector4) -> float:
         ...
 
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
     @staticmethod
     @overload
     def equals(left: System.Numerics.Vector4, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
@@ -1283,6 +1279,10 @@ class Vector4(System.IEquatable[System_Numerics_Vector4], System.IFormattable):
 
     @overload
     def equals(self, other: System.Numerics.Vector4) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @staticmethod
@@ -2821,13 +2821,13 @@ class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
     def dot(value_1: System.Numerics.Vector2, value_2: System.Numerics.Vector2) -> float:
         ...
 
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
     @staticmethod
     @overload
     def equals(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload
@@ -3702,15 +3702,15 @@ class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
     def equals(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> bool:
         ...
 
     @overload
     def equals(self, other: System.Numerics.TotalOrderIeee754Comparer[System_Numerics_TotalOrderIeee754Comparer_T]) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload
@@ -4062,11 +4062,11 @@ class BFloat16(System.IComparable[System_Numerics_BFloat16], System.ISpanFormatt
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, other: System.Numerics.BFloat16) -> bool:
         ...
 
     @overload
-    def equals(self, other: System.Numerics.BFloat16) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @staticmethod

@@ -1,6 +1,6 @@
 [project]
 name = "dbt-exasol"
-version = "1.10.5"
+version = "1.10.6"
 description = "Adapter to dbt-core for warehouse Exasol"
 authors = [
   { name = "Torsten Glunde", email = "torsten.glunde@alligator-company.com" },
@@ -8,7 +8,7 @@ authors = [
 ]
 license = { text = "GPL-3.0-or-later" }
 readme = "README.md"
-requires-python = ">=3.10,<4"
+requires-python = ">=3.10,<3.14"
 dependencies = [
   "pyexasol>=2",
   "protobuf>=5.0,<7.0",

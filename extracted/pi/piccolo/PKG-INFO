@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: piccolo
-Version: 1.33.0
+Version: 1.34.0
 Summary: A fast, user friendly ORM and query builder which supports asyncio.
 Home-page: https://github.com/piccolo-orm/piccolo
 Author: Daniel Townsend

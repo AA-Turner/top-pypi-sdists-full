@@ -16,6 +16,9 @@ class MigrateSecretsToVaultJsonBody:
         mount_path (str): KV v2 secrets engine mount path (e.g., windmill)
         jwt_role (Union[Unset, str]): Vault JWT auth role name for Windmill (optional, if not provided token auth is
             used)
+        jwt_mount_path (Union[Unset, str]): Mount path for the JWT auth method in Vault (optional, defaults to "jwt").
+            Set this when the JWT auth method is mounted at a non-default path, e.g. via `vault auth enable -path=<mount>
+            jwt`.
         namespace (Union[Unset, str]): Vault Enterprise namespace (optional)
         token (Union[Unset, str]): Static Vault token for testing/development (optional, if provided this is used
             instead of JWT authentication)
@@ -26,6 +29,7 @@ class MigrateSecretsToVaultJsonBody:
     address: str
     mount_path: str
     jwt_role: Union[Unset, str] = UNSET
+    jwt_mount_path: Union[Unset, str] = UNSET
     namespace: Union[Unset, str] = UNSET
     token: Union[Unset, str] = UNSET
     skip_ssl_verify: Union[Unset, bool] = UNSET
@@ -35,6 +39,7 @@ class MigrateSecretsToVaultJsonBody:
         address = self.address
         mount_path = self.mount_path
         jwt_role = self.jwt_role
+        jwt_mount_path = self.jwt_mount_path
         namespace = self.namespace
         token = self.token
         skip_ssl_verify = self.skip_ssl_verify
@@ -49,6 +54,8 @@ class MigrateSecretsToVaultJsonBody:
         )
         if jwt_role is not UNSET:
             field_dict["jwt_role"] = jwt_role
+        if jwt_mount_path is not UNSET:
+            field_dict["jwt_mount_path"] = jwt_mount_path
         if namespace is not UNSET:
             field_dict["namespace"] = namespace
         if token is not UNSET:
@@ -67,6 +74,8 @@ class MigrateSecretsToVaultJsonBody:
 
         jwt_role = d.pop("jwt_role", UNSET)
 
+        jwt_mount_path = d.pop("jwt_mount_path", UNSET)
+
         namespace = d.pop("namespace", UNSET)
 
         token = d.pop("token", UNSET)
@@ -77,6 +86,7 @@ class MigrateSecretsToVaultJsonBody:
             address=address,
             mount_path=mount_path,
             jwt_role=jwt_role,
+            jwt_mount_path=jwt_mount_path,
             namespace=namespace,
             token=token,
             skip_ssl_verify=skip_ssl_verify,

@@ -58,6 +58,7 @@ taktile_d_admin:
     - r+w:workspace_feature_query/*,*,{env=*,component=*,current_status_live=*}
     - r+w:workspace_file/*,*,{env=*}
     - r+w:workspace_agent_management/*,*,{type=*}
+    - r+w+d:workspace_prebuilt_agent_management/*,*
     - r+w:workspace_agent_execution/*,*,{env=*,type=copilot}
     - r:workspace_agent_execution/*,*,{env=*,type=agent}
     - w:workspace_agent_execution/*,*,{env=sandbox,type=agent}
@@ -75,6 +76,7 @@ fwd_d/org_id:
     - w+r:workspace_endpoint/org_id,*
     - r+w:workspace_file/org_id,*,{env=*}
     - r+w+d:workspace_agent_management/org_id,*,{type=*}
+    - r+w+d:workspace_prebuilt_agent_management/org_id,*
     - r+w:workspace_agent_execution/org_id,*,{env=*,type=copilot}
     - r:workspace_agent_execution/org_id,*,{env=*,type=agent}
     - w:workspace_agent_execution/org_id,*,{env=sandbox,type=agent}

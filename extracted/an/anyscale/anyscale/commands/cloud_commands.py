@@ -121,9 +121,7 @@ def setup_vm_cloud_resource(  # noqa: PLR0912, PLR0913
             controller.update_cloud_with_resources(
                 cfn_stack, resolved_cloud_id, region, enable_head_node_fault_tolerance
             )
-            controller.wait_for_cloud_to_be_active(
-                resolved_cloud_id, CloudProviders.AWS
-            )
+            controller.wait_for_cloud_to_be_active(resolved_cloud_id)
 
             controller.log.info(
                 f"Successfully added VM resources to cloud '{resolved_cloud_name}'."
@@ -177,9 +175,7 @@ def setup_vm_cloud_resource(  # noqa: PLR0912, PLR0913
                 enable_head_node_fault_tolerance,
                 shared_storage=shared_storage,
             )
-            controller.wait_for_cloud_to_be_active(
-                resolved_cloud_id, CloudProviders.GCP
-            )
+            controller.wait_for_cloud_to_be_active(resolved_cloud_id)
 
             controller.log.info(
                 f"Successfully added VM resources to cloud '{resolved_cloud_name}'."
@@ -1884,6 +1880,14 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
     flag_value="workspace",
 )
 @click.option(
+    "--cloud-resource-name",
+    help=(
+        "Verify only the cloud resource with this name. If omitted, all cloud "
+        "resources for the cloud are verified."
+    ),
+    required=False,
+)
+@click.option(
     "--strict",
     is_flag=True,
     default=False,
@@ -1894,6 +1898,7 @@ def cloud_verify(
     name: Optional[str],
     cloud_id: Optional[str],
     functional_verify: Optional[str],
+    cloud_resource_name: Optional[str],
     strict: bool = False,
 ) -> bool:
     if cloud_name and name and cloud_name != name:
@@ -1906,6 +1911,7 @@ def cloud_verify(
         cloud_name=cloud_name or name,
         cloud_id=cloud_id,
         functional_verify=functional_verify,
+        cloud_resource_name=cloud_resource_name,
         strict=strict,
     )
 

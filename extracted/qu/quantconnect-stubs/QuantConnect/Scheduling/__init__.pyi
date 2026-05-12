@@ -115,6 +115,16 @@ class BaseScheduleRules(System.Object):
         """
         ...
 
+    def get_market_open_close_exchange_hours(self) -> typing.Sequence[QuantConnect.Securities.SecurityExchangeHours]:
+        """
+        Helper method to fetch the exchange hours of the securities currently in securities
+        whose markets are not always open. If no such securities are present, falls back to US equities (SPY).
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
     def get_security_exchange_hours(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Securities.SecurityExchangeHours:
         """
         Helper method to fetch the security exchange hours
@@ -179,6 +189,31 @@ class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
+    def after_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_after_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the market close +- minutes_after_close
+        
+        :param symbol: The symbol whose market close we want an event for
+        :param minutes_after_close: The time after market close that the event should fire
+        :param extended_market_close: True to use extended market close, false to use regular market close
+        :returns: A time rule that fires the specified number of minutes after the symbol's market close.
+        """
+        ...
+
+    @overload
+    def after_market_close(self, minutes_after_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the market close +- minutes_after_close.
+        Picks, per date, the latest market close across the algorithm's securities, ignoring always-open
+        exchanges. Defaults to US equities (SPY) when no eligible security is subscribed.
+        
+        :param minutes_after_close: The time after market close that the event should fire
+        :param extended_market_close: True to use extended market close, false to use regular market close
+        :returns: A time rule that fires the specified number of minutes after the latest market close.
+        """
+        ...
+
+    @overload
     def after_market_close(self, symbol: str, minutes_after_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
         """
         Specifies an event should fire at the market close +- minutes_after_close
@@ -191,14 +226,27 @@ class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def after_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_after_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+    def after_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_after_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
         """
-        Specifies an event should fire at the market close +- minutes_after_close
+        Specifies an event should fire at market open +- minutes_after_open
         
-        :param symbol: The symbol whose market close we want an event for
-        :param minutes_after_close: The time after market close that the event should fire
-        :param extended_market_close: True to use extended market close, false to use regular market close
-        :returns: A time rule that fires the specified number of minutes after the symbol's market close.
+        :param symbol: The symbol whose market open we want an event for
+        :param minutes_after_open: The minutes after market open that the event should fire
+        :param extended_market_open: True to use extended market open, false to use regular market open
+        :returns: A time rule that fires the specified number of minutes after the symbol's market open.
+        """
+        ...
+
+    @overload
+    def after_market_open(self, minutes_after_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at market open +- minutes_after_open.
+        Picks, per date, the earliest market open across the algorithm's securities, ignoring always-open
+        exchanges. Defaults to US equities (SPY) when no eligible security is subscribed.
+        
+        :param minutes_after_open: The minutes after market open that the event should fire
+        :param extended_market_open: True to use extended market open, false to use regular market open
+        :returns: A time rule that fires the specified number of minutes after the earliest market open.
         """
         ...
 
@@ -215,14 +263,24 @@ class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def after_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_after_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+    def at(self, time_of_day: datetime.timedelta) -> QuantConnect.Scheduling.ITimeRule:
         """
-        Specifies an event should fire at market open +- minutes_after_open
+        Specifies an event should fire at the specified time of day in the algorithm's time zone
         
-        :param symbol: The symbol whose market open we want an event for
-        :param minutes_after_open: The minutes after market open that the event should fire
-        :param extended_market_open: True to use extended market open, false to use regular market open
-        :returns: A time rule that fires the specified number of minutes after the symbol's market open.
+        :param time_of_day: The time of day in the algorithm's time zone the event should fire
+        :returns: A time rule that fires at the specified time in the algorithm's time zone.
+        """
+        ...
+
+    @overload
+    def at(self, hour: int, minute: int, second: int = 0) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the specified time of day in the algorithm's time zone
+        
+        :param hour: The hour
+        :param minute: The minute
+        :param second: The second
+        :returns: A time rule that fires at the specified time in the algorithm's time zone.
         """
         ...
 
@@ -263,24 +321,27 @@ class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def at(self, time_of_day: datetime.timedelta) -> QuantConnect.Scheduling.ITimeRule:
+    def before_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
         """
-        Specifies an event should fire at the specified time of day in the algorithm's time zone
+        Specifies an event should fire at the market close +- minutes_before_close
         
-        :param time_of_day: The time of day in the algorithm's time zone the event should fire
-        :returns: A time rule that fires at the specified time in the algorithm's time zone.
+        :param symbol: The symbol whose market close we want an event for
+        :param minutes_before_close: The time before market close that the event should fire
+        :param extended_market_close: True to use extended market close, false to use regular market close
+        :returns: A time rule that fires the specified number of minutes before the symbol's market close.
         """
         ...
 
     @overload
-    def at(self, hour: int, minute: int, second: int = 0) -> QuantConnect.Scheduling.ITimeRule:
+    def before_market_close(self, minutes_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
         """
-        Specifies an event should fire at the specified time of day in the algorithm's time zone
+        Specifies an event should fire at the market close +- minutes_before_close.
+        Picks, per date, the latest market close across the algorithm's securities, ignoring always-open
+        exchanges. Defaults to US equities (SPY) when no eligible security is subscribed.
         
-        :param hour: The hour
-        :param minute: The minute
-        :param second: The second
-        :returns: A time rule that fires at the specified time in the algorithm's time zone.
+        :param minutes_before_close: The time before market close that the event should fire
+        :param extended_market_close: True to use extended market close, false to use regular market close
+        :returns: A time rule that fires the specified number of minutes before the latest market close.
         """
         ...
 
@@ -297,19 +358,7 @@ class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def before_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at the market close +- minutes_before_close
-        
-        :param symbol: The symbol whose market close we want an event for
-        :param minutes_before_close: The time before market close that the event should fire
-        :param extended_market_close: True to use extended market close, false to use regular market close
-        :returns: A time rule that fires the specified number of minutes before the symbol's market close.
-        """
-        ...
-
-    @overload
-    def before_market_open(self, symbol: str, minutes_before_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+    def before_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_before_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
         """
         Specifies an event should fire at market open +- minutes_before_open
         
@@ -321,7 +370,20 @@ class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def before_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_before_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+    def before_market_open(self, minutes_before_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at market open +- minutes_before_open.
+        Picks, per date, the earliest market open across the algorithm's securities, ignoring always-open
+        exchanges. Defaults to US equities (SPY) when no eligible security is subscribed.
+        
+        :param minutes_before_open: The minutes before market open that the event should fire
+        :param extended_market_open: True to use extended market open, false to use regular market open
+        :returns: A time rule that fires the specified number of minutes before the earliest market open.
+        """
+        ...
+
+    @overload
+    def before_market_open(self, symbol: str, minutes_before_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
         """
         Specifies an event should fire at market open +- minutes_before_open
         
@@ -460,6 +522,17 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
+    def every_day(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], extended_market_hours: bool = False) -> QuantConnect.Scheduling.IDateRule:
+        """
+        Specifies an event should fire every day the symbol is trading
+        
+        :param symbol: The symbol whose exchange is used to determine tradable dates
+        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
+        :returns: A date rule that fires every day the specified symbol trades.
+        """
+        ...
+
+    @overload
     def every_day(self) -> QuantConnect.Scheduling.IDateRule:
         """
         Specifies an event should fire every day
@@ -480,13 +553,14 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def every_day(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], extended_market_hours: bool = False) -> QuantConnect.Scheduling.IDateRule:
+    def month_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
-        Specifies an event should fire every day the symbol is trading
+        Specifies an event should fire on the last tradable date - offset for the specified symbol of each month
         
-        :param symbol: The symbol whose exchange is used to determine tradable dates
+        :param symbol: The symbol whose exchange is used to determine the last tradable date of the month
+        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 30.
         :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: A date rule that fires every day the specified symbol trades.
+        :returns: A date rule that fires on the last tradable date - offset for the specified security each month.
         """
         ...
 
@@ -513,14 +587,15 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def month_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+    def month_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
-        Specifies an event should fire on the last tradable date - offset for the specified symbol of each month
+        Specifies an event should fire on the first tradable date + offset for the specified symbol of each month
         
-        :param symbol: The symbol whose exchange is used to determine the last tradable date of the month
-        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 30.
+        :param symbol: The symbol whose exchange is used to determine the first tradable date of the month
+        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 30
         :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: A date rule that fires on the last tradable date - offset for the specified security each month.
+        :returns: A date rule that fires on the first tradable date + offset for the
+        specified security each month.
         """
         ...
 
@@ -536,19 +611,6 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
 
     @overload
     def month_start(self, symbol: str, days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
-        """
-        Specifies an event should fire on the first tradable date + offset for the specified symbol of each month
-        
-        :param symbol: The symbol whose exchange is used to determine the first tradable date of the month
-        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 30
-        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: A date rule that fires on the first tradable date + offset for the
-        specified security each month.
-        """
-        ...
-
-    @overload
-    def month_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
         Specifies an event should fire on the first tradable date + offset for the specified symbol of each month
         
@@ -581,6 +643,18 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
+    def quarter_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+        """
+        Specifies an event should fire on the last tradable date - offset for the specified symbol of each quarter
+        
+        :param symbol: The symbol whose exchange is used to determine the last tradable date of the quarter
+        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 92.
+        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
+        :returns: A date rule that fires on the last tradable date - offset for the specified security each quarter.
+        """
+        ...
+
+    @overload
     def quarter_end(self, days_offset: int = 0) -> QuantConnect.Scheduling.IDateRule:
         """
         Specifies an event should fire on the last of each quarter
@@ -603,14 +677,15 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def quarter_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+    def quarter_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
-        Specifies an event should fire on the last tradable date - offset for the specified symbol of each quarter
+        Specifies an event should fire on the first tradable date + offset for the specified symbol of each quarter
         
-        :param symbol: The symbol whose exchange is used to determine the last tradable date of the quarter
-        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 92.
+        :param symbol: The symbol whose exchange is used to determine the first tradable date of the quarter
+        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 92
         :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: A date rule that fires on the last tradable date - offset for the specified security each quarter.
+        :returns: A date rule that fires on the first tradable date + offset for the
+        specified security each quarter.
         """
         ...
 
@@ -637,24 +712,25 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         """
         ...
 
-    @overload
-    def quarter_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
-        """
-        Specifies an event should fire on the first tradable date + offset for the specified symbol of each quarter
-        
-        :param symbol: The symbol whose exchange is used to determine the first tradable date of the quarter
-        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 92
-        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: A date rule that fires on the first tradable date + offset for the
-        specified security each quarter.
-        """
-        ...
-
     def set_default_time_zone(self, time_zone: typing.Any) -> None:
         """
         Sets the default time zone
         
         :param time_zone: The time zone to use for helper methods that can't resolve a time zone
+        """
+        ...
+
+    @overload
+    def week_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+        """
+        Specifies an event should fire on the last - offset tradable date for the specified
+        symbol of each week
+        
+        :param symbol: The symbol whose exchange is used to determine the last
+        tradable date of the week
+        :param days_offset: The amount of tradable days to offset the last tradable day by each week
+        :param extended_market_hours: True to include extended market hours, false otherwise
+        :returns: A date rule that fires on the last - offset tradable date for the specified security each week.
         """
         ...
 
@@ -683,16 +759,17 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def week_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+    def week_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
-        Specifies an event should fire on the last - offset tradable date for the specified
-        symbol of each week
+        Specifies an event should fire on the first tradable date + offset for the specified
+        symbol each week
         
-        :param symbol: The symbol whose exchange is used to determine the last
-        tradable date of the week
-        :param days_offset: The amount of tradable days to offset the last tradable day by each week
+        :param symbol: The symbol whose exchange is used to determine the first
+        tradeable date of the week
+        :param days_offset: The amount of tradable days to offset the first tradable day by
         :param extended_market_hours: True to include extended market hours, false otherwise
-        :returns: A date rule that fires on the last - offset tradable date for the specified security each week.
+        :returns: A date rule that fires on the first + offset tradable date for the specified
+        security each week.
         """
         ...
 
@@ -722,17 +799,14 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def week_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+    def year_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
-        Specifies an event should fire on the first tradable date + offset for the specified
-        symbol each week
+        Specifies an event should fire on the last tradable date - offset for the specified symbol of each year
         
-        :param symbol: The symbol whose exchange is used to determine the first
-        tradeable date of the week
-        :param days_offset: The amount of tradable days to offset the first tradable day by
-        :param extended_market_hours: True to include extended market hours, false otherwise
-        :returns: A date rule that fires on the first + offset tradable date for the specified
-        security each week.
+        :param symbol: The symbol whose exchange is used to determine the last tradable date of the year
+        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 365.
+        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
+        :returns: A date rule that fires on the last tradable date - offset for the specified security each year.
         """
         ...
 
@@ -759,14 +833,15 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def year_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+    def year_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
-        Specifies an event should fire on the last tradable date - offset for the specified symbol of each year
+        Specifies an event should fire on the first tradable date + offset for the specified symbol of each year
         
-        :param symbol: The symbol whose exchange is used to determine the last tradable date of the year
-        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 365.
+        :param symbol: The symbol whose exchange is used to determine the first tradable date of the year
+        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 365
         :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: A date rule that fires on the last tradable date - offset for the specified security each year.
+        :returns: A date rule that fires on the first tradable date + offset for the
+        specified security each year.
         """
         ...
 
@@ -782,19 +857,6 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
 
     @overload
     def year_start(self, symbol: str, days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
-        """
-        Specifies an event should fire on the first tradable date + offset for the specified symbol of each year
-        
-        :param symbol: The symbol whose exchange is used to determine the first tradable date of the year
-        :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 365
-        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: A date rule that fires on the first tradable date + offset for the
-        specified security each year.
-        """
-        ...
-
-    @overload
-    def year_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
         Specifies an event should fire on the first tradable date + offset for the specified symbol of each year
         
@@ -960,6 +1022,11 @@ class IFluentSchedulingTimeSpecifier(metaclass=abc.ABCMeta):
         ...
 
     @overload
+    def at(self, hour: int, minute: int, second: int = 0) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire at the specified time of day in the specified time zone"""
+        ...
+
+    @overload
     def at(self, hour: int, minute: int, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
         """Creates events that fire at the specified time of day in the specified time zone"""
         ...
@@ -971,11 +1038,6 @@ class IFluentSchedulingTimeSpecifier(metaclass=abc.ABCMeta):
 
     @overload
     def at(self, time_of_day: datetime.timedelta, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire at the specified time of day in the specified time zone"""
-        ...
-
-    @overload
-    def at(self, hour: int, minute: int, second: int = 0) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
         """Creates events that fire at the specified time of day in the specified time zone"""
         ...
 
@@ -1005,23 +1067,23 @@ class IFluentSchedulingDateSpecifier(metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def every_day(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on every day of the year"""
-        ...
-
-    @overload
     def every_day(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
         """Creates events on every trading day of the year for the symbol"""
         ...
 
     @overload
-    def month_start(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on the first day of the month"""
+    def every_day(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on every day of the year"""
         ...
 
     @overload
     def month_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
         """Creates events on the first trading day of the month"""
+        ...
+
+    @overload
+    def month_start(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on the first day of the month"""
         ...
 
     @overload

@@ -8,7 +8,7 @@ from ._context import ContextManager
 
 import pyglet
 from collections import deque
-from typing import Callable, Any
+from typing import Callable, Any, ClassVar
 from numbers import Real
 from dataclasses import dataclass
 
@@ -19,7 +19,14 @@ _DT_MAX = 1 / _FPS_MIN
 # ======================================== REQUEST ========================================
 @dataclass(slots=True)
 class _TimerRequest(Request):
-    """Requête d'appel de fonction avec timer"""
+    """Requête d'appel de fonction avec timer
+    
+    Args:
+        callback: fonction à appeler
+        elapsed: temps écoulé depuis le dernier appel
+        interval: durée d'attente entre chaque appel
+        remaining: nombre d'appels restants *(illimité si None)*
+    """
     callback: Callable
     elapsed: float
     interval: float
@@ -27,7 +34,11 @@ class _TimerRequest(Request):
 
 # ======================================== GESTIONNAIRE ========================================
 class TimeManager(Manager):
-    """Gestionnaire du temps"""
+    """Gestionnaire du temps
+    
+    Args:
+        context_manager: ``Manager`` gérant le contexte d'initialisation
+    """
     __slots__ = (
         "_clock", "_frame",
         "_raw_dt", "_dt", "_eff_dt",
@@ -36,7 +47,7 @@ class TimeManager(Manager):
         "_scheduling", "_timers",
     )
 
-    _ID: str = "time"
+    _ID: ClassVar[str] = "time"
 
     def __init__(self, context_manager: ContextManager):
         # Initialisation du gestionnaire

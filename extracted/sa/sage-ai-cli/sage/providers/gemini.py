@@ -120,6 +120,44 @@ class GeminiProvider(ProviderBase):
             return []
         return list(_FREE_MODELS)
 
+    # ── Structured tool protocol (B5) ──────────────────────────────────
+
+    def supports_tools(self) -> bool:
+        # Gemini 1.5+ / 2.x reliably follow function-calling. We expose
+        # the capability unconditionally so the engine can opt into
+        # structured tools regardless of which Gemini model is selected.
+        return True
+
+    def format_tools(self, specs):
+        """Convert sage's ToolSpec list to Gemini's function_declarations.
+
+        Gemini wire format:
+          {
+            "function_declarations": [
+              {"name": "READ",
+               "description": "...",
+               "parameters": {
+                 "type": "object",
+                 "properties": {"path": {"type": "string", ...}},
+                 "required": ["path"]
+               }},
+              ...
+            ]
+          }
+        """
+        decls = []
+        for spec in specs:
+            decls.append({
+                "name": spec.name,
+                "description": spec.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": dict(spec.parameters),
+                    "required": list(spec.required),
+                },
+            })
+        return {"function_declarations": decls}
+
     def _make_request_with_retry(
         self,
         client: httpx.Client,

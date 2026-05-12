@@ -2,6 +2,7 @@
 
 import operator
 from functools import reduce
+from itertools import groupby
 
 from django.core import serializers
 from django.db import models, transaction
@@ -168,8 +169,10 @@ class NS_Node(Node):
     def add_child(self, **kwargs):
         """Adds a child to the node."""
         # Fetch the parent afresh from the database and lock the row
-        # This guards against race conditions and state drift when adding multiple children
-        node = self.__class__.objects.filter(pk=self.pk).select_for_update().get()
+        # This guards against race conditions and state drift when adding multiple children,
+        # and also ensures that we're working with the base tree model in the case of inherited models
+        cls = self.tree_model()
+        node = cls.objects.filter(pk=self.pk).select_for_update().get()
         if not node.is_leaf():
             # there are child nodes, delegate insertion to add_sibling
             if self.node_order_by:
@@ -184,7 +187,7 @@ class NS_Node(Node):
             return new_sibling
 
         # we're adding the first child of this node
-        node.__class__._move_right(node.tree_id, node.rgt, False, 2)
+        cls._move_right(node.tree_id, node.rgt, False, 2)
 
         if len(kwargs) == 1 and "instance" in kwargs:
             # adding the passed (unsaved) instance to the tree
@@ -193,7 +196,7 @@ class NS_Node(Node):
                 raise NodeAlreadySaved("Attempted to add a tree node that is already in the database")
         else:
             # creating a new object
-            newobj = node.tree_model()(**kwargs)
+            newobj = cls(**kwargs)
 
         newobj.tree_id = node.tree_id
         newobj.depth = node.depth + 1
@@ -215,6 +218,7 @@ class NS_Node(Node):
         """Adds a new node as a sibling to the current node object."""
 
         pos = self._prepare_pos_var_for_add_sibling(pos)
+        cls = self.tree_model()
 
         if len(kwargs) == 1 and "instance" in kwargs:
             # adding the passed (unsaved) instance to the tree
@@ -223,7 +227,7 @@ class NS_Node(Node):
                 raise NodeAlreadySaved("Attempted to add a tree node that is already in the database")
         else:
             # creating a new object
-            newobj = self.tree_model()(**kwargs)
+            newobj = cls(**kwargs)
 
         newobj.depth = self.depth
 
@@ -240,12 +244,12 @@ class NS_Node(Node):
                 else:
                     pos = "last-sibling"
 
-            last_root = target.__class__.get_last_root_node()
+            last_root = cls.get_last_root_node()
             if (pos == "last-sibling") or (pos == "right" and target == last_root):
                 newobj.tree_id = last_root.tree_id + 1
             else:
                 newpos = {"first-sibling": 1, "left": target.tree_id, "right": target.tree_id + 1}[pos]
-                target.__class__._move_tree_right(newpos)
+                cls._move_tree_right(newpos)
 
                 newobj.tree_id = newpos
         else:
@@ -280,7 +284,7 @@ class NS_Node(Node):
                 if pos == "first-sibling":
                     target = siblings[0]
 
-            move_right = self.__class__._move_right
+            move_right = cls._move_right
 
             if pos == "last-sibling":
                 newpos = target.get_parent().rgt
@@ -560,6 +564,82 @@ class NS_Node(Node):
     def get_root_nodes(cls):
         """:returns: A queryset containing the root nodes in the tree."""
         return cls.tree_model().objects.filter(lft=1)
+
+    @classmethod
+    def find_problems(cls, parent=None):
+        """
+        Checks for inconsistencies in the tree structure.
+
+        :param parent:
+
+            If provided, limits the check to the descendants of this node.
+            If not provided, the entire tree will be checked.
+
+        :returns: A tuple of four lists:
+
+                  1. a list of ids of nodes where ``rgt`` is not strictly
+                     greater than ``lft``
+                  2. a list of ids of nodes where the ``lft`` and ``rgt``
+                     values partially overlap with another node (i.e. they are
+                     not properly nested)
+                  3. a list of ids of root-level nodes that have the same
+                     ``tree_id`` as another root-level node
+                  4. a list of ids of nodes with the wrong depth value for
+                     their nesting level as defined by ``lft`` and ``rgt``
+        """
+        cls = cls.tree_model()
+
+        if parent is not None:
+            qs = cls.objects.filter(tree_id=parent.tree_id, lft__gte=parent.lft, rgt__lte=parent.rgt)
+            initial_depth = parent.get_ancestors().count()
+        else:
+            qs = cls.objects.all()
+            initial_depth = 0
+
+        reversed_lft_rgt, overlapping_nodes, duplicate_tree_ids, wrong_depth = [], [], [], []
+
+        # Iterate over the nodes in order of tree_id and lft
+        qs = qs.order_by("tree_id", "lft").values("pk", "tree_id", "lft", "rgt", "depth").iterator()
+
+        # Consider each tree individually
+        for tree_id, nodes in groupby(qs, operator.itemgetter("tree_id")):
+            stack = []
+            has_seen_root_node = False
+
+            for node in nodes:
+                if node["rgt"] <= node["lft"]:
+                    reversed_lft_rgt.append(node["pk"])
+                    continue
+
+                # pop any nodes from the stack that are strictly to the left of the current node
+                while stack and stack[-1]["rgt"] < node["lft"]:
+                    stack.pop()
+
+                if not stack:
+                    # this is a root node
+                    if has_seen_root_node:
+                        # we've already seen a root node with this tree_id, so this is a duplicate
+                        duplicate_tree_ids.append(node["pk"])
+                        # add this to stack so that we can check subsequent nodes,
+                        # but skip further checks for this node
+                        stack.append(node)
+                        continue
+                    else:
+                        has_seen_root_node = True
+                        stack.append(node)
+                else:
+                    # this is a child node; check that it is properly nested within its parent
+                    if node["lft"] <= stack[-1]["lft"] or stack[-1]["rgt"] <= node["rgt"]:
+                        overlapping_nodes.append(node["pk"])
+                        continue
+
+                    stack.append(node)
+
+                expected_depth = initial_depth + len(stack)
+                if node["depth"] != expected_depth:
+                    wrong_depth.append(node["pk"])
+
+        return reversed_lft_rgt, overlapping_nodes, duplicate_tree_ids, wrong_depth
 
     class Meta:
         """Abstract model."""

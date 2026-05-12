@@ -28,46 +28,54 @@ concurrency:
 env:
   FORCE_COLOR: 1
 
+permissions:
+  contents: read  # read repository contents
+
 jobs:
+  build-package:
+    name: Build & verify package
+    runs-on: ubuntu-latest
+    outputs:
+      supported-python-versions: {{ '${{ steps.baipp.outputs.supported_python_classifiers_json_array }}' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: hynek/build-and-inspect-python-package@d44ca7d91762de7a7d5436ddae667c6da6d1c3df # v2.18.0
+        id: baipp
+
   pytest:
-    name: Integration Tests / Python {{ '${{ matrix.python-version }}' }}
+    name: Test
+    needs: [build-package]
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        python-version:
-        - "3.10"
-        - "3.11"
-        - "3.12"
-        - "3.13"
-        - "3.14"
+        python-version: {{ '${{ fromJson(needs.build-package.outputs.supported-python-versions) }}' }}
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-    - name: Set up Python {{ '${{ matrix.python-version }}' }}
-      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        persist-credentials: false
+    - name: Setup uv
+      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
       with:
         python-version: {{ '${{ matrix.python-version }}' }}
-    - name: Setup uv
-      uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
-      with:
-        version: ">=0.8"
     - name: Run Tox
-      run: |
+      run: | # zizmor: ignore[template-injection]
         uvx --with=tox-uv tox -e {{ '${{ matrix.python-version }}' }}
 
   typing:
     name: Type Checking
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-    - name: Set up Python
-      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
-        python-version: 3.x
+        persist-credentials: false
     - name: Setup uv
-      uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
-      with:
-        version: ">=0.8"
+      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
     - name: Run Tox
-      run: |
-        uvx --with=tox-uv tox -e typing
+      run: >
+        uvx
+        --managed-python
+        --with=tox-uv
+        tox -e typing

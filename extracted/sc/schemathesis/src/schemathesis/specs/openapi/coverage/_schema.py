@@ -14,7 +14,13 @@ from functools import lru_cache, partial
 from itertools import combinations
 from math import inf, nextafter
 
-from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, is_valid, make_validator, make_validator_for
+from schemathesis.core.jsonschema import (
+    FANCY_REGEX_OPTIONS,
+    VALIDATED_FORMATS_BY_DRAFT,
+    is_valid,
+    make_validator,
+    make_validator_for,
+)
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.jsonschema.keywords import ALL_KEYWORDS
 
@@ -90,7 +96,7 @@ def _get_format_validator(format: str, validator_cls: type[jsonschema_rs.Validat
     return _FORMAT_VALIDATORS[key]
 
 
-def conforms_to_format(value: Any, format: str, validator_cls: type[jsonschema_rs.Validator]) -> bool:
+def conforms_to_format(value: object, format: str, validator_cls: type[jsonschema_rs.Validator]) -> bool:
     """Check if a value conforms to a JSON Schema format."""
     return _get_format_validator(format, validator_cls).is_valid(value)
 
@@ -114,10 +120,27 @@ def _replace_zero_with_nonzero(x: float) -> float:
     return x or 0.0
 
 
-def _accept_spec_value(value: Any, schema: dict[str, Any]) -> Any:
+def _is_strictly_valid(value: Any, schema: dict[str, Any], ctx: CoverageContext) -> bool:
+    # Fails closed: when no validator can be built (e.g. cross-draft keyword combos rejected
+    # by both the auto-detected draft and the spec's `validator_cls`), treat the value as
+    # unchecked so callers drop it rather than ship it as a valid positive coverage body.
+    full_schema: JsonSchema = schema
+    if BUNDLE_STORAGE_KEY in ctx.root_schema:
+        full_schema = {**schema, BUNDLE_STORAGE_KEY: ctx.root_schema[BUNDLE_STORAGE_KEY]}
+    try:
+        return make_validator_for(full_schema).is_valid(value)
+    except Exception:
+        pass
+    try:
+        return make_validator(full_schema, ctx.validator_cls).is_valid(value)
+    except Exception:
+        return False
+
+
+def _accept_spec_value(value: Any, schema: dict[str, Any], ctx: CoverageContext) -> Any:
     # Spec examples reflecting the response shape may carry `readOnly` keys that
     # request-side schemas forbid; dropping those keys recovers the curated value.
-    if is_valid(value, schema):
+    if _is_strictly_valid(value, schema, ctx):
         return value
     if not isinstance(value, dict):
         return NOT_SET
@@ -128,7 +151,7 @@ def _accept_spec_value(value: Any, schema: dict[str, Any]) -> Any:
     if not forbidden or forbidden.isdisjoint(value):
         return NOT_SET
     cleaned = {k: v for k, v in value.items() if k not in forbidden}
-    if is_valid(cleaned, schema):
+    if _is_strictly_valid(cleaned, schema, ctx):
         return cleaned
     return NOT_SET
 
@@ -242,7 +265,7 @@ class CoverageContext:
     validator_cls: type[jsonschema_rs.Validator]
     update_pattern: Callable[[str, int | None, int | None], str] | None
     _resolver: Resolver | None
-    _schema_generation_cache: dict[tuple[Any, ...], Any]
+    _schema_generation_cache: dict[tuple[str, ...], Any]
     allow_extra_parameters: bool
 
     __slots__ = (
@@ -273,7 +296,7 @@ class CoverageContext:
         validator_cls: type[jsonschema_rs.Validator],
         update_pattern: Callable[[str, int | None, int | None], str] | None = None,
         _resolver: Resolver | None = None,
-        _schema_generation_cache: dict[tuple[Any, ...], Any] | None = None,
+        _schema_generation_cache: dict[tuple[str, ...], Any] | None = None,
         allow_extra_parameters: bool = True,
     ) -> None:
         self.root_schema = root_schema
@@ -400,18 +423,18 @@ class CoverageContext:
         if isinstance(schema, dict):
             example = schema.get("example", NOT_SET)
             if example is not NOT_SET:
-                accepted = _accept_spec_value(example, schema)
+                accepted = _accept_spec_value(example, schema, self)
                 if accepted is not NOT_SET:
                     return accepted
             examples = schema.get("examples")
             if isinstance(examples, list):
                 for candidate in examples:
-                    accepted = _accept_spec_value(candidate, schema)
+                    accepted = _accept_spec_value(candidate, schema, self)
                     if accepted is not NOT_SET:
                         return accepted
             default = schema.get("default", NOT_SET)
             if default is not NOT_SET:
-                accepted = _accept_spec_value(default, schema)
+                accepted = _accept_spec_value(default, schema, self)
                 if accepted is not NOT_SET:
                     return accepted
         keys = sorted([k for k in schema if not k.startswith("x-") and k not in ["description", "example", "examples"]])
@@ -583,7 +606,9 @@ def _update_schema_pattern(
             schema["pattern"] = new_pattern
 
 
-def _apply_pattern_optimizations(obj: Any, update_pattern: Callable[[str, int | None, int | None], str] | None) -> None:
+def _apply_pattern_optimizations(
+    obj: object, update_pattern: Callable[[str, int | None, int | None], str] | None
+) -> None:
     if update_pattern is None:
         return
     if isinstance(obj, dict):
@@ -1398,7 +1423,7 @@ def is_valid_for_others(
     return False
 
 
-def is_invalid_for_oneOf(value: Any, idx: int, validators: list[jsonschema_rs.Validator]) -> bool:
+def is_invalid_for_oneOf(value: object, idx: int, validators: list[jsonschema_rs.Validator]) -> bool:
     if contains_binary(value):
         # Binary values cannot be validated by jsonschema_rs; treat as not matching any other sub-schema
         return True
@@ -1441,7 +1466,7 @@ def _filter_against_combinators(
             yield case
 
 
-def _is_valid_with_formats(value: Any, schema: JsonSchema, ctx: CoverageContext) -> bool:
+def _is_valid_with_formats(value: object, schema: JsonSchema, ctx: CoverageContext) -> bool:
     """Return True if value satisfies schema including format constraints at all nesting levels."""
     if not isinstance(schema, dict):
         return True
@@ -2269,6 +2294,14 @@ def _negative_required(
         )
 
 
+def _violates_format(value: object, format: str, validator_cls: type[jsonschema_rs.Validator]) -> bool:
+    return not conforms_to_format(value, format, validator_cls)
+
+
+def _violates_hostname(value: object, validator_cls: type[jsonschema_rs.Validator]) -> bool:
+    return value == "" or not conforms_to_format(value, "hostname", validator_cls)
+
+
 def _negative_format(
     ctx: CoverageContext, schema: JsonSchemaObject, format: str
 ) -> Generator[GeneratedValue, None, None]:
@@ -2278,22 +2311,25 @@ def _negative_format(
     # We can only generate truly invalid data for formats in VALIDATED_FORMATS (e.g., "email", "uri", "uuid").
     if format not in VALIDATED_FORMATS:
         return
+    # The active draft determines which formats actually validate (Draft 4 treats
+    # iri-reference / json-pointer / etc. as annotation-only). Skip when the format
+    # is not validated — the strategy below would be unsatisfiable for every property.
+    validator_cls = ctx.validator_cls
+    if format not in VALIDATED_FORMATS_BY_DRAFT.get(validator_cls, frozenset()):
+        return
     # Hypothesis-jsonschema does not canonicalise it properly right now, which leads to unsatisfiable schema
     without_format = {k: v for k, v in schema.items() if k != "format"}
     without_format["type"] = "string"
     if ctx.location == "path":
         # Empty path parameters are invalid
         without_format["minLength"] = 1
-    strategy = from_schema(without_format)
-    # Use the schema's actual validator class to determine format conformance, avoiding
-    # false positives from mismatched draft semantics (e.g. Draft 4 vs Draft 2020-12).
-    vc = ctx.validator_cls
     if format == "hostname":
-        strategy = strategy.filter(lambda v, vc=vc: v == "" or not conforms_to_format(v, "hostname", vc))
+        filter_fn = partial(_violates_hostname, validator_cls=validator_cls)
     else:
-        strategy = strategy.filter(lambda v, f=format, vc=vc: not conforms_to_format(v, f, vc))
+        filter_fn = partial(_violates_format, format=format, validator_cls=validator_cls)
+    strategy = from_schema(without_format).filter(filter_fn)
     yield NegativeValue(
-        ctx.generate_from(strategy),
+        examples.generate_one(strategy),
         scenario=CoverageScenario.INVALID_FORMAT,
         description=f"Value not matching the '{format}' format",
         location=ctx.current_path,
@@ -2312,7 +2348,7 @@ def _is_not_numeric_string(x: str) -> bool:
         return True
 
 
-def is_valid_header_value(value: Any) -> bool:
+def is_valid_header_value(value: object) -> bool:
     value = str(value)
     if not is_latin_1_encodable(value):
         return False

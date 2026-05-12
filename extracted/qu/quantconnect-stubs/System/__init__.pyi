@@ -1433,10 +1433,6 @@ class TimeOnly(System.IComparable[System_TimeOnly], System.IEquatable[System_Tim
         ...
 
     @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
     def __ge__(self, right: System.TimeOnly) -> bool:
         ...
 
@@ -1445,7 +1441,7 @@ class TimeOnly(System.IComparable[System_TimeOnly], System.IEquatable[System_Tim
         ...
 
     @overload
-    def __gt__(self, other: typing.Any) -> bool:
+    def __ge__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -1454,6 +1450,10 @@ class TimeOnly(System.IComparable[System_TimeOnly], System.IEquatable[System_Tim
 
     @overload
     def __gt__(self, other: System.TimeOnly) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -1480,10 +1480,6 @@ class TimeOnly(System.IComparable[System_TimeOnly], System.IEquatable[System_Tim
         ...
 
     @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
     def __le__(self, right: System.TimeOnly) -> bool:
         ...
 
@@ -1492,7 +1488,7 @@ class TimeOnly(System.IComparable[System_TimeOnly], System.IEquatable[System_Tim
         ...
 
     @overload
-    def __lt__(self, other: typing.Any) -> bool:
+    def __le__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -1501,6 +1497,10 @@ class TimeOnly(System.IComparable[System_TimeOnly], System.IEquatable[System_Tim
 
     @overload
     def __lt__(self, other: System.TimeOnly) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
         ...
 
     def __ne__(self, right: System.TimeOnly) -> bool:
@@ -1534,11 +1534,11 @@ class TimeOnly(System.IComparable[System_TimeOnly], System.IEquatable[System_Tim
         ...
 
     @overload
-    def compare_to(self, value: typing.Any) -> int:
+    def compare_to(self, value: System.TimeOnly) -> int:
         ...
 
     @overload
-    def compare_to(self, value: System.TimeOnly) -> int:
+    def compare_to(self, value: typing.Any) -> int:
         ...
 
     @overload
@@ -1558,11 +1558,11 @@ class TimeOnly(System.IComparable[System_TimeOnly], System.IEquatable[System_Tim
         ...
 
     @overload
-    def equals(self, value: typing.Any) -> bool:
+    def equals(self, value: System.TimeOnly) -> bool:
         ...
 
     @overload
-    def equals(self, value: System.TimeOnly) -> bool:
+    def equals(self, value: typing.Any) -> bool:
         ...
 
     @staticmethod
@@ -1788,10 +1788,6 @@ class DateOnly(System.IComparable[System_DateOnly], System.IEquatable[System_Dat
         ...
 
     @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
     def __ge__(self, right: System.DateOnly) -> bool:
         ...
 
@@ -1800,7 +1796,7 @@ class DateOnly(System.IComparable[System_DateOnly], System.IEquatable[System_Dat
         ...
 
     @overload
-    def __gt__(self, other: typing.Any) -> bool:
+    def __ge__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -1812,15 +1808,15 @@ class DateOnly(System.IComparable[System_DateOnly], System.IEquatable[System_Dat
         ...
 
     @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
     def __init__(self, year: int, month: int, day: int) -> None:
         ...
 
     @overload
     def __init__(self, year: int, month: int, day: int, calendar: System.Globalization.Calendar) -> None:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -1832,7 +1828,7 @@ class DateOnly(System.IComparable[System_DateOnly], System.IEquatable[System_Dat
         ...
 
     @overload
-    def __lt__(self, other: typing.Any) -> bool:
+    def __le__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -1841,6 +1837,10 @@ class DateOnly(System.IComparable[System_DateOnly], System.IEquatable[System_Dat
 
     @overload
     def __lt__(self, other: System.DateOnly) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
         ...
 
     def __ne__(self, right: System.DateOnly) -> bool:
@@ -1856,22 +1856,22 @@ class DateOnly(System.IComparable[System_DateOnly], System.IEquatable[System_Dat
         ...
 
     @overload
-    def compare_to(self, value: typing.Any) -> int:
+    def compare_to(self, value: System.DateOnly) -> int:
         ...
 
     @overload
-    def compare_to(self, value: System.DateOnly) -> int:
+    def compare_to(self, value: typing.Any) -> int:
         ...
 
     def deconstruct(self, year: typing.Optional[int], month: typing.Optional[int], day: typing.Optional[int]) -> typing.Tuple[None, int, int, int]:
         ...
 
     @overload
-    def equals(self, value: typing.Any) -> bool:
+    def equals(self, value: System.DateOnly) -> bool:
         ...
 
     @overload
-    def equals(self, value: System.DateOnly) -> bool:
+    def equals(self, value: typing.Any) -> bool:
         ...
 
     @staticmethod
@@ -2506,11 +2506,11 @@ class TimeZoneInfo(System.Object, System.IEquatable[System_TimeZoneInfo], System
             ...
 
         @overload
-        def equals(self, obj: typing.Any) -> bool:
+        def equals(self, other: System.TimeZoneInfo.AdjustmentRule) -> bool:
             ...
 
         @overload
-        def equals(self, other: System.TimeZoneInfo.AdjustmentRule) -> bool:
+        def equals(self, obj: typing.Any) -> bool:
             ...
 
         def get_hash_code(self) -> int:
@@ -2664,11 +2664,11 @@ class TimeZoneInfo(System.Object, System.IEquatable[System_TimeZoneInfo], System
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, other: System.TimeZoneInfo) -> bool:
         ...
 
     @overload
-    def equals(self, other: System.TimeZoneInfo) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @staticmethod
@@ -2826,6 +2826,14 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
         ...
 
     @overload
+    def __init__(self, value: typing.List[str]) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: typing.List[str], start_index: int, length: int) -> None:
+        ...
+
+    @overload
     def __init__(self, value: typing.Any) -> None:
         ...
 
@@ -2835,14 +2843,6 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
 
     @overload
     def __init__(self, value: typing.Any, start_index: int, length: int, enc: System.Text.Encoding) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: typing.List[str]) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: typing.List[str], start_index: int, length: int) -> None:
         ...
 
     @overload
@@ -3106,6 +3106,11 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
 
     @staticmethod
     @overload
+    def format(format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
+        ...
+
+    @staticmethod
+    @overload
     def format(provider: System.IFormatProvider, format: str, arg_0: typing.Any) -> str:
         ...
 
@@ -3117,11 +3122,6 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
     @staticmethod
     @overload
     def format(provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
         ...
 
     @staticmethod
@@ -3918,27 +3918,17 @@ class Delegate(System.Object, System.ICloneable, System.Runtime.Serialization.IS
 
     @staticmethod
     @overload
+    def create_delegate(type: typing.Type, method: System.Reflection.MethodInfo) -> System.Delegate:
+        ...
+
+    @staticmethod
+    @overload
     def create_delegate(type: typing.Type, target: typing.Any, method: str) -> System.Delegate:
         ...
 
     @staticmethod
     @overload
     def create_delegate(type: typing.Type, target: typing.Any, method: str, ignore_case: bool) -> System.Delegate:
-        ...
-
-    @staticmethod
-    @overload
-    def create_delegate(type: typing.Type, first_argument: typing.Any, method: System.Reflection.MethodInfo, throw_on_bind_failure: bool) -> System.Delegate:
-        ...
-
-    @staticmethod
-    @overload
-    def create_delegate(type: typing.Type, target: typing.Any, method: str, ignore_case: bool, throw_on_bind_failure: bool) -> System.Delegate:
-        ...
-
-    @staticmethod
-    @overload
-    def create_delegate(type: typing.Type, method: System.Reflection.MethodInfo) -> System.Delegate:
         ...
 
     @staticmethod
@@ -3953,7 +3943,17 @@ class Delegate(System.Object, System.ICloneable, System.Runtime.Serialization.IS
 
     @staticmethod
     @overload
+    def create_delegate(type: typing.Type, first_argument: typing.Any, method: System.Reflection.MethodInfo, throw_on_bind_failure: bool) -> System.Delegate:
+        ...
+
+    @staticmethod
+    @overload
     def create_delegate(type: typing.Type, method: System.Reflection.MethodInfo, throw_on_bind_failure: bool) -> System.Delegate:
+        ...
+
+    @staticmethod
+    @overload
+    def create_delegate(type: typing.Type, target: typing.Any, method: str, ignore_case: bool, throw_on_bind_failure: bool) -> System.Delegate:
         ...
 
     @staticmethod
@@ -4046,11 +4046,11 @@ class Half(System.IComparable[System_Half], System.ISpanFormattable, System.IEqu
         ...
 
     @overload
-    def __ge__(self, other: typing.Any) -> bool:
+    def __ge__(self, right: System.Half) -> bool:
         ...
 
     @overload
-    def __ge__(self, right: System.Half) -> bool:
+    def __ge__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -4058,11 +4058,11 @@ class Half(System.IComparable[System_Half], System.ISpanFormattable, System.IEqu
         ...
 
     @overload
-    def __gt__(self, other: typing.Any) -> bool:
+    def __gt__(self, right: System.Half) -> bool:
         ...
 
     @overload
-    def __gt__(self, right: System.Half) -> bool:
+    def __gt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -4085,11 +4085,11 @@ class Half(System.IComparable[System_Half], System.ISpanFormattable, System.IEqu
         ...
 
     @overload
-    def __le__(self, other: typing.Any) -> bool:
+    def __le__(self, right: System.Half) -> bool:
         ...
 
     @overload
-    def __le__(self, right: System.Half) -> bool:
+    def __le__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -4097,11 +4097,11 @@ class Half(System.IComparable[System_Half], System.ISpanFormattable, System.IEqu
         ...
 
     @overload
-    def __lt__(self, other: typing.Any) -> bool:
+    def __lt__(self, right: System.Half) -> bool:
         ...
 
     @overload
-    def __lt__(self, right: System.Half) -> bool:
+    def __lt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -4857,17 +4857,17 @@ class Convert(System.Object):
 
     @staticmethod
     @overload
+    def to_date_time(value: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    @overload
     def to_date_time(value: typing.Any) -> datetime.datetime:
         ...
 
     @staticmethod
     @overload
     def to_date_time(value: typing.Any, provider: System.IFormatProvider) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    @overload
-    def to_date_time(value: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
         ...
 
     @staticmethod
@@ -8692,10 +8692,6 @@ class MemoryExtensions(System.Object):
             ...
 
         @overload
-        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> bool:
-            ...
-
-        @overload
         def append_formatted(self, value: System.ReadOnlySpan[str]) -> bool:
             ...
 
@@ -8709,6 +8705,10 @@ class MemoryExtensions(System.Object):
 
         @overload
         def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> bool:
+            ...
+
+        @overload
+        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> bool:
             ...
 
         def append_literal(self, value: str) -> bool:
@@ -11640,11 +11640,11 @@ class CultureAwareComparer(System.StringComparer, System.Collections.Generic.IAl
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, x: str, y: str) -> bool:
         ...
 
     @overload
-    def equals(self, x: str, y: str) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload
@@ -11666,11 +11666,11 @@ class OrdinalComparer(System.StringComparer, System.Collections.Generic.IAlterna
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, x: str, y: str) -> bool:
         ...
 
     @overload
-    def equals(self, x: str, y: str) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload
@@ -13326,15 +13326,15 @@ class ReadOnlySpan(typing.Generic[System_ReadOnlySpan_T]):
         ...
 
     @overload
-    def __init__(self, pointer: typing.Any, length: int) -> None:
-        ...
-
-    @overload
     def __init__(self, array: typing.List[System_ReadOnlySpan_T]) -> None:
         ...
 
     @overload
     def __init__(self, array: typing.List[System_ReadOnlySpan_T], start: int, length: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, pointer: typing.Any, length: int) -> None:
         ...
 
     @overload
@@ -13642,15 +13642,15 @@ class Span(typing.Generic[System_Span_T]):
         ...
 
     @overload
-    def __init__(self, pointer: typing.Any, length: int) -> None:
-        ...
-
-    @overload
     def __init__(self, array: typing.List[System_Span_T]) -> None:
         ...
 
     @overload
     def __init__(self, array: typing.List[System_Span_T], start: int, length: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, pointer: typing.Any, length: int) -> None:
         ...
 
     @overload
@@ -14141,11 +14141,11 @@ class UIntPtr(System.IEquatable[System_UIntPtr], System.IComparable[System_UIntP
         ...
 
     @overload
-    def __init__(self, value: typing.Any) -> None:
+    def __init__(self, value: int) -> None:
         ...
 
     @overload
-    def __init__(self, value: int) -> None:
+    def __init__(self, value: typing.Any) -> None:
         ...
 
     def __isub__(self, offset: int) -> System.UIntPtr:
@@ -14666,11 +14666,11 @@ class IntPtr(System.IEquatable[System_IntPtr], System.IComparable[System_IntPtr]
         ...
 
     @overload
-    def __init__(self, value: typing.Any) -> None:
+    def __init__(self, value: int) -> None:
         ...
 
     @overload
-    def __init__(self, value: int) -> None:
+    def __init__(self, value: typing.Any) -> None:
         ...
 
     def __isub__(self, offset: int) -> System.IntPtr:
@@ -15545,10 +15545,6 @@ class ArgumentOutOfRangeException(System.ArgumentException):
         ...
 
     @overload
-    def __init__(self, param_name: str, actual_value: typing.Any, message: str) -> None:
-        ...
-
-    @overload
     def __init__(self) -> None:
         ...
 
@@ -15562,6 +15558,10 @@ class ArgumentOutOfRangeException(System.ArgumentException):
 
     @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, param_name: str, actual_value: typing.Any, message: str) -> None:
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
@@ -18052,11 +18052,6 @@ class Console(System.Object):
 
     @staticmethod
     @overload
-    def write(value: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
     def write(format: str, *arg: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
         ...
 
@@ -18092,27 +18087,12 @@ class Console(System.Object):
 
     @staticmethod
     @overload
+    def write(value: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
     def write(value: System.ReadOnlySpan[str]) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_line(value: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_line(format: str, arg_0: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_line(format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_line(format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> None:
         ...
 
     @staticmethod
@@ -18152,7 +18132,27 @@ class Console(System.Object):
 
     @staticmethod
     @overload
+    def write_line(value: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
     def write_line(value: System.ReadOnlySpan[str]) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_line(format: str, arg_0: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_line(format: str, arg_0: typing.Any, arg_1: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_line(format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> None:
         ...
 
     @staticmethod

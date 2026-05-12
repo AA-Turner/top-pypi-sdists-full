@@ -245,11 +245,11 @@ class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, other: System.Net.IPNetwork) -> bool:
         ...
 
     @overload
-    def equals(self, other: System.Net.IPNetwork) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     def get_hash_code(self) -> int:

@@ -24,7 +24,9 @@ from anyscale.cli_logger import LogsLogger
 from anyscale.client.openapi_client.models import (
     ApplyProductionServiceV2Model,
     CloudAnalyticsEventName,
+    CloudDeployment,
     CloudProviders,
+    ComputeStack,
     ComputeTemplateQuery,
     CreateExperimentalWorkspace,
     ServiceEventCurrentState,
@@ -33,9 +35,11 @@ from anyscale.client.openapi_client.models import (
 from anyscale.controllers.base_controller import BaseController
 from anyscale.project_utils import get_default_project
 from anyscale.sdk.anyscale_client.models import (
+    CloudDeploymentComputeConfig,
     ComputeNodeType,
     CreateClusterCompute,
     CreateClusterComputeConfig,
+    PhysicalResources,
     ServiceConfig,
 )
 from anyscale.util import confirm, get_endpoint
@@ -51,6 +55,8 @@ MAXIMUM_UPTIME_MINUTES = 15
 IDLE_TERMINATION_MINUTES = 5
 HEAD_NODE_TYPE_AWS = "m5.xlarge"  # on demand price ~$0.20 per hour
 HEAD_NODE_TYPE_GCP = "n2-highmem-2"  # on demand price ~$0.13 per hour
+K8S_HEAD_NODE_CPU = 8
+K8S_HEAD_NODE_MEMORY_BYTES = 32 * 1024 ** 3  # 32 GiB
 CREATE_COMPUTE_CONFIG_TIMEOUT_SECONDS = 600  # 10 minutes
 
 # Workspace verification will fail fast if any of the following logs are found
@@ -104,6 +110,9 @@ class CloudFunctionalVerificationController(BaseController):
     def get_head_node_type(cloud_provider: CloudProviders) -> str:
         """
         Get the default head node type for the given cloud provider.
+
+        Only meaningful for VM-backed clouds; K8s clouds size the head node by
+        ``required_resources`` instead -- see ``_build_head_node_type``.
         """
         if cloud_provider == CloudProviders.AWS:
             return HEAD_NODE_TYPE_AWS
@@ -111,13 +120,55 @@ class CloudFunctionalVerificationController(BaseController):
             return HEAD_NODE_TYPE_GCP
         raise ClickException(f"Unsupported cloud provider: {cloud_provider}")
 
+    @staticmethod
+    def _build_head_node_type(cloud_resource: CloudDeployment) -> ComputeNodeType:
+        """
+        Build the head node type for the verification cluster compute.
+
+        On K8s we declare the resource shape (CPU + memory) so the scheduler
+        can place the head pod on whatever node pool exists on the cluster --
+        no need to know AWS/GCP/Azure VM instance type names.
+        """
+        compute_stack = cloud_resource.compute_stack or ComputeStack.VM
+        if compute_stack == ComputeStack.K8S:
+            return ComputeNodeType(
+                name="head_node_type",
+                required_resources=PhysicalResources(
+                    cpu=K8S_HEAD_NODE_CPU, memory=K8S_HEAD_NODE_MEMORY_BYTES,
+                ),
+            )
+        return ComputeNodeType(
+            name="head_node_type",
+            instance_type=CloudFunctionalVerificationController.get_head_node_type(
+                cloud_resource.provider
+            ),
+        )
+
     def get_or_create_cluster_compute(
-        self, cloud_id: str, cloud_provider: CloudProviders
+        self, cloud_id: str, cloud_resource: CloudDeployment,
     ) -> str:
         """
-        Get or create a cluster compute for cloud functional verification
+        Get or create a cluster compute for cloud functional verification.
+
+        Pinned to ``cloud_resource`` via ``deployment_configs`` so the workload
+        lands on the resource being verified rather than whichever resource
+        the scheduler happens to pick.
         """
-        cluster_compute_name = f"functional_verification_{cloud_id}"
+        # Treat a missing ``compute_stack`` as VM, matching the prior
+        # ``any(... == K8S)`` default for backwards compatibility with
+        # older resources that pre-date the K8s split.
+        compute_stack = cloud_resource.compute_stack or ComputeStack.VM
+        cloud_provider = cloud_resource.provider
+        cloud_resource_id = cloud_resource.cloud_resource_id
+
+        if compute_stack == ComputeStack.K8S:
+            mem_gib = K8S_HEAD_NODE_MEMORY_BYTES // (1024 ** 3)
+            stack_suffix = f"_k8s_{K8S_HEAD_NODE_CPU}cpu_{mem_gib}gib"
+        else:
+            stack_suffix = f"_vm_{self.get_head_node_type(cloud_provider)}"
+        cluster_compute_name = (
+            f"functional_verification{stack_suffix}_{cloud_id}_{cloud_resource_id}"
+        )
         cluster_compute_version = 1
 
         cluster_computes = self.api_client.search_compute_templates_api_v2_compute_templates_search_post(
@@ -131,36 +182,48 @@ class CloudFunctionalVerificationController(BaseController):
         if len(cluster_computes) > 0:
             return cluster_computes[0].id
 
-        head_node_instance_type = self.get_head_node_type(cloud_provider)
-        # no cluster compute found, create one
+        # no cluster compute found, create one.
+        head_node_type = self._build_head_node_type(cloud_resource)
         cluster_compute_config = CreateClusterComputeConfig(
             cloud_id=cloud_id,
             max_workers=0,
             allowed_azs=["any"],
-            head_node_type=ComputeNodeType(
-                name="head_node_type", instance_type=head_node_instance_type,
-            ),
+            head_node_type=head_node_type,
             maximum_uptime_minutes=MAXIMUM_UPTIME_MINUTES,
             idle_termination_minutes=IDLE_TERMINATION_MINUTES,
             worker_node_types=[],
+            deployment_configs=[
+                CloudDeploymentComputeConfig(
+                    cloud_deployment=cloud_resource.name,
+                    cloud_resource_id=cloud_resource_id,
+                    head_node_type=head_node_type,
+                ),
+            ],
         )
-        if cloud_provider == CloudProviders.AWS:
-            cluster_compute_config.aws_advanced_configurations_json = {
-                "TagSpecifications": [
-                    {
-                        "ResourceType": "instance",
-                        "Tags": [
-                            {"Key": "cloud_functional_verification", "Value": cloud_id,}
-                        ],
-                    }
-                ]
-            }
-        elif cloud_provider == CloudProviders.GCP:
-            cluster_compute_config.gcp_advanced_configurations_json = {
-                "instance_properties": {
-                    "labels": {"cloud_functional_verification": cloud_id},
+        # The AWS/GCP advanced configs below tag the underlying EC2 / GCE VM
+        # for cost attribution. K8s clouds run pods, not VMs, so these tags
+        # don't apply -- skip them on K8S.
+        if compute_stack != ComputeStack.K8S:
+            if cloud_provider == CloudProviders.AWS:
+                cluster_compute_config.aws_advanced_configurations_json = {
+                    "TagSpecifications": [
+                        {
+                            "ResourceType": "instance",
+                            "Tags": [
+                                {
+                                    "Key": "cloud_functional_verification",
+                                    "Value": cloud_id,
+                                }
+                            ],
+                        }
+                    ]
                 }
-            }
+            elif cloud_provider == CloudProviders.GCP:
+                cluster_compute_config.gcp_advanced_configurations_json = {
+                    "instance_properties": {
+                        "labels": {"cloud_functional_verification": cloud_id},
+                    }
+                }
 
         # Add retries with exponential backoff here to handle the case where
         # the cloud admin zone is not ready yet.
@@ -191,7 +254,9 @@ class CloudFunctionalVerificationController(BaseController):
             "Timed out waiting for compute config to be created. Please try again."
         )
 
-    def _prepare_verification(self, cloud_id: str, cloud_provider: CloudProviders):
+    def _prepare_verification(
+        self, cloud_id: str, cloud_resource: CloudDeployment,
+    ):
         """
         Generate the required parameters for cloud functional verification.
         """
@@ -203,7 +268,7 @@ class CloudFunctionalVerificationController(BaseController):
         ).id
 
         cluster_compute_id = self.get_or_create_cluster_compute(
-            cloud_id, cloud_provider
+            cloud_id, cloud_resource
         )
 
         return cluster_compute_id, cluster_env_build_id, project_id
@@ -237,7 +302,9 @@ class CloudFunctionalVerificationController(BaseController):
                 task.succeeded, function, task_id, task.description, task.completed
             )
 
-    def create_workspace(self, cloud_id: str, cloud_provider: CloudProviders):
+    def create_workspace(
+        self, cloud_id: str, cloud_resource: CloudDeployment,
+    ):
         """
         Create a workspace for cloud functional verification
         """
@@ -245,11 +312,15 @@ class CloudFunctionalVerificationController(BaseController):
             cluster_compute_id,
             cluster_env_build_id,
             project_id,
-        ) = self._prepare_verification(cloud_id, cloud_provider)
+        ) = self._prepare_verification(cloud_id, cloud_resource)
 
+        cloud_resource_id = cloud_resource.cloud_resource_id
         create_workspace_arg = CreateExperimentalWorkspace(
-            name=f"fxnvrf_{cloud_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
-            description=f"workspace for cloud {cloud_id} functional verification",
+            name=f"fxnvrf_{cloud_resource_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            description=(
+                f"workspace for cloud {cloud_id} resource {cloud_resource_id} "
+                "functional verification"
+            ),
             project_id=project_id,
             cloud_id=cloud_id,
             compute_config_id=cluster_compute_id,
@@ -263,7 +334,7 @@ class CloudFunctionalVerificationController(BaseController):
 
         return workspace
 
-    def verify_workspace(self, cloud_id: str, cloud_provider: CloudProviders) -> bool:
+    def verify_workspace(self, cloud_id: str, cloud_resource: CloudDeployment,) -> bool:
         """
         Verifies that the workspace is setup correctly on the given cloud.
         """
@@ -272,7 +343,7 @@ class CloudFunctionalVerificationController(BaseController):
             CloudFunctionalVerificationType.WORKSPACE, "Creating workspace..."
         ) as create_workspace_task:
             try:
-                workspace = self.create_workspace(cloud_id, cloud_provider)
+                workspace = self.create_workspace(cloud_id, cloud_resource)
             except ClickException as e:
                 self.cloud_event_producer.produce(
                     CloudAnalyticsEventName.WORKSPACE_FUNCTIONAL_VERIFIED,
@@ -377,7 +448,7 @@ class CloudFunctionalVerificationController(BaseController):
     def rollout_service(
         self,
         cloud_id: str,
-        cloud_provider: CloudProviders,
+        cloud_resource: CloudDeployment,
         *,
         version: str = "v1",
         service_name: Optional[str] = None,
@@ -390,16 +461,20 @@ class CloudFunctionalVerificationController(BaseController):
             cluster_compute_id,
             cluster_env_build_id,
             project_id,
-        ) = self._prepare_verification(cloud_id, cloud_provider)
+        ) = self._prepare_verification(cloud_id, cloud_resource)
 
+        cloud_resource_id = cloud_resource.cloud_resource_id
         service_name = (
             service_name
-            or f"fxnvrf_{cloud_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+            or f"fxnvrf_{cloud_resource_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
         )
 
         service_config = ApplyProductionServiceV2Model(
             name=service_name,
-            description=f"service for cloud {cloud_id} functional verification",
+            description=(
+                f"service for cloud {cloud_id} resource {cloud_resource_id} "
+                "functional verification"
+            ),
             project_id=project_id,
             ray_serve_config={
                 "applications": [
@@ -431,7 +506,7 @@ class CloudFunctionalVerificationController(BaseController):
         return service
 
     def verify_service(  # noqa: PLR0911
-        self, cloud_id: str, cloud_provider: CloudProviders
+        self, cloud_id: str, cloud_resource: CloudDeployment,
     ) -> bool:
         """
         Verifies that the service can be deployed and upgraded on the given cloud.
@@ -441,7 +516,7 @@ class CloudFunctionalVerificationController(BaseController):
             CloudFunctionalVerificationType.SERVICE, "Deploying service..."
         ) as deploy_service_task:
             try:
-                service = self.rollout_service(cloud_id, cloud_provider, version="v1")
+                service = self.rollout_service(cloud_id, cloud_resource, version="v1")
             except ClickException as e:
                 self.cloud_event_producer.produce(
                     CloudAnalyticsEventName.SERVICE_FUNCTIONAL_VERIFIED,
@@ -498,7 +573,7 @@ class CloudFunctionalVerificationController(BaseController):
             try:
                 service = self.rollout_service(
                     cloud_id,
-                    cloud_provider,
+                    cloud_resource,
                     version="v2",
                     service_name=service.name,
                     canary_percent=100,
@@ -624,15 +699,15 @@ class CloudFunctionalVerificationController(BaseController):
         self,
         function: CloudFunctionalVerificationType,
         cloud_id: str,
-        cloud_provider: CloudProviders,
+        cloud_resource: CloudDeployment,
     ) -> bool:
         """
         Kick off a single functional verification given the function type.
         """
         if function == CloudFunctionalVerificationType.WORKSPACE:
-            return self.verify_workspace(cloud_id, cloud_provider)
+            return self.verify_workspace(cloud_id, cloud_resource)
         elif function == CloudFunctionalVerificationType.SERVICE:
-            return self.verify_service(cloud_id, cloud_provider)
+            return self.verify_service(cloud_id, cloud_resource)
         return False
 
     def _update_console(
@@ -788,23 +863,67 @@ class CloudFunctionalVerificationController(BaseController):
     def start_verification(
         self,
         cloud_id: str,
-        cloud_provider: CloudProviders,
+        cloud_resource: CloudDeployment,
         functions_to_verify: List[CloudFunctionalVerificationType],
         yes: bool = False,
     ) -> bool:
         """
-        Starts cloud functional verification
+        Starts cloud functional verification for a single cloud resource.
         """
+        # Services can only run on the primary cloud resource. Skip service
+        # verification on non-primary resources with a warning -- workspace
+        # verification still works on non-primary resources, so we keep the
+        # rest of ``functions_to_verify`` and only filter out SERVICE.
+        is_primary = getattr(cloud_resource, "is_default", False)
+        if (
+            not is_primary
+            and CloudFunctionalVerificationType.SERVICE in functions_to_verify
+        ):
+            cloud_resource_label = (
+                cloud_resource.name or cloud_resource.cloud_resource_id
+            )
+            self.log.warning(
+                f"Service functional verification is only supported on the "
+                f"primary cloud resource. Skipping service verification for "
+                f"non-primary resource {cloud_resource_label}."
+            )
+            functions_to_verify = [
+                f
+                for f in functions_to_verify
+                if f != CloudFunctionalVerificationType.SERVICE
+            ]
+            if not functions_to_verify:
+                return True
+
+        # Reset per-resource counters: this controller is reused across
+        # resources, and a stale offset would skip the opening lines of the
+        # new cluster's workspace log (and the fail-fast scan over them).
+        self.event_log_num = {
+            CloudFunctionalVerificationType.WORKSPACE: 0,
+            CloudFunctionalVerificationType.SERVICE: 0,
+        }
+
         with self.log.spinner("Starting functional verification..."):
-            self._prepare_verification(cloud_id, cloud_provider)
+            self._prepare_verification(cloud_id, cloud_resource)
 
         self.log.info(
-            f"Functional verification for {', '.join(functions_to_verify)} is about to begin."
+            f"Functional verification for {', '.join(functions_to_verify)} on cloud "
+            f"resource {cloud_resource.name or cloud_resource.cloud_resource_id} "
+            "is about to begin."
         )
 
-        confirmation_message = [
-            f"It will spin up one {self.get_head_node_type(cloud_provider)} instance for each function.",
-        ]
+        is_k8s = cloud_resource.compute_stack == ComputeStack.K8S
+
+        if is_k8s:
+            confirmation_message = [
+                f"It will request one head pod ({K8S_HEAD_NODE_CPU} CPU, "
+                f"{K8S_HEAD_NODE_MEMORY_BYTES // (1024 ** 3)} GiB memory) for each function "
+                "from your Kubernetes cluster.",
+            ]
+        else:
+            confirmation_message = [
+                f"It will spin up one {self.get_head_node_type(cloud_resource.provider)} instance for each function.",
+            ]
 
         if CloudFunctionalVerificationType.WORKSPACE in functions_to_verify:
             confirmation_message.append(
@@ -813,17 +932,25 @@ class CloudFunctionalVerificationController(BaseController):
             )
 
         if CloudFunctionalVerificationType.SERVICE in functions_to_verify:
+            # K8s scheduling latency depends on the cluster's autoscaler /
+            # node-pool warm-up, so we use the more conservative of the two
+            # VM estimates as a default.
             service_time_estimation = {
                 CloudProviders.AWS: 8,
                 CloudProviders.GCP: 20,
             }
+            estimated_minutes = (
+                20 if is_k8s else service_time_estimation[cloud_resource.provider]
+            )
             confirmation_message.append(
-                f"Service verification takes about {service_time_estimation[cloud_provider]} minutes. "
+                f"Service verification takes about {estimated_minutes} minutes. "
                 "The approximate cost from the cloud provider is about $0.10 (it varies from cloud provider and region)."
             )
 
         confirmation_message.append(
-            "The instances will be terminated after verification."
+            "The pods will be terminated after verification."
+            if is_k8s
+            else "The instances will be terminated after verification."
         )
 
         self.log.info("\n".join(confirmation_message))
@@ -840,7 +967,7 @@ class CloudFunctionalVerificationController(BaseController):
         ) as executor:
             futures = {
                 executor.submit(
-                    self.verify, function, cloud_id, cloud_provider
+                    self.verify, function, cloud_id, cloud_resource,
                 ): function
                 for function in functions_to_verify
             }

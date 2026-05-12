@@ -58,6 +58,7 @@ def test_parser_defaults_to_voxcpm2():
     parser = cli._build_parser()
     args = parser.parse_args(["design", "--text", "hello", "--output", "out.wav"])
     assert args.hf_model_id == "openbmb/VoxCPM2"
+    assert args.device == "auto"
     assert args.no_optimize is False
 
 
@@ -85,6 +86,7 @@ def test_load_model_respects_no_optimize_for_local_model(monkeypatch):
 
     cli.load_model(args)
 
+    assert calls["kwargs"]["device"] == "auto"
     assert calls["kwargs"]["optimize"] is False
 
 
@@ -110,6 +112,7 @@ def test_load_model_defaults_optimize_for_hf(monkeypatch):
 
     cli.load_model(args)
 
+    assert calls["kwargs"]["device"] == "auto"
     assert calls["kwargs"]["optimize"] is True
 
 
@@ -136,7 +139,35 @@ def test_load_model_respects_no_optimize_for_hf(monkeypatch):
 
     cli.load_model(args)
 
+    assert calls["kwargs"]["device"] == "auto"
     assert calls["kwargs"]["optimize"] is False
+
+
+def test_load_model_passes_explicit_device_to_hf(monkeypatch):
+    calls = {}
+
+    class FakeVoxCPM:
+        @classmethod
+        def from_pretrained(cls, **kwargs):
+            calls["kwargs"] = kwargs
+            return DummyModel()
+
+    monkeypatch.setattr(cli, "VoxCPM", FakeVoxCPM)
+    args = cli._build_parser().parse_args(
+        [
+            "design",
+            "--text",
+            "hello",
+            "--output",
+            "out.wav",
+            "--device",
+            "mps",
+        ]
+    )
+
+    cli.load_model(args)
+
+    assert calls["kwargs"]["device"] == "mps"
 
 
 def test_design_subcommand_applies_control(monkeypatch, tmp_path):

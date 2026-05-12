@@ -93,6 +93,7 @@ from mypyc.ir.rtypes import (
     is_list_rprimitive,
     is_none_rprimitive,
     is_object_rprimitive,
+    is_tuple_rprimitive,
     object_rprimitive,
     set_rprimitive,
     vec_api_by_item_type,
@@ -127,6 +128,7 @@ from mypyc.irbuild.vec import (
     vec_create,
     vec_create_from_values,
     vec_create_initialized,
+    vec_item_type,
     vec_slice,
 )
 from mypyc.primitives.bytes_ops import bytes_slice_op
@@ -134,7 +136,6 @@ from mypyc.primitives.dict_ops import dict_get_item_op, dict_new_op, exact_dict_
 from mypyc.primitives.generic_ops import iter_op, name_op
 from mypyc.primitives.list_ops import list_append_op, list_extend_op, list_slice_op
 from mypyc.primitives.misc_ops import ellipsis_op, get_module_dict_op, new_slice_op, type_op
-from mypyc.primitives.registry import builtin_names
 from mypyc.primitives.set_ops import set_add_op, set_in_op, set_update_op
 from mypyc.primitives.str_ops import str_slice_op
 from mypyc.primitives.tuple_ops import list_tuple_op, tuple_slice_op
@@ -155,9 +156,8 @@ def transform_name_expr(builder: IRBuilder, expr: NameExpr) -> Value:
         )
         return builder.none(expr.line)
     fullname = expr.node.fullname
-    if fullname in builtin_names:
-        typ, src = builtin_names[fullname]
-        return builder.add(LoadAddress(typ, src, expr.line))
+    if builtin := builder.load_builtin(fullname, expr.line):
+        return builtin
     # special cases
     if fullname == "builtins.None":
         return builder.none(expr.line)
@@ -630,8 +630,13 @@ def vec_from_iterable(
     item_type = vec_type.item_type
     api_name = vec_api_by_item_type.get(item_type)
     iterable_rtype = builder.node_type(iterable)
-    if api_name is not None and (
+    use_c_from_iterable = (
         is_object_rprimitive(iterable_rtype)
+        or is_list_rprimitive(iterable_rtype)
+        or is_tuple_rprimitive(iterable_rtype)
+    )
+    if api_name is not None and (
+        use_c_from_iterable
         or is_bytes_rprimitive(iterable_rtype)
         or is_bytearray_rprimitive(iterable_rtype)
     ):
@@ -639,17 +644,26 @@ def vec_from_iterable(
         # (which support the buffer protocol for fast memcpy), call the
         # C-level from_iterable. For concrete types like range, list,
         # vec, etc., the for-loop desugaring below produces better IR.
+        name = f"{api_name}.from_iterable"
+        extra_args: list[Value] = []
+    elif api_name is None and vec_type.depth() == 0 and use_c_from_iterable:
+        name = "VecTApi.from_iterable"
+        extra_args = [vec_item_type(builder.builder, item_type, line)]
+    else:
+        name = None
+    if name is not None:
         iterable_val = builder.accept(iterable)
         cap = (
             as_platform_int(builder.builder, capacity, line)
             if capacity is not None
             else Integer(0, int64_rprimitive)
         )
+        args = extra_args + [iterable_val, cap]
         call = CallC(
-            f"{api_name}.from_iterable",
-            [iterable_val, cap],
+            name,
+            args,
             vec_type,
-            steals=[False, False],
+            steals=[False] * len(args),
             is_borrowed=False,
             error_kind=ERR_MAGIC,
             line=line,

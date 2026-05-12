@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import collections.abc
 import contextlib
 import typing as t
 import warnings
@@ -50,7 +51,7 @@ class CliTestOptionValue(Enum):
     Disabled = "disabled"
 
 
-class Tap(BaseSingerWriter, metaclass=abc.ABCMeta):  # noqa: PLR0904
+class Tap(BaseSingerWriter, abc.ABC):  # noqa: PLR0904
     """Abstract base class for taps.
 
     The Tap class governs configuration, validation, and stream discovery for tap
@@ -121,8 +122,8 @@ class Tap(BaseSingerWriter, metaclass=abc.ABCMeta):  # noqa: PLR0904
         # Process input catalog
         if isinstance(catalog, Catalog):
             self._input_catalog = catalog
-        elif isinstance(catalog, dict):
-            self._input_catalog = Catalog.from_dict(catalog)  # type: ignore[arg-type]
+        elif isinstance(catalog, collections.abc.MutableMapping):
+            self._input_catalog = Catalog.from_dict(catalog)  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
         elif catalog is not None:
             self._input_catalog = Catalog.from_dict(read_json_file(catalog))
             warnings.warn(
@@ -280,9 +281,10 @@ class Tap(BaseSingerWriter, metaclass=abc.ABCMeta):  # noqa: PLR0904
             streams = self.streams.values()
 
         for stream in streams:
-            if not stream.child_streams:  # pragma: no branch
-                # Initialize streams' record limits before beginning the sync test.
-                stream.ABORT_AT_RECORD_COUNT = dry_run_record_limit
+            # Apply the record limit to every stream so that both parent and child
+            # streams are capped.  Child-stream aborts are caught in _sync_children
+            # so they do not prevent the parent from emitting its own records.
+            stream.ABORT_AT_RECORD_COUNT = dry_run_record_limit
 
             # Force selection of streams.
             stream.selected = True
@@ -529,7 +531,7 @@ class Tap(BaseSingerWriter, metaclass=abc.ABCMeta):  # noqa: PLR0904
         config: _ConfigInput | None = None,
         state: t.IO[str] | None = None,
         catalog: t.IO[str] | None = None,
-    ) -> None:
+    ) -> None:  # ty:ignore[invalid-method-override]
         """Invoke the tap's command line interface.
 
         Args:
@@ -590,7 +592,7 @@ class Tap(BaseSingerWriter, metaclass=abc.ABCMeta):  # noqa: PLR0904
         cls: type[Tap],
         ctx: click.Context,
         param: click.Option,  # noqa: ARG003
-        value: bool,  # noqa: FBT001
+        value: str,
     ) -> None:
         """CLI callback to run the tap in test mode.
 
@@ -677,7 +679,8 @@ def __getattr__(name: str) -> t.Any:  # noqa: ANN401
     """
     if name == "SQLTap":
         warnings.warn(
-            f"Importing {name} from singer_sdk.tap_base is deprecated. "
+            f"Importing {name} from singer_sdk.tap_base is deprecated and will be "
+            "removed in v0.57. "
             f"Please import from singer_sdk.sql instead: "
             f"from singer_sdk.sql import {name}",
             SingerSDKDeprecationWarning,

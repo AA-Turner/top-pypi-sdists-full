@@ -4879,12 +4879,12 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def gather_vector(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def gather_vector(mask: System.Numerics.Vector[float], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
         ...
 
     @staticmethod
     @overload
-    def gather_vector(mask: System.Numerics.Vector[float], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
+    def gather_vector(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
@@ -4919,12 +4919,12 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def gather_vector_first_faulting(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def gather_vector_first_faulting(mask: System.Numerics.Vector[float], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
         ...
 
     @staticmethod
     @overload
-    def gather_vector_first_faulting(mask: System.Numerics.Vector[float], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
+    def gather_vector_first_faulting(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
@@ -5751,12 +5751,12 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def scatter(mask: System.Numerics.Vector[int], address: typing.Any, indicies: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+    def scatter(mask: System.Numerics.Vector[float], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[float]) -> None:
         ...
 
     @staticmethod
     @overload
-    def scatter(mask: System.Numerics.Vector[float], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[float]) -> None:
+    def scatter(mask: System.Numerics.Vector[int], address: typing.Any, indicies: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         ...
 
     @staticmethod
@@ -5766,12 +5766,12 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def scatter_16_bit_narrowing(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+    def scatter_16_bit_narrowing(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         ...
 
     @staticmethod
     @overload
-    def scatter_16_bit_narrowing(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+    def scatter_16_bit_narrowing(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         ...
 
     @staticmethod
@@ -5780,12 +5780,12 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def scatter_32_bit_narrowing(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+    def scatter_32_bit_narrowing(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         ...
 
     @staticmethod
     @overload
-    def scatter_32_bit_narrowing(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+    def scatter_32_bit_narrowing(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         ...
 
     @staticmethod
@@ -6247,12 +6247,12 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def gather_vector_int_16_sign_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def gather_vector_int_16_sign_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
     @overload
-    def gather_vector_int_16_sign_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def gather_vector_int_16_sign_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
@@ -6261,26 +6261,16 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def gather_vector_int_32_sign_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        ...
-
-    @staticmethod
-    @overload
     def gather_vector_int_32_sign_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
+    @overload
+    def gather_vector_int_32_sign_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
     def gather_vector_int_32_with_byte_offsets_sign_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, offsets: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def gather_vector_non_temporal(mask: System.Numerics.Vector[float], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def gather_vector_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
@@ -6290,7 +6280,17 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
+    def gather_vector_non_temporal(mask: System.Numerics.Vector[float], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    @overload
     def gather_vector_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
@@ -6309,12 +6309,12 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def gather_vector_u_int_16_zero_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def gather_vector_u_int_16_zero_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
     @overload
-    def gather_vector_u_int_16_zero_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def gather_vector_u_int_16_zero_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
@@ -6323,12 +6323,12 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def gather_vector_u_int_32_zero_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def gather_vector_u_int_32_zero_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
     @overload
-    def gather_vector_u_int_32_zero_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def gather_vector_u_int_32_zero_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
@@ -6579,12 +6579,12 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def scatter_16_bit_narrowing_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+    def scatter_16_bit_narrowing_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         ...
 
     @staticmethod
     @overload
-    def scatter_16_bit_narrowing_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+    def scatter_16_bit_narrowing_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         ...
 
     @staticmethod
@@ -6593,12 +6593,12 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def scatter_32_bit_narrowing_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+    def scatter_32_bit_narrowing_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         ...
 
     @staticmethod
     @overload
-    def scatter_32_bit_narrowing_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+    def scatter_32_bit_narrowing_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         ...
 
     @staticmethod
@@ -6615,22 +6615,22 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def scatter_non_temporal(mask: System.Numerics.Vector[float], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[float]) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def scatter_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
-        ...
-
-    @staticmethod
-    @overload
     def scatter_non_temporal(mask: System.Numerics.Vector[float], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[float]) -> None:
         ...
 
     @staticmethod
     @overload
     def scatter_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def scatter_non_temporal(mask: System.Numerics.Vector[float], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[float]) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def scatter_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> None:
         ...
 
     @staticmethod

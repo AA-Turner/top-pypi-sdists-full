@@ -13,6 +13,7 @@
 //    limitations under the License.
 
 #include "catch2/catch_test_macros.hpp"
+#include "catch2/matchers/catch_matchers_all.hpp"
 #include "dwave-optimization/graph.hpp"
 #include "dwave-optimization/nodes.hpp"
 
@@ -137,10 +138,12 @@ TEST_CASE("Topological Sort", "[topological_sort]") {
             graph.topological_sort();
 
             THEN("The order remains stable wrt successor order") {
-                CHECK(disjoint_bitset0->topological_index() <
-                      disjoint_bitset1->topological_index());
-                CHECK(disjoint_bitset1->topological_index() <
-                      disjoint_bitset2->topological_index());
+                CHECK(
+                    disjoint_bitset0->topological_index() < disjoint_bitset1->topological_index()
+                );
+                CHECK(
+                    disjoint_bitset1->topological_index() < disjoint_bitset2->topological_index()
+                );
             }
         }
 
@@ -151,10 +154,12 @@ TEST_CASE("Topological Sort", "[topological_sort]") {
             graph.topological_sort();
 
             THEN("The order remains stable wrt successor order") {
-                CHECK(disjoint_bitset0->topological_index() <
-                      disjoint_bitset1->topological_index());
-                CHECK(disjoint_bitset1->topological_index() <
-                      disjoint_bitset2->topological_index());
+                CHECK(
+                    disjoint_bitset0->topological_index() < disjoint_bitset1->topological_index()
+                );
+                CHECK(
+                    disjoint_bitset1->topological_index() < disjoint_bitset2->topological_index()
+                );
             }
         }
     }
@@ -227,17 +232,19 @@ TEST_CASE("Graph constructors, assignment operators, and swapping") {
     }
 }
 
-TEST_CASE("Graph::commit(), Graph::propagate(), and Graph::revert") {
+TEST_CASE("Graph::commit(), Graph::descendants(), Graph::propagate(), and Graph::revert") {
+    auto graph = Graph();
+    auto x_ptr = graph.emplace_node<BinaryNode>();
+    auto y_ptr = graph.emplace_node<BinaryNode>();
+    auto z_ptr = graph.emplace_node<AddNode>(x_ptr, y_ptr);
+    graph.set_objective(z_ptr);
+    auto state = graph.initialize_state();
+
+    SECTION("Find descendants") {
+        auto descendants = graph.descendants({x_ptr});
+        CHECK_THAT(descendants, Catch::Matchers::RangeEquals(std::vector<Node*>{x_ptr, z_ptr}));
+    }
     SECTION("Propagate all") {
-        auto graph = Graph();
-
-        auto x_ptr = graph.emplace_node<BinaryNode>();
-        auto y_ptr = graph.emplace_node<BinaryNode>();
-        auto z_ptr = graph.emplace_node<AddNode>(x_ptr, y_ptr);
-        graph.set_objective(z_ptr);
-
-        auto state = graph.initialize_state();
-
         CHECK(x_ptr->view(state).front() == 0);
         CHECK(y_ptr->view(state).front() == 0);
         CHECK(z_ptr->view(state).front() == 0);
@@ -347,7 +354,8 @@ TEST_CASE("Graph::remove_unused_nodes()") {
 
         WHEN("We add two successors and use them in a constraint") {
             graph.set_objective(
-                    graph.emplace_node<LogicalNode>(graph.emplace_node<AbsoluteNode>(i_ptr)));
+                graph.emplace_node<LogicalNode>(graph.emplace_node<AbsoluteNode>(i_ptr))
+            );
 
             THEN("remove_unused_nodes() doesn't remove them") {
                 ssize_t num_removed = graph.remove_unused_nodes();

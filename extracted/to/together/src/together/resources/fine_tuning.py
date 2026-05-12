@@ -88,6 +88,7 @@ class FineTuningResource(SyncAPIResource):
         n_evals: int | None = 0,
         n_checkpoints: int | None = 1,
         batch_size: int | Literal["max"] = "max",
+        gradient_accumulation_steps: int | None = None,
         learning_rate: float | None = 0.00001,
         lr_scheduler_type: Literal["linear", "cosine"] = "cosine",
         min_lr_ratio: float = 0.0,
@@ -220,6 +221,7 @@ class FineTuningResource(SyncAPIResource):
             n_evals=n_evals,
             n_checkpoints=n_checkpoints,
             batch_size=batch_size,
+            gradient_accumulation_steps=gradient_accumulation_steps,
             learning_rate=learning_rate,
             lr_scheduler_type=lr_scheduler_type,
             min_lr_ratio=min_lr_ratio,
@@ -506,8 +508,8 @@ class FineTuningResource(SyncAPIResource):
 
           from_checkpoint: The checkpoint identifier to continue training from a previous fine-tuning job.
               Format is `{$JOB_ID}` or `{$OUTPUT_MODEL_NAME}` or `{$JOB_ID}:{$STEP}` or
-              `{$OUTPUT_MODEL_NAME}:{$STEP}`. The step value is optional; without it, the
-              final checkpoint will be used.
+              `{$OUTPUT_MODEL_NAME}:{$STEP}`. The step value is optional; without it, uses the
+              final checkpoint.
 
           model: Name of the base model to run fine-tune job on
 
@@ -519,8 +521,7 @@ class FineTuningResource(SyncAPIResource):
           training_method: The training method to use. 'sft' for Supervised Fine-Tuning or 'dpo' for Direct
               Preference Optimization.
 
-          training_type: The training type to use. If not provided, the job will default to LoRA training
-              type.
+          training_type: The training type to use. Defaults to LoRA if not provided.
 
           validation_file: File-ID of a validation file uploaded to the Together API
 
@@ -694,6 +695,7 @@ class AsyncFineTuningResource(AsyncAPIResource):
         n_evals: int | None = 0,
         n_checkpoints: int | None = 1,
         batch_size: int | Literal["max"] = "max",
+        gradient_accumulation_steps: int | None = None,
         learning_rate: float | None = 0.00001,
         lr_scheduler_type: Literal["linear", "cosine"] = "cosine",
         min_lr_ratio: float = 0.0,
@@ -825,6 +827,7 @@ class AsyncFineTuningResource(AsyncAPIResource):
             n_evals=n_evals,
             n_checkpoints=n_checkpoints,
             batch_size=batch_size,
+            gradient_accumulation_steps=gradient_accumulation_steps,
             learning_rate=learning_rate,
             lr_scheduler_type=lr_scheduler_type,
             min_lr_ratio=min_lr_ratio,
@@ -1106,8 +1109,8 @@ class AsyncFineTuningResource(AsyncAPIResource):
 
           from_checkpoint: The checkpoint identifier to continue training from a previous fine-tuning job.
               Format is `{$JOB_ID}` or `{$OUTPUT_MODEL_NAME}` or `{$JOB_ID}:{$STEP}` or
-              `{$OUTPUT_MODEL_NAME}:{$STEP}`. The step value is optional; without it, the
-              final checkpoint will be used.
+              `{$OUTPUT_MODEL_NAME}:{$STEP}`. The step value is optional; without it, uses the
+              final checkpoint.
 
           model: Name of the base model to run fine-tune job on
 
@@ -1119,8 +1122,7 @@ class AsyncFineTuningResource(AsyncAPIResource):
           training_method: The training method to use. 'sft' for Supervised Fine-Tuning or 'dpo' for Direct
               Preference Optimization.
 
-          training_type: The training type to use. If not provided, the job will default to LoRA training
-              type.
+          training_type: The training type to use. Defaults to LoRA if not provided.
 
           validation_file: File-ID of a validation file uploaded to the Together API
 

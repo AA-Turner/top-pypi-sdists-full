@@ -29,7 +29,7 @@ _NL_HIGH_CONFIDENCE_THRESHOLD: float = 0.8
 
 
 _VALID_ACTIONS: frozenset[str] = frozenset({
-    'adjust_contamination', 'exclude', 'include', 'rerun',
+    'adjust_contamination', 'exclude', 'include', 'rerun', 'recover',
 })
 
 _REQUIRED_FIELDS: dict[str, frozenset[str]] = {
@@ -37,6 +37,7 @@ _REQUIRED_FIELDS: dict[str, frozenset[str]] = {
     'exclude': frozenset({'detectors'}),
     'include': frozenset({'detectors'}),
     'rerun': frozenset(),
+    'recover': frozenset(),
 }
 
 
@@ -196,6 +197,107 @@ def apply_structured_feedback(
 
     elif action == 'rerun':
         detail = 'Re-running same plan'
+
+    elif action == 'recover':
+        failed_names = [r.get('detector_name', '')
+                        for r in state.results
+                        if r.get('status') == 'error']
+        failed_names = [n for n in failed_names if n]
+        if not failed_names:
+            # Nothing to recover; do not wipe state.
+            state.next_action = {
+                'action': ('analyze' if state.phase == 'detected'
+                           else 'report_to_user'),
+                'reason': 'No failed detectors; nothing to recover.',
+            }
+            state.history.append(_make_history_entry(
+                state.phase, 'iterate', state.iteration,
+                'recover: no-op (no failed detectors)'))
+            return state
+
+        successful_names = [r.get('detector_name', '')
+                            for r in state.results
+                            if r.get('status') == 'success']
+        successful_names = [n for n in successful_names if n]
+
+        override = feedback.get('detectors')
+        if override:
+            substitutes = list(override)
+        else:
+            suggested = state.next_action.get(
+                'suggested_replacements')
+            if suggested:
+                substitutes = list(suggested)
+            else:
+                # Fall back to planner with both failed and
+                # successful excluded.
+                try:
+                    plan = plan_detection_fn(
+                        state.profile,
+                        constraints={
+                            'exclude_detectors':
+                                list(set(failed_names)
+                                     | set(successful_names))})
+                except Exception as exc:
+                    logger.warning(
+                        'plan_detection failed during recover '
+                        'with %s: %s',
+                        type(exc).__name__, exc)
+                    plan = None
+                substitutes = []
+                if plan and plan.get('detector_name'):
+                    substitutes.append(plan['detector_name'])
+                for alt in plan.get('alternatives', []) if plan else []:
+                    name = alt.get('detector_name')
+                    if name and name not in substitutes:
+                        substitutes.append(name)
+
+        # Validate substitutes against the KB; drop unknown or
+        # non-shipped/experimental names.
+        valid_subs = []
+        for name in substitutes:
+            if name in successful_names or name in failed_names:
+                continue
+            if name in valid_subs:
+                continue
+            algo = kb.get_algorithm(name)
+            if algo and algo.get('status') in (
+                    'shipped', 'experimental'):
+                valid_subs.append(name)
+
+        # Replace failed slots in state.plans, preserving order;
+        # drop a failed slot if no substitute remains.
+        new_plans = []
+        sub_iter = iter(valid_subs[:len(failed_names)])
+        replaced = []
+        dropped = []
+        for p in state.plans:
+            if p.get('detector_name') in failed_names:
+                try:
+                    sub_name = next(sub_iter)
+                    new_plans.append(make_plan_fn(
+                        detector_name=sub_name, params={},
+                        reason='Substitute for failed %s'
+                               % p.get('detector_name', ''),
+                        confidence=0.5))
+                    replaced.append((p.get('detector_name', ''),
+                                     sub_name))
+                except StopIteration:
+                    dropped.append(p.get('detector_name', ''))
+            else:
+                new_plans.append(p)
+        state.plans = new_plans
+
+        parts = []
+        if replaced:
+            parts.append('Replaced: ' + ', '.join(
+                '%s -> %s' % (f, s) for f, s in replaced))
+        if dropped:
+            parts.append('Dropped (no substitute): '
+                         + ', '.join(dropped))
+        detail = '; '.join(parts) if parts else (
+            'No substitutes available for: '
+            + ', '.join(failed_names))
 
     state.phase = 'planned'
     state.results = []

@@ -44,17 +44,16 @@ async def test_worker_concurrency_limits_task_queuing_behavior(docket: Docket):
 
     async with Worker(docket, concurrency=5) as worker:
         await worker.run_until_finished()
+        log = execution_log.get()
+        start_events = [event for event in log if event[0] == "start"]
+        end_events = [event for event in log if event[0] == "end"]
 
-    log = execution_log.get()
-    start_events = [event for event in log if event[0] == "start"]
-    end_events = [event for event in log if event[0] == "end"]
+        customer_1_starts = len([e for e in start_events if e[1] == 1])
+        customer_2_starts = len([e for e in start_events if e[1] == 2])
 
-    customer_1_starts = len([e for e in start_events if e[1] == 1])
-    customer_2_starts = len([e for e in start_events if e[1] == 2])
-
-    assert customer_1_starts == 3
-    assert customer_2_starts == 2
-    assert len(start_events) == len(end_events) == 5
+        assert customer_1_starts == 3
+        assert customer_2_starts == 2
+        assert len(start_events) == len(end_events) == 5
 
 
 async def test_worker_concurrency_different_customer_branches(docket: Docket):
@@ -75,20 +74,22 @@ async def test_worker_concurrency_different_customer_branches(docket: Docket):
 
     async with Worker(docket, concurrency=5) as worker:
         await worker.run_until_finished()
-
-    assert customers_executed == {1, 2, 3}
+        assert customers_executed == {1, 2, 3}
 
 
 async def test_worker_concurrency_limits_different_scopes(docket: Docket):
     """Test that concurrency limits work correctly with different scopes"""
     task_executions: list[tuple[str, int]] = []
 
-    # Use my-application: prefix for custom scopes (allowed by ACL for user-managed keys)
+    # Custom scope anchored under the docket prefix so slots, waiters, stream,
+    # and runs keys share the same hash slot in Redis Cluster mode.
     async def scoped_task(
         customer_id: int,
         scope_name: str,
         concurrency: ConcurrencyLimit = ConcurrencyLimit(
-            "customer_id", max_concurrent=1, scope="my-application:custom"
+            "customer_id",
+            max_concurrent=1,
+            scope=f"{docket.prefix}:my-application:custom",
         ),
     ):
         task_executions.append((scope_name, customer_id))
@@ -108,10 +109,9 @@ async def test_worker_concurrency_limits_different_scopes(docket: Docket):
 
     async with Worker(docket, concurrency=5) as worker:
         await worker.run_until_finished()
-
-    assert len(task_executions) == 2
-    assert ("custom", 1) in task_executions
-    assert ("default", 1) in task_executions
+        assert len(task_executions) == 2
+        assert ("custom", 1) in task_executions
+        assert ("default", 1) in task_executions
 
 
 async def test_worker_concurrency_refresh_mechanism_integration(docket: Docket):
@@ -145,9 +145,8 @@ async def test_worker_concurrency_refresh_mechanism_integration(docket: Docket):
 
     async with worker:
         await worker.run_until_finished()
-
-    assert long_running_started
-    assert quick_task_completed
+        assert long_running_started
+        assert quick_task_completed
 
 
 async def test_worker_concurrency_with_quick_tasks(docket: Docket):
@@ -168,8 +167,7 @@ async def test_worker_concurrency_with_quick_tasks(docket: Docket):
 
     async with Worker(docket) as worker:
         await worker.run_until_finished()
-
-    assert completed_tasks == 5
+        assert completed_tasks == 5
 
 
 async def test_worker_concurrency_with_dependencies_integration(docket: Docket):
@@ -193,9 +191,8 @@ async def test_worker_concurrency_with_dependencies_integration(docket: Docket):
 
     async with Worker(docket, name="test-worker") as worker:
         await worker.run_until_finished()
-
-    assert task_completed
-    assert current_worker_name == "test-worker"
+        assert task_completed
+        assert current_worker_name == "test-worker"
 
 
 async def test_concurrency_limited_task_successfully_acquires_slot(docket: Docket):
@@ -217,5 +214,4 @@ async def test_concurrency_limited_task_successfully_acquires_slot(docket: Docke
 
     async with Worker(docket, concurrency=5) as worker:
         await worker.run_until_finished()
-
-    assert executed == [1]
+        assert executed == [1]

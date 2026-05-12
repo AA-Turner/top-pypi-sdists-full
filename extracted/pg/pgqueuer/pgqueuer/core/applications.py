@@ -15,19 +15,20 @@ from typing import TYPE_CHECKING, Callable, MutableMapping
 from pgqueuer.adapters.drivers.asyncpg import AsyncpgDriver, AsyncpgPoolDriver
 from pgqueuer.adapters.drivers.psycopg import PsycopgDriver
 from pgqueuer.adapters.inmemory import InMemoryDriver, InMemoryQueries
-from pgqueuer.adapters.persistence.qb import DBSettings
+from pgqueuer.adapters.persistence.queries import Queries
 from pgqueuer.core.executors import (
     AbstractEntrypointExecutor,
     AbstractScheduleExecutor,
-    AsyncCrontab,
     EntrypointExecutorParameters,
     EntrypointTypeVar,
+    ScheduleCrontab,
     ScheduleExecutorFactoryParameters,
 )
 from pgqueuer.core.qm import QueueManager
 from pgqueuer.core.sm import SchedulerManager
 from pgqueuer.domain.models import Channel
-from pgqueuer.domain.types import QueueExecutionMode
+from pgqueuer.domain.settings import DBSettings
+from pgqueuer.domain.types import OnFailure, QueueExecutionMode
 from pgqueuer.ports import RepositoryPort
 from pgqueuer.ports.driver import Driver
 
@@ -71,17 +72,16 @@ class PgQueuer:
     )
 
     def __post_init__(self) -> None:
-        # RepositoryPort | None is passed here; QueueManager/SchedulerManager will
-        # create default Queries instances if None, which satisfies their type contract.
+        if self.queries is None:
+            self.queries = Queries(self.connection)
         self.qm = QueueManager(
-            self.connection,
+            self.queries,
             self.channel,
-            queries=self.queries,  # type: ignore[arg-type]
             resources=self.resources,
         )
         self.sm = SchedulerManager(
-            self.connection,
-            queries=self.queries,  # type: ignore[arg-type]
+            self.queries,
+            resources=self.resources,
         )
         self.qm.shutdown = self.shutdown
         self.sm.shutdown = self.shutdown
@@ -197,6 +197,7 @@ class PgQueuer:
         mode: QueueExecutionMode = QueueExecutionMode.continuous,
         max_concurrent_tasks: int | None = None,
         shutdown_on_listener_failure: bool = False,
+        heartbeat_timeout: timedelta = timedelta(seconds=30),
     ) -> None:
         """
         Run both QueueManager and SchedulerManager concurrently.
@@ -212,6 +213,7 @@ class PgQueuer:
                     mode=mode,
                     max_concurrent_tasks=max_concurrent_tasks,
                     shutdown_on_listener_failure=shutdown_on_listener_failure,
+                    heartbeat_timeout=heartbeat_timeout,
                 )
             ),
             asyncio.create_task(self.sm.run()),
@@ -228,11 +230,9 @@ class PgQueuer:
         self,
         name: str,
         *,
-        requests_per_second: float = float("inf"),
         concurrency_limit: int = 0,
-        retry_timer: timedelta = timedelta(seconds=0),
-        serialized_dispatch: bool = False,
         accepts_context: bool = False,
+        on_failure: OnFailure = "delete",
         executor_factory: Callable[
             [EntrypointExecutorParameters],
             AbstractEntrypointExecutor,
@@ -241,11 +241,9 @@ class PgQueuer:
     ) -> Callable[[EntrypointTypeVar], EntrypointTypeVar]:
         return self.qm.entrypoint(
             name=name,
-            requests_per_second=requests_per_second,
             concurrency_limit=concurrency_limit,
-            retry_timer=retry_timer,
-            serialized_dispatch=serialized_dispatch,
             accepts_context=accepts_context,
+            on_failure=on_failure,
             executor_factory=executor_factory,
         )
 
@@ -259,10 +257,12 @@ class PgQueuer:
         ]
         | None = None,
         clean_old: bool = False,
-    ) -> Callable[[AsyncCrontab], AsyncCrontab]:
+        accepts_context: bool = False,
+    ) -> Callable[[ScheduleCrontab], ScheduleCrontab]:
         return self.sm.schedule(
             entrypoint=entrypoint,
             expression=expression,
             executor_factory=executor_factory,
             clean_old=clean_old,
+            accepts_context=accepts_context,
         )

@@ -21,7 +21,7 @@ if t.TYPE_CHECKING:
     )
 
 
-class InlineMapper(BaseSingerReader, BaseSingerWriter, metaclass=abc.ABCMeta):
+class InlineMapper(BaseSingerReader, BaseSingerWriter, abc.ABC):
     """Abstract base class for inline mappers."""
 
     #: A list of plugin capabilities.
@@ -133,7 +133,7 @@ class InlineMapper(BaseSingerReader, BaseSingerWriter, metaclass=abc.ABCMeta):
         about_format: str | None = None,
         config: _ConfigInput | None = None,
         file_input: t.IO[str] | None = None,
-    ) -> None:
+    ) -> None:  # ty:ignore[invalid-method-override]
         """Invoke the mapper.
 
         Args:

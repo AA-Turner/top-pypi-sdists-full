@@ -259,6 +259,7 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
         if (!callableType) {
             return;
         }
+        const execEnv = this._program.configOptions.findExecEnvironment(this._fileUri);
 
         // inlay hints for generics
         if (
@@ -270,6 +271,8 @@ export class TypeInlayHintsWalker extends ParseTreeWalker {
             node.d.leftExpr.d.value !== 'super' &&
             // only show them on classes, because the index syntax to specify generics isn't valid on functions
             isClass(callableType) &&
+            // hide generic hints for types that don't support runtime subscripting
+            evaluator.isRuntimeSubscriptableClass(callableType, execEnv.pythonVersion) &&
             // pseudo-generic classes aren't actually generic, so it's invalid to explicitly specify them
             !ClassType.isPseudoGenericClass(callableType)
         ) {

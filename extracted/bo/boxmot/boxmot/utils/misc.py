@@ -1,10 +1,17 @@
+import logging
 import sys
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 import click
 
 from boxmot.utils import WEIGHTS, logger as LOGGER
+
+
+def dataclass_slots_kwargs() -> dict[str, bool]:
+    """Return dataclass keyword arguments supported by the running Python version."""
+    return {"slots": True} if sys.version_info >= (3, 10) else {}
 
 
 def parse_imgsz(ctx, param, value):
@@ -140,3 +147,19 @@ def prompt_overwrite(path_type: str, path: Path, ci: bool = True) -> bool:
         else:
             print("\nNo response, not proceeding with overwrite...")
             return False
+
+
+@contextmanager
+def suppress_boxmot_logs(enabled: bool, *, level: str = "WARNING"):
+    """Temporarily raise the ``boxmot`` logger level to suppress noisy output."""
+    if not enabled:
+        yield
+        return
+
+    boxmot_logger = logging.getLogger("boxmot")
+    previous_level = boxmot_logger.level
+    try:
+        boxmot_logger.setLevel(getattr(logging, str(level).upper(), logging.WARNING))
+        yield
+    finally:
+        boxmot_logger.setLevel(previous_level)

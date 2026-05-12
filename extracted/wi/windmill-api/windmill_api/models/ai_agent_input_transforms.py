@@ -7,6 +7,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.ai_agent_input_transforms_max_completion_tokens import AiAgentInputTransformsMaxCompletionTokens
+    from ..models.ai_agent_input_transforms_max_iterations import AiAgentInputTransformsMaxIterations
     from ..models.ai_agent_input_transforms_memory_type_0 import AiAgentInputTransformsMemoryType0
     from ..models.ai_agent_input_transforms_memory_type_1 import AiAgentInputTransformsMemoryType1
     from ..models.ai_agent_input_transforms_memory_type_2 import AiAgentInputTransformsMemoryType2
@@ -64,6 +65,9 @@ class AiAgentInputTransforms:
             - 0.0 = deterministic, focused responses
             - 0.7 = balanced (common default)
             - 1.0+ = more creative/random
+        max_iterations (Union[Unset, AiAgentInputTransformsMaxIterations]): Number. Limits how many times the agent can
+            loop through reasoning and tool use.
+            Range: 1-1000.
     """
 
     provider: Union[
@@ -85,6 +89,7 @@ class AiAgentInputTransforms:
     user_attachments: Union[Unset, "AiAgentInputTransformsUserAttachments"] = UNSET
     max_completion_tokens: Union[Unset, "AiAgentInputTransformsMaxCompletionTokens"] = UNSET
     temperature: Union[Unset, "AiAgentInputTransformsTemperature"] = UNSET
+    max_iterations: Union[Unset, "AiAgentInputTransformsMaxIterations"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -151,6 +156,10 @@ class AiAgentInputTransforms:
         if not isinstance(self.temperature, Unset):
             temperature = self.temperature.to_dict()
 
+        max_iterations: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.max_iterations, Unset):
+            max_iterations = self.max_iterations.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -174,12 +183,15 @@ class AiAgentInputTransforms:
             field_dict["max_completion_tokens"] = max_completion_tokens
         if temperature is not UNSET:
             field_dict["temperature"] = temperature
+        if max_iterations is not UNSET:
+            field_dict["max_iterations"] = max_iterations
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.ai_agent_input_transforms_max_completion_tokens import AiAgentInputTransformsMaxCompletionTokens
+        from ..models.ai_agent_input_transforms_max_iterations import AiAgentInputTransformsMaxIterations
         from ..models.ai_agent_input_transforms_memory_type_0 import AiAgentInputTransformsMemoryType0
         from ..models.ai_agent_input_transforms_memory_type_1 import AiAgentInputTransformsMemoryType1
         from ..models.ai_agent_input_transforms_memory_type_2 import AiAgentInputTransformsMemoryType2
@@ -322,6 +334,13 @@ class AiAgentInputTransforms:
         else:
             temperature = AiAgentInputTransformsTemperature.from_dict(_temperature)
 
+        _max_iterations = d.pop("max_iterations", UNSET)
+        max_iterations: Union[Unset, AiAgentInputTransformsMaxIterations]
+        if isinstance(_max_iterations, Unset):
+            max_iterations = UNSET
+        else:
+            max_iterations = AiAgentInputTransformsMaxIterations.from_dict(_max_iterations)
+
         ai_agent_input_transforms = cls(
             provider=provider,
             output_type=output_type,
@@ -333,6 +352,7 @@ class AiAgentInputTransforms:
             user_attachments=user_attachments,
             max_completion_tokens=max_completion_tokens,
             temperature=temperature,
+            max_iterations=max_iterations,
         )
 
         ai_agent_input_transforms.additional_properties = d

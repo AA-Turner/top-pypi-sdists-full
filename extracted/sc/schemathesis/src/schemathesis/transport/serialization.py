@@ -6,8 +6,10 @@ from typing import TYPE_CHECKING, Any
 from unicodedata import normalize
 from urllib.parse import quote_plus, unquote
 
+from schemathesis.core import Body
 from schemathesis.core.errors import UnboundPrefix
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
+from schemathesis.core.jsonschema.types import JsonValue
 from schemathesis.core.transforms import transform
 
 
@@ -59,12 +61,9 @@ class Binary(str):
         return f"Binary(data={self.data!r})"
 
 
-def contains_binary(value: Any) -> bool:
-    """Check if the value contains any Binary instances.
-
-    Binary is a special wrapper type that jsonschema-rs cannot validate.
-    """
-    if isinstance(value, Binary):
+def contains_binary(value: object) -> bool:
+    """Check if the value contains any binary payload jsonschema-rs cannot validate."""
+    if isinstance(value, (Binary, bytes)):
         return True
     if isinstance(value, dict):
         return any(contains_binary(v) for v in value.values())
@@ -73,7 +72,7 @@ def contains_binary(value: Any) -> bool:
     return False
 
 
-def serialize_json(value: Any) -> dict[str, Any]:
+def serialize_json(value: Body) -> dict[str, Any]:
     if isinstance(value, bytes):
         # Possible to get via explicit examples, e.g. `externalValue`
         return {"data": value}
@@ -91,7 +90,7 @@ def _replace_binary(value: dict) -> dict:
     return {key: value.data if isinstance(value, Binary) else value for key, value in value.items()}
 
 
-def serialize_binary(value: Any) -> bytes:
+def serialize_binary(value: Body) -> bytes:
     """Convert the input value to bytes and ignore any conversion errors."""
     if isinstance(value, bytes):
         return value
@@ -100,7 +99,7 @@ def serialize_binary(value: Any) -> bytes:
     return str(value).encode(errors="ignore")
 
 
-def serialize_yaml(value: Any) -> dict[str, Any]:
+def serialize_yaml(value: Body) -> dict[str, Any]:
     import yaml
 
     try:
@@ -118,12 +117,11 @@ def serialize_yaml(value: Any) -> dict[str, Any]:
 
 
 Primitive = str | int | float | bool | None
-JSON = Primitive | list | dict[str, Any]
 DEFAULT_TAG_NAME = "data"
 NAMESPACE_URL = "http://example.com/schema"
 
 
-def serialize_xml(case: Case, value: Any) -> dict[str, Any]:
+def serialize_xml(case: Case, value: Body) -> dict[str, Any]:
     media_type = case.media_type
 
     assert media_type is not None
@@ -172,7 +170,7 @@ def _get_xml_tag(schema: dict[str, Any] | None, resource_name: str | None) -> st
 
 def _write_xml(
     buffer: StringIO,
-    value: JSON,
+    value: JsonValue,
     tag: str,
     schema: dict[str, Any] | None,
     namespace_stack: list[str],
@@ -207,7 +205,7 @@ def pop_namespace_if_any(namespace_stack: list[str], options: dict[str, Any]) ->
 
 def _write_object(
     buffer: StringIO,
-    obj: dict[str, JSON],
+    obj: dict[str, JsonValue],
     tag: str,
     schema: dict[str, Any] | None,
     stack: list[str],
@@ -271,7 +269,7 @@ def _write_object(
 
 def _write_array(
     buffer: StringIO,
-    obj: list[JSON],
+    obj: list[JsonValue],
     tag: str,
     schema: dict[str, Any] | None,
     stack: list[str],
@@ -332,7 +330,7 @@ def _write_namespace(buffer: StringIO, options: dict[str, Any]) -> None:
     buffer.write(f'="{options["namespace"]}"')
 
 
-def _escape_xml(value: JSON) -> str:
+def _escape_xml(value: JsonValue) -> str:
     """Escape special characters in XML content."""
     if isinstance(value, (int | float | bool)):
         return str(value)

@@ -15,7 +15,7 @@ from prowler.lib.check.models import (
 )
 from prowler.lib.logger import logger
 from prowler.lib.outputs.common import Status, fill_common_finding_data
-from prowler.lib.outputs.compliance.compliance import get_check_compliance
+from prowler.lib.outputs.compliance.compliance_check import get_check_compliance
 from prowler.lib.outputs.utils import unroll_tags
 from prowler.lib.utils.utils import dict_to_lowercase, get_nested_attribute
 from prowler.providers.common.provider import Provider
@@ -187,9 +187,11 @@ class Finding(BaseModel):
                 output_data["account_uid"] = (
                     output_data["account_organization_uid"]
                     if "Tenant:" in check_output.subscription
-                    else provider.identity.subscriptions[check_output.subscription]
+                    else check_output.subscription
                 )
-                output_data["account_name"] = check_output.subscription
+                output_data["account_name"] = provider.identity.subscriptions.get(
+                    check_output.subscription, check_output.subscription
+                )
                 output_data["resource_name"] = check_output.resource_name
                 output_data["resource_uid"] = check_output.resource_id
                 output_data["region"] = check_output.location

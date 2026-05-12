@@ -614,19 +614,6 @@ class ScheduledUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection
     """Defines a universe selection model that invokes a selector function on a specific scheduled given by an IDateRule and an ITimeRule"""
 
     @overload
-    def __init__(self, time_zone: typing.Any, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the ScheduledUniverseSelectionModel class
-        
-        :param time_zone: The time zone the date/time rules are in
-        :param date_rule: Date rule defines what days the universe selection function will be invoked
-        :param time_rule: Time rule defines what times on each day selected by date rule the universe selection function will be invoked
-        :param selector: Selector function accepting the date time firing time and returning the universe selected symbols
-        :param settings: Universe settings for subscriptions added via this universe, null will default to algorithm's universe settings
-        """
-        ...
-
-    @overload
     def __init__(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, selector: typing.Any, settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
         """
         Initializes a new instance of the ScheduledUniverseSelectionModel class using the algorithm's time zone
@@ -656,6 +643,19 @@ class ScheduledUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection
         """
         Initializes a new instance of the ScheduledUniverseSelectionModel class using the algorithm's time zone
         
+        :param date_rule: Date rule defines what days the universe selection function will be invoked
+        :param time_rule: Time rule defines what times on each day selected by date rule the universe selection function will be invoked
+        :param selector: Selector function accepting the date time firing time and returning the universe selected symbols
+        :param settings: Universe settings for subscriptions added via this universe, null will default to algorithm's universe settings
+        """
+        ...
+
+    @overload
+    def __init__(self, time_zone: typing.Any, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the ScheduledUniverseSelectionModel class
+        
+        :param time_zone: The time zone the date/time rules are in
         :param date_rule: Date rule defines what days the universe selection function will be invoked
         :param time_rule: Time rule defines what times on each day selected by date rule the universe selection function will be invoked
         :param selector: Selector function accepting the date time firing time and returning the universe selected symbols

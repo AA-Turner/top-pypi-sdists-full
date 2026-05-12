@@ -772,7 +772,7 @@ class socket:
     recv(buflen[, flags]) -- receive data
     recv_into(buffer[, nbytes[, flags]]) -- receive data (into a buffer)
     recvfrom(buflen[, flags]) -- receive data and sender's address
-    recvfrom_into(buffer[, nbytes, [, flags])
+    recvfrom_into(buffer[, nbytes, [, flags]])
       -- receive data and sender's address (into a buffer)
     sendall(data[, flags]) -- send all data
     send(data[, flags]) -- send data, may not send all of it

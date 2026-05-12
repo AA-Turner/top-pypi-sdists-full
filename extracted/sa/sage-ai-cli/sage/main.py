@@ -1610,26 +1610,48 @@ def _run_repl_autoorg_flow(
     success_count = 0
     fail_count = 0
 
+    # Build the multi-model orchestrator so each step actually USES its
+    # picked model (the ModelSelector above was previously cosmetic).
+    from sage.core.multi_model_orchestration import MultiModelOrchestrator
+    mmo = MultiModelOrchestrator(router=router)
+
     for i, step in enumerate(steps, start=1):
         step_desc = str(step)
 
+        # Pick the right model for this specific subtask
+        best_model, _task_analysis = model_selector.select(step_desc)
+        step_model_id = best_model.id if best_model else None
+
         renderer.info(f"Step {i}/{len(steps)}: {step_desc}")
+        if step_model_id:
+            renderer.info(f"  → using {step_model_id}")
 
         try:
-            result = ai_orchestrator.execute_step(step_desc)
-
-            ok = True
-            if isinstance(result, dict):
-                ok = bool(result.get("success", True))
-            if ok:
-                renderer.success("  ✓ Completed")
-                success_count += 1
+            # Multi-model path: run through the picked model directly.
+            # Falls back to the orchestrator's default if no model picked.
+            if step_model_id:
+                sub_result = mmo.run_subtask(desc=step_desc)
+                ok = sub_result.ok
+                if ok:
+                    renderer.success(f"  ✓ Completed ({sub_result.model_used})")
+                    success_count += 1
+                else:
+                    renderer.error(f"  ✗ Failed: {sub_result.error}")
+                    fail_count += 1
             else:
-                err = (
-                    result.get("error", "Unknown error") if isinstance(result, dict) else "Unknown error"
-                )
-                renderer.error(f"  ✗ Failed: {err}")
-                fail_count += 1
+                result = ai_orchestrator.execute_step(step_desc)
+                ok = True
+                if isinstance(result, dict):
+                    ok = bool(result.get("success", True))
+                if ok:
+                    renderer.success("  ✓ Completed")
+                    success_count += 1
+                else:
+                    err = (
+                        result.get("error", "Unknown error") if isinstance(result, dict) else "Unknown error"
+                    )
+                    renderer.error(f"  ✗ Failed: {err}")
+                    fail_count += 1
 
         except KeyboardInterrupt:
             renderer.warning("\nInterrupted — stopping auto-orchestration.")
@@ -5173,17 +5195,66 @@ def _normalize_workspace_relative_path(path_arg: str, cwd: Path) -> str:
     return raw
 
 
+def _strip_inline_description(cmd: str) -> str:
+    """Strip a trailing English description in parentheses from a shell command.
+
+    Models sometimes emit `RUN: ls -laR | head -200 (list top 200 lines)`. The
+    bare `(...)` is invalid shell — bash sees it as a subshell with unquoted
+    bare words and aborts with a syntax error. We strip the annotation when
+    the parenthetical content looks like prose (multi-word, no shell
+    metacharacters) while leaving real shell parens alone (`find . \\( ... \\)`,
+    `$(date)`, `(cd /tmp && ls)`).
+    """
+    cmd = cmd.rstrip()
+    if not cmd.endswith(")") or "(" not in cmd:
+        return cmd
+    depth = 0
+    open_idx = -1
+    for i in range(len(cmd) - 1, -1, -1):
+        ch = cmd[i]
+        if ch == ")":
+            depth += 1
+        elif ch == "(":
+            depth -= 1
+            if depth == 0:
+                open_idx = i
+                break
+    if open_idx < 0:
+        return cmd
+    # An escaped paren (find . \( ... \)) is shell grouping — keep it.
+    if open_idx > 0 and cmd[open_idx - 1] == "\\":
+        return cmd
+    inside = cmd[open_idx + 1 : -1]
+    # Shell metacharacters inside → it's real shell, not prose.
+    if re.search(r"[|;&<>$`=\\]", inside):
+        return cmd
+    # A single bare token like `(verbose)` is ambiguous (could be a flag-ish
+    # annotation OR a subshell). Don't strip — too risky.
+    if " " not in inside.strip():
+        return cmd
+    before = cmd[:open_idx].rstrip()
+    if not before:
+        return cmd
+    return before
+
+
 def _extract_tool_commands(text: str) -> list[tuple[str, str]]:
     """Extract READ:, SEARCH:, and RUN: tool commands from model output.
 
     Returns list of (tool_type, argument) tuples.
     Validates that READ: arguments look like actual file paths.
     """
+    # Strip reasoning-model thinking blocks so we don't try to extract
+    # tool commands the model only *talked about* inside <think>.
+    from sage.core.thinking_filter import strip_thinking_blocks
+    text = strip_thinking_blocks(text)
     text = renderer.normalize_tool_command_syntax(text)
     commands: list[tuple[str, str]] = []
     for m in re.finditer(r"^\s*(?:[-*]\s*)?(READ|SEARCH|RUN):\s*(.+)$", text, re.MULTILINE):
         tool_type = m.group(1).upper()
         arg = m.group(2).strip()
+        if tool_type == "RUN":
+            arg = _strip_inline_description(arg)
         if arg:
             # For READ commands, validate the path looks legitimate
             if tool_type == "READ" and not _is_valid_file_path(arg):
@@ -5216,6 +5287,8 @@ def _extract_tool_commands_structured(text: str) -> list:
     for m in re.finditer(r"^\s*(?:[-*]\s*)?(READ|SEARCH|RUN):\s*(\S.*)$", text, re.MULTILINE):
         tool_type_str = m.group(1).upper()
         arg = m.group(2).strip()
+        if tool_type_str == "RUN":
+            arg = _strip_inline_description(arg)
 
         # P1-2: Double-check for blank/empty arguments
         if not arg or arg.upper() in ("READ:", "SEARCH:", "RUN:"):
@@ -6519,6 +6592,14 @@ def _detect_tool_description_vs_execution(response: str) -> tuple[bool, list[str
         Tuple of (is_descriptive, list of mentioned tools)
         is_descriptive is True if tools are mentioned in prose, not executed
     """
+    # Strip <think>/<thinking> blocks before validation. Reasoning models
+    # (qwen3, deepseek-r1) emit a multi-paragraph "Let me check..." plan
+    # inside <think>...</think>. That's NOT the response — it's the model's
+    # internal trace. Validating against it produces false positives where
+    # the actual response was fine but the thinking trace narrated tools
+    # instead of using them.
+    from sage.core.thinking_filter import strip_thinking_blocks
+    response = strip_thinking_blocks(response)
     structured_calls = _extract_tool_commands_structured(response)
 
     # P1-8: Use centralized pattern detection from renderer
@@ -6592,6 +6673,11 @@ def _detect_repetitive_filler(response: str) -> tuple[bool, float]:
         is_filler is True if response contains high repetition
         repetition_score is 0.0 to 1.0 indicating level of repetition
     """
+    # Strip reasoning-model thinking blocks — qwen3 often produces a long
+    # numbered plan inside <think>...</think> that would otherwise trip
+    # the filler detector and force a retry.
+    from sage.core.thinking_filter import strip_thinking_blocks
+    response = strip_thinking_blocks(response)
     # Extract numbered list items
     item_pattern = r"^\s*\d+\.\s+(.+)$"
     items = re.findall(item_pattern, response, re.MULTILINE)
@@ -8214,6 +8300,11 @@ def _collect_autopolit_priority_hints(cwd: Path, max_items: int = 6) -> list[str
 
 def _response_describes_code_without_file_blocks(response: str) -> bool:
     """Detect code-change narratives that never emit executable FILE blocks."""
+    # Strip thinking blocks first — qwen3-style models describe their plan
+    # inside <think>...</think>. That trace isn't a "narrative", it's the
+    # model's internal reasoning. Don't penalize it.
+    from sage.core.thinking_filter import strip_thinking_blocks
+    response = strip_thinking_blocks(response)
     if "FILE:" in response:
         return False
 
@@ -11300,6 +11391,32 @@ class SAGEAgent:
             for retry_num in range(1, 3):
                 if self.files_read or _extract_tool_commands_structured(phase_response):
                     break
+
+                # Context-explosion guard: if the engine is already near the
+                # token limit, retrying with more nudge text WILL push us
+                # over. Don't compound the problem — abort the retry loop,
+                # compact aggressively, and let the next user turn continue.
+                # The user's log showed 22,643 tokens vs a 16,384 window
+                # because retries kept stacking nudges on top of huge prompts.
+                stats = self.engine.get_context_stats()
+                if stats.estimated_tokens > stats.max_tokens * 0.75:
+                    self.renderer.warning(
+                        f"Context at {stats.estimated_tokens:,}/{stats.max_tokens:,} tokens "
+                        f"({stats.usage_percent:.0f}%) — compacting before retry"
+                    )
+                    self.engine.compact()
+                    # Also auto-compress aggressively for small models — if
+                    # we're past 75% on a 3B-class model, the next call is
+                    # going to fail outright.
+                    self.engine.maybe_compress_for_model(self.model_id, budget_chars=12000)
+                    # Stop retrying — let the user respond rather than burn
+                    # more tokens. Surface a clear message.
+                    self.renderer.info(
+                        "Skipping further retries — the prompt is too long for this model's "
+                        "context window. Try a smaller prompt, or run `sage compact`."
+                    )
+                    break
+
                 nudge = _build_readonly_exploration_nudge(
                     phase_name,
                     classification,
@@ -11327,24 +11444,33 @@ class SAGEAgent:
                 list(self.files_read),
             )
             if validation_violations and not investigation_only:
-                self.renderer.phase(
-                    "fixing",
-                    "Synthesis validation failed (attempt 1/2) — requesting corrected final analysis...",
-                )
-                retry_prompt = _build_context_aware_validation_retry_prompt(
-                    task_prompt=task_prompt,
-                    cwd=self.cwd,
-                    violations=validation_violations,
-                    current_files_read=list(self.files_read),
-                    is_analysis=True,
-                )
-                retry_response = phase_sender(retry_prompt)
-                if retry_response:
-                    phase_written_retry, phase_response_retry = self.process_response(
-                        retry_response, send_fn=phase_sender
+                # Same context-explosion guard as the planning/analysis loop.
+                # If we're near the limit, skip the retry instead of stacking
+                # a 5K-char validation-retry prompt on top.
+                stats = self.engine.get_context_stats()
+                if stats.estimated_tokens > stats.max_tokens * 0.75:
+                    self.renderer.warning(
+                        f"Context at {stats.usage_percent:.0f}% — skipping synthesis retry to avoid context overflow"
                     )
-                    phase_written.extend(phase_written_retry)
-                    phase_response = phase_response_retry
+                else:
+                    self.renderer.phase(
+                        "fixing",
+                        "Synthesis validation failed (attempt 1/2) — requesting corrected final analysis...",
+                    )
+                    retry_prompt = _build_context_aware_validation_retry_prompt(
+                        task_prompt=task_prompt,
+                        cwd=self.cwd,
+                        violations=validation_violations,
+                        current_files_read=list(self.files_read),
+                        is_analysis=True,
+                    )
+                    retry_response = phase_sender(retry_prompt)
+                    if retry_response:
+                        phase_written_retry, phase_response_retry = self.process_response(
+                            retry_response, send_fn=phase_sender
+                        )
+                        phase_written.extend(phase_written_retry)
+                        phase_response = phase_response_retry
 
         return phase_written, phase_response
 
@@ -12563,6 +12689,53 @@ def run(
                 renderer.error(str(exc))
             continue
 
+        # ── Auto-route build-style prompts through the principal pipeline ──
+        # Any prompt that looks like a multi-file project build request gets
+        # principal-engineer-grade output: deterministic templates + per-file
+        # focused LLM generation + cross-file integrity check. This applies
+        # uniformly to `sage run`, `sage ask`, and `sage chat` so output
+        # quality does not depend on which entry point the user picks.
+        try:
+            from sage.core.principal_engineer import (
+                build_project,
+                looks_like_build_request,
+            )
+
+            if looks_like_build_request(user_input):
+                target_dir = (cwd / "build").resolve()
+
+                def _principal_generate(p: str) -> str:
+                    messages = _build_simple_qa_messages(
+                        p, system_prompt=engine.system_prompt
+                    )
+                    return router.generate(
+                        messages, model_id, temp, tokens, lock_provider=model_locked
+                    )
+
+                renderer.info(f"[bold]Build mode[/bold] → {target_dir}")
+                report = build_project(
+                    user_input,
+                    target_dir,
+                    _principal_generate,
+                    progress=renderer.info,
+                )
+                renderer.info(
+                    f"[green]Generated {len(report['files'])} files "
+                    f"({report['template_count']} from templates, "
+                    f"{report['llm_count']} from LLM, "
+                    f"{report.get('integrity_fixes', 0)} integrity fixes)[/green]"
+                )
+                renderer.info(f"Project at: [cyan]{report['out_dir']}[/cyan]")
+                engine.add_user(user_input)
+                engine.add_assistant(
+                    f"Generated a {report['stack']} project at {report['out_dir']} "
+                    f"with {len(report['files'])} files."
+                )
+                continue
+        except Exception as build_exc:
+            renderer.warning(f"Build routing skipped: {build_exc}")
+            # Fall through to standard agent loop
+
         # Default: Execute coding/analysis task via SAGEAgent.
         # First, let the model understand and expand the prompt — this turns brief
         # or misspelled input into a grounded, actionable task description.
@@ -12737,6 +12910,50 @@ def chat(
                 renderer.warning(f"Unknown command: {command}")
                 continue
 
+        # ── Auto-route build prompts through the principal pipeline ──
+        # `sage chat` uses the same principal pipeline as `sage ask` and
+        # `sage run` so every entry point produces principal-engineer-grade
+        # multi-file projects when the user asks to build one.
+        try:
+            from sage.core.principal_engineer import (
+                build_project,
+                looks_like_build_request,
+            )
+
+            if looks_like_build_request(user_input):
+                target_dir = (Path.cwd() / "build").resolve()
+
+                def _principal_generate(p: str) -> str:
+                    messages = _build_simple_qa_messages(
+                        p, system_prompt=engine.system_prompt
+                    )
+                    return router.generate(
+                        messages, model_id, temp, tokens, lock_provider=model_locked
+                    )
+
+                renderer.info(f"[bold]Build mode[/bold] → {target_dir}")
+                report = build_project(
+                    user_input,
+                    target_dir,
+                    _principal_generate,
+                    progress=renderer.info,
+                )
+                renderer.info(
+                    f"[green]Generated {len(report['files'])} files "
+                    f"({report['template_count']} from templates, "
+                    f"{report['llm_count']} from LLM, "
+                    f"{report.get('integrity_fixes', 0)} integrity fixes)[/green]"
+                )
+                renderer.info(f"Project at: [cyan]{report['out_dir']}[/cyan]")
+                engine.add_user(user_input)
+                engine.add_assistant(
+                    f"Generated a {report['stack']} project at {report['out_dir']} "
+                    f"with {len(report['files'])} files."
+                )
+                continue
+        except Exception:
+            pass  # Fall through to standard chat path on any error
+
         # ── Send to model ───────────────────────────────────
         engine.add_user(user_input)
         messages = engine.build_messages()
@@ -12775,6 +12992,22 @@ def ask(
     raw: Annotated[
         bool, typer.Option("--raw", help="Output raw text (no markdown rendering)")
     ] = False,
+    no_agent: Annotated[
+        bool, typer.Option(
+            "--no-agent",
+            help="Force the simple-QA path (no agentic tool loop, no file writes). "
+            "Useful for one-shot code generation and pure-text answers.",
+        ),
+    ] = False,
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            "--out",
+            "-o",
+            help="Output directory for build-style prompts (default: ./build). "
+            "If omitted on a build prompt, sage picks ./build.",
+        ),
+    ] = None,
 ) -> None:
     """One-shot prompt — ask a question and get an answer."""
     cfg = load_config()
@@ -12814,8 +13047,44 @@ def ask(
 
     raw_prompt = "\n\n".join(parts)
 
+    # ── Auto-route build prompts through the principal pipeline ─────────
+    # This makes sage produce principal-engineer-quality multi-file projects
+    # for any prompt that looks like a build request — regardless of whether
+    # the user passed --no-agent or any other flag.
+    from sage.core.principal_engineer import build_project, looks_like_build_request
+
+    if out is not None or looks_like_build_request(raw_prompt):
+        target_dir = (out or Path.cwd() / "build").resolve()
+
+        def _principal_generate(p: str) -> str:
+            messages = _build_simple_qa_messages(p, system_prompt=system)
+            return router.generate(
+                messages, model_id, temp, tokens, lock_provider=model_locked
+            )
+
+        def _principal_progress(line: str) -> None:
+            renderer.info(line)
+
+        renderer.info(f"[bold]Build mode[/bold] → {target_dir}")
+        report = build_project(
+            raw_prompt,
+            target_dir,
+            _principal_generate,
+            progress=_principal_progress,
+        )
+        renderer.info(
+            f"[green]Generated {len(report['files'])} files "
+            f"({report['template_count']} from templates, "
+            f"{report['llm_count']} from LLM, "
+            f"{report.get('integrity_fixes', 0)} integrity fixes, "
+            f"{report['review_failures']} below review threshold)[/green]"
+        )
+        renderer.info(f"Project at: [cyan]{report['out_dir']}[/cyan]")
+        return
+
     # Check if this is just a quick simple QA prompt
-    if _is_simple_qa_prompt(raw_prompt):
+    # --no-agent forces the simple-QA path regardless of heuristic.
+    if no_agent or _is_simple_qa_prompt(raw_prompt):
         messages = _build_simple_qa_messages(
             raw_prompt,
             system_prompt=system or cfg.system_prompt,
@@ -14023,11 +14292,24 @@ def _train_ollama_model(base_name: str, force: bool = False) -> bool:
     generates correct commands for the current OS.
     Re-running is idempotent: the model is always overwritten with the latest config.
     """
+    from sage.config import load_config
     from sage.core.prompts import platform_context_section
+    from sage.core.speculative import speculative_for_ollama
 
     size_gb = _get_model_size_gb(base_name)
     params = _model_params_for_size(size_gb)
     param_lines = "\n".join(f"PARAMETER {k} {v}" for k, v in params.items())
+
+    # Speculative decoding hint (C10b): when cfg.speculative_draft_model is
+    # configured for Ollama, bake `PARAMETER draft_model <name>` into the
+    # Modelfile. Ollama uses this for speculative decoding at runtime —
+    # the user gets a 2-3x speedup with no further wiring required.
+    try:
+        draft = speculative_for_ollama(load_config())
+    except Exception:
+        draft = None
+    if draft:
+        param_lines += f"\nPARAMETER draft_model {draft}"
 
     # Combine the static training prompt with the current platform context.
     # This makes the trained model immediately correct for this machine's OS.
@@ -14448,6 +14730,96 @@ def whoami_cmd() -> None:
     renderer.console.print(f"  Plan:   [bold]{info['tier']}[/bold]")
 
 
+_LLAMA_CPP_ERROR_PATTERNS: tuple[tuple[str, str], ...] = (
+    # Mac: Xcode CLT not installed / pointed at wrong location.
+    (
+        "xcrun: error: invalid active developer path",
+        "Xcode Command Line Tools are missing or misconfigured. Run "
+        "`xcode-select --install` (accept the GUI prompt), or if Xcode is "
+        "installed point CLT at it with `sudo xcode-select -s "
+        "/Applications/Xcode.app/Contents/Developer`. Then re-run sage fix-llama-cpp.",
+    ),
+    (
+        "fatal error: 'Foundation/Foundation.h' file not found",
+        "macOS SDK headers aren't reachable — Xcode Command Line Tools missing or "
+        "out of date. Run `xcode-select --install` and retry.",
+    ),
+    # Linux: missing CUDA toolkit.
+    (
+        "No CMAKE_CUDA_COMPILER could be found",
+        "CUDA toolkit not found. Install it (e.g. `sudo apt install nvidia-cuda-toolkit` "
+        "on Ubuntu) and ensure `nvcc` is on PATH, or rerun without CUDA: "
+        "`CMAKE_ARGS='-DGGML_BLAS=ON' sage fix-llama-cpp` for CPU-only.",
+    ),
+    # Generic: missing C/C++ compiler.
+    (
+        "No CMAKE_C_COMPILER could be found",
+        "No C compiler detected by CMake. macOS: `xcode-select --install`. "
+        "Ubuntu/Debian: `sudo apt install build-essential`. Fedora: "
+        "`sudo dnf install gcc gcc-c++`. Windows: install Visual Studio Build Tools.",
+    ),
+    (
+        "No CMAKE_CXX_COMPILER could be found",
+        "No C++ compiler detected by CMake. macOS: `xcode-select --install`. "
+        "Ubuntu/Debian: `sudo apt install build-essential`. Fedora: "
+        "`sudo dnf install gcc-c++`.",
+    ),
+    # Missing cmake / ninja itself.
+    (
+        "CMake was unable to find a build program",
+        "cmake found no buildable backend (ninja/make). Install one: macOS "
+        "`brew install ninja`, Ubuntu/Debian `sudo apt install ninja-build`.",
+    ),
+    # PEP 668 externally-managed-environment.
+    (
+        "externally-managed-environment",
+        "Your system Python (PEP 668) refuses pip installs. Install sage via "
+        "pipx instead (`brew install pipx && pipx install sage-ai-cli`), then "
+        "re-run fix-llama-cpp. Or use a venv. Avoid --break-system-packages.",
+    ),
+    # Apple Metal toolchain.
+    (
+        "metal_library_compilation_failed",
+        "Metal shader compilation failed. This usually means stale Xcode CLT — "
+        "run `softwareupdate --install -a` to update macOS, then "
+        "`sudo xcode-select --reset` to clear the developer-path cache. "
+        "If problems persist, fall back to Ollama: `sage use ollama:gemma4`.",
+    ),
+    # Ninja stopped (user's case) — fallback advisory.
+    (
+        "ninja: build stopped",
+        "ninja stopped compiling. The exact cause is usually a few lines up "
+        "in the pip output. Common Mac fix: `xcode-select --install` (or "
+        "`sudo xcode-select --reset`). Common Linux fix: install matching "
+        "system libs (build-essential, libssl-dev). If reaches you nowhere, "
+        "use the Ollama backend instead: `sage use ollama:gemma4`.",
+    ),
+)
+
+
+def _diagnose_llama_cpp_failure(output: str) -> list[str]:
+    """Scan captured pip/cmake/ninja output for known failure patterns.
+
+    Returns a list of actionable hint strings (often just one). Empty list
+    means no known pattern matched — the caller should fall back to a
+    generic "see pip output above" message.
+
+    Patterns are checked in priority order: the more specific the pattern,
+    the earlier it lives in `_LLAMA_CPP_ERROR_PATTERNS`. Multiple matches
+    are allowed because a single failure can trigger several signatures
+    (e.g. "ninja stopped" plus the upstream "xcrun: error").
+    """
+    if not output:
+        return []
+    hints: list[str] = []
+    seen: set[str] = set()
+    for needle, advice in _LLAMA_CPP_ERROR_PATTERNS:
+        if needle in output and advice not in seen:
+            hints.append(advice)
+            seen.add(advice)
+    return hints
+
+
 @app.command("fix-llama-cpp")
 def fix_llama_cpp_cmd(
     yes: Annotated[
@@ -14618,14 +14990,38 @@ def fix_llama_cpp_cmd(
     renderer.info(
         f"Running pip install (target arch: {py_arch})… this is the long step."
     )
-    result = subprocess.run(cmd, env=env)
-    if result.returncode != 0:
-        renderer.error("Rebuild failed. See pip output above for the specific error.")
-        renderer.info(
-            "Common causes: missing Xcode (macOS), missing CUDA toolkit (Linux), "
-            "Python arch mismatch with hardware. Ollama backend keeps working."
-        )
-        raise typer.Exit(code=result.returncode)
+    # Tee output: live to the user's terminal AND captured into a buffer so
+    # `_diagnose_llama_cpp_failure` can scan for known error signatures
+    # without forcing the user to re-read 200+ lines of build noise.
+    captured: list[str] = []
+    proc = subprocess.Popen(
+        cmd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        captured.append(line)
+    rc = proc.wait()
+    if rc != 0:
+        renderer.error("Rebuild failed.")
+        hints = _diagnose_llama_cpp_failure("".join(captured))
+        if hints:
+            renderer.console.print()
+            renderer.console.print("[bold]Diagnosis (specific to your output):[/bold]")
+            for hint in hints:
+                renderer.console.print(f"  • {hint}")
+        else:
+            renderer.info(
+                "Common causes: missing Xcode (macOS), missing CUDA toolkit (Linux), "
+                "Python arch mismatch with hardware. Ollama backend keeps working."
+            )
+        raise typer.Exit(code=rc)
 
     renderer.success("✓ llama-cpp-python rebuilt successfully.")
     renderer.info("Test: sage use llama_cpp:gemma4 (or whichever GGUF you have)")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seisbench
-Version: 0.11.6
+Version: 0.11.7
 Summary: The seismological machine learning benchmark collection
 Author-email: Jack Woolam <jack.woollam@kit.edu>, Jannes Münchmeyer <munchmej@gfz-potsdam.de>
 Maintainer-email: Jack Woolam <jack.woollam@kit.edu>, Jannes Münchmeyer <munchmej@gfz-potsdam.de>

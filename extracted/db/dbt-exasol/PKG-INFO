@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: dbt-exasol
-Version: 1.10.5
+Version: 1.10.6
 Summary: Adapter to dbt-core for warehouse Exasol
 Project-URL: Homepage, https://alligatorcompany.gitlab.io/dbt-exasol
 Project-URL: Repository, https://github.com/tglunde/dbt-exasol
 Author-email: Torsten Glunde <torsten.glunde@alligator-company.com>, Ilija Kutle <ilija.kutle@alligator-company.com>
 License: GPL-3.0-or-later
 License-File: LICENSE
-Requires-Python: <4,>=3.10
+Requires-Python: <3.14,>=3.10
 Requires-Dist: dbt-adapters>=1.10.0
 Requires-Dist: dbt-core>=1.10.0
 Requires-Dist: protobuf<7.0,>=5.0

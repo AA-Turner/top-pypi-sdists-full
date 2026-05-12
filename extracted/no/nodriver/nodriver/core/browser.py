@@ -28,7 +28,7 @@ from .connection import Connection
 logger = logging.getLogger(__name__)
 
 
-class Browser:
+class Browser(Connection):
     """
     The Browser object is the "root" of the hierarchy and contains a reference
     to the browser parent process.
@@ -61,7 +61,6 @@ class Browser:
     _cookies: CookieJar = None
 
     config: Config
-    connection: Connection
 
     @classmethod
     async def create(
@@ -113,7 +112,6 @@ class Browser:
         # weakref.finalize(self, self._quit, self)
         self.config = config
 
-        self.targets: List = []
         """current targets (all types"""
         self.info = None
         self._target = None
@@ -122,11 +120,8 @@ class Browser:
         self._keep_user_data_dir = None
         self._is_updating = asyncio.Event()
         self.connection: Connection = None
+        super().__init__("", auto_attach=True)
         logger.debug("Session object initialized: %s" % vars(self))
-
-    @property
-    def websocket_url(self):
-        return self.info.webSocketDebuggerUrl
 
     @property
     def main_tab(self) -> tab.Tab:
@@ -134,12 +129,21 @@ class Browser:
         return sorted(self.targets, key=lambda x: x.type_ == "page", reverse=True)[0]
 
     @property
-    def tabs(self) -> List[tab.Tab]:
-        """returns the current targets which are of type "page"
-        :return:
-        """
-        tabs = filter(lambda item: item.type_ == "page", self.targets)
-        return list(tabs)
+    def targets(self) -> List[Connection]:
+        return self._targets
+
+    @property
+    def tabs(self):
+        return [x for x in self._targets if x.target.type_ == "page"]
+
+    # @property
+    # def tabs(self) -> List[tab.Tab]:
+    #     """returns the current targets which are of type "page"
+    #     :return:
+    #     """
+    #     tabs = filter(lambda item: item.type_ == "page", self.targets)
+    #     return [tab.Tab(self, x) for x in tabs]
+    #     # return list(tabs)
 
     @property
     def cookies(self) -> CookieJar:
@@ -174,70 +178,6 @@ class Browser:
     sleep = wait
     """alias for wait"""
 
-    def _handle_target_update(
-        self,
-        event: Union[
-            cdp.target.TargetInfoChanged,
-            cdp.target.TargetDestroyed,
-            cdp.target.TargetCreated,
-            cdp.target.TargetCrashed,
-        ],
-    ):
-        """this is an internal handler which updates the targets when chrome emits the corresponding event"""
-
-        if isinstance(event, cdp.target.TargetInfoChanged):
-            target_info = event.target_info
-
-            current_tab = next(
-                filter(
-                    lambda item: item.target_id == target_info.target_id, self.targets
-                )
-            )
-            current_target = current_tab.target
-
-            if logger.getEffectiveLevel() <= 10:
-                changes = util.compare_target_info(current_target, target_info)
-                changes_string = ""
-                for change in changes:
-                    key, old, new = change
-                    changes_string += f"\n{key}: {old} => {new}\n"
-                logger.debug(
-                    "target #%d has changed: %s"
-                    % (self.targets.index(current_tab), changes_string)
-                )
-
-                current_tab._target = target_info
-
-        elif isinstance(event, cdp.target.TargetCreated):
-            target_info: cdp.target.TargetInfo = event.target_info
-            from .tab import Tab
-
-            new_target = Tab(
-                (
-                    f"ws://{self.config.host}:{self.config.port}"
-                    f"/devtools/{target_info.type_ or 'page'}"  # all types are 'page' internally in chrome apparently
-                    f"/{target_info.target_id}"
-                ),
-                target=target_info,
-                browser=self,
-            )
-
-            self.targets.append(new_target)
-
-            logger.debug("target #%d created => %s", len(self.targets), new_target)
-
-        elif isinstance(event, cdp.target.TargetDestroyed):
-            current_tab = next(
-                filter(lambda item: item.target_id == event.target_id, self.targets)
-            )
-            logger.debug(
-                "target removed. id # %d => %s"
-                % (self.targets.index(current_tab), current_tab)
-            )
-            self.targets.remove(current_tab)
-
-        asyncio.create_task(self.update_targets())
-
     async def get(
         self, url="chrome://welcome", new_tab: bool = False, new_window: bool = False
     ) -> tab.Tab:
@@ -254,32 +194,30 @@ class Browser:
         """
         if new_tab or new_window:
             # creat new target using the browser session
-            target_id = await self.connection.send(
+            target_id = await self.send(
                 cdp.target.create_target(
                     url, new_window=new_window, enable_begin_frame_control=True
                 )
             )
-            # get the connection matching the new target_id from our inventory
-            connection: tab.Tab = next(
-                filter(
-                    lambda item: item.type_ == "page" and item.target_id == target_id,
-                    self.targets,
-                )
-            )
-            connection._browser = self
-
+            connection = tab.Tab(target=target_id, parent=self, auto_attach=False)
+            await self.update_targets()
+            await connection.attach(connection.target)
         else:
             # first tab from browser.tabs
             connection: tab.Tab = next(
-                filter(lambda item: item.type_ == "page", self.targets)
+                filter(lambda item: item.target.type_ == "page", self.targets)
             )
             # use the tab to navigate to new url
+            # if not connection.attached:
+            #     await connection.attach(connection.target)
             frame_id, loader_id, *_ = await connection.send(cdp.page.navigate(url))
+            await self.update_targets()
+            await connection.attach()
             # update the frame_id on the tab
-            connection.frame_id = frame_id
-            connection._browser = self
+            # connection.frame_id = frame_id
+            # connection.parent = self
 
-        await self
+        # await self
         return connection
 
     async def create_context(
@@ -332,7 +270,7 @@ class Browser:
             )
             proxy_server = fw.proxy_server
 
-        ctx: cdp.browser.BrowserContextID = await self.connection.send(
+        ctx: cdp.browser.BrowserContextID = await self.send(
             cdp.target.create_browser_context(
                 dispose_on_detach=dispose_on_detach,
                 proxy_server=proxy_server,
@@ -340,7 +278,7 @@ class Browser:
                 origins_with_universal_network_access=origins_with_universal_network_access,
             )
         )
-        target_id: cdp.target.TargetID = await self.connection.send(
+        target_id: cdp.target.TargetID = await self.send(
             cdp.target.create_target(
                 url, browser_context_id=ctx, new_window=new_window, for_tab=new_tab
             )
@@ -348,7 +286,8 @@ class Browser:
         await self.sleep(0.5)
         connection: tab.Tab = next(
             filter(
-                lambda item: item.type_ == "page" and item.target_id == target_id,
+                lambda item: item.target.type_ == "page"
+                and item.target.target_id == target_id,
                 self.targets,
             )
         )
@@ -356,15 +295,16 @@ class Browser:
 
     async def start(self=None) -> Browser:
         """launches the actual browser"""
+
         if not self:
-            warnings.warn("use ``await Browser.create()`` to create a new instance")
-            return
+            raise RuntimeError(
+                "use ``await Browser.create()`` to create a new instance"
+            )
 
         if self._process or self._process_pid:
             if self._process.returncode is not None:
                 return await self.create(config=self.config)
-            warnings.warn("ignored! this call has no effect when already running.")
-            return
+            raise RuntimeError("ignored! this call has no effect when already running.")
 
         # self.config.update(kwargs)
         connect_existing = False
@@ -428,6 +368,7 @@ class Browser:
         for _ in range(5):
             try:
                 self.info = ContraDict(await self._http.get("version"), silent=True)
+
             except (Exception,):
                 if _ == 4:
                     logger.debug("could not start", exc_info=True)
@@ -448,27 +389,48 @@ class Browser:
                 )
             )
 
-        self.connection = Connection(self.info.webSocketDebuggerUrl, browser=self)
+        self.websocket_url = self.info.webSocketDebuggerUrl
+        await self.attach()
+        # await self.send(cdp.target.attach_to_browser_target())
 
-        if self.config.autodiscover_targets:
-            logger.info("enabling autodiscover targets")
+        # self.connection = Connection(browser=self, auto_attach=True)
+        # self.connection._session_id = await self.connection.send(cdp.target.attach_to_browser_target())
+        # self.connection.attached = True
+        # self.connection.target = "BROWSER"
 
-            self.connection.handlers[cdp.target.TargetInfoChanged] = [
-                self._handle_target_update
-            ]
-            self.connection.handlers[cdp.target.TargetCreated] = [
-                self._handle_target_update
-            ]
-            self.connection.handlers[cdp.target.TargetDestroyed] = [
-                self._handle_target_update
-            ]
-            self.connection.handlers[cdp.target.TargetCrashed] = [
-                self._handle_target_update
-            ]
-            await self.connection.send(cdp.target.set_discover_targets(discover=True))
+        # self.connection.handlers[cdp.target.AttachedToTarget] = [self._handle_attached]
+        # self.connection.handlers[cdp.target.DetachedFromTarget] = [self._handle_detached]
+
+        # if self.config.autodiscover_targets:
+        #     logger.info("enabling autodiscover targets")
+        #
+        #     self.connection.handlers[cdp.target.TargetInfoChanged] = [
+        #         self._handle_target_update
+        #     ]
+        #     self.connection.handlers[cdp.target.TargetCreated] = [
+        #         self._handle_target_update
+        #     ]
+        #     self.connection.handlers[cdp.target.TargetDestroyed] = [
+        #         self._handle_target_update
+        #     ]
+        #     self.connection.handlers[cdp.target.TargetCrashed] = [
+        #         self._handle_target_update
+        #     ]
+        #     await self.connection.send(cdp.target.set_discover_targets(discover=True))
 
         await self.update_targets()
-        await self
+        # await self
+
+    # async def _handle_attached(self, event: cdp.target.AttachedToTarget):
+    #     t: tab.Tab  = await tab.Tab.from_tab_target(event.target_info, browser=self)
+    #     t._is_attached = True
+    #     t._session_id = event.session_id
+    #     self.tabs.append(t)
+    #
+    # async def _handle_detached(self, event: cdp.target.DetachedFromTarget):
+    #     t = next(filter( lambda x : x.target_id == event.target_id, self.targets))
+    #
+    #     self.tabs.remove(t)
 
     async def grant_all_permissions(self):
         """
@@ -503,7 +465,7 @@ class Browser:
         permissions = list(cdp.browser.PermissionType)
         permissions.remove(cdp.browser.PermissionType.FLASH)
         permissions.remove(cdp.browser.PermissionType.CAPTURED_SURFACE_CONTROL)
-        await self.connection.send(cdp.browser.grant_permissions(permissions))
+        await self.send(cdp.browser.grant_permissions(permissions))
 
     async def tile_windows(self, windows=None, max_columns: int = 0):
         import math
@@ -565,32 +527,30 @@ class Browser:
         return grid
 
     async def _get_targets(self) -> List[cdp.target.TargetInfo]:
-        info = await self.connection.send(cdp.target.get_targets(), _is_update=True)
+        info = await self.send(cdp.target.get_targets())
+
         return info
 
     async def update_targets(self):
-        targets: List[cdp.target.TargetInfo]
-        targets = await self._get_targets()
-        target_ids = [t.target_id for t in targets]
-        existing_target_ids = [t.target_id for t in self.targets]
+
+        targets = await self.send(cdp.target.get_targets())
+        #
+        # current_tabs_targets = [t.target for t in self.children]
+        #
         for t in targets:
-            for existing_tab in self.targets:
-                existing_target = existing_tab.target
-                if existing_target.target_id == t.target_id:
-                    existing_tab.target.__dict__.update(t.__dict__)
+            for ctab in self._targets:
+                if ctab.target.target_id == t.target_id:
+                    ctab.target = t
                     break
             else:
-                self.targets.append(
-                    Connection(
-                        (
-                            f"ws://{self.config.host}:{self.config.port}"
-                            f"/devtools/page"  # all types are 'page' somehow
-                            f"/{t.target_id}"
-                        ),
-                        target=t,
-                        browser=self,
+                if t.type_ == "page":
+                    self._targets.append(
+                        tab.Tab(target=t, parent=self, auto_attach=False)
                     )
-                )
+
+        for ctab in self._targets.copy():
+            if ctab.target not in targets:
+                self._targets.remove(ctab)
 
         await asyncio.sleep(0)
 
@@ -666,15 +626,15 @@ class Browser:
 
     def stop(self):
         try:
-            # asyncio.get_running_loop().create_task(self.connection.send(cdp.browser.close()))
+            # asyncio.get_running_loop().create_task(self.send(cdp.browser.close()))
 
-            asyncio.get_event_loop().create_task(self.connection.disconnect())
+            asyncio.get_event_loop().create_task(self.aclose())
             logger.debug("closed the connection using get_event_loop().create_task()")
         except RuntimeError:
             if self.connection:
                 try:
-                    # asyncio.run(self.connection.send(cdp.browser.close()))
-                    asyncio.run(self.connection.disconnect())
+                    # asyncio.run(self.send(cdp.browser.close()))
+                    asyncio.run(self.aclose())
                     logger.debug("closed the connection using asyncio.run()")
                 except Exception:
                     pass

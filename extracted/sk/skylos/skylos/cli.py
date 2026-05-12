@@ -211,6 +211,157 @@ def _list_dirty_relevant_paths(project_root: Path, is_relevant_path) -> list[str
     return relevant
 
 
+def _deep_audit_output_exclude_paths(
+    audit_path: pathlib.Path,
+    output_path: str | None,
+) -> list[pathlib.Path] | None:
+    if not output_path:
+        return None
+
+    target = audit_path.resolve()
+    project_root = target.parent if target.is_file() else target
+    output = pathlib.Path(output_path).expanduser()
+    if not output.is_absolute():
+        output = pathlib.Path.cwd() / output
+    output = output.resolve()
+    try:
+        output.relative_to(project_root)
+    except ValueError:
+        return None
+    return [output]
+
+
+def _deep_audit_project_root(audit_path: pathlib.Path) -> pathlib.Path:
+    target = audit_path.resolve()
+    return target.parent if target.is_file() else target
+
+
+def _empty_changed_deep_audit_payload(
+    audit_path: pathlib.Path,
+    *,
+    fail_on: str | None,
+    export_format: str,
+    severity: str | None,
+    verdicts: list[str] | None,
+) -> tuple[dict, object | None]:
+    from skylos.audit_export import build_deep_audit_export
+    from skylos.audit_store import AuditStore
+    from skylos.audit_types import AuditCIGateSummary, AuditScanSummary
+
+    project_root = _deep_audit_project_root(audit_path)
+    store = AuditStore(project_root)
+    summary = AuditScanSummary(
+        project_id=store.project_id,
+        project_root=str(project_root),
+        files_scanned=0,
+        records_written=0,
+        candidate_count=0,
+        redacted_candidates=0,
+        pending_files=0,
+        not_analyzed_files=0,
+        complete=True,
+    )
+    payload = {
+        "mode": "deep_no_changes",
+        "changed_scope": True,
+        "no_changed_files": True,
+        "summary": summary.to_dict(),
+        "audit_project_dir": str(store.project_dir),
+        "changed_files": [],
+    }
+    if fail_on:
+        payload["ci"] = AuditCIGateSummary(
+            fail_on=fail_on,
+            exit_code=0,
+            blocking_counts={
+                "findings": 0,
+                "pending": 0,
+                "not_analyzed": 0,
+                "skipped": 0,
+                "error": 0,
+                "locked": 0,
+                "stale_analyzed": 0,
+                "limited": 0,
+            },
+            complete=True,
+            reason="no changed files to audit",
+        ).to_dict()
+
+    export_payload = None
+    if export_format in {"json", "sarif", "md", "markdown", "md-dir"}:
+        export_payload = build_deep_audit_export(
+            store=store,
+            min_severity=severity,
+            verdicts=verdicts,
+            allowed_files=[],
+        )
+        payload["export"] = export_payload
+    return payload, export_payload
+
+
+def _write_deep_audit_payload(path: str | pathlib.Path, payload: dict) -> None:
+    from skylos.audit_export import write_deep_audit_export
+
+    write_deep_audit_export(payload, path, "json")
+
+
+def _handle_empty_changed_deep_audit(
+    agent_args,
+    audit_path: pathlib.Path,
+    console,
+) -> int:
+    export_format = getattr(agent_args, "format", "table")
+    output_path = getattr(agent_args, "output", None)
+    quiet = getattr(agent_args, "quiet", False)
+    payload, export_payload = _empty_changed_deep_audit_payload(
+        audit_path,
+        fail_on=getattr(agent_args, "fail_on", None),
+        export_format=export_format,
+        severity=getattr(agent_args, "severity", None),
+        verdicts=getattr(agent_args, "verdict", None),
+    )
+
+    if export_format in {"sarif", "md", "markdown", "md-dir"}:
+        if export_payload is None:
+            return 1
+        from skylos.audit_export import (
+            render_deep_audit_export,
+            write_deep_audit_export,
+        )
+
+        if output_path:
+            written_paths = write_deep_audit_export(
+                export_payload,
+                output_path,
+                export_format,
+            )
+            if not quiet:
+                console.print(
+                    f"[dim]No changed files to audit. Written "
+                    f"{len(written_paths)} empty export file(s) to "
+                    f"{output_path}[/dim]"
+                )
+        elif not quiet:
+            print(render_deep_audit_export(export_payload, export_format), end="")
+        return 0
+
+    if output_path:
+        _write_deep_audit_payload(output_path, payload)
+
+    if export_format == "json":
+        if not quiet:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+    elif not quiet:
+        if output_path:
+            console.print(
+                f"[dim]No changed files to audit. Wrote empty audit report "
+                f"to {output_path}[/dim]"
+            )
+        else:
+            console.print("[dim]No changed files to audit.[/dim]")
+    return 0
+
+
 def _create_precommit_snapshot(project_root: Path):
     snapshot_dir = tempfile.TemporaryDirectory(prefix="skylos_precommit_")
     snapshot_root = Path(snapshot_dir.name).resolve()
@@ -321,7 +472,9 @@ def _path_suffixes(path: str) -> tuple[str, ...]:
     return tuple("/".join(parts[idx:]) for idx in range(len(parts)))
 
 
-def _build_changed_range_index(changed_ranges: list[dict]) -> dict[str, list[tuple[int, int]]]:
+def _build_changed_range_index(
+    changed_ranges: list[dict],
+) -> dict[str, list[tuple[int, int]]]:
     index: dict[str, list[tuple[int, int]]] = {}
     for entry in changed_ranges:
         key = _normalize_precommit_path(entry["file"])
@@ -2096,10 +2249,21 @@ def run_whitelist(pattern=None, reason=None, show=False):
     return run_whitelist_impl(pattern=pattern, reason=reason, show=show)
 
 
-def get_git_changed_files(root_path):
+def get_git_changed_files(
+    root_path,
+    base_ref=None,
+    *,
+    strict_base=False,
+    include_deleted=False,
+):
     from skylos.cli_shared import get_git_changed_files as get_git_changed_files_impl
 
-    return get_git_changed_files_impl(root_path)
+    return get_git_changed_files_impl(
+        root_path,
+        base_ref=base_ref,
+        strict_base=strict_base,
+        include_deleted=include_deleted,
+    )
 
 
 def estimate_cost(files):
@@ -2379,6 +2543,36 @@ EARLY_COMMAND_HANDLERS = {
 }
 
 
+def _is_first_level_help_request(argv):
+    return len(argv) == 2 and argv[1] in {"-h", "--help"}
+
+
+def _run_early_command_help(command):
+    from skylos.help import COMMANDS
+
+    console = Console()
+    matches = [
+        item
+        for item in COMMANDS
+        if item.get("name", "").split()[:2] == ["skylos", command]
+    ]
+    if not matches:
+        console.print(f"[bold]Usage:[/bold] skylos {command} [options]")
+        console.print("\nRun [bold]skylos commands[/bold] for all commands.")
+        return 0
+
+    console.print("[bold]Usage:[/bold]")
+    for item in matches:
+        console.print(f"  {item['name']}")
+
+    console.print("\n[bold]Description:[/bold]")
+    for item in matches:
+        console.print(f"  {item['desc']}")
+
+    console.print("\nRun [bold]skylos commands[/bold] for all commands.")
+    return 0
+
+
 def _dispatch_early_command(argv):
     if not argv:
         return _run_command_overview([])
@@ -2386,6 +2580,9 @@ def _dispatch_early_command(argv):
     handler_name = EARLY_COMMAND_HANDLERS.get(argv[0])
     if handler_name is None:
         return None
+
+    if _is_first_level_help_request(argv):
+        return _run_early_command_help(argv[0])
 
     return globals()[handler_name](argv[1:])
 
@@ -2903,10 +3100,7 @@ def _apply_config_driven_analysis_flags(args, project_cfg, console):
             args.quality = True
             enabled_from_policy.append("quality")
 
-        if (
-            enabled_from_policy
-            and not _is_main_machine_output(args)
-        ):
+        if enabled_from_policy and not _is_main_machine_output(args):
             console.print(
                 "[brand]Using synced/local Skylos policy:[/brand] enabling "
                 + ", ".join(enabled_from_policy)
@@ -3236,6 +3430,101 @@ def _build_agent_parser():
         action="store_true",
         help="Interactive file selection (with --security)",
     )
+
+    p_audit = agent_sub.add_parser(
+        "audit",
+        help="Deep security audit state and candidate workflow",
+    )
+    p_audit.add_argument("path", nargs="?", default=".")
+    _add_agent_model_arg(p_audit)
+    _add_agent_provider_arg(p_audit)
+    _add_agent_base_url_arg(p_audit)
+    p_audit.add_argument(
+        "--deep",
+        action="store_true",
+        help="Enable the explicit Deep Mode audit workflow",
+    )
+    p_audit.add_argument(
+        "--scan-only",
+        action="store_true",
+        help="Create/update static audit candidates without LLM calls",
+    )
+    p_audit.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume pending Deep Mode processing work",
+    )
+    p_audit.add_argument(
+        "--force",
+        action="store_true",
+        help="Force Deep Mode reprocessing for already analyzed files",
+    )
+    p_audit.add_argument(
+        "--changed",
+        action="store_true",
+        help="Restrict Deep Mode audit work to git-changed files",
+    )
+    p_audit.add_argument(
+        "--base",
+        default=None,
+        help="Base ref for changed-file scans",
+    )
+    p_audit.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Limit Deep Mode agent processing; scan-only records all candidates",
+    )
+    p_audit.add_argument(
+        "--fail-on",
+        choices=["critical", "high", "medium", "low"],
+        default=None,
+        help="Exit 1 when Deep Mode work at or above this severity remains",
+    )
+    p_audit.add_argument(
+        "--revalidate",
+        action="store_true",
+        help="Persistently revalidate stored Deep Mode findings",
+    )
+    p_audit.add_argument(
+        "--challenge",
+        action="store_true",
+        help="Challenge prior uncertain Deep Mode revalidation verdicts",
+    )
+    p_audit.add_argument(
+        "--format",
+        choices=["table", "json", "sarif", "md", "markdown", "md-dir"],
+        default="table",
+    )
+    p_audit.add_argument(
+        "--severity",
+        choices=["critical", "high", "medium", "low", "info"],
+        default=None,
+        help="Filter Deep Mode export entries to this severity or higher",
+    )
+    p_audit.add_argument(
+        "--verdict",
+        action="append",
+        choices=[
+            "true_positive",
+            "false_positive",
+            "fixed",
+            "uncertain",
+            "pending",
+            "not_analyzed",
+            "error",
+            "skipped",
+            "deleted",
+        ],
+        help="Filter Deep Mode export entries by verdict/status",
+    )
+    p_audit.add_argument(
+        "--include-deleted",
+        action="store_true",
+        help="Include deleted Deep Mode audit records in exports",
+    )
+    p_audit.add_argument("--out", "--output", "-o", dest="output")
+    _add_agent_quiet_arg(p_audit)
 
     p_remediate = agent_sub.add_parser(
         "remediate",
@@ -4096,6 +4385,344 @@ def main() -> None:
                 finally:
                     server.server_close()
                 sys.exit(0)
+
+        if cmd == "audit":
+            if not getattr(agent_args, "deep", False):
+                console.print(
+                    "[bad]Deep audit is explicit. Re-run with `--deep`.[/bad]"
+                )
+                sys.exit(2)
+
+            if getattr(agent_args, "scan_only", False) and getattr(
+                agent_args, "resume", False
+            ):
+                console.print(
+                    "[warn]Deep audit `--resume` requires processing mode, "
+                    "not `--scan-only`.[/warn]"
+                )
+                sys.exit(2)
+
+            if getattr(agent_args, "scan_only", False) and getattr(
+                agent_args, "force", False
+            ):
+                console.print(
+                    "[warn]Deep audit `--force` requires processing mode, "
+                    "not `--scan-only`.[/warn]"
+                )
+                sys.exit(2)
+
+            if getattr(agent_args, "scan_only", False) and getattr(
+                agent_args, "revalidate", False
+            ):
+                console.print(
+                    "[warn]Deep audit `--revalidate` requires revalidation mode, "
+                    "not `--scan-only`.[/warn]"
+                )
+                sys.exit(2)
+
+            if getattr(agent_args, "challenge", False) and not getattr(
+                agent_args, "revalidate", False
+            ):
+                console.print(
+                    "[warn]Deep audit `--challenge` requires `--revalidate`.[/warn]"
+                )
+                sys.exit(2)
+
+            audit_path = pathlib.Path(agent_args.path)
+            if not audit_path.exists():
+                console.print(f"[bad]Path not found: {audit_path}[/bad]")
+                sys.exit(1)
+
+            changed_files = None
+            changed_scope = bool(getattr(agent_args, "changed", False)) or bool(
+                getattr(agent_args, "base", None)
+            )
+            if changed_scope:
+                try:
+                    changed_files = get_git_changed_files(
+                        audit_path,
+                        base_ref=getattr(agent_args, "base", None),
+                        strict_base=bool(getattr(agent_args, "base", None)),
+                        include_deleted=True,
+                    )
+                except ValueError as exc:
+                    console.print(f"[bad]{exc}[/bad]")
+                    sys.exit(2)
+                if not changed_files:
+                    sys.exit(
+                        _handle_empty_changed_deep_audit(
+                            agent_args,
+                            audit_path,
+                            console,
+                        )
+                    )
+
+            from skylos.audit_candidates import scan_deep_audit_candidates
+
+            output_exclude_paths = _deep_audit_output_exclude_paths(
+                audit_path,
+                getattr(agent_args, "output", None),
+            )
+            scan_kwargs = {"changed_files": changed_files}
+            if output_exclude_paths:
+                scan_kwargs["exclude_paths"] = output_exclude_paths
+            summary, store = scan_deep_audit_candidates(
+                audit_path,
+                **scan_kwargs,
+            )
+            audit_project_root = pathlib.Path(summary.project_root)
+            process_summary = None
+            revalidation_summary = None
+            ci_summary = None
+            mode = "deep_scan_only"
+
+            if not getattr(agent_args, "scan_only", False):
+                if not _ensure_llm_support():
+                    Console().print("[bold red]Agent module not available[/bold red]")
+                    sys.exit(1)
+
+                model = agent_args.model
+                provider_override = getattr(agent_args, "provider", None)
+                if provider_override and model == "gpt-4.1":
+                    provider_default_models = {
+                        "anthropic": "claude-sonnet-4-20250514",
+                        "google": "gemini/gemini-2.0-flash",
+                        "mistral": "mistral/mistral-large-latest",
+                        "groq": "groq/llama3-70b-8192",
+                        "deepseek": "deepseek/deepseek-chat",
+                        "xai": "xai/grok-2",
+                        "together": (
+                            "together/meta-llama/Meta-Llama-3-70B-Instruct-Turbo"
+                        ),
+                        "ollama": "ollama/llama3",
+                    }
+                    if provider_override in provider_default_models:
+                        model = provider_default_models[provider_override]
+
+                provider, api_key, base_url, is_local = resolve_llm_runtime(
+                    model=model,
+                    provider_override=provider_override,
+                    base_url_override=getattr(agent_args, "base_url", None),
+                    console=console,
+                    allow_prompt=_is_tty(),
+                )
+                if base_url:
+                    os.environ["OPENAI_BASE_URL"] = base_url
+                    os.environ["SKYLOS_LLM_BASE_URL"] = base_url
+                if api_key is None or api_key == "":
+                    if not is_local:
+                        env_var = (
+                            PROVIDERS.get(provider) or f"{provider.upper()}_API_KEY"
+                        )
+                        console.print(
+                            f"[bad]No {env_var} configured. Run `skylos key` or "
+                            "set the environment variable.[/bad]"
+                        )
+                        sys.exit(1)
+
+                project_cfg = load_config(audit_project_root)
+                config = _build_analyzer_config(
+                    model=model,
+                    api_key=api_key,
+                    provider=provider,
+                    base_url=base_url,
+                    quiet=getattr(agent_args, "quiet", False),
+                    enable_security=True,
+                    enable_quality=False,
+                    prompt_templates=project_cfg.get("templates"),
+                    prompt_template_root=audit_project_root,
+                )
+                analyzer = SkylosLLM(config)
+
+                if getattr(agent_args, "revalidate", False):
+                    from skylos.audit_revalidator import (
+                        revalidate_deep_audit_findings,
+                    )
+
+                    revalidation_summary = revalidate_deep_audit_findings(
+                        store=store,
+                        verifier=analyzer,
+                        model=model,
+                        provider=provider,
+                        limit=getattr(agent_args, "limit", None),
+                        force=getattr(agent_args, "force", False),
+                        challenge=getattr(agent_args, "challenge", False),
+                        allowed_files=changed_files if changed_scope else None,
+                    )
+                    mode = (
+                        "deep_challenge"
+                        if getattr(agent_args, "challenge", False)
+                        else "deep_revalidate"
+                    )
+                else:
+                    from skylos.audit_processor import process_deep_audit_records
+
+                    process_summary = process_deep_audit_records(
+                        store=store,
+                        analyzer=analyzer,
+                        model=model,
+                        provider=provider,
+                        limit=getattr(agent_args, "limit", None),
+                        force=getattr(agent_args, "force", False),
+                        allowed_files=changed_files if changed_scope else None,
+                    )
+                    mode = "deep_process"
+
+            if getattr(agent_args, "fail_on", None):
+                from skylos.audit_ci import evaluate_deep_audit_ci_gate
+
+                ci_summary = evaluate_deep_audit_ci_gate(
+                    store=store,
+                    fail_on=getattr(agent_args, "fail_on"),
+                    model=locals().get("model"),
+                    provider=locals().get("provider"),
+                    allowed_files=changed_files if changed_scope else None,
+                    process_summary=process_summary,
+                )
+
+            payload = {
+                "mode": mode,
+                "summary": summary.to_dict(),
+                "audit_project_dir": str(store.project_dir),
+            }
+            if process_summary is not None:
+                payload["processing"] = process_summary.to_dict()
+            if revalidation_summary is not None:
+                payload["revalidation"] = revalidation_summary.to_dict()
+            if ci_summary is not None:
+                payload["ci"] = ci_summary.to_dict()
+
+            export_payload = None
+            export_format = getattr(agent_args, "format", "table")
+            if export_format in {"json", "sarif", "md", "markdown", "md-dir"}:
+                iter_records = getattr(store, "iter_file_records", None)
+                if callable(iter_records):
+                    from skylos.audit_export import build_deep_audit_export
+
+                    export_payload = build_deep_audit_export(
+                        store=store,
+                        min_severity=getattr(agent_args, "severity", None),
+                        verdicts=getattr(agent_args, "verdict", None),
+                        allowed_files=changed_files if changed_scope else None,
+                        include_deleted=getattr(agent_args, "include_deleted", False),
+                    )
+                    payload["export"] = export_payload
+
+            if export_format in {"sarif", "md", "markdown", "md-dir"}:
+                if export_payload is None:
+                    console.print(
+                        "[bad]Deep audit export requires persisted audit state.[/bad]"
+                    )
+                    sys.exit(1)
+
+                from skylos.audit_export import (
+                    render_deep_audit_export,
+                    write_deep_audit_export,
+                )
+
+                if agent_args.output:
+                    written_paths = write_deep_audit_export(
+                        export_payload,
+                        agent_args.output,
+                        export_format,
+                    )
+                    if not getattr(agent_args, "quiet", False):
+                        console.print(
+                            f"[dim]Written {len(written_paths)} export file(s) "
+                            f"to {agent_args.output}[/dim]"
+                        )
+                elif export_format == "md-dir":
+                    default_output = store.exports_dir / "markdown"
+                    written_paths = write_deep_audit_export(
+                        export_payload,
+                        default_output,
+                        export_format,
+                    )
+                    if not getattr(agent_args, "quiet", False):
+                        console.print(
+                            f"[dim]Written {len(written_paths)} export file(s) "
+                            f"to {default_output}[/dim]"
+                        )
+                elif not getattr(agent_args, "quiet", False):
+                    print(
+                        render_deep_audit_export(export_payload, export_format),
+                        end="",
+                    )
+            elif agent_args.output:
+                pathlib.Path(agent_args.output).write_text(
+                    json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+
+            if export_format == "json":
+                if not getattr(agent_args, "quiet", False):
+                    print(json.dumps(payload, indent=2, sort_keys=True))
+            elif export_format in {"sarif", "md", "markdown", "md-dir"}:
+                pass
+            elif not getattr(agent_args, "quiet", False):
+                heading = "scan-only" if process_summary is None else "scan"
+                if (
+                    summary.candidate_count == 0
+                    and process_summary is None
+                    and revalidation_summary is None
+                    and ci_summary is None
+                ):
+                    console.print(
+                        f"[brand]Deep audit {heading}:[/brand] no candidates found"
+                    )
+                    console.print(f"  Files scanned: {summary.files_scanned}")
+                    if summary.deleted_files:
+                        console.print(f"  Deleted records: {summary.deleted_files}")
+                    console.print(f"  Store: {store.project_dir}")
+                else:
+                    console.print(
+                        f"[brand]Deep audit {heading}:[/brand] static queue updated"
+                    )
+                    console.print(f"  Project: {summary.project_root}")
+                    console.print(f"  Files scanned: {summary.files_scanned}")
+                    console.print(f"  Candidates: {summary.candidate_count}")
+                    console.print(
+                        f"  Redacted candidates: {summary.redacted_candidates}"
+                    )
+                    console.print(f"  Pending files: {summary.pending_files}")
+                    console.print(f"  Processing files: {summary.processing_files}")
+                    console.print(f"  Error files: {summary.error_files}")
+                    console.print(f"  Not analyzed: {summary.not_analyzed_files}")
+                    if summary.deleted_files:
+                        console.print(f"  Deleted records: {summary.deleted_files}")
+                if process_summary is not None:
+                    console.print("[brand]Deep audit processing:[/brand] finished")
+                    console.print(
+                        f"  Processed files: {process_summary.processed_files}"
+                    )
+                    console.print(f"  Findings added: {process_summary.findings_added}")
+                    console.print(
+                        f"  Skipped secret files: "
+                        f"{process_summary.skipped_secret_files}"
+                    )
+                    console.print(
+                        f"  Unsupported files: {process_summary.unsupported_files}"
+                    )
+                    console.print(
+                        f"  Remaining work: {process_summary.remaining_pending_files}"
+                    )
+                if revalidation_summary is not None:
+                    console.print("[brand]Deep audit revalidation:[/brand] finished")
+                    console.print(
+                        f"  Revalidated findings: "
+                        f"{revalidation_summary.revalidated_findings}"
+                    )
+                    console.print(
+                        f"  Challenged findings: "
+                        f"{revalidation_summary.challenged_findings}"
+                    )
+                    console.print(
+                        f"  Uncertain verdicts: {revalidation_summary.uncertain}"
+                    )
+                if ci_summary is not None:
+                    console.print(f"[brand]Deep audit CI:[/brand] {ci_summary.reason}")
+                console.print(f"  Store: {store.project_dir}")
+            sys.exit(ci_summary.exit_code if ci_summary is not None else 0)
 
         if not _ensure_llm_support():
             Console().print("[bold red]Agent module not available[/bold red]")

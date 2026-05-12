@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[4322],{54322:(e,s,a)=>{async function n(){{let{worker:e}=await Promise.all([a.e(6396),a.e(2947)]).then(a.bind(a,52947));await e.start({onUnhandledRequest:"bypass"})}}a.r(s),a.d(s,{initMocks:()=>n})}}]);

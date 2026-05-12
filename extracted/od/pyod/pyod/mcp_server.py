@@ -213,6 +213,181 @@ def get_benchmarks(benchmark: str = "all") -> str:
     return _to_json(_get_engine().get_benchmarks(benchmark))
 
 
+def _deserialize_result(result_json: str):
+    """Parse a `run_detection` JSON result back into a dict.
+
+    Converts the list-form ``scores_train`` / ``labels_train`` /
+    ``scores_test`` / ``labels_test`` fields back to numpy arrays so
+    the engine's downstream methods can operate on them. Returns
+    ``None`` when the input is not a JSON object or when any array
+    field contains values that cannot be coerced to the expected
+    numeric dtype (e.g., a hand-edited or stale payload from an
+    agent).
+    """
+    import numpy as np
+    try:
+        result = json.loads(result_json)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(result, dict):
+        return None
+    try:
+        if ('scores_train' in result
+                and result['scores_train'] is not None):
+            result['scores_train'] = np.asarray(
+                result['scores_train'], dtype=float)
+        if ('labels_train' in result
+                and result['labels_train'] is not None):
+            result['labels_train'] = np.asarray(
+                result['labels_train'], dtype=int)
+        if ('scores_test' in result
+                and result['scores_test'] is not None):
+            result['scores_test'] = np.asarray(
+                result['scores_test'], dtype=float)
+        if ('labels_test' in result
+                and result['labels_test'] is not None):
+            result['labels_test'] = np.asarray(
+                result['labels_test'], dtype=int)
+    except (ValueError, TypeError):
+        return None
+    return result
+
+
+def run_detection(
+    data_path: str,
+    plan: str,
+    test_data_path: str = ""
+) -> str:
+    """Run anomaly detection with a given plan.
+
+    Wraps ``ADEngine.run_detection``. The returned JSON omits the
+    fitted ``detector`` instance (not JSON-serializable) and converts
+    numpy arrays to lists so the result can round-trip through the
+    MCP transport. Pass the returned JSON back into
+    ``analyze_results`` and ``explain_findings``.
+
+    Args:
+        data_path: Path to training data file (CSV, NPY, NPZ, JSON, MAT).
+        plan: JSON string from plan_detection().
+        test_data_path: Optional path to held-out test data.
+    """
+    try:
+        plan_dict = json.loads(plan)
+    except (json.JSONDecodeError, TypeError) as e:
+        return _to_json({"error": "Invalid plan JSON", "details": str(e)})
+    if not isinstance(plan_dict, dict):
+        return _to_json({"error": "plan must be a JSON object"})
+    try:
+        X_train = _load_data(data_path)
+    except (OSError, ValueError) as e:
+        return _to_json({"error": "Failed to load training data",
+                         "details": str(e)})
+    X_test = None
+    if test_data_path:
+        try:
+            X_test = _load_data(test_data_path)
+        except (OSError, ValueError) as e:
+            return _to_json({"error": "Failed to load test data",
+                             "details": str(e)})
+    try:
+        result = _get_engine().run_detection(
+            X_train, plan_dict, X_test=X_test)
+    except Exception as e:
+        return _to_json({"error": "Detection failed",
+                         "type": type(e).__name__,
+                         "details": str(e)})
+    out = {k: v for k, v in result.items() if k != 'detector'}
+    for key in ('scores_train', 'labels_train',
+                'scores_test', 'labels_test'):
+        val = out.get(key)
+        if val is not None and hasattr(val, 'tolist'):
+            out[key] = val.tolist()
+    return _to_json(out)
+
+
+def analyze_results(
+    result: str,
+    data_path: str = "",
+    top_k: int = 10
+) -> str:
+    """Analyze a detection result.
+
+    Wraps ``ADEngine.analyze_results``. Pass the JSON returned by
+    ``run_detection`` as ``result``; optionally include the original
+    training data path to enable feature-importance analysis.
+
+    Args:
+        result: JSON string from run_detection().
+        data_path: Optional path to training data for feature importance.
+        top_k: Number of top anomalies to return.
+    """
+    parsed = _deserialize_result(result)
+    if parsed is None:
+        return _to_json({"error": "Invalid result JSON"})
+    X = None
+    if data_path:
+        try:
+            X = _load_data(data_path)
+        except (OSError, ValueError) as e:
+            return _to_json({"error": "Failed to load data",
+                             "details": str(e)})
+    try:
+        analysis = _get_engine().analyze_results(
+            parsed, X=X, top_k=top_k)
+    except Exception as e:
+        return _to_json({"error": "Analysis failed",
+                         "type": type(e).__name__,
+                         "details": str(e)})
+    return _to_json(analysis)
+
+
+def explain_findings(
+    result: str,
+    indices: str = "",
+    top_k: int = 5,
+    data_path: str = ""
+) -> str:
+    """Explain why specific samples were flagged as anomalies.
+
+    Wraps ``ADEngine.explain_findings``. Pass the JSON returned by
+    ``run_detection`` as ``result``. Provide ``indices`` to explain
+    specific rows, or leave it empty to explain the top-k anomalies.
+
+    Args:
+        result: JSON string from run_detection().
+        indices: Comma-separated 0-based row indices, e.g. "0,5,12".
+            Empty means top-k.
+        top_k: Number of top anomalies to explain when indices is empty.
+        data_path: Optional path to data for feature-level explanations.
+    """
+    parsed = _deserialize_result(result)
+    if parsed is None:
+        return _to_json({"error": "Invalid result JSON"})
+    idx_list = None
+    if indices:
+        try:
+            idx_list = [int(s.strip()) for s in indices.split(',')
+                        if s.strip()]
+        except ValueError as e:
+            return _to_json({"error": "Invalid indices",
+                             "details": str(e)})
+    X = None
+    if data_path:
+        try:
+            X = _load_data(data_path)
+        except (OSError, ValueError) as e:
+            return _to_json({"error": "Failed to load data",
+                             "details": str(e)})
+    try:
+        explanations = _get_engine().explain_findings(
+            parsed, indices=idx_list, top_k=top_k, X=X)
+    except Exception as e:
+        return _to_json({"error": "Explanation failed",
+                         "type": type(e).__name__,
+                         "details": str(e)})
+    return _to_json(explanations)
+
+
 def _load_data(path):
     """Load data from file path."""
     import numpy as np
@@ -252,6 +427,9 @@ _TOOL_FUNCTIONS = (
     explain_detector,
     compare_detectors,
     get_benchmarks,
+    run_detection,
+    analyze_results,
+    explain_findings,
 )
 
 

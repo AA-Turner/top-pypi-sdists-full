@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: langgraph
-Version: 1.1.10
+Version: 1.2.0
 Summary: Building stateful, multi-actor applications with LLMs
 Project-URL: Homepage, https://docs.langchain.com/oss/python/langgraph/overview
 Project-URL: Documentation, https://reference.langchain.com/python/langgraph/
 Project-URL: Source, https://github.com/langchain-ai/langgraph/tree/main/libs/langgraph
 Project-URL: Changelog, https://github.com/langchain-ai/langgraph/releases
-Project-URL: Twitter, https://x.com/LangChain
+Project-URL: Twitter, https://x.com/langchain_oss
 Project-URL: Slack, https://www.langchain.com/join-community
 Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License-Expression: MIT
@@ -22,9 +22,9 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
-Requires-Dist: langchain-core<2,>=1.3.0
-Requires-Dist: langgraph-checkpoint<5.0.0,>=2.1.0
-Requires-Dist: langgraph-prebuilt<1.1.0,>=1.0.12
+Requires-Dist: langchain-core<2,>=1.4.0
+Requires-Dist: langgraph-checkpoint<5.0.0,>=4.1.0
+Requires-Dist: langgraph-prebuilt<1.2.0,>=1.1.0
 Requires-Dist: langgraph-sdk<0.4.0,>=0.3.0
 Requires-Dist: pydantic>=2.7.4
 Requires-Dist: xxhash>=3.5.0
@@ -50,7 +50,7 @@ Description-Content-Type: text/markdown
   <a href="https://pypi.org/project/langgraph/" target="_blank"><img src="https://img.shields.io/pypi/v/langgraph.svg?label=%20" alt="Version"></a>
   <a href="https://github.com/langchain-ai/langgraph/issues" target="_blank"><img src="https://img.shields.io/github/issues-raw/langchain-ai/langgraph" alt="Open Issues"></a>
   <a href="https://docs.langchain.com/oss/python/langgraph/overview" target="_blank"><img src="https://img.shields.io/badge/docs-latest-blue" alt="Docs"></a>
-  <a href="https://x.com/langchain" target="_blank"><img src="https://img.shields.io/twitter/url/https/twitter.com/langchain.svg?style=social&label=Follow%20%40LangChain" alt="Twitter / X"></a>
+  <a href="https://x.com/langchain_oss" target="_blank"><img src="https://img.shields.io/twitter/url/https/twitter.com/langchain_oss.svg?style=social&label=Follow%20%40LangChain" alt="Twitter / X"></a>
 </div>
 
 <br>

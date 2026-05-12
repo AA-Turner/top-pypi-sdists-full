@@ -33,6 +33,7 @@ from snowflake.cli.api.commands.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.config import get_feature_flags_section
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
+from snowflake.cli.api.utils.tty import is_tty_interactive
 from snowflake.connector import ProgrammingError
 from snowflake.connector.telemetry import (
     TelemetryData,
@@ -59,6 +60,7 @@ class CLITelemetryField(Enum):
     COMMAND_OUTPUT_TYPE = "command_output_type"
     COMMAND_EXECUTION_TIME = "command_execution_time"
     COMMAND_CI_ENVIRONMENT = "command_ci_environment"
+    COMMAND_CI_INTEGRATION_VERSION = "command_ci_integration_version"
     COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
@@ -84,6 +86,18 @@ class CLITelemetryField(Enum):
     # Project context
     PROJECT_DEFINITION_VERSION = "project_definition_version"
     MODE = "mode"
+    # Which "snow app" product flow ran for this command:
+    # "native_app" for Native App (application / application package entities),
+    # "snowflake_app" for Snowflake Apps Deploy (snowflake-app entities).
+    # Only emitted for "snow app *" commands; absent for everything else.
+    #
+    # Note: the field appears on TelemetryEvent.CMD_EXECUTION_RESULT and
+    # CMD_EXECUTION_ERROR but NOT on CMD_EXECUTION, because the routing
+    # decorators that resolve the flow run inside the command callable --
+    # i.e. AFTER log_command_usage fires in pre_execute. Consumers who need
+    # the flow on the executing_command event should join on
+    # COMMAND_EXECUTION_ID across the three events for an invocation.
+    APP_FLOW = "app_flow"
 
 
 class TelemetryEvent(Enum):
@@ -167,7 +181,7 @@ def _find_command_info() -> TelemetryDict:
     if format_value is None:
         format_value = OutputFormat.TABLE
 
-    return {
+    info: TelemetryDict = {
         CLITelemetryField.COMMAND: command_path,
         CLITelemetryField.COMMAND_GROUP: command_path[0],
         CLITelemetryField.COMMAND_FLAGS: command_flags,
@@ -175,6 +189,12 @@ def _find_command_info() -> TelemetryDict:
         CLITelemetryField.PROJECT_DEFINITION_VERSION: str(_get_definition_version()),
         CLITelemetryField.MODE: _get_cli_running_mode(),
     }
+
+    app_flow = _get_app_flow()
+    if app_flow is not None:
+        info[CLITelemetryField.APP_FLOW] = app_flow
+
+    return info
 
 
 def _get_cli_running_mode() -> str:
@@ -198,12 +218,21 @@ def _get_definition_version() -> str | None:
     return None
 
 
-def _is_interactive_terminal() -> bool:
-    """Check if stdin and stdout are connected to a TTY."""
+def _get_app_flow() -> str | None:
+    """Return the resolved "snow app" product flow for the current command.
+
+    See ``snowflake.cli._plugins.nativeapp.v2_conversions.compat.AppFlow``;
+    this returns ``"native_app"``, ``"snowflake_app"``, or ``None`` for any
+    command outside the ``snow app`` group (or when the routing helpers
+    haven't run yet).
+    """
     try:
-        return sys.stdin.isatty() and sys.stdout.isatty()
-    except Exception:
-        return False
+        return get_cli_context().app_flow
+    except AttributeError:
+        # CLI context not yet populated (e.g. during early startup or in
+        # contrived test scenarios where the manager was reset). Treat as
+        # "no flow recorded" rather than failing the whole telemetry call.
+        return None
 
 
 def _is_env_truthy(name: str) -> bool:
@@ -215,6 +244,10 @@ def _get_ci_environment_type() -> str:
     """Detect CI/CD environment type based on environment variables."""
     if "SF_GITHUB_ACTION" in os.environ:
         return "SF_GITHUB_ACTION"
+    if "SF_GITLAB_COMPONENT" in os.environ:
+        return "SF_GITLAB_COMPONENT"
+    if "SF_ADO_EXTENSION" in os.environ:
+        return "SF_ADO_EXTENSION"
     if "GITHUB_ACTIONS" in os.environ:
         return "GITHUB_ACTIONS"
     if "GITLAB_CI" in os.environ:
@@ -239,9 +272,14 @@ def _get_ci_environment_type() -> str:
         return "TRAVIS_CI"
     if _is_env_truthy("CI"):
         return "UNKNOWN_CI"
-    if _is_interactive_terminal():
+    if is_tty_interactive():
         return "LOCAL"
     return "UNKNOWN"
+
+
+def _get_ci_integration_version() -> str:
+    """Get the version of the official Snowflake CI/CD integration, if any."""
+    return os.environ.get("SF_CICD_INTEGRATION_VERSION", "")
 
 
 def _detect_agent_environment() -> str:
@@ -333,6 +371,7 @@ class CLITelemetryClient:
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
             CLITelemetryField.COMMAND_CI_ENVIRONMENT: _get_ci_environment_type(),
+            CLITelemetryField.COMMAND_CI_INTEGRATION_VERSION: _get_ci_integration_version(),
             CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()

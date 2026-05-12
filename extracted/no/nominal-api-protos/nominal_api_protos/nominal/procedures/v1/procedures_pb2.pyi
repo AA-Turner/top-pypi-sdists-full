@@ -268,6 +268,27 @@ class IngestJobSuccessCondition(_message.Message):
     field_id: str
     def __init__(self, field_id: _Optional[str] = ...) -> None: ...
 
+class ChannelLocator(_message.Message):
+    __slots__ = ("data_source_ref", "channel_name", "tags", "asset", "run")
+    class TagsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    DATA_SOURCE_REF_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    ASSET_FIELD_NUMBER: _ClassVar[int]
+    RUN_FIELD_NUMBER: _ClassVar[int]
+    data_source_ref: str
+    channel_name: str
+    tags: _containers.ScalarMap[str, str]
+    asset: AssetReference
+    run: RunReference
+    def __init__(self, data_source_ref: _Optional[str] = ..., channel_name: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., asset: _Optional[_Union[AssetReference, _Mapping]] = ..., run: _Optional[_Union[RunReference, _Mapping]] = ...) -> None: ...
+
 class ChannelValidationSuccessCondition(_message.Message):
     __slots__ = ("channel", "comparator", "threshold", "timeout_millis", "point_persistence", "time_persistence")
     class COMPARATOR(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -286,39 +307,19 @@ class ChannelValidationSuccessCondition(_message.Message):
     COMPARATOR_LESS_THAN_OR_EQUAL: ChannelValidationSuccessCondition.COMPARATOR
     COMPARATOR_EQUAL: ChannelValidationSuccessCondition.COMPARATOR
     COMPARATOR_NOT_EQUAL: ChannelValidationSuccessCondition.COMPARATOR
-    class ChannelLocator(_message.Message):
-        __slots__ = ("data_source_ref", "channel_name", "tags", "asset", "run")
-        class TagsEntry(_message.Message):
-            __slots__ = ("key", "value")
-            KEY_FIELD_NUMBER: _ClassVar[int]
-            VALUE_FIELD_NUMBER: _ClassVar[int]
-            key: str
-            value: str
-            def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-        DATA_SOURCE_REF_FIELD_NUMBER: _ClassVar[int]
-        CHANNEL_NAME_FIELD_NUMBER: _ClassVar[int]
-        TAGS_FIELD_NUMBER: _ClassVar[int]
-        ASSET_FIELD_NUMBER: _ClassVar[int]
-        RUN_FIELD_NUMBER: _ClassVar[int]
-        data_source_ref: str
-        channel_name: str
-        tags: _containers.ScalarMap[str, str]
-        asset: AssetReference
-        run: RunReference
-        def __init__(self, data_source_ref: _Optional[str] = ..., channel_name: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., asset: _Optional[_Union[AssetReference, _Mapping]] = ..., run: _Optional[_Union[RunReference, _Mapping]] = ...) -> None: ...
     CHANNEL_FIELD_NUMBER: _ClassVar[int]
     COMPARATOR_FIELD_NUMBER: _ClassVar[int]
     THRESHOLD_FIELD_NUMBER: _ClassVar[int]
     TIMEOUT_MILLIS_FIELD_NUMBER: _ClassVar[int]
     POINT_PERSISTENCE_FIELD_NUMBER: _ClassVar[int]
     TIME_PERSISTENCE_FIELD_NUMBER: _ClassVar[int]
-    channel: ChannelValidationSuccessCondition.ChannelLocator
+    channel: ChannelLocator
     comparator: ChannelValidationSuccessCondition.COMPARATOR
     threshold: float
     timeout_millis: int
     point_persistence: int
     time_persistence: int
-    def __init__(self, channel: _Optional[_Union[ChannelValidationSuccessCondition.ChannelLocator, _Mapping]] = ..., comparator: _Optional[_Union[ChannelValidationSuccessCondition.COMPARATOR, str]] = ..., threshold: _Optional[float] = ..., timeout_millis: _Optional[int] = ..., point_persistence: _Optional[int] = ..., time_persistence: _Optional[int] = ...) -> None: ...
+    def __init__(self, channel: _Optional[_Union[ChannelLocator, _Mapping]] = ..., comparator: _Optional[_Union[ChannelValidationSuccessCondition.COMPARATOR, str]] = ..., threshold: _Optional[float] = ..., timeout_millis: _Optional[int] = ..., point_persistence: _Optional[int] = ..., time_persistence: _Optional[int] = ...) -> None: ...
 
 class WebhookSuccessCondition(_message.Message):
     __slots__ = ("integration_rid", "delivery_config", "event_type", "payload_template")

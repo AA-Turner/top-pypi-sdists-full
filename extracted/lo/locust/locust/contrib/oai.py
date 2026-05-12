@@ -33,7 +33,7 @@ class OpenAIClient(OpenAI):
                 exception = e
             request_event.fire(
                 request_type=response.request.method,
-                name=self.request_name if self.request_name else response.url.path,
+                name=self.request_name or response.url.path,
                 context={},
                 response=response,
                 exception=exception,

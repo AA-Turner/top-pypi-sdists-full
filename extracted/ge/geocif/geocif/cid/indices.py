@@ -942,59 +942,62 @@ class CIDs:
         return pd.DataFrame(rows)
 
     def _get_planting_month(self) -> int:
-        """Return the planting month (first in-season month) from the data."""
-        if "crop_cal" in self.df_country_crop.columns:
-            in_season = self.df_country_crop[
-                self.df_country_crop["crop_cal"].isin([1, 2, 3])
-            ]
-            if "Month" in in_season.columns and not in_season.empty:
-                return int(in_season["Month"].min())
-        if "Month" in self.df_country_crop.columns:
-            in_season = self.df_country_crop[self.df_country_crop["Season"].notna()]
+        """Return the planting month: the mode of the months where ``crop_cal``
+        transitions from off-season (0 or 4) into planting (1).
+
+        Mode rather than ``min(Month)`` because for cross-year seasons
+        (e.g. Malawi maize: Nov → April) the in-season window wraps months
+        ``{11, 12, 1, 2, 3, 4}`` and ``.min()`` would return 1.  Mode rather
+        than "first transition" because the pre-season padding rows at the
+        very start of the merged CSV produce a spurious ``cc=0 → cc=1``
+        transition at January 1 of the first data year (the planting-phase
+        label is sticky from Nov of the prior year, but the padding rows
+        before it carry ``cc=0``).  The real Nov transition repeats every
+        region every year and overwhelms the one-off artifact.
+        """
+        if "crop_cal" not in self.df_country_crop.columns:
+            return 1
+        df = self.df_country_crop
+        sort_cols = [c for c in ("time", "year", "doy") if c in df.columns]
+        if sort_cols:
+            df = df.sort_values(sort_cols)
+        # Per-region shift so prev_cc doesn't bleed across region boundaries
+        if "adm1_name" in df.columns:
+            prev_cc = df.groupby("adm1_name")["crop_cal"].shift(1)
+        elif "region" in df.columns:
+            prev_cc = df.groupby("region")["crop_cal"].shift(1)
+        else:
+            prev_cc = df["crop_cal"].shift(1)
+        transitions = df[(df["crop_cal"] == 1) & prev_cc.isin([0, 4])]
+        if not transitions.empty and "Month" in transitions.columns:
+            return int(transitions["Month"].mode().iloc[0])
+        # Fallback: pathological data with no off-season → planting transition
+        if "Month" in df.columns:
+            in_season = df[df["crop_cal"].isin([1, 2, 3])]
             if not in_season.empty:
                 return int(in_season["Month"].min())
         return 1
 
     def _get_pre_season_months(self, current_month: int) -> list[int]:
-        """Return list of init months for pre-season (and in-season if forecast-only).
+        """Pre-season init months for the CID stage.
 
-        When use_cids is forecast-only (FLDAS/S2S), extends through current
-        month so in-season months also get PS-style init-month rows.
-        Otherwise stops before planting month.
+        Thin wrapper around :func:`geocif.utils.get_pre_season_init_months` —
+        single source of truth shared with the ML stage to avoid drift.
         """
-        planting_month = self._get_planting_month()
-
-        # Check if use_cids is forecast-only
         import ast
+        from geocif.utils import get_pre_season_init_months, is_forecast_only
+
         try:
             use_cids = ast.literal_eval(
                 self.parser.get("DEFAULT", "use_cids", fallback="['all']")
             )
         except (ValueError, SyntaxError):
             use_cids = ["all"]
-        forecast_only = (
-            "all" not in use_cids
-            and all(c in ("FLDAS", "S2S") for c in use_cids)
+        forecast_only = is_forecast_only(use_cids)
+        return get_pre_season_init_months(
+            self._get_planting_month(),
+            extend_to_month=current_month if forecast_only else None,
         )
-
-        max_lead = 6
-        earliest = (planting_month - max_lead - 1) % 12 + 1
-
-        if forecast_only:
-            stop_month = current_month
-        else:
-            stop_month = (planting_month - 1) if planting_month > 1 else 12
-
-        months = []
-        m = earliest
-        while True:
-            months.append(m)
-            if m == stop_month:
-                break
-            m = m % 12 + 1
-            if len(months) > 12:
-                break
-        return months
 
     def _canonical_season_months(self, key: tuple[str, str]) -> set:
         """

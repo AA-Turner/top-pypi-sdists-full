@@ -428,8 +428,6 @@ class PrivateJobSDK(WorkloadSDK):
                 prod_job_config.connection_ids
             )
 
-        # TODO(praneethkaturi): timeout_s is available on prod_job_config but not
-        # copied here. Add timeout_s=prod_job_config.timeout_s to fix status retrieval.
         return JobConfig(
             name=name,
             image_uri=image_uri,
@@ -450,6 +448,7 @@ class PrivateJobSDK(WorkloadSDK):
             else None,
             project=project,
             connections=connections,
+            timeout_s=prod_job_config.timeout_s,
         )
 
     def _job_model_to_status(

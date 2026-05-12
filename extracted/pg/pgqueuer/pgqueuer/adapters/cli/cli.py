@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import os
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
-from typing import Awaitable, Callable
+from typing import Callable
 
 import typer
 from tabulate import tabulate
@@ -14,9 +15,8 @@ from typer import Context
 from typing_extensions import AsyncGenerator
 
 from pgqueuer.adapters.cli import factories, supervisor
-from pgqueuer.adapters.drivers import dsn
 from pgqueuer.adapters.persistence import qb, queries
-from pgqueuer.core import helpers, listeners, logconfig
+from pgqueuer.core import listeners, logconfig
 from pgqueuer.domain import models, types
 from pgqueuer.ports.driver import Driver
 
@@ -50,30 +50,11 @@ class AppConfig:
 
     prefix: str = ""
     pg_dsn: str = ""
-    pg_host: str = ""
-    pg_port: str = "5432"
-    pg_user: str = ""
-    pg_database: str = ""
-    pg_password: str = ""
-    pg_schema: str = ""
     factory_fn_ref: str | None = None
 
     def setup_env(self) -> None:
         if self.prefix:
             os.environ["PGQUEUER_PREFIX"] = self.prefix
-
-    @property
-    def dsn(self) -> str:
-        computed_dsn = self.pg_dsn or dsn(
-            database=self.pg_database,
-            password=self.pg_password,
-            port=self.pg_port,
-            user=self.pg_user,
-            host=self.pg_host,
-        )
-        if self.pg_schema is not None:
-            computed_dsn = helpers.add_schema_to_dsn(computed_dsn, self.pg_schema)
-        return computed_dsn
 
 
 @app.callback()
@@ -85,39 +66,14 @@ def main(
         envvar="PGQUEUER_PREFIX",
     ),
     pg_dsn: str = typer.Option(
-        None,
-        help="Database DSN.",
+        "",
+        help=(
+            "PostgreSQL connection string (DSN). "
+            "When omitted, standard libpq env vars "
+            "(PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT) are used. "
+            "Use PGOPTIONS for search_path."
+        ),
         envvar="PGDSN",
-    ),
-    pg_host: str = typer.Option(
-        None,
-        help="Database host.",
-        envvar="PGHOST",
-    ),
-    pg_port: str = typer.Option(
-        "5432",
-        help="Database port.",
-        envvar="PGPORT",
-    ),
-    pg_user: str = typer.Option(
-        None,
-        help="Database user.",
-        envvar="PGUSER",
-    ),
-    pg_database: str = typer.Option(
-        None,
-        help="Database name.",
-        envvar="PGDATABASE",
-    ),
-    pg_password: str = typer.Option(
-        None,
-        help="Database password.",
-        envvar="PGPASSWORD",
-    ),
-    pg_schema: str = typer.Option(
-        None,
-        help="Database schema.",
-        envvar="PGSCHEMA",
     ),
     factory_fn_ref: str | None = typer.Option(
         None,
@@ -129,12 +85,6 @@ def main(
     config = AppConfig(
         prefix=prefix,
         pg_dsn=pg_dsn,
-        pg_host=pg_host,
-        pg_port=pg_port,
-        pg_user=pg_user,
-        pg_database=pg_database,
-        pg_password=pg_password,
-        pg_schema=pg_schema,
         factory_fn_ref=factory_fn_ref,
     )
     config.setup_env()
@@ -144,35 +94,40 @@ def main(
 def create_default_queries_factory(
     config: AppConfig,
     settings: qb.DBSettings,
-) -> Callable[..., Awaitable[queries.Queries]]:
+) -> Callable[..., contextlib.AbstractAsyncContextManager[queries.Queries]]:
     """
     This is the default implementation of a factory that returns an instance of Queries.
     It attempts asyncpg first, then psycopg.
     """
 
-    async def factory() -> queries.Queries:
+    @contextlib.asynccontextmanager
+    async def factory() -> AsyncGenerator[queries.Queries, None]:
         with contextlib.suppress(ImportError):
             import asyncpg
 
             from pgqueuer.adapters.drivers.asyncpg import AsyncpgDriver
 
-            return queries.Queries(
-                AsyncpgDriver(await asyncpg.connect(dsn=config.dsn)),
+            yield queries.Queries(
+                AsyncpgDriver(await asyncpg.connect(dsn=config.pg_dsn or None)),
                 qbe=qb.QueryBuilderEnvironment(settings),
                 qbq=qb.QueryQueueBuilder(settings),
                 qbs=qb.QuerySchedulerBuilder(settings),
             )
+            return
         with contextlib.suppress(ImportError):
             import psycopg
 
             from pgqueuer.adapters.drivers.psycopg import PsycopgDriver
 
-            return queries.Queries(
-                PsycopgDriver(await psycopg.AsyncConnection.connect(config.dsn, autocommit=True)),
+            yield queries.Queries(
+                PsycopgDriver(
+                    await psycopg.AsyncConnection.connect(config.pg_dsn or "", autocommit=True)
+                ),
                 qbe=qb.QueryBuilderEnvironment(settings),
                 qbq=qb.QueryQueueBuilder(settings),
                 qbs=qb.QuerySchedulerBuilder(settings),
             )
+            return
         raise RuntimeError("Neither asyncpg nor psycopg could be imported.")
 
     return factory
@@ -192,7 +147,7 @@ async def yield_queries(
         factory_fn = factories.load_factory(config.factory_fn_ref)
     else:
         factory_fn = create_default_queries_factory(config, settings)
-    async with factories.run_factory(factory_fn()) as q:
+    async with factories.validate_factory_result(factory_fn()) as q:
         yield q
 
 
@@ -266,12 +221,12 @@ async def display_schedule(schedules: list[models.Schedule]) -> None:
 async def fetch_and_display(
     q: queries.Queries,
     interval: timedelta | None,
-    tail: int,
+    limit: int,
 ) -> None:
     clear_and_home = "\033[2J\033[H"
     while True:
         print(clear_and_home, end="")
-        await display_stats(await q.log_statistics(tail))
+        await display_stats(await q.log_statistics(limit))
         if interval is None:
             return
         await asyncio.sleep(interval.total_seconds())
@@ -400,17 +355,17 @@ def dashboard(
         "-i",
         "--interval",
     ),
-    tail: int = typer.Option(
+    limit: int = typer.Option(
         25,
         "-n",
-        "--tail",
+        "--limit",
     ),
 ) -> None:
     interval_td = timedelta(seconds=interval) if interval is not None else None
 
     async def run() -> None:
         async with yield_queries(ctx, qb.DBSettings()) as q:
-            await fetch_and_display(q, interval_td, tail)
+            await fetch_and_display(q, interval_td, limit)
 
     asyncio_run(run())
 
@@ -434,7 +389,11 @@ def listen(
 def run(
     factory_fn: str = typer.Argument(
         ...,
-        help="Path to a function returning a Queries instance.",
+        help="Path to a factory function (module:function).",
+    ),
+    factory_args: list[str] = typer.Argument(
+        None,
+        help="Extra arguments forwarded to the factory (pass after --).",
     ),
     dequeue_timeout: float = typer.Option(
         30.0,
@@ -480,12 +439,18 @@ def run(
 ) -> None:
     """
     Run the job manager, pulling tasks from the queue and handling them with workers.
+
+    Extra arguments after -- are forwarded to the factory function.
     """
     logconfig.setup_fancy_logger(log_level)
 
+    factory = factories.load_factory(factory_fn)
+    if factory_args:
+        factory = functools.partial(factory, factory_args)
+
     asyncio_run(
         supervisor.runit(
-            factories.load_factory(factory_fn),
+            factory,
             dequeue_timeout=timedelta(seconds=dequeue_timeout),
             batch_size=batch_size,
             restart_delay=timedelta(seconds=restart_delay if restart_on_failure else 0),
@@ -514,7 +479,7 @@ def schedules(
                 schedule_ids = {models.ScheduleId(int(x)) for x in remove if x.isdigit()}
                 schedule_names = {types.CronEntrypoint(x) for x in remove if not x.isdigit()}
                 await q.delete_schedule(schedule_ids, schedule_names)
-            await display_schedule(await q.peak_schedule())
+            await display_schedule(await q.peek_schedule())
 
     asyncio_run(run_async())
 
@@ -541,6 +506,52 @@ def queue(
             )
 
     asyncio_run(run_async())
+
+
+@app.command(help="List jobs held with status 'failed' for manual intervention.")
+def failed(
+    ctx: Context,
+    limit: int = typer.Option(25, "-n", "--limit", help="Maximum number of jobs to display."),
+) -> None:
+    async def run() -> None:
+        async with yield_queries(ctx, qb.DBSettings()) as q:
+            jobs = await q.list_failed_jobs(limit=limit)
+            if not jobs:
+                print("No failed jobs.")
+                return
+            rows = [
+                [
+                    j.id,
+                    j.entrypoint,
+                    j.attempts,
+                    j.created.strftime("%Y-%m-%d %H:%M:%S"),
+                    len(j.payload) if j.payload else 0,
+                ]
+                for j in jobs
+            ]
+            print(
+                tabulate(
+                    rows,
+                    headers=["ID", "Entrypoint", "Attempts", "Created", "Payload bytes"],
+                    tablefmt=os.environ.get(qb.add_prefix("TABLEFMT"), "pretty"),
+                )
+            )
+
+    asyncio_run(run())
+
+
+@app.command(help="Re-queue failed jobs by ID so they can be processed again.")
+def requeue(
+    ctx: Context,
+    ids: list[int] = typer.Argument(..., help="Job IDs to re-queue."),
+) -> None:
+    async def run() -> None:
+        async with yield_queries(ctx, qb.DBSettings()) as q:
+            typed_ids = [types.JobId(i) for i in ids]
+            await q.requeue_jobs(typed_ids)
+            print(f"Re-queued {len(typed_ids)} job(s).")
+
+    asyncio_run(run())
 
 
 @app.command(help="Alter the logging durability for PGQueuer tables.")

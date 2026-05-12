@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from pgqueuer.adapters.inmemory import InMemoryQueries
+from pgqueuer.adapters.tracing.logfire import LogfireTracing
+from pgqueuer.adapters.tracing.sentry import SentryTracing
 from pgqueuer.queries import Queries
-from pgqueuer.tracing import LogfireTracing, SentryTracing
 
 
 def test_queries_has_queue_repository_methods() -> None:
@@ -29,7 +30,7 @@ def test_queries_has_schedule_repository_methods() -> None:
         "fetch_schedule",
         "set_schedule_queued",
         "update_schedule_heartbeat",
-        "peak_schedule",
+        "peek_schedule",
         "delete_schedule",
         "clear_schedule",
     }
@@ -37,7 +38,7 @@ def test_queries_has_schedule_repository_methods() -> None:
 
 
 def test_queries_has_notification_methods() -> None:
-    required = {"notify_entrypoint_rps", "notify_job_cancellation", "notify_health_check"}
+    required = {"notify_job_cancellation", "notify_health_check"}
     assert required <= set(dir(Queries))
 
 
@@ -76,7 +77,7 @@ def test_inmemory_has_schedule_repository_methods() -> None:
         "fetch_schedule",
         "set_schedule_queued",
         "update_schedule_heartbeat",
-        "peak_schedule",
+        "peek_schedule",
         "delete_schedule",
         "clear_schedule",
     }
@@ -84,7 +85,7 @@ def test_inmemory_has_schedule_repository_methods() -> None:
 
 
 def test_inmemory_has_notification_methods() -> None:
-    required = {"notify_entrypoint_rps", "notify_job_cancellation", "notify_health_check"}
+    required = {"notify_job_cancellation", "notify_health_check"}
     assert required <= set(dir(InMemoryQueries))
 
 

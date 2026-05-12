@@ -2492,16 +2492,6 @@ class BaseDataExchange(System.Object):
         ...
 
     @overload
-    def add_enumerator(self, handler: QuantConnect.Lean.Engine.DataFeeds.BaseDataExchange.EnumeratorHandler) -> None:
-        """
-        Adds the enumerator to this exchange. If it has already been added
-        then it will remain registered in the exchange only once
-        
-        :param handler: The handler to use when this symbol's data is encountered
-        """
-        ...
-
-    @overload
     def add_enumerator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], should_move_next: typing.Callable[[], bool] = None, enumerator_finished: typing.Callable[[QuantConnect.Lean.Engine.DataFeeds.BaseDataExchange.EnumeratorHandler], typing.Any] = None, handle_data: typing.Callable[[QuantConnect.Data.BaseData], typing.Any] = None) -> None:
         """
         Adds the enumerator to this exchange. If it has already been added
@@ -2513,6 +2503,16 @@ class BaseDataExchange(System.Object):
         enumerator, defaults to always returning true
         :param enumerator_finished: Delegate called when the enumerator move next returns false
         :param handle_data: Handler for data if HandlesData=true
+        """
+        ...
+
+    @overload
+    def add_enumerator(self, handler: QuantConnect.Lean.Engine.DataFeeds.BaseDataExchange.EnumeratorHandler) -> None:
+        """
+        Adds the enumerator to this exchange. If it has already been added
+        then it will remain registered in the exchange only once
+        
+        :param handler: The handler to use when this symbol's data is encountered
         """
         ...
 

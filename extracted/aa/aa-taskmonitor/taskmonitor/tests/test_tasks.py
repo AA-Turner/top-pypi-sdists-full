@@ -22,8 +22,9 @@ class TestDeleteStaleTasklogs(TestCase):
         TaskLogFactory(timestamp=current_dt - dt.timedelta(hours=3, seconds=1))
         current_entry = TaskLogFactory(timestamp=current_dt)
         # when
-        with patch(TASKS_PATH + ".TASKMONITOR_DELETE_STALE_BATCH_SIZE", 2), patch(
-            TASKS_PATH + ".TASKMONITOR_DATA_MAX_AGE", 3
+        with (
+            patch(TASKS_PATH + ".TASKMONITOR_DELETE_STALE_BATCH_SIZE", 2),
+            patch(TASKS_PATH + ".TASKMONITOR_DATA_MAX_AGE", 3),
         ):
             tasks.delete_stale_tasklogs()
         # then

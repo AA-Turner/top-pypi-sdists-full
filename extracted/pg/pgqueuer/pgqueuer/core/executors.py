@@ -2,37 +2,29 @@
 
 from __future__ import annotations
 
-import asyncio
 import dataclasses
 import functools
 import inspect
-import random
-import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable, TypeAlias, TypeVar, cast
 
-import anyio
-import anyio.to_thread
-import async_timeout
 from croniter import croniter
 
-from pgqueuer.core import helpers
-from pgqueuer.domain import errors, models
-
-_SENTINEL = object()
+from pgqueuer.domain import errors, models, types
+from pgqueuer.domain.models import utc_now
 
 AsyncEntrypoint: TypeAlias = Callable[[models.Job], Awaitable[None]]
 AsyncContextEntrypoint: TypeAlias = Callable[[models.Job, models.Context], Awaitable[None]]
-SyncEntrypoint: TypeAlias = Callable[[models.Job], None]
-SyncContextEntrypoint: TypeAlias = Callable[[models.Job, models.Context], None]
-Entrypoint: TypeAlias = (
-    AsyncEntrypoint | AsyncContextEntrypoint | SyncEntrypoint | SyncContextEntrypoint
-)
+Entrypoint: TypeAlias = AsyncEntrypoint | AsyncContextEntrypoint
 EntrypointTypeVar = TypeVar("EntrypointTypeVar", bound=Entrypoint)
 
 
 AsyncCrontab: TypeAlias = Callable[[models.Schedule], Awaitable[None]]
+AsyncContextCrontab: TypeAlias = Callable[
+    [models.Schedule, models.ScheduleContext], Awaitable[None]
+]
+ScheduleCrontab: TypeAlias = AsyncCrontab | AsyncContextCrontab
 
 
 def is_async_callable(obj: Callable[..., object] | object) -> bool:
@@ -51,31 +43,8 @@ def is_async_callable(obj: Callable[..., object] | object) -> bool:
 class EntrypointExecutorParameters:
     concurrency_limit: int
     func: Entrypoint
-    requests_per_second: float
-    retry_timer: timedelta
-    serialized_dispatch: bool
     accepts_context: bool = False
-
-    # Deprecated fields -- kept for backward compatibility with custom executors.
-    channel: object = dataclasses.field(default=_SENTINEL, repr=False)
-    connection: object = dataclasses.field(default=_SENTINEL, repr=False)
-    queries: object = dataclasses.field(default=_SENTINEL, repr=False)
-    shutdown: object = dataclasses.field(default=_SENTINEL, repr=False)
-
-    def __post_init__(self) -> None:
-        deprecated = [
-            name
-            for name in ("channel", "connection", "queries", "shutdown")
-            if getattr(self, name) is not _SENTINEL
-        ]
-        if deprecated:
-            warnings.warn(
-                f"Passing {', '.join(deprecated)} to EntrypointExecutorParameters is "
-                "deprecated and will be removed in a future version. "
-                "These fields are unused by executors.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
+    on_failure: types.OnFailure = "delete"
 
 
 @dataclasses.dataclass
@@ -102,17 +71,19 @@ class AbstractEntrypointExecutor(ABC):
 @dataclasses.dataclass
 class EntrypointExecutor(AbstractEntrypointExecutor):
     """
-    Job executor that wraps an entrypoint function.
+    Job executor that wraps an async entrypoint function.
 
     Executes the provided function when processing a job.
     """
 
-    is_async: bool = dataclasses.field(init=False)
-    accepts_context: bool = dataclasses.field(init=False)
-
     def __post_init__(self) -> None:
-        self.is_async = is_async_callable(cast(Callable[..., object], self.parameters.func))
-        self.accepts_context = self.parameters.accepts_context
+        if not is_async_callable(cast(Callable[..., object], self.parameters.func)):
+            raise TypeError(
+                "Entrypoint function must be async (defined with 'async def'). "
+                "Sync entrypoints are no longer supported. "
+                "Wrap blocking code with asyncio.to_thread(): "
+                "async def my_entry(job): await asyncio.to_thread(blocking_fn, job)"
+            )
 
     async def execute(self, job: models.Job, context: models.Context) -> None:
         """
@@ -122,105 +93,39 @@ class EntrypointExecutor(AbstractEntrypointExecutor):
             job (models.Job): The job to execute.
             context (models.Context): The context for the job.
         """
-        if self.accepts_context:
-            if self.is_async:
-                await cast(AsyncContextEntrypoint, self.parameters.func)(
-                    job,
-                    context,
-                )
-            else:
-                await anyio.to_thread.run_sync(
-                    cast(SyncContextEntrypoint, self.parameters.func),
-                    job,
-                    context,
-                )
+        if self.parameters.accepts_context:
+            await cast(AsyncContextEntrypoint, self.parameters.func)(job, context)
         else:
-            if self.is_async:
-                await cast(AsyncEntrypoint, self.parameters.func)(
-                    job,
-                )
-            else:
-                await anyio.to_thread.run_sync(
-                    cast(SyncEntrypoint, self.parameters.func),
-                    job,
-                )
+            await cast(AsyncEntrypoint, self.parameters.func)(job)
 
 
 @dataclasses.dataclass
-class RetryWithBackoffEntrypointExecutor(EntrypointExecutor):
-    # maximum retry attempts
-    max_attempts: int | None = dataclasses.field(
-        default=5,
-    )
+class DatabaseRetryEntrypointExecutor(EntrypointExecutor):
+    """Executor that converts exceptions into database-level retries.
 
-    # maximum delay for retry
-    max_delay: float | timedelta = dataclasses.field(
-        default=timedelta(seconds=10),
-    )
+    On failure the job is re-queued via :class:`~pgqueuer.domain.errors.RetryRequested`
+    with exponential backoff derived from ``job.attempts``.  After *max_attempts*
+    consecutive failures the exception propagates as a terminal failure.
+    """
 
-    # maximum time used on retry
-    max_time: timedelta | None = dataclasses.field(
-        default=timedelta(minutes=5),
-    )
-
-    # base delay for backoff
-    initial_delay: float = dataclasses.field(
-        default=0.1,
-    )
-
-    # base for exponential backoff
-    backoff_multiplier: float = dataclasses.field(
-        default=2.0,
-    )
-
-    # jitter callable
-    jitter: Callable[[], float] = dataclasses.field(
-        default=lambda: random.uniform(0, 1),
-    )
-
-    def exponential_delay(self, attempt: int) -> float:
-        delay = self.initial_delay * (self.backoff_multiplier**attempt) / 2
-        jitter = self.jitter() * self.initial_delay / 2
-        return delay + jitter
+    max_attempts: int = 5
+    initial_delay: timedelta = dataclasses.field(default_factory=lambda: timedelta(seconds=1))
+    max_delay: timedelta = dataclasses.field(default_factory=lambda: timedelta(minutes=5))
+    backoff_multiplier: float = 2.0
 
     async def execute(self, job: models.Job, context: models.Context) -> None:
-        """
-        Execute the job with retry logic, using exponential backoff and jitter.
-
-        Args:
-            job (models.Job): The job to execute.
-            context (models.Context): The context for the job.
-
-        The function retries execution up to `max_attempts` times in case of failure,
-        applying exponential backoff with an initial delay (`initial_delay`),
-        up to a maximum delay (`max_delay`).
-        Jitter is added to the delay to avoid contention.
-        """
-
-        attempt = 0
-        deadline = None if self.max_time is None else self.max_time.total_seconds()
         try:
-            async with async_timeout.timeout(deadline):
-                while True:
-                    try:
-                        return await super().execute(job, context)
-                    except Exception as e:
-                        attempt += 1
-                        if self.max_attempts and attempt >= self.max_attempts:
-                            raise errors.MaxRetriesExceeded(self.max_attempts) from e
-
-                        max_delay = (
-                            self.max_delay
-                            if isinstance(self.max_delay, float | int)
-                            else self.max_delay.total_seconds()
-                        )
-                        await asyncio.sleep(min(self.exponential_delay(attempt), max_delay))
-        except (
-            TimeoutError,
-            asyncio.exceptions.TimeoutError,
-            asyncio.TimeoutError,
-        ) as e:
-            raise errors.MaxTimeExceeded(self.max_time) from e
+            await super().execute(job, context)
+        except errors.RetryRequested:
+            raise
+        except Exception as e:
+            if job.attempts >= self.max_attempts:
+                raise
+            delay = min(
+                self.initial_delay * (self.backoff_multiplier**job.attempts),
+                self.max_delay,
+            )
+            raise errors.RetryRequested(delay=delay, reason=str(e)) from e
 
 
 ######## Schedulers ########
@@ -230,28 +135,9 @@ class RetryWithBackoffEntrypointExecutor(EntrypointExecutor):
 class ScheduleExecutorFactoryParameters:
     entrypoint: str
     expression: str
-    func: AsyncCrontab
+    func: ScheduleCrontab
     clean_old: bool
-
-    # Deprecated fields -- kept for backward compatibility with custom executors.
-    connection: object = dataclasses.field(default=_SENTINEL, repr=False)
-    queries: object = dataclasses.field(default=_SENTINEL, repr=False)
-    shutdown: object = dataclasses.field(default=_SENTINEL, repr=False)
-
-    def __post_init__(self) -> None:
-        deprecated = [
-            name
-            for name in ("connection", "queries", "shutdown")
-            if getattr(self, name) is not _SENTINEL
-        ]
-        if deprecated:
-            warnings.warn(
-                f"Passing {', '.join(deprecated)} to ScheduleExecutorFactoryParameters is "
-                "deprecated and will be removed in a future version. "
-                "These fields are unused by executors.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
+    accepts_context: bool = False
 
 
 @dataclasses.dataclass
@@ -266,12 +152,16 @@ class AbstractScheduleExecutor(ABC):
     parameters: ScheduleExecutorFactoryParameters
 
     @abstractmethod
-    async def execute(self, schedule: models.Schedule) -> None:
+    async def execute(self, schedule: models.Schedule, context: models.ScheduleContext) -> None:
         """
         Execute the given crontab.
 
         This method must be implemented by subclasses to define the specific behavior of job
         execution.
+
+        Args:
+            schedule (models.Schedule): The schedule being executed.
+            context (models.ScheduleContext): The context for the scheduled task.
         """
 
     def get_next(self) -> datetime:
@@ -282,7 +172,7 @@ class AbstractScheduleExecutor(ABC):
             datetime: The next scheduled datetime in UTC.
         """
         return datetime.fromtimestamp(
-            croniter(self.parameters.expression, start_time=helpers.utc_now()).get_next(),
+            croniter(self.parameters.expression, start_time=utc_now()).get_next(),
             timezone.utc,
         )
 
@@ -293,7 +183,7 @@ class AbstractScheduleExecutor(ABC):
         Returns:
             timedelta: The time difference between now and the next scheduled run.
         """
-        return self.get_next() - helpers.utc_now()
+        return self.get_next() - utc_now()
 
 
 @dataclasses.dataclass
@@ -305,10 +195,13 @@ class ScheduleExecutor(AbstractScheduleExecutor):
     It is a concrete implementation of AbstractScheduleExecutor.
     """
 
-    async def execute(self, schedule: models.Schedule) -> None:
+    async def execute(self, schedule: models.Schedule, context: models.ScheduleContext) -> None:
         """
         Execute the job using the wrapped function.
 
         This method calls the provided asynchronous function when the job is triggered.
         """
-        await self.parameters.func(schedule)
+        if self.parameters.accepts_context:
+            await cast(AsyncContextCrontab, self.parameters.func)(schedule, context)
+        else:
+            await cast(AsyncCrontab, self.parameters.func)(schedule)

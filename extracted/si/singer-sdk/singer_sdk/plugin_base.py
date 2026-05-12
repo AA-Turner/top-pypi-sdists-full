@@ -13,7 +13,7 @@ import time
 import typing as t
 import warnings
 from importlib import metadata
-from pathlib import Path, PurePath
+from pathlib import PurePath
 from types import MappingProxyType
 
 import click
@@ -25,9 +25,10 @@ from singer_sdk.configuration._dict_config import (
     merge_missing_config_jsonschema,
     parse_environment_config,
 )
-from singer_sdk.exceptions import ConfigValidationError
+from singer_sdk.exceptions import ConfigValidationError, MapperNotInitialized
 from singer_sdk.helpers._classproperty import classproperty
-from singer_sdk.helpers._compat import SingerSDKDeprecationWarning, deprecated
+from singer_sdk.helpers._compat import SingerSDKDeprecationWarning, warn_python_eol
+from singer_sdk.helpers._packaging import SDK_PACKAGE_NAME, get_package_version
 from singer_sdk.helpers._util import read_json_file
 from singer_sdk.helpers.capabilities import (
     FLATTENING_CONFIG,
@@ -53,18 +54,9 @@ if t.TYPE_CHECKING:
         GenericSingerWriter,
     )
 
-SDK_PACKAGE_NAME = "singer_sdk"
 DEFAULT_LOG_LEVEL = "INFO"
 
 JSONSchemaValidator = extend_validator_with_defaults(DEFAULT_JSONSCHEMA_VALIDATOR)
-
-
-class MapperNotInitialized(Exception):
-    """Raised when the mapper is not initialized."""
-
-    def __init__(self) -> None:
-        """Initialize the exception."""
-        super().__init__("Mapper not initialized. Please call setup_mapper() first.")
 
 
 @dataclasses.dataclass
@@ -189,7 +181,7 @@ def _plugin_log_level(*, plugin_name: str) -> str:
     return level.upper() if level is not None else DEFAULT_LOG_LEVEL
 
 
-class PluginBase(metaclass=abc.ABCMeta):  # noqa: PLR0904
+class PluginBase(abc.ABC):
     """Abstract base class for taps."""
 
     #: The executable name of the tap or target plugin. e.g. tap-foo
@@ -242,6 +234,7 @@ class PluginBase(metaclass=abc.ABCMeta):  # noqa: PLR0904
         Raises:
             TypeError: If config is not a dict or path string.
         """
+        warn_python_eol()
         config = config or {}
         if isinstance(config, (str, PurePath)):
             config_dict = read_json_file(config)
@@ -391,7 +384,7 @@ class PluginBase(metaclass=abc.ABCMeta):  # noqa: PLR0904
         Returns:
             The package version number.
         """
-        return cls._get_package_version(cls.package_name or cls.name)
+        return get_package_version(cls.package_name or cls.name)
 
     @classmethod
     def get_sdk_version(cls) -> str:
@@ -400,7 +393,7 @@ class PluginBase(metaclass=abc.ABCMeta):  # noqa: PLR0904
         Returns:
             The package version number.
         """
-        return cls._get_package_version(SDK_PACKAGE_NAME)
+        return get_package_version(SDK_PACKAGE_NAME)
 
     @classmethod
     def get_supported_python_versions(cls) -> list[str] | None:
@@ -575,46 +568,6 @@ class PluginBase(metaclass=abc.ABCMeta):  # noqa: PLR0904
         formatter = about.AboutFormatter.get_formatter(output_format or "text")
         print(formatter.format_about(info))  # noqa: T201
 
-    @staticmethod
-    @deprecated(
-        "config_from_cli_args is deprecated and will be removed by 2026-01-01.",
-        category=SingerSDKDeprecationWarning,
-        stacklevel=2,
-    )
-    def config_from_cli_args(*args: str) -> tuple[list[Path], bool]:  # pragma: no cover
-        """Parse CLI arguments into a config dictionary.
-
-        Args:
-            args: CLI arguments.
-
-        Raises:
-            FileNotFoundError: If the config file does not exist.
-
-        Returns:
-            A tuple containing the config dictionary and a boolean indicating whether
-            the config file was found.
-        """
-        config_files = []
-        parse_env_config = False
-
-        for config_path in args:
-            if config_path == "ENV":
-                # Allow parse from env vars:
-                parse_env_config = True
-                continue
-
-            # Validate config file paths before adding to list
-            if not Path(config_path).is_file():
-                msg = (
-                    f"Could not locate config file at '{config_path}'. Please check "
-                    "that the file exists."
-                )
-                raise FileNotFoundError(msg)
-
-            config_files.append(Path(config_path))
-
-        return config_files, parse_env_config
-
     @classmethod
     def invoke(
         cls,
@@ -771,7 +724,7 @@ class BaseSingerIO(PluginBase):
         return instance or default_cls()
 
 
-class BaseSingerReader(BaseSingerIO, metaclass=abc.ABCMeta):
+class BaseSingerReader(BaseSingerIO, abc.ABC):
     """Base class for Singer readers."""
 
     message_reader_class: type[GenericSingerReader] = SingerReader

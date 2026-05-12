@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-google
-Version: 21.2.0
+Version: 21.3.0
 Summary: Provider package apache-airflow-providers-google for Apache Airflow
 Keywords: airflow-provider,google,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -56,7 +56,7 @@ Requires-Dist: google-cloud-datacatalog>=3.23.0
 Requires-Dist: google-cloud-dataflow-client>=0.8.6
 Requires-Dist: google-cloud-dataform>=0.5.0
 Requires-Dist: google-cloud-dataplex>=2.6.0
-Requires-Dist: google-cloud-dataproc>=5.25.0
+Requires-Dist: google-cloud-dataproc>=5.27.0
 Requires-Dist: google-cloud-dataproc-metastore>=1.12.0
 Requires-Dist: google-cloud-dlp>=3.12.0
 Requires-Dist: google-cloud-kms>=2.15.0
@@ -119,8 +119,8 @@ Requires-Dist: apache-airflow-providers-ssh ; extra == "ssh"
 Requires-Dist: apache-airflow-providers-standard ; extra == "standard"
 Requires-Dist: apache-airflow-providers-trino ; extra == "trino"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-google/21.2.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-google/21.2.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-google/21.3.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-google/21.3.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -171,7 +171,7 @@ Provides-Extra: trino
 
 Package ``apache-airflow-providers-google``
 
-Release: ``21.2.0``
+Release: ``21.3.0``
 
 
 Google services including:
@@ -191,7 +191,7 @@ This is a provider package for ``google`` provider. All classes for this provide
 are in ``airflow.providers.google`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-google/21.2.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-google/21.3.0/>`_.
 
 Installation
 ------------
@@ -241,7 +241,7 @@ PIP package                                 Version required
 ``google-cloud-dataflow-client``            ``>=0.8.6``
 ``google-cloud-dataform``                   ``>=0.5.0``
 ``google-cloud-dataplex``                   ``>=2.6.0``
-``google-cloud-dataproc``                   ``>=5.25.0``
+``google-cloud-dataproc``                   ``>=5.27.0``
 ``google-cloud-dataproc-metastore``         ``>=1.12.0``
 ``google-cloud-dlp``                        ``>=3.12.0``
 ``google-cloud-kms``                        ``>=2.15.0``
@@ -353,5 +353,5 @@ Extra                 Dependencies
 ====================  ====================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-google/21.2.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-google/21.3.0/changelog.html>`_.
 

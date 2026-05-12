@@ -317,11 +317,11 @@ class MenuCommand(System.Object):
         ...
 
     @overload
-    def invoke(self, arg: typing.Any) -> None:
+    def invoke(self) -> None:
         ...
 
     @overload
-    def invoke(self) -> None:
+    def invoke(self, arg: typing.Any) -> None:
         ...
 
     def on_command_changed(self, e: System.EventArgs) -> None:

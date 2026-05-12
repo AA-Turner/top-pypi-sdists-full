@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import math
 import re
-import sys
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 from urllib.parse import urlparse
 
 import cv2
@@ -15,13 +12,15 @@ from boxmot.configs import BOXMOT_DEFAULTS
 from boxmot.data import VIDEO_EXTS
 from boxmot.detectors import Detector as PublicDetector
 from boxmot.engine.results import Results
+from boxmot.native import get_native_live_backend
 from boxmot.reid import ReID as PublicReID
+from boxmot.trackers.specs import normalize_tracker_backend, parse_tracker_spec
 from boxmot.trackers.tracker_zoo import TRACKER_MAPPING, create_tracker, get_tracker_config
-from boxmot.utils import configure_logging as _configure_boxmot_logging, logger as LOGGER
+from boxmot.utils import logger as LOGGER
 from boxmot.utils.misc import increment_path, resolve_model_path
 from boxmot.utils.torch_utils import select_device
 
-REID_TRACKERS = {"strongsort", "botsort", "deepocsort", "hybridsort", "boosttrack"}
+REID_TRACKERS = {"strongsort", "botsort", "deepocsort", "hybridsort", "boosttrack", "occluboost"}
 TRACKER_CLASS_TO_NAME = {
     class_path.rsplit(".", 1)[-1].lower(): tracker_name
     for tracker_name, class_path in TRACKER_MAPPING.items()
@@ -76,54 +75,18 @@ def resolve_track_output_dir(project: Path, source: Any) -> Path:
     return increment_path(base, mkdir=True)
 
 
-def compare_scores(left: tuple[float, ...], right: tuple[float, ...]) -> bool:
-    return left > right
+# Backward-compat re-exports for symbols moved to their natural homes.
+from boxmot.utils.misc import suppress_boxmot_logs  # noqa: F401
 
 
-def score_summary(
-    summary: dict[str, Any],
-    *,
-    maximize: Sequence[str],
-    minimize: Sequence[str],
-) -> tuple[float, ...]:
-    score: list[float] = []
-    for metric in maximize:
-        score.append(float(summary.get(metric, float("-inf"))))
-    for metric in minimize:
-        score.append(-float(summary.get(metric, float("inf"))))
-    return tuple(score)
+def TrackerReIDAdapter(backend: Any):
+    """Reuse a tracker-owned ReID backend through the standard ReID stage hooks.
 
-
-@contextmanager
-def suppress_boxmot_logs(enabled: bool, *, level: str = "WARNING"):
-    if not enabled:
-        yield
-        return
-
-    LOGGER.remove()
-    LOGGER.add(
-        sys.stderr,
-        level=level,
-        colorize=True,
-        backtrace=True,
-        diagnose=True,
-        enqueue=True,
-        format="<level>{level: <8}</level> | <level>{message}</level>",
-    )
-    try:
-        yield
-    finally:
-        _configure_boxmot_logging(main_only=True)
-
-
-class TrackerReIDAdapter:
-    def __init__(self, backend: Any) -> None:
-        self.backend = backend
-
-    def __call__(self, inputs, boxes=None, **_kwargs):
-        if boxes is None:
-            raise TypeError("boxes are required when reusing a tracker ReID backend")
-        return self.backend.get_features(boxes, inputs)
+    Returns a :class:`boxmot.reid.ReID` runtime that wraps ``backend`` directly
+    without reloading weights, so timing breakdowns can attribute work to
+    ``preprocess`` / ``process`` / ``postprocess``.
+    """
+    return PublicReID.from_backend(backend)
 
 
 def detector_path_from_spec(spec: Any, *, required: bool = True) -> Path | None:
@@ -161,16 +124,32 @@ def tracker_name_from_spec(spec: Any, *, required: bool = True) -> str | None:
         if required:
             raise ValueError("A tracker is required.")
         return None
-    if isinstance(spec, str):
-        name = spec.lower()
-        if name in TRACKER_MAPPING:
-            return name
-    class_name = spec.__class__.__name__.lower() if spec is not None else ""
-    if class_name in TRACKER_CLASS_TO_NAME:
-        return TRACKER_CLASS_TO_NAME[class_name]
+
+    try:
+        parsed = parse_tracker_spec(spec, class_to_name=TRACKER_CLASS_TO_NAME)
+    except ValueError:
+        parsed = None
+    if parsed is not None and parsed.name in TRACKER_MAPPING:
+        return parsed.name
+
     if required:
         raise ValueError("Could not infer a registered tracker name from the provided tracker spec.")
     return None
+
+
+def tracker_backend_from_spec(spec: Any, *, required: bool = True) -> str | None:
+    if spec is None:
+        if required:
+            raise ValueError("A tracker is required.")
+        return None
+
+    try:
+        parsed = parse_tracker_spec(spec, class_to_name=TRACKER_CLASS_TO_NAME)
+    except ValueError:
+        if required:
+            raise
+        return None
+    return parsed.backend
 
 
 def tracker_config_from_spec(spec: Any) -> dict[str, Any] | None:
@@ -209,34 +188,6 @@ def default_tracker_config(tracker_spec: Any) -> dict[str, Any]:
         for key, details in search_space.items()
     }
 
-
-def sample_param(spec: dict[str, Any], rng) -> Any:
-    param_type = str(spec.get("type", "choice")).lower()
-
-    if param_type == "uniform":
-        low, high = spec["range"]
-        return float(rng.uniform(float(low), float(high)))
-
-    if param_type == "loguniform":
-        low, high = spec["range"]
-        return float(math.exp(rng.uniform(math.log(float(low)), math.log(float(high)))))
-
-    if param_type == "randint":
-        low, high = spec["range"]
-        return int(rng.randint(int(low), int(high)))
-
-    if param_type == "qrandint":
-        low, high, step = spec["range"]
-        choices = list(range(int(low), int(high), int(step)))
-        return int(rng.choice(choices))
-
-    if param_type in {"choice", "grid_search"}:
-        options = spec.get("options") or spec.get("values") or []
-        if not options:
-            return spec.get("default")
-        return rng.choice(list(options))
-
-    return spec.get("default")
 
 
 def build_detector_from_spec(
@@ -302,12 +253,36 @@ def build_tracker_from_spec(
     *,
     device: str = BOXMOT_DEFAULTS.track.device,
     half: bool = BOXMOT_DEFAULTS.track.half,
+    tracker_backend: str | None = None,
     reid_weights=None,
+    reid_preprocess: str | None = None,
 ):
     if not isinstance(spec, str):
         return spec
 
     tracker_name = tracker_name_from_spec(spec, required=True)
+    resolved_backend = tracker_backend_from_spec(spec, required=False)
+    if tracker_backend is not None:
+        resolved_backend = normalize_tracker_backend(
+            tracker_backend,
+            default=resolved_backend or "python",
+        )
+    if resolved_backend == "cpp":
+        native_backend = get_native_live_backend(tracker_name)
+        native_kwargs: dict[str, Any] = {
+            "reid_weights": reid_weights,
+            "reid_preprocess": reid_preprocess,
+        }
+        # Forward device to native backends that support ReID device selection.
+        import inspect
+        sig = inspect.signature(native_backend.create_tracker)
+        if "reid_device" in sig.parameters:
+            native_kwargs["reid_device"] = str(device) if device else None
+        return native_backend.create_tracker(
+            default_tracker_config(spec),
+            **native_kwargs,
+        )
+
     return create_tracker(
         tracker_type=tracker_name,
         tracker_config=get_tracker_config(tracker_name),
@@ -327,8 +302,14 @@ def build_tracker_with_reid_spec(
     half: bool = BOXMOT_DEFAULTS.track.half,
 ):
     tracker_name = tracker_name_from_spec(tracker_spec, required=False)
+    if tracker_name not in REID_TRACKERS:
+        return None
+
     if tracker_name in REID_TRACKERS:
         if hasattr(tracker, "with_reid") and not bool(getattr(tracker, "with_reid")):
+            return None
+
+        if bool(getattr(tracker, "provides_reid", False)):
             return None
 
         tracker_backend = getattr(tracker, "reid_model", None) or getattr(tracker, "model", None)
@@ -339,9 +320,19 @@ def build_tracker_with_reid_spec(
 
 
 def resolve_output_fps(source: Any, *, fallback: float = 30.0, cv2_module=cv2) -> float:
+    if isinstance(source, int) or (isinstance(source, str) and source.isdigit()):
+        cap_id = int(source) if isinstance(source, str) else source
+        capture = cv2_module.VideoCapture(cap_id)
+        try:
+            fps = capture.get(cv2_module.CAP_PROP_FPS)
+        finally:
+            capture.release()
+        if fps and fps > 0:
+            return float(fps)
+        return fallback
     if isinstance(source, (str, Path)):
         source_str = str(source)
-        if source_str.isdigit() or "://" in source_str:
+        if "://" in source_str:
             return fallback
         path = Path(source_str)
         if path.is_file() and path.suffix.lower() in VIDEO_EXTS:
@@ -356,22 +347,22 @@ def resolve_output_fps(source: Any, *, fallback: float = 30.0, cv2_module=cv2) -
 
 
 def save_video(results: Results, video_path: Path, fps: float, *, cv2_module=cv2) -> Path:
-    frames = results.materialize()
-    if not frames:
-        return video_path
-
-    height, width = frames[0].frame.shape[:2]
-    writer = cv2_module.VideoWriter(
-        str(video_path),
-        cv2_module.VideoWriter_fourcc(*"mp4v"),
-        fps,
-        (width, height),
-    )
+    writer = None
     try:
-        for track_result in frames:
-            writer.write(track_result.render())
+        for frame_result in results:
+            rendered = frame_result.render()
+            if writer is None:
+                height, width = rendered.shape[:2]
+                writer = cv2_module.VideoWriter(
+                    str(video_path),
+                    cv2_module.VideoWriter_fourcc(*"mp4v"),
+                    fps,
+                    (width, height),
+                )
+            writer.write(rendered)
     finally:
-        writer.release()
+        if writer is not None:
+            writer.release()
     return video_path
 
 
@@ -383,7 +374,6 @@ __all__ = (
     "build_reid_from_spec",
     "build_tracker_from_spec",
     "build_tracker_with_reid_spec",
-    "compare_scores",
     "default_tracker_config",
     "detector_path_from_spec",
     "ensure_model_path",
@@ -393,10 +383,9 @@ __all__ = (
     "resolve_output_fps",
     "resolve_output_stem",
     "resolve_track_output_dir",
-    "sample_param",
     "save_video",
-    "score_summary",
     "suppress_boxmot_logs",
+    "tracker_backend_from_spec",
     "tracker_config_from_spec",
     "tracker_name_from_spec",
 )

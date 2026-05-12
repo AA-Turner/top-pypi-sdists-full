@@ -43,11 +43,11 @@ class SecureString(System.Object, System.IDisposable):
         ...
 
     @overload
-    def __init__(self, value: typing.Any, length: int) -> None:
+    def __init__(self) -> None:
         ...
 
     @overload
-    def __init__(self) -> None:
+    def __init__(self, value: typing.Any, length: int) -> None:
         ...
 
     def append_char(self, c: str) -> None:

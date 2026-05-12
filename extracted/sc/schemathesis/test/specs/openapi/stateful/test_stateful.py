@@ -3,6 +3,7 @@ from hypothesis import HealthCheck, Phase, settings
 from hypothesis.errors import InvalidDefinition
 
 import schemathesis
+from schemathesis.config import OperationConfig
 from schemathesis.core.errors import NoLinksFound
 from schemathesis.core.failures import FailureGroup
 from schemathesis.generation.modes import GenerationMode
@@ -291,3 +292,140 @@ def test_passing_transport_kwargs(ctx, mocker):
         pass
 
     assert mocked.call_args.args[0]._transport_kwargs == kwargs
+
+
+@pytest.mark.parametrize(
+    ("disabled_op", "expected_rules"),
+    [
+        (
+            "PATCH /users/{user_id}",
+            [
+                "PATCH_users_user_id___200_GetUserById__GET_users_user_id_",
+                "POST_users___201_GetUserByUserId__GET_users_user_id_",
+                "RANDOM__POST_users_",
+            ],
+        ),
+        (
+            "POST /users/",
+            [
+                "GET_users_user_id___200_UpdateUserById__PATCH_users_user_id_",
+                "PATCH_users_user_id___200_GetUserById__GET_users_user_id_",
+                "POST_users___201_GetUserByUserId__GET_users_user_id_",
+                "POST_users___201_UpdateUserById__PATCH_users_user_id_",
+            ],
+        ),
+    ],
+    ids=["transition-target", "root"],
+)
+def test_stateful_disabled_for_op_skips_rules(ctx, disabled_op, expected_rules):
+    api = ctx.openapi.apps.users_crud()
+    schema = schemathesis.openapi.from_dict(api.spec)
+    schema.config.operations.operations.append(
+        OperationConfig.from_dict({"include-name": disabled_op, "phases": {"stateful": {"enabled": False}}})
+    )
+
+    # No rule should execute the disabled op — root or incoming-transition.
+    # Outgoing transitions whose source is the disabled op stay (their target is still enabled).
+    state_machine = schema.as_state_machine()
+    assert (
+        sorted(name for name, value in state_machine.__dict__.items() if hasattr(value, "hypothesis_stateful_rule"))
+        == expected_rules
+    )
+
+
+_ID_OBJECT = {"type": "object", "properties": {"id": {"type": "integer"}}, "required": ["id"]}
+
+
+def test_fk_body_consumer_not_classified_as_root(ctx):
+    # POST /photos consumes Album.id via body `albumId`; can't succeed without a producer-supplied
+    # value, so it must not fire as a root while the clean Album producer exists.
+    schema = ctx.openapi.load_schema(
+        {
+            "/albums": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"type": "object", "properties": {"name": {"type": "string"}}}
+                            }
+                        },
+                    },
+                    "responses": {"201": {"content": {"application/json": {"schema": _ID_OBJECT}}}},
+                }
+            },
+            "/photos": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "albumId": {"type": "integer"},
+                                        "title": {"type": "string"},
+                                    },
+                                    "required": ["albumId", "title"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"content": {"application/json": {"schema": _ID_OBJECT}}}},
+                }
+            },
+            "/photos/{photoId}": {
+                "get": {
+                    "parameters": [{"in": "path", "name": "photoId", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"content": {"application/json": {"schema": _ID_OBJECT}}}},
+                }
+            },
+        }
+    )
+
+    state_machine = schema.as_state_machine()
+    assert sorted(
+        name for name, value in state_machine.__dict__.items() if hasattr(value, "hypothesis_stateful_rule")
+    ) == [
+        "POST_albums___201_PostAlbum__POST_photos",
+        "POST_photos___201_GetPhoto__GET_photos_photoId_",
+        "RANDOM__POST_albums",
+    ]
+
+
+def test_self_referential_fk_creator_remains_root(ctx):
+    person_req = {
+        "type": "object",
+        "properties": {"id": {"type": "integer"}, "name": {"type": "string"}},
+        "required": ["id", "name"],
+    }
+    schema = ctx.openapi.load_schema(
+        {
+            "/person": {
+                "post": {
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": person_req}}},
+                    "responses": {"201": {"content": {"application/json": {"schema": _ID_OBJECT}}}},
+                }
+            },
+            "/persons": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"type": "array", "items": person_req}}},
+                    },
+                    "responses": {"201": {"content": {"application/json": {"schema": _ID_OBJECT}}}},
+                }
+            },
+            "/person/{id}": {
+                "get": {
+                    "parameters": [{"in": "path", "name": "id", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"content": {"application/json": {"schema": _ID_OBJECT}}}},
+                }
+            },
+        }
+    )
+    state_machine = schema.as_state_machine()
+    rule_names = sorted(
+        name for name, value in state_machine.__dict__.items() if hasattr(value, "hypothesis_stateful_rule")
+    )
+    assert "RANDOM__POST_person" in rule_names, rule_names

@@ -405,23 +405,6 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         ...
 
     @overload
-    def add_security(self, security_type: QuantConnect.SecurityType, symbol: str, resolution: typing.Optional[QuantConnect.Resolution], market: str, fill_forward: typing.Optional[bool], leverage: float, extended_market_hours: typing.Optional[bool], data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None) -> QuantConnect.Securities.Security:
-        """
-        Set a required SecurityType-symbol and resolution for algorithm
-        
-        :param security_type: SecurityType Enum: Equity, Commodity, FOREX or Future
-        :param symbol: Symbol Representation of the MarketType, e.g. AAPL
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily.
-        :param market: The market the requested security belongs to, such as 'usa' or 'fxcm'
-        :param fill_forward: If true, returns the last available data even if none in that timeslice.
-        :param leverage: leverage for this security
-        :param extended_market_hours: Use extended market hours data
-        :param data_mapping_mode: The contract mapping mode to use for the security
-        :param data_normalization_mode: The price scaling mode to use for the security
-        """
-        ...
-
-    @overload
     def add_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, leverage: float = ..., extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: int = 0) -> QuantConnect.Securities.Security:
         """
         Set a required SecurityType-symbol and resolution for algorithm
@@ -436,6 +419,23 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         :param contract_depth_offset: The continuous contract desired offset from the current front month.
         For example, 0 (default) will use the front month, 1 will use the back month contract
         :returns: The new Security that was added to the algorithm.
+        """
+        ...
+
+    @overload
+    def add_security(self, security_type: QuantConnect.SecurityType, symbol: str, resolution: typing.Optional[QuantConnect.Resolution], market: str, fill_forward: typing.Optional[bool], leverage: float, extended_market_hours: typing.Optional[bool], data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None) -> QuantConnect.Securities.Security:
+        """
+        Set a required SecurityType-symbol and resolution for algorithm
+        
+        :param security_type: SecurityType Enum: Equity, Commodity, FOREX or Future
+        :param symbol: Symbol Representation of the MarketType, e.g. AAPL
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily.
+        :param market: The market the requested security belongs to, such as 'usa' or 'fxcm'
+        :param fill_forward: If true, returns the last available data even if none in that timeslice.
+        :param leverage: leverage for this security
+        :param extended_market_hours: Use extended market hours data
+        :param data_mapping_mode: The contract mapping mode to use for the security
+        :param data_normalization_mode: The price scaling mode to use for the security
         """
         ...
 

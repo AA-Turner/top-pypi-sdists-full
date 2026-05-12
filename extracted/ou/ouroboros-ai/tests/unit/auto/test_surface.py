@@ -484,6 +484,9 @@ async def test_auto_handler_meta_exposes_auto_progress_fields(monkeypatch) -> No
         "job_id": "job_1",
         "run_session_id": "session_1",
         "pending_question": "Which runtime should be used?",
+        "ledger_provenance": {},
+        "evidence_backed_sections": [],
+        "assumption_only_sections": [],
     }
 
 
@@ -1608,8 +1611,12 @@ def test_print_result_renders_seed_origin_line() -> None:
     assert "Seed origin: auto_pipeline" in output
 
 
-def test_mcp_format_result_renders_seed_origin_line() -> None:
-    """The MCP text body must surface the seed_origin field too."""
+def test_format_result_keeps_evidence_provenance_out_of_user_text() -> None:
+    """Detailed provenance should live in MCP meta, not in the human-readable body.
+
+    The user-facing text stays simple (status/phase/grade/seed_path/etc.); rich
+    provenance breakdown is consumed by clients via ``MCPToolResult.meta``.
+    """
     from ouroboros.auto.pipeline import AutoPipelineResult
     from ouroboros.mcp.tools.auto_handler import _format_result
 
@@ -1624,7 +1631,9 @@ def test_mcp_format_result_renders_seed_origin_line() -> None:
 
     text = _format_result(result)
 
-    assert "Seed origin: auto_pipeline" in text
+    assert "Evidence:" not in text
+    assert "evidence-backed" not in text
+    assert "assumption-only" not in text
 
 
 @pytest.mark.asyncio
@@ -1870,3 +1879,183 @@ async def test_auto_pipeline_marks_seed_origin_after_seed_generation(tmp_path) -
 
     assert state.seed_origin is SeedOrigin.AUTO_PIPELINE
     assert result.seed_origin == "auto_pipeline"
+
+
+def test_format_result_omits_evidence_block_when_unknown() -> None:
+    from ouroboros.auto.pipeline import AutoPipelineResult
+    from ouroboros.mcp.tools.auto_handler import _format_result
+
+    result = AutoPipelineResult(
+        status="complete",
+        auto_session_id="auto_test",
+        phase="complete",
+    )
+
+    text = _format_result(result)
+
+    assert "Evidence:" not in text
+    assert "evidence-backed" not in text
+    assert "assumption-only" not in text
+
+
+@pytest.mark.asyncio
+async def test_auto_handler_meta_exposes_ledger_provenance_breakdown(monkeypatch) -> None:
+    async def fake_run(self, arguments):  # noqa: ARG001
+        from ouroboros.auto.pipeline import AutoPipelineResult
+
+        return AutoPipelineResult(
+            status="complete",
+            auto_session_id="auto_test",
+            phase="complete",
+            ledger_provenance={
+                "user_goal": ("goal", "actors"),
+                "repo_fact": ("runtime_context",),
+                "conservative_default": ("constraints",),
+            },
+            evidence_backed_sections=("actors", "goal", "runtime_context"),
+            assumption_only_sections=("constraints",),
+        )
+
+    monkeypatch.setattr(AutoHandler, "_run", fake_run)
+
+    result = await AutoHandler().handle({"goal": "Build a CLI"})
+
+    assert result.is_ok
+    meta = result.value.meta
+    assert meta["ledger_provenance"] == {
+        "user_goal": ["goal", "actors"],
+        "repo_fact": ["runtime_context"],
+        "conservative_default": ["constraints"],
+    }
+    assert meta["evidence_backed_sections"] == ["actors", "goal", "runtime_context"]
+    assert meta["assumption_only_sections"] == ["constraints"]
+
+
+@pytest.mark.asyncio
+async def test_auto_handler_meta_always_emits_provenance_keys_when_empty(monkeypatch) -> None:
+    """Empty provenance must still surface as ``[]``/``{}``, not be omitted.
+
+    The contract distinguishes "computed and empty" from "field not provided",
+    so MCP clients can treat absence of these keys as a protocol error rather
+    than silently degrading to defaults.
+    """
+
+    async def fake_run(self, arguments):  # noqa: ARG001
+        from ouroboros.auto.pipeline import AutoPipelineResult
+
+        return AutoPipelineResult(
+            status="complete",
+            auto_session_id="auto_test",
+            phase="complete",
+        )
+
+    monkeypatch.setattr(AutoHandler, "_run", fake_run)
+
+    result = await AutoHandler().handle({"goal": "Build a CLI"})
+
+    assert result.is_ok
+    meta = result.value.meta
+    assert meta["ledger_provenance"] == {}
+    assert meta["evidence_backed_sections"] == []
+    assert meta["assumption_only_sections"] == []
+
+
+def test_auto_save_seed_encodes_path_traversal_seed_id_inside_seed_dir(
+    tmp_path: Path,
+) -> None:
+    from ouroboros.auto.adapters import load_seed, save_seed
+    from ouroboros.core.seed import OntologySchema, Seed, SeedMetadata
+
+    seeds_dir = tmp_path / "seeds"
+    seed = Seed(
+        goal="Demo goal",
+        ontology_schema=OntologySchema(name="demo", description="demo ontology"),
+        metadata=SeedMetadata(seed_id="../outside"),
+    )
+
+    path = Path(save_seed(seed, seeds_dir=seeds_dir)).resolve()
+
+    assert path == (seeds_dir / "%2E%2E%2Foutside.yaml").resolve()
+    assert path.exists()
+    assert not (tmp_path / "outside.yaml").exists()
+    assert load_seed(path).metadata.seed_id == "../outside"
+
+
+def test_auto_save_seed_encodes_whitespace_padded_seed_id_without_metadata_drift(
+    tmp_path: Path,
+) -> None:
+    from ouroboros.auto.adapters import load_seed, save_seed
+    from ouroboros.core.seed import OntologySchema, Seed, SeedMetadata
+
+    seeds_dir = tmp_path / "seeds"
+    seed = Seed(
+        goal="Demo goal",
+        ontology_schema=OntologySchema(name="demo", description="demo ontology"),
+        metadata=SeedMetadata(seed_id="seed_safe_123 "),
+    )
+
+    path = Path(save_seed(seed, seeds_dir=seeds_dir)).resolve()
+
+    assert path == (seeds_dir / "seed_safe_123%20.yaml").resolve()
+    assert path.exists()
+    assert not (seeds_dir / "seed_safe_123.yaml").exists()
+    assert load_seed(path).metadata.seed_id == "seed_safe_123 "
+
+
+def test_auto_save_seed_encodes_previously_accepted_punctuation_seed_id(
+    tmp_path: Path,
+) -> None:
+    from ouroboros.auto.adapters import load_seed, save_seed
+    from ouroboros.core.seed import OntologySchema, Seed, SeedMetadata
+
+    seeds_dir = tmp_path / "seeds"
+    seed = Seed(
+        goal="Demo goal",
+        ontology_schema=OntologySchema(name="demo", description="demo ontology"),
+        metadata=SeedMetadata(seed_id="seed.v1"),
+    )
+
+    path = Path(save_seed(seed, seeds_dir=seeds_dir)).resolve()
+
+    assert path == (seeds_dir / "seed%2Ev1.yaml").resolve()
+    assert path.exists()
+    assert load_seed(path).metadata.seed_id == "seed.v1"
+
+
+def test_auto_save_seed_encodes_windows_reserved_basename_seed_id(
+    tmp_path: Path,
+) -> None:
+    from ouroboros.auto.adapters import load_seed, save_seed
+    from ouroboros.core.seed import OntologySchema, Seed, SeedMetadata
+
+    seeds_dir = tmp_path / "seeds"
+    seed = Seed(
+        goal="Demo goal",
+        ontology_schema=OntologySchema(name="demo", description="demo ontology"),
+        metadata=SeedMetadata(seed_id="CON"),
+    )
+
+    path = Path(save_seed(seed, seeds_dir=seeds_dir)).resolve()
+
+    assert path == (seeds_dir / "%43ON.yaml").resolve()
+    assert path.exists()
+    assert not (seeds_dir / "CON.yaml").exists()
+    assert load_seed(path).metadata.seed_id == "CON"
+
+
+def test_auto_save_seed_accepts_default_seed_id_inside_seed_dir(tmp_path: Path) -> None:
+    from ouroboros.auto.adapters import load_seed, save_seed
+    from ouroboros.core.seed import OntologySchema, Seed, SeedMetadata
+
+    seeds_dir = tmp_path / "seeds"
+    seed = Seed(
+        goal="Demo goal",
+        ontology_schema=OntologySchema(name="demo", description="demo ontology"),
+        metadata=SeedMetadata(seed_id="seed_safe_123"),
+    )
+
+    path = Path(save_seed(seed, seeds_dir=seeds_dir)).resolve()
+
+    assert path == (seeds_dir / "seed_safe_123.yaml").resolve()
+    assert path.exists()
+    assert load_seed(path).metadata.seed_id == "seed_safe_123"

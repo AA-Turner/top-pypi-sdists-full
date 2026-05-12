@@ -26,12 +26,11 @@ class Config(System.Object):
 
     @staticmethod
     @overload
-    def flatten(config: typing.Any, override_environment: str) -> typing.Any:
+    def flatten(override_environment: str) -> typing.Any:
         """
         Flattens the jobject with respect to the selected environment and then
         removes the 'environments' node
         
-        :param config: The configuration represented as a JObject
         :param override_environment: The environment to use
         :returns: The flattened JObject.
         """
@@ -39,11 +38,12 @@ class Config(System.Object):
 
     @staticmethod
     @overload
-    def flatten(override_environment: str) -> typing.Any:
+    def flatten(config: typing.Any, override_environment: str) -> typing.Any:
         """
         Flattens the jobject with respect to the selected environment and then
         removes the 'environments' node
         
+        :param config: The configuration represented as a JObject
         :param override_environment: The environment to use
         :returns: The flattened JObject.
         """

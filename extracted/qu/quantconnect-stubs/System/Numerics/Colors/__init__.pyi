@@ -51,11 +51,11 @@ class Rgba(typing.Generic[System_Numerics_Colors_Rgba_T], System.IEquatable[Syst
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, other: System.Numerics.Colors.Rgba[System_Numerics_Colors_Rgba_T]) -> bool:
         ...
 
     @overload
-    def equals(self, other: System.Numerics.Colors.Rgba[System_Numerics_Colors_Rgba_T]) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     def get_hash_code(self) -> int:
@@ -115,11 +115,11 @@ class Argb(typing.Generic[System_Numerics_Colors_Argb_T], System.IEquatable[Syst
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def equals(self, other: System.Numerics.Colors.Argb[System_Numerics_Colors_Argb_T]) -> bool:
         ...
 
     @overload
-    def equals(self, other: System.Numerics.Colors.Argb[System_Numerics_Colors_Argb_T]) -> bool:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     def get_hash_code(self) -> int:

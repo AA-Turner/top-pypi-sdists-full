@@ -3,9 +3,10 @@
 import importlib
 import yaml
 
+from boxmot.reid.core import ReID
 from boxmot.utils import TRACKER_CONFIGS
 
-REID_TRACKERS = ["strongsort", "botsort", "deepocsort", "hybridsort", "boosttrack"]
+REID_TRACKERS = ["strongsort", "botsort", "deepocsort", "hybridsort", "boosttrack", "occluboost"]
 
 TRACKER_MAPPING = {
     "strongsort": "boxmot.trackers.strongsort.strongsort.StrongSort",
@@ -16,6 +17,7 @@ TRACKER_MAPPING = {
     "deepocsort": "boxmot.trackers.deepocsort.deepocsort.DeepOcSort",
     "hybridsort": "boxmot.trackers.hybridsort.hybridsort.HybridSort",
     "boosttrack": "boxmot.trackers.boosttrack.boosttrack.BoostTrack",
+    "occluboost" : "boxmot.trackers.occluboost.occluboost.OccluBoost",
 }
 
 
@@ -32,6 +34,9 @@ def create_tracker(
     half=None,
     per_class=None,
     evolve_param_dict=None,
+    reid_preprocess=None,
+    reid_model=None,
+    tracker_backend="python",
 ):
     """
     Creates and returns an instance of the specified tracker type.
@@ -39,18 +44,60 @@ def create_tracker(
     Parameters:
     - tracker_type: The type of the tracker (e.g., 'strongsort', 'ocsort').
     - tracker_config: Path to the tracker configuration file.
-    - reid_weights: Weights for ReID (re-identification).
-    - device: Device to run the tracker on (e.g., 'cpu', 'cuda').
-    - half: Boolean indicating whether to use half-precision.
+    - reid_weights: Weights for ReID (re-identification). Used to build a ReID backend
+        when ``reid_model`` is not supplied.
+    - device: Device to run the ReID backend on (only used when building from ``reid_weights``).
+    - half: Whether to use half-precision for the ReID backend (only used when building from ``reid_weights``).
     - per_class: Boolean for class-specific tracking (optional).
     - evolve_param_dict: A dictionary of parameters for evolving the tracker.
+    - reid_preprocess: Preprocessing method for the ReID backend (only used when building from ``reid_weights``).
+    - reid_model: Pre-built ReID backend (e.g., ``ReID(...).model``). Takes
+        precedence over ``reid_weights`` and lets callers share a single backend across trackers.
+    - tracker_backend: Backend to use for the tracker. ``"python"`` (default)
+        uses the pure-Python implementation under ``boxmot.trackers``. ``"cpp"``
+        delegates to the registered native (C++) live backend via
+        :func:`boxmot.native.registry.get_native_live_backend`. The native
+        backend is built on demand if it isn't already compiled.
 
     Returns:
     - An instance of the selected tracker.
 
     Raises:
-    - ValueError: If `tracker_type` is not recognized.
+    - ValueError: If `tracker_type` is not recognized or the requested
+      ``tracker_backend`` is not available for that tracker.
     """
+
+    backend = str(tracker_backend or "python").strip().lower()
+    if backend not in ("python", "cpp"):
+        raise ValueError(
+            f"Unknown tracker_backend '{tracker_backend}'. Expected one of: python, cpp."
+        )
+
+    if backend == "cpp":
+        # Lazy import to keep ``boxmot.native`` (which pulls in ctypes / CMake
+        # plumbing) optional for pure-Python users.
+        from boxmot.native.registry import get_native_live_backend
+
+        native = get_native_live_backend(tracker_type)
+        cfg_dict = None
+        if evolve_param_dict is not None:
+            cfg_dict = dict(evolve_param_dict)
+        elif tracker_config is not None:
+            with open(tracker_config, "r", encoding="utf-8") as f:
+                yaml_config = yaml.safe_load(f) or {}
+                cfg_dict = {
+                    param: details["default"] for param, details in yaml_config.items()
+                }
+        # Native live constructors take ``(cfg_dict, reid_weights=...)``; only
+        # ReID-aware trackers consume ``reid_weights``. Passing ``reid_weights``
+        # to non-ReID trackers is harmless because the unused kwarg is ignored
+        # by the wrapper signatures.
+        kwargs = {}
+        if tracker_type in REID_TRACKERS:
+            kwargs["reid_weights"] = reid_weights
+            if reid_preprocess is not None:
+                kwargs["reid_preprocess"] = reid_preprocess
+        return native.create_tracker(cfg_dict, **kwargs)
 
     if tracker_type not in TRACKER_MAPPING:
         available = ", ".join(TRACKER_MAPPING.keys())
@@ -58,8 +105,8 @@ def create_tracker(
 
     # Load configuration from file or use provided dictionary
     if evolve_param_dict is None:
-        if tracker_config is None: 
-            # Load default tracker config 
+        if tracker_config is None:
+            # Load default tracker config
             tracker_config = get_tracker_config(tracker_type)
         with open(tracker_config, "r") as f:
             yaml_config = yaml.safe_load(f)
@@ -73,11 +120,14 @@ def create_tracker(
     tracker_args["per_class"] = per_class
 
     if tracker_type in REID_TRACKERS:
-        tracker_args.update({
-            "reid_weights": reid_weights,
-            "device": device,
-            "half": half,
-        })
+        if reid_model is None and reid_weights is not None:
+            reid_model = ReID(
+                weights=reid_weights,
+                device=device,
+                half=half,
+                preprocess_name=reid_preprocess,
+            ).model
+        tracker_args["reid_model"] = reid_model
 
     # Tracker-specific adjustments
     if tracker_type == "strongsort":
@@ -90,6 +140,6 @@ def create_tracker(
 
     # Return the instantiated tracker class with arguments and warmed-up models
     tracker = tracker_class(**tracker_args)
-    if hasattr(tracker, "model"):
+    if hasattr(tracker, "model") and tracker.model is not None:
         tracker.model.warmup()
     return tracker

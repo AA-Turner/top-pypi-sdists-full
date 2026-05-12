@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: notebooklm-py
-Version: 0.4.0
+Version: 0.4.1
 Summary: Unofficial Python library for automating Google NotebookLM
 Project-URL: Homepage, https://github.com/teng-lin/notebooklm-py
 Project-URL: Repository, https://github.com/teng-lin/notebooklm-py
@@ -80,11 +80,11 @@ Description-Content-Type: text/markdown
 > - **APIs may break** - Google can change internal endpoints anytime
 > - **Rate limits apply** - Heavy usage may be throttled
 >
-> Best for prototypes, research, and personal projects. See [Troubleshooting](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/troubleshooting.md) for debugging tips.
+> Best for prototypes, research, and personal projects. See [Troubleshooting](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/docs/troubleshooting.md) for debugging tips.
 
 ## What You Can Build
 
-🤖 **AI Agent Tools** - Integrate NotebookLM into Claude Code, Codex, and other LLM agents. Ships with a root [NotebookLM skill](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/SKILL.md) for GitHub and `npx skills add` discovery, local `notebooklm skill install` support for Claude Code and `.agents` skill directories, and repo-level Codex guidance in [`AGENTS.md`](AGENTS.md).
+🤖 **AI Agent Tools** - Integrate NotebookLM into Claude Code, Codex, and other LLM agents. Ships with a root [NotebookLM skill](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/SKILL.md) for GitHub and `npx skills add` discovery, local `notebooklm skill install` support for Claude Code and `.agents` skill directories, and repo-level Codex guidance in [`AGENTS.md`](AGENTS.md).
 
 📚 **Research Automation** - Bulk-import sources (URLs, PDFs, YouTube, Google Drive), run web/Drive research queries with auto-import, and extract insights programmatically. Build repeatable research pipelines.
 
@@ -157,7 +157,7 @@ playwright install chromium
 pip install "notebooklm-py[cookies]"
 ```
 
-If `playwright install chromium` fails with `TypeError: onExit is not a function`, see the Linux workaround in [Troubleshooting](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/troubleshooting.md#linux).
+If `playwright install chromium` fails with `TypeError: onExit is not a function`, see the Linux workaround in [Troubleshooting](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/docs/troubleshooting.md#linux).
 
 ### Development Installation
 
@@ -228,6 +228,7 @@ Other useful CLI commands:
 
 ```bash
 notebooklm auth check --test         # Diagnose auth/cookie issues
+notebooklm auth refresh --quiet      # One-shot cookie keepalive (for cron / launchd / systemd)
 notebooklm agent show codex          # Print bundled Codex instructions
 notebooklm agent show claude         # Print bundled Claude Code skill template
 notebooklm language list             # List supported output languages
@@ -288,25 +289,25 @@ Installs the skill into `~/.claude/skills/notebooklm` and `~/.agents/skills/note
 npx skills add teng-lin/notebooklm-py
 ```
 
-Fetches the canonical [SKILL.md](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/SKILL.md) directly from GitHub.
+Fetches the canonical [SKILL.md](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/SKILL.md) directly from GitHub.
 
 
 ## Documentation
 
-- **[CLI Reference](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/cli-reference.md)** - Complete command documentation
-- **[Python API](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/python-api.md)** - Full API reference
-- **[Configuration](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/configuration.md)** - Storage and settings
-- **[Release Guide](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/releasing.md)** - Release checklist and packaging verification
-- **[Troubleshooting](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/troubleshooting.md)** - Common issues and solutions
-- **[API Stability](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/stability.md)** - Versioning policy and stability guarantees
+- **[CLI Reference](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/docs/cli-reference.md)** - Complete command documentation
+- **[Python API](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/docs/python-api.md)** - Full API reference
+- **[Configuration](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/docs/configuration.md)** - Storage and settings
+- **[Release Guide](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/docs/releasing.md)** - Release checklist and packaging verification
+- **[Troubleshooting](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/docs/troubleshooting.md)** - Common issues and solutions
+- **[API Stability](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/docs/stability.md)** - Versioning policy and stability guarantees
 
 ### For Contributors
 
-- **[Development Guide](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/development.md)** - Architecture, testing, and releasing
-- **[RPC Development](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/rpc-development.md)** - Protocol capture and debugging
-- **[RPC Reference](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/docs/rpc-reference.md)** - Payload structures
-- **[Changelog](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/CHANGELOG.md)** - Version history and release notes
-- **[Security](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/SECURITY.md)** - Security policy and credential handling
+- **[Development Guide](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/docs/development.md)** - Architecture, testing, and releasing
+- **[RPC Development](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/docs/rpc-development.md)** - Protocol capture and debugging
+- **[RPC Reference](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/docs/rpc-reference.md)** - Payload structures
+- **[Changelog](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/CHANGELOG.md)** - Version history and release notes
+- **[Security](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/SECURITY.md)** - Security policy and credential handling
 
 ## Platform Support
 
@@ -322,4 +323,4 @@ Fetches the canonical [SKILL.md](https://github.com/teng-lin/notebooklm-py/blob/
 
 ## License
 
-MIT License. See [LICENSE](https://github.com/teng-lin/notebooklm-py/blob/v0.4.0/LICENSE) for details.
+MIT License. See [LICENSE](https://github.com/teng-lin/notebooklm-py/blob/v0.4.1/LICENSE) for details.

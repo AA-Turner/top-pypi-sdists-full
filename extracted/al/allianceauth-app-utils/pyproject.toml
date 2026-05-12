@@ -12,8 +12,8 @@ authors = [{ name = "Erik Kalkoken", email = "kalkoken87@gmail.com" }]
 classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
-    "Framework :: Django :: 4.0",
     "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.2",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -26,7 +26,7 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
-dependencies = ["allianceauth>=3,<5", "requests"]
+dependencies = ["allianceauth>=4,<6", "requests", "pytz"]
 
 [project.urls]
 Homepage = "https://gitlab.com/ErikKalkoken/allianceauth-app-utils"

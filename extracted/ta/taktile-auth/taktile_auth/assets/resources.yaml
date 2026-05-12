@@ -133,6 +133,12 @@ workspace_agent_execution:
   ws_id: wildcard
   env: wildcard
   type: wildcard
+workspace_prebuilt_agent_management:
+  # read: can view prebuilt agents (including exposed system prompt)
+  # write: can update prebuilt agents
+  # delete: can delete prebuilt agents
+  org_id: wildcard
+  ws_id: wildcard
 workspace_file:
   # read: can read files from workspace
   # write: can upload files to workspace

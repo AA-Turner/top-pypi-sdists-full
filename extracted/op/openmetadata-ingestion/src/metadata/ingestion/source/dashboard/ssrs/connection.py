@@ -46,7 +46,7 @@ def test_connection(
 ) -> TestConnectionResult:
     test_fn = {
         "CheckAccess": client.test_access,
-        "GetDashboards": client.test_get_reports,
+        "GetDashboards": client.get_reports,
     }
 
     return test_connection_steps(

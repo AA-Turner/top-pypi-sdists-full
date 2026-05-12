@@ -1,14 +1,14 @@
 import random
 import numpy as np
 import datetime
-from num2words import num2words
+import inflect
 from dataclasses import dataclass
 from reasoning_core.template import Task, Problem, Config
 import itertools
 import string
 from ast import literal_eval
 
-
+from faker import Faker
 ### Tool functions 🛠️
 
 class SetList(list):
@@ -36,20 +36,35 @@ def create_intension(domain : list, length : int):
         i = np.random.randint(n-length)
         return domain[i:i+length]
 
-def make_domains(size):
-    
+_inflect = inflect.engine()
+
+def make_domains(size, ordered=False):
+
     NUM = [int(i) for i in range(1,size+1)]
-    NUM_EN = [num2words(i,lang='en') for i in NUM]
-    NUM_FR = [num2words(i,lang='fr') for i in NUM]
-    
+    NUM_EN = [_inflect.number_to_words(i).replace(',', '') for i in NUM]
     start = (datetime.date(2020, 1, 1))
     DATES = [(start + datetime.timedelta(days=i)).strftime('%Y-%m-%d') for i in range(size)]
     DATES_EN = [(start + datetime.timedelta(days=i)).strftime('%B %d, %Y') for i in range(size)]
-    
+
     gen = itertools.chain.from_iterable((''.join(p) for p in itertools.product(string.ascii_lowercase, repeat=n)) for n in itertools.count(1))
     LETTERS = list(itertools.islice(gen, size))
 
     domains = [NUM, NUM_EN, DATES, DATES_EN, LETTERS]
+
+    if not ordered:
+        fake = Faker()
+        fake.seed_instance(0)
+        words = []
+        words_set = set()
+        for _ in range(size*3):
+            w = f"{fake.word(part_of_speech='adjective')} {fake.word(part_of_speech='noun')}"
+            if w not in words_set:
+                words_set.add(w)
+                words.append(w)
+            if size<=len(words):
+                break
+        domains.insert(1, words)
+
     return domains
 
 def perturb_list(input_l, base_domain, n_perturbation=1):
@@ -80,7 +95,7 @@ class SetOpsConfig(Config):
     set_size: int = 8
     n_max_perturbation: int = 2
     prob_equal: float = 0.5
-    n_domains : int = 1
+    n_domains : int = 2
     def update(self, c):
         self.set_size *= 1 + c
         self.domain_size *= 1 + c
@@ -111,7 +126,7 @@ class SetIntersection(Task):
         return (
             f"Set1: {metadata['set_1']}\n"
             f"Set2: {metadata['set_2']}\n"
-            "Only return the intersection of Set1 and Set2 as a Python set: {elem_1, elem_2, ..., elem_n}."
+            "The answer is the intersection of Set1 and Set2 as a Python set: {elem_1, elem_2, ..., elem_n}."
         )
 
     def score_answer(self, answer, entry):
@@ -138,7 +153,7 @@ class SetMissingElementConfig(SetOpsConfig):
 class SetMissingElement(Task):
     def __init__(self, config=SetMissingElementConfig()):
         super().__init__(config=config)
-        self.domains = make_domains(self.config.domain_size)
+        self.domains = make_domains(self.config.domain_size, ordered=True)
         
     def generate(self):
         chosen_domain = random.choice(self.domains[:self.config.n_domains])
@@ -153,7 +168,7 @@ class SetMissingElement(Task):
     def prompt(self, metadata) -> str:
         return (
             f"Set_A: {metadata['element_list']}\n"
-            "Only return the missing elements from Set_A as a Python set."
+            "The answer is the missing elements from Set_A as a Python set."
         )
 
     def score_answer(self, answer, entry):
@@ -189,7 +204,7 @@ class CountElements(Task):
         return Problem(metadata={'elements': elements, 'target': target}, answer=str(count))
 
     def prompt(self, metadata) -> str:
-        return f"List: {metadata['elements']}\nHow many times does {metadata['target']!r} appear? Only return the number."
+        return f"List: {metadata['elements']}\nHow many times does {metadata['target']!r} appear? The answer is a number."
 
     def score_answer(self, answer, entry):
         try: return 1 / (1 + abs(int(answer.strip()) - int(entry['answer'])))
@@ -219,7 +234,6 @@ class SetEquality(Task):
         return (
             f"Set1: {metadata['base_subset']}\n"
             f"Set2: {metadata['subset_bis']}\n"
-            "Only return True if Set1 and Set2 contain exactly the same elements, False otherwise."
+            "The answer is True if Set1 and Set2 contain exactly the same elements, False otherwise."
         )
     
-

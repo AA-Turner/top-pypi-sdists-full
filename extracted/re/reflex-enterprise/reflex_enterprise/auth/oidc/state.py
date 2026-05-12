@@ -1574,13 +1574,12 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         if app is None and cls._has_registered_endpoints:
             return
         if app is None:
-            cls._has_registered_endpoints = True
-
             from reflex.utils.prerequisites import get_app
 
             app = get_app().app
         if not isinstance(app, AppEnterprise):
             raise TypeError("The app must be an instance of reflex_enterprise.App.")
+        cls._has_registered_endpoints = True
         context = {"sitemap": None}
         app.add_page(
             cls.get_authentication_loading_page(),

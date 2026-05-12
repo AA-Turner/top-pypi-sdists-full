@@ -8,6 +8,8 @@
 #  include <internal/pycore_typeobject.h>
 /* PyInterpreterState */
 #  include <internal/pycore_interp.h>
+/* _PyRuntime */
+# include <internal/pycore_runtime.h>
 # undef Py_BUILD_CORE
 #endif
 
@@ -25,7 +27,9 @@
 #include "frameobject.h"
 #include "unicodeobject.h"
 
+#include "../include/guppy.h"
 #include "heapdef.h"
+#include "heapy.h"
 #include "stdtypes.h"
 
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 14
@@ -49,7 +53,7 @@
 #define RENAMEATTR(name, newname) GATTR(v->name, newname, NYHR_ATTRIBUTE);
 #define INTERATTR(name) GATTR(v->name, name, NYHR_INTERATTR);
 
-extern PyObject *_hiding_tag__name;
+extern ptrdiff_t heapy_py314_interp_qsbr_adj;
 
 int
 dict_relate_kv(NyHeapRelate *r, PyObject *dict, int k, int v)
@@ -84,7 +88,8 @@ static int
 dict_traverse(NyHeapTraverse *ta)
 {
     PyObject *v = (void *)ta->obj;
-    if (PyDict_GetItem(v, _hiding_tag__name) == ta->_hiding_tag_)
+    if (PyDict_GetItem(v, ((NyHeapViewObject *)ta->hv)->_hiding_tag__name)
+            == ta->_hiding_tag_)
         return 0;
 
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 13
@@ -168,11 +173,13 @@ set_relate(NyHeapRelate *r)
     while ((obj = PyIter_Next(it))) {
         if (r->tgt == obj) {
             r->visit(NYHR_INSET, PyLong_FromSsize_t(i++), r);
-            return 1;
+            Py_DECREF(obj);
+            goto out;
         }
         Py_DECREF(obj);
     }
 
+out:
     Py_DECREF(it);
 
     if (PyErr_Occurred())
@@ -449,7 +456,7 @@ frame_traverse(NyHeapTraverse *ta) {
 #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 14
         _PyStackRef *p;
 
-        for (p = iv->localsplus; p < iv->stackpointer; i++)
+        for (p = iv->localsplus; p < iv->stackpointer; p++)
             Py_VISIT(PyStackRef_AsPyObjectBorrow(*p));
 #else
         for (i = 0; i < iv->stacktop; i++)
@@ -591,19 +598,19 @@ static ny_static_type_state *NyStaticType_GetState(PyTypeObject *self)
     assert(self->tp_flags & _Py_TPFLAGS_STATIC_BUILTIN);
 
 # if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 13
-    managed_static_type_state *state;
+    ny_static_type_state *state;
     size_t index;
 
     index = (size_t)self->tp_subclasses - 1;
 
     // FIXME: These constants may be subject to change within a Python version
     if (index <= _Py_MAX_MANAGED_STATIC_BUILTIN_TYPES) {
-        state = &is->types.builtins.initialized[index];
+        state = NYPTR_ADJUSTED(is, types.builtins.initialized[index], NYPTR_ADJ_INTEPSTATE(_gil, gil_runtime_state) + heapy_py314_interp_qsbr_adj);
         if (state->type == self)
             return state;
     }
     if (index <= _Py_MAX_MANAGED_STATIC_EXT_TYPES) {
-        state = &is->types.for_extensions.initialized[index];
+        state = NYPTR_ADJUSTED(is, types.for_extensions.initialized[index], NYPTR_ADJ_INTEPSTATE(_gil, gil_runtime_state) + heapy_py314_interp_qsbr_adj);
         if (state->type == self)
             return state;
     }
@@ -615,7 +622,7 @@ static ny_static_type_state *NyStaticType_GetState(PyTypeObject *self)
     size_t index;
 
     index = (size_t)self->tp_subclasses - 1;
-    return &is->types.builtins[index];
+    return NYPTR_ADJUSTED(is, types.builtins[index], 0);
 # endif
 }
 #endif
@@ -816,15 +823,5 @@ NyStdTypes_init(void)
     NyStdTypes_HeapDef[x++].type = &PyCFunction_Type;
     NyStdTypes_HeapDef[x++].type = &PyCode_Type;
     NyStdTypes_HeapDef[x++].type = &PyType_Type;
-    NyHeapDef *dictproxy_def = &NyStdTypes_HeapDef[x++];
-
-    PyObject *d = PyDict_New();
-    if (d) {
-        PyObject *dp = PyDictProxy_New(d);
-        if (dp) {
-            dictproxy_def->type = (PyTypeObject *)Py_TYPE(dp);
-            Py_DECREF(dp);
-        }
-        Py_DECREF(d);
-    }
+    NyStdTypes_HeapDef[x++].type = &PyDictProxy_Type;
 }

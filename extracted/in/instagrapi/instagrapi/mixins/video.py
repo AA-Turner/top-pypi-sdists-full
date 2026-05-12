@@ -1,4 +1,3 @@
-import contextlib
 import random
 import time
 from pathlib import Path
@@ -29,7 +28,9 @@ from instagrapi.types import (
     StorySticker,
     Usertag,
 )
-from instagrapi.utils import date_time_original, dumps
+from instagrapi.utils.serialization import dumps
+from instagrapi.utils.timing import date_time_original
+from instagrapi.utils.video import analyze_video_for_upload
 
 
 class DownloadVideoMixin:
@@ -735,7 +736,7 @@ class UploadVideoMixin:
                     "height": mention.height,
                     "rotation": 0.0,
                     "type": "location",
-                    "location_id": str(mention.location.pk),
+                    "location_id": self.location_story_sticker_id(mention.location),
                     "is_sticker": True,
                     "tap_state": 0,
                     "tap_state_str_id": "location_sticker_vibrant",
@@ -960,21 +961,5 @@ def analyze_video(path: Path, thumbnail: Path = None) -> tuple:
         (width, height, duration, thumbnail)
     """
 
-    try:
-        import moviepy.editor as mp
-    except ImportError:
-        try:
-            import moviepy as mp
-        except ImportError:
-            raise Exception("Please install moviepy>=1.0.3 and retry")
-
-    print(f'Analyzing video file "{path}"')
-    with contextlib.ExitStack() as stack:
-        video = mp.VideoFileClip(str(path))
-        stack.enter_context(contextlib.closing(video))
-        width, height = video.size
-        if not thumbnail:
-            thumbnail = f"{path}.jpg"
-            print(f'Generating thumbnail "{thumbnail}"...')
-            video.save_frame(thumbnail, t=(video.duration / 2))
-    return width, height, video.duration, thumbnail
+    thumbnail, width, height, duration = analyze_video_for_upload(path, thumbnail, label="video")
+    return width, height, duration, thumbnail

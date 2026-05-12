@@ -108,7 +108,8 @@ def _get_pool_combos(
         )
         if variants:
             container = location.container_name
-            per_location.append([{container: variant} for variant in variants])
+            # Examples-phase combos don't carry pool_draws; that threading is a follow-up.
+            per_location.append([{container: variant.overlay} for variant in variants])
 
     for body in operation.body:
         body_schema = body.definition.get("schema")
@@ -121,9 +122,11 @@ def _get_pool_combos(
         )
         if variants:
             required_fields = set(body_schema.get("required", []))
-            complete_variants = [v for v in variants if all(f in v for f in required_fields)]
+            complete_variants = [v for v in variants if all(f in v.overlay for f in required_fields)]
             if complete_variants:
-                per_location.append([{"body": variant, "media_type": body.media_type} for variant in complete_variants])
+                per_location.append(
+                    [{"body": variant.overlay, "media_type": body.media_type} for variant in complete_variants]
+                )
 
     if not per_location:
         return []
@@ -257,7 +260,7 @@ def extract_top_level(
                 # - A oneOf/anyOf branch example is validated against the branch (not the full
                 #   combined schema, which would reject strings valid for multiple branches).
                 try:
-                    validator = None if isinstance(definition, bool) else make_validator_for(definition)
+                    validator = make_validator_for(definition) if isinstance(definition, dict) else None
                 except jsonschema_rs.ValidationError:
                     validator = None
             # Open API 2 also supports `example`
@@ -608,7 +611,7 @@ def extract_from_schemas(
                     yield BodyExample(value=value, media_type=body.media_type)
 
 
-def _example_is_valid(value: Any, validator: jsonschema_rs.Validator | None) -> bool:
+def _example_is_valid(value: object, validator: jsonschema_rs.Validator | None) -> bool:
     if validator is None:
         return True
     try:

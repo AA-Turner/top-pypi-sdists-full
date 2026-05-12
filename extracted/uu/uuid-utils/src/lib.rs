@@ -1,4 +1,5 @@
 use ahash::AHasher;
+#[cfg(not(target_arch = "wasm32"))]
 use mac_address::MacAddressIterator;
 use pyo3::{
     IntoPyObjectExt,
@@ -14,7 +15,7 @@ use std::{
     sync::atomic::{AtomicPtr, AtomicU64, Ordering},
     time::SystemTime,
 };
-use uuid::{Builder, Bytes, Context, Timestamp, Uuid, Variant, Version};
+use uuid::{Builder, Bytes, ContextV1, Timestamp, Uuid, Variant, Version};
 
 static NODE: AtomicU64 = AtomicU64::new(0);
 
@@ -31,7 +32,7 @@ enum StringOrBytes {
     Bytes(Vec<u8>),
 }
 
-#[pyclass(subclass, module = "uuid_utils")]
+#[pyclass(subclass, module = "uuid_utils", from_py_object)]
 #[derive(Clone, Debug)]
 struct UUID {
     uuid: Uuid,
@@ -367,7 +368,7 @@ fn uuid6(node: Option<u64>, timestamp: Option<u64>, nanos: Option<u32>) -> PyRes
     let uuid = match timestamp {
         Some(timestamp) => {
             let timestamp =
-                Timestamp::from_unix(&Context::new_random(), timestamp, nanos.unwrap_or(0));
+                Timestamp::from_unix(&ContextV1::new_random(), timestamp, nanos.unwrap_or(0));
             return Ok(UUID {
                 uuid: Uuid::new_v6(timestamp, node),
             });
@@ -383,7 +384,7 @@ fn uuid7(timestamp: Option<u64>, nanos: Option<u32>) -> PyResult<UUID> {
     let uuid = match timestamp {
         Some(timestamp) => {
             let timestamp =
-                Timestamp::from_unix(&Context::new_random(), timestamp, nanos.unwrap_or(0));
+                Timestamp::from_unix(&ContextV1::new_random(), timestamp, nanos.unwrap_or(0));
             return Ok(UUID {
                 uuid: Uuid::new_v7(timestamp),
             });
@@ -412,34 +413,39 @@ fn _getnode() -> u64 {
         (mac & (1 << 41)) == 0
     }
 
-    let mut first_local_mac: Option<u64> = None;
-    if let Ok(iter) = MacAddressIterator::new() {
-        for mac in iter {
-            let bytes = mac.bytes();
-            let node = u64::from_be_bytes([
-                0, 0, bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
-            ]);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let mut first_local_mac: Option<u64> = None;
+        if let Ok(iter) = MacAddressIterator::new() {
+            for mac in iter {
+                let bytes = mac.bytes();
+                let node = u64::from_be_bytes([
+                    0, 0, bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
+                ]);
 
-            if node == 0 {
-                continue;
-            }
+                if node == 0 {
+                    continue;
+                }
 
-            if _is_universal(node) {
-                NODE.store(node, Ordering::Relaxed);
-                return node;
-            } else if first_local_mac.is_none() {
-                first_local_mac = Some(node);
+                if _is_universal(node) {
+                    NODE.store(node, Ordering::Relaxed);
+                    return node;
+                } else if first_local_mac.is_none() {
+                    first_local_mac = Some(node);
+                }
             }
+        }
+        if let Some(node) = first_local_mac {
+            NODE.store(node, Ordering::Relaxed);
+            return node;
         }
     }
 
-    let node = first_local_mac.unwrap_or_else(|| {
-        let mut bytes = rand::random::<[u8; 6]>();
-        bytes[0] |= 0x01;
-        u64::from_be_bytes([
-            0, 0, bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
-        ])
-    });
+    let mut bytes = rand::random::<[u8; 6]>();
+    bytes[0] |= 0x01;
+    let node = u64::from_be_bytes([
+        0, 0, bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5],
+    ]);
 
     NODE.store(node, Ordering::Relaxed);
     node
@@ -460,7 +466,7 @@ fn reseed() -> PyResult<()> {
         .map_err(|err| PyOSError::new_err(err.to_string()))
 }
 
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn _uuid_utils(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let safe_uuid_unknown = Python::attach(|py| {
         return PyModule::import(py, "uuid")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydocket
-Version: 0.20.1
+Version: 0.20.2
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://docket.lol/
 Project-URL: Documentation, https://docket.lol/en/latest/
@@ -28,7 +28,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: burner-redis>=0.1.6
+Requires-Dist: burner-redis>=0.1.7
 Requires-Dist: cloudpickle>=3.1.1
 Requires-Dist: cronsim>=2.6
 Requires-Dist: exceptiongroup>=1.2.0; python_version < '3.11'
@@ -81,8 +81,8 @@ async with Docket() as docket:
 from docket import Docket, Worker
 
 async with Docket() as docket:
+    docket.register(greet)
     async with Worker(docket) as worker:
-        worker.register(greet)
         await worker.run_until_finished()
 ```
 

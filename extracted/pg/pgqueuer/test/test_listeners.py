@@ -1,6 +1,5 @@
 import asyncio
 import uuid
-from collections import deque
 from datetime import datetime, timedelta, timezone
 from typing import MutableMapping
 
@@ -9,35 +8,27 @@ from anyio import CancelScope
 from async_timeout import timeout
 
 from pgqueuer import db
-from pgqueuer.listeners import (
+from pgqueuer.core.listeners import (
     EventRouter,
     PGNoticeEventListener,
     default_event_router,
     initialize_notice_event_listener,
 )
+from pgqueuer.domain.settings import DBSettings, add_prefix
 from pgqueuer.models import (
     AnyEvent,
     CancellationEvent,
     Channel,
     Context,
-    EntrypointStatistics,
     HealthCheckEvent,
     JobId,
-    RequestsPerSecondEvent,
     TableChangedEvent,
 )
-from pgqueuer.qb import DBSettings, add_prefix
 from pgqueuer.queries import EntrypointExecutionParameter, Queries
 
 
 async def test_handle_table_changed_event() -> None:
     notice_event_queue = PGNoticeEventListener()
-    statistics = {
-        "entrypoint_1": EntrypointStatistics(
-            samples=deque(),
-            concurrency_limiter=asyncio.Semaphore(5),
-        )
-    }
     canceled: MutableMapping[JobId, Context] = {}
     pending_health_check: MutableMapping[uuid.UUID, asyncio.Future[HealthCheckEvent]] = {}
 
@@ -52,7 +43,6 @@ async def test_handle_table_changed_event() -> None:
     )
     default_event_router(
         notice_event_queue=notice_event_queue,
-        statistics=statistics,
         canceled=canceled,
         pending_health_check=pending_health_check,
     )(event)
@@ -61,45 +51,8 @@ async def test_handle_table_changed_event() -> None:
     assert isinstance(notice_event_queue.get_nowait(), TableChangedEvent)
 
 
-async def test_handle_requests_per_second_event() -> None:
-    notice_event_queue = PGNoticeEventListener()
-    statistics = {
-        "entrypoint_1": EntrypointStatistics(
-            samples=deque(),
-            concurrency_limiter=asyncio.Semaphore(5),
-        )
-    }
-    canceled: MutableMapping[JobId, Context] = {}
-    pending_health_check: MutableMapping[uuid.UUID, asyncio.Future[HealthCheckEvent]] = {}
-
-    event = AnyEvent(
-        root=RequestsPerSecondEvent(
-            channel="channel_1",
-            sent_at=datetime.now(tz=timezone.utc),
-            type="requests_per_second_event",
-            entrypoint_count={"entrypoint_1": 10},
-        )
-    )
-
-    default_event_router(
-        notice_event_queue=notice_event_queue,
-        statistics=statistics,
-        canceled=canceled,
-        pending_health_check=pending_health_check,
-    )(event)
-
-    assert len(statistics["entrypoint_1"].samples) == 1
-    assert statistics["entrypoint_1"].samples[0] == (10, event.root.sent_at)
-
-
 async def test_handle_cancellation_event() -> None:
     notice_event_queue = PGNoticeEventListener()
-    statistics = {
-        "entrypoint_1": EntrypointStatistics(
-            samples=deque(),
-            concurrency_limiter=asyncio.Semaphore(5),
-        )
-    }
     canceled: MutableMapping[JobId, Context] = {}
     pending_health_check: MutableMapping[uuid.UUID, asyncio.Future[HealthCheckEvent]] = {}
 
@@ -120,7 +73,6 @@ async def test_handle_cancellation_event() -> None:
 
     default_event_router(
         notice_event_queue=notice_event_queue,
-        statistics=statistics,
         canceled=canceled,
         pending_health_check=pending_health_check,
     )(event)
@@ -130,12 +82,6 @@ async def test_handle_cancellation_event() -> None:
 
 async def test_handle_health_check_event_event() -> None:
     notice_event_queue = PGNoticeEventListener()
-    statistics = {
-        "entrypoint_1": EntrypointStatistics(
-            samples=deque(),
-            concurrency_limiter=asyncio.Semaphore(5),
-        )
-    }
     canceled: MutableMapping[JobId, Context] = {}
     pending_health_check: MutableMapping[uuid.UUID, asyncio.Future[HealthCheckEvent]] = {}
 
@@ -152,7 +98,6 @@ async def test_handle_health_check_event_event() -> None:
 
     default_event_router(
         notice_event_queue=notice_event_queue,
-        statistics=statistics,
         canceled=canceled,
         pending_health_check=pending_health_check,
     )(event)
@@ -210,13 +155,10 @@ async def test_emit_stable_changed_update(apgdriver: db.Driver) -> None:
 
     await Queries(apgdriver).dequeue(
         100,
-        {
-            "test_emit_stable_changed_update": EntrypointExecutionParameter(
-                timedelta(seconds=300), False, 0
-            )
-        },
+        {"test_emit_stable_changed_update": EntrypointExecutionParameter(0)},
         uuid.uuid4(),
         global_concurrency_limit=1000,
+        heartbeat_timeout=timedelta(seconds=30),
     )
     await asyncio.sleep(0.1)
     assert len(evnets) == 0

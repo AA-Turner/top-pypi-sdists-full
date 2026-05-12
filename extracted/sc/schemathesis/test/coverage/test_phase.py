@@ -16,7 +16,7 @@ from requests.models import RequestEncodingMixin
 
 import schemathesis
 from schemathesis.checks import CheckContext
-from schemathesis.config import ChecksConfig
+from schemathesis.config import ChecksConfig, SanitizationConfig
 from schemathesis.config._projects import ProjectConfig
 from schemathesis.core import NOT_SET
 from schemathesis.core.errors import InvalidSchema
@@ -31,9 +31,11 @@ from schemathesis.generation.hypothesis.builder import (
     create_test,
 )
 from schemathesis.generation.meta import CoverageScenario, TestPhase
+from schemathesis.resources import PoolDraw, PoolPick
 from schemathesis.specs.openapi.checks import negative_data_rejection
 from schemathesis.specs.openapi.coverage._operation import iter_coverage_cases
 from schemathesis.specs.openapi.coverage._schema import CoverageContext, _negative_format, cover_schema_iter
+from schemathesis.transport.prepare import prepare_request
 from test.utils import assert_requests_call
 
 
@@ -2731,6 +2733,41 @@ def test_references(ctx, operation, components):
             assert "Unresolvable reference in the schema" in str(operation.err())
 
 
+def test_urlencoded_array_body_is_serializable(ctx):
+    # Form-urlencoded bodies declared as top-level arrays used to abort the operation when prepared.
+    schema = load_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "application/x-www-form-urlencoded": {
+                    "schema": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"id": {"type": "integer"}},
+                            "required": ["id"],
+                        },
+                    },
+                }
+            },
+        },
+    )
+    operation = schema["/foo"]["post"]
+    config = SanitizationConfig(enabled=False)
+    count = 0
+    for case in iter_coverage_cases(
+        operation=operation,
+        generation_modes=list(GenerationMode),
+        generate_duplicate_query_parameters=False,
+        unexpected_methods=set(),
+        generation_config=operation.schema.config.generation,
+    ):
+        prepare_request(case, headers=None, config=config)
+        count += 1
+    assert count > 0
+
+
 def test_urlencoded_payloads_are_valid(ctx):
     schema = load_schema(
         ctx,
@@ -4015,6 +4052,32 @@ def test_missing_content_type_header(ctx):
     )
 
 
+def test_path_template_with_dot_prefixed_placeholder(ctx):
+    # RFC 6570 label expansion (`{.format}`) appears in real schemas; coverage used to abort the operation.
+    loaded = load_schema(
+        ctx,
+        path="/projects/{id}{.format}",
+        method="get",
+        parameters=[
+            {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
+            {"name": ".format", "in": "path", "required": True, "schema": {"type": "string", "enum": ["json"]}},
+        ],
+    )
+    operation = loaded["/projects/{id}{.format}"]["get"]
+    config = SanitizationConfig(enabled=False)
+    paths = set()
+    for case in iter_coverage_cases(
+        operation=operation,
+        generation_modes=list(GenerationMode),
+        generate_duplicate_query_parameters=False,
+        unexpected_methods=set(),
+        generation_config=operation.schema.config.generation,
+    ):
+        prepared = prepare_request(case, headers=None, config=config)
+        paths.add(prepared.url)
+    assert paths
+
+
 def test_path_parameter_with_slash_in_custom_format(ctx):
     # See GH-3527
     schemathesis.openapi.format("ipv4-network", st.sampled_from(["0.0.0.0/0"]))
@@ -4908,6 +4971,127 @@ def test_spec_hint_recovers_after_dropping_readonly_stripped_keys(hint_extra):
         **hint_extra,
     }
     assert _positive_body_context().generate_from_schema(schema) == {"id": "X"}
+
+
+def test_example_with_nested_ref_violation_is_not_used(ctx):
+    # An `example` whose nested values violate an enum reachable via `$ref` must not
+    # be emitted as a positive case. Without bundle-aware validation the ref cannot
+    # resolve, the validator silently accepts the example, and an invalid body ships.
+    raw = ctx.openapi.build_schema(
+        {
+            "/r": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Wrapper"}}},
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                },
+            },
+        },
+        components={
+            "schemas": {
+                "Wrapper": {
+                    "type": "object",
+                    "required": ["item"],
+                    "properties": {"item": {"$ref": "#/components/schemas/Item"}},
+                },
+                "Item": {
+                    "type": "object",
+                    "required": ["choices"],
+                    "example": {"choices": ["bad"]},
+                    "properties": {
+                        "choices": {"type": "array", "items": {"$ref": "#/components/schemas/Choice"}},
+                    },
+                },
+                "Choice": {"type": "string", "enum": ["allowed"]},
+            },
+        },
+    )
+    loaded = schemathesis.openapi.from_dict(raw)
+    operation = loaded["/r"]["POST"]
+    resolved_body = {
+        "type": "object",
+        "required": ["item"],
+        "properties": {
+            "item": {
+                "type": "object",
+                "required": ["choices"],
+                "properties": {
+                    "choices": {"type": "array", "items": {"type": "string", "enum": ["allowed"]}},
+                },
+            },
+        },
+    }
+    validator = jsonschema_rs.validator_for(resolved_body)
+    cases = list(
+        iter_coverage_cases(
+            operation=operation,
+            generation_modes=[GenerationMode.POSITIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=operation.schema.config.generation,
+        )
+    )
+    assert cases, "expected at least one positive coverage case"
+    for case in cases:
+        assert validator.is_valid(case.body), f"Invalid positive body emitted: {case.body!r}"
+
+
+def test_content_example_invalid_under_draft4_only_schema_is_not_used(ctx):
+    # Schemas mixing draft-specific keywords with content-level examples must not ship examples
+    # whose values violate item-schemas (e.g. `null` in a `number` array) as positive coverage bodies.
+    raw = ctx.openapi.build_schema(
+        {
+            "/r": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "bad": {"value": {"w": [0.5, None]}},
+                                    "good": {"value": {"w": [0.5, 0.5]}},
+                                },
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "w": {
+                                            "type": "array",
+                                            "minItems": 2,
+                                            "items": {"type": "number", "minimum": 0, "maximum": 1},
+                                        },
+                                        "k": {
+                                            "type": "array",
+                                            "minItems": 2,
+                                            "items": {"type": "number", "minimum": 0, "exclusiveMinimum": True},
+                                        },
+                                    },
+                                },
+                            }
+                        },
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                },
+            },
+        },
+    )
+    loaded = schemathesis.openapi.from_dict(raw)
+    operation = loaded["/r"]["POST"]
+    cases = list(
+        iter_coverage_cases(
+            operation=operation,
+            generation_modes=[GenerationMode.POSITIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=operation.schema.config.generation,
+        )
+    )
+    assert cases, "expected at least one positive coverage case"
+    for case in cases:
+        body = case.body
+        if isinstance(body, dict) and isinstance(body.get("w"), list):
+            assert None not in body["w"], f"Invalid positive body emitted: {body!r}"
 
 
 def test_oneof_ref_branches_with_discriminator_each_get_distinct_positive_coverage(ctx):
@@ -6606,6 +6790,55 @@ def test_coverage_array_above_max_items_with_complex_items_schema(ctx):
             )
 
 
+def test_coverage_array_above_max_items_with_draft_mismatch_sibling(ctx):
+    # When a sibling keyword breaks the auto-detected validator (e.g. `exclusiveMinimum: true`),
+    # the `ARRAY_ABOVE_MAX_ITEMS` mutation must still produce a body whose target array exceeds
+    # maxItems — spec-supplied examples whose arrays fit within bounds must not slip through.
+    loaded = ctx.openapi.load_schema(
+        {
+            "/r": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "examples": {"good": {"value": {"t": [0.5, 0.9], "k": [0.1, 0.2]}}},
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["t"],
+                                    "properties": {
+                                        "t": {
+                                            "type": "array",
+                                            "minItems": 1,
+                                            "maxItems": 3,
+                                            "items": {"type": "number", "minimum": 0, "maximum": 1},
+                                        },
+                                        "k": {
+                                            "type": "array",
+                                            "minItems": 2,
+                                            "items": {"type": "number", "minimum": 0, "exclusiveMinimum": True},
+                                        },
+                                    },
+                                },
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    )
+    operation = loaded["/r"]["post"]
+    for case in _iter_cases(operation, GenerationMode.NEGATIVE, generation_config=loaded.config.generation):
+        if case.meta is None:
+            continue
+        if str(getattr(case.meta.phase.data, "scenario", "")).endswith("ARRAY_ABOVE_MAX_ITEMS"):
+            body_t = case.body.get("t") if isinstance(case.body, dict) else None
+            assert body_t is not None and len(body_t) > 3, (
+                f"ARRAY_ABOVE_MAX_ITEMS mutation produced a body within bounds: {case.body!r}"
+            )
+
+
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_coverage_consumes_path_keyed_pool(cli, snapshot_cli, ctx):
     paths = {
@@ -7246,7 +7479,7 @@ def test_coverage_pool_overlay_dict_value_with_undeclared_keys(ctx):
 
     class _FakeDataSource:
         def pick_correlated_values(self, *, operation):
-            return {(ParameterLocation.BODY, "address"): {"city": "London", "country": "UK"}}
+            return PoolPick(values={(ParameterLocation.BODY, "address"): {"city": "London", "country": "UK"}})
 
         def pick_captured_value(self, *, operation, location, name, context_constraints):
             return None
@@ -7289,3 +7522,309 @@ def test_undeclared_method_probes_dedup_across_operations(ctx):
                 seen.append((case.operation.path, case.method))
 
     assert sorted(seen) == sorted([("/items", method.upper()) for method in unexpected_methods])
+
+
+def test_coverage_pool_draws_multi_slot_correlated(ctx):
+    # Two resource-bound path params on one operation produce two PoolDraws on each yielded case.
+    user_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}},
+        "required": ["id"],
+    }
+    post_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "userId": {"type": "string"}},
+        "required": ["id", "userId"],
+    }
+    schema = ctx.openapi.load_schema(
+        {
+            "/users": {
+                "post": {
+                    "operationId": "createUser",
+                    "responses": {"201": {"content": {"application/json": {"schema": user_schema}}}},
+                }
+            },
+            "/users/{userId}/posts": {
+                "post": {
+                    "operationId": "createPost",
+                    "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"201": {"content": {"application/json": {"schema": post_schema}}}},
+                }
+            },
+            "/users/{userId}/posts/{postId}": {
+                "get": {
+                    "operationId": "getPost",
+                    "parameters": [
+                        {"name": "userId", "in": "path", "required": True, "schema": {"type": "string"}},
+                        {"name": "postId", "in": "path", "required": True, "schema": {"type": "string"}},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    data_source = schema.create_extra_data_source()
+    # The post-creation request used `userId=user-1` (path); store that on context so the
+    # consumer's (userId, postId) pair stays correlated.
+    data_source.repository.record_response(
+        operation="POST /users/{userId}/posts",
+        status_code=201,
+        payload={"id": "post-7", "userId": "user-1"},
+        context={"userId": "user-1"},
+    )
+
+    consumer = schema["/users/{userId}/posts/{postId}"]["GET"]
+    cases = list(
+        iter_coverage_cases(
+            operation=consumer,
+            generation_modes=[GenerationMode.POSITIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=schema.config.generation,
+            extra_data_source=data_source,
+        )
+    )
+    assert cases
+    # Both slots attribute back to the post-creating operation — its `id` for `postId` and
+    # its captured `userId` context for the parent. Order across draws is incidental, so
+    # compare a name-keyed view.
+    expected_source = "POST /users/{userId}/posts"
+    assert {d.parameter_name: d for d in cases[0].meta.pool_draws} == {
+        "userId": PoolDraw(
+            location=ParameterLocation.PATH.value,
+            parameter_name="userId",
+            resource_name="User",
+            resource_field="id",
+            source_operation=expected_source,
+            source_status=201,
+        ),
+        "postId": PoolDraw(
+            location=ParameterLocation.PATH.value,
+            parameter_name="postId",
+            resource_name="Post",
+            resource_field="id",
+            source_operation=expected_source,
+            source_status=201,
+        ),
+    }
+
+
+def test_coverage_attaches_pool_draws_to_consumer_cases(ctx):
+    # Real ResourceRepository capture: POST captures `id`; coverage cases for GET /albums/{id}
+    # carry pool-draw provenance pointing back to POST.
+    user_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+        "required": ["id", "name"],
+    }
+    schema = ctx.openapi.load_schema(
+        {
+            "/albums": {
+                "post": {
+                    "operationId": "createAlbum",
+                    "responses": {
+                        "201": {"description": "Created", "content": {"application/json": {"schema": user_schema}}}
+                    },
+                }
+            },
+            "/albums/{albumId}": {
+                "get": {
+                    "operationId": "getAlbum",
+                    "parameters": [{"name": "albumId", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    data_source = schema.create_extra_data_source()
+    data_source.repository.record_response(
+        operation="POST /albums", status_code=201, payload={"id": "alb-42", "name": "First"}
+    )
+
+    consumer = schema["/albums/{albumId}"]["GET"]
+    cases = list(
+        iter_coverage_cases(
+            operation=consumer,
+            generation_modes=[GenerationMode.POSITIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=schema.config.generation,
+            extra_data_source=data_source,
+        )
+    )
+    assert cases, "expected at least one coverage case for the consumer operation"
+    # Every case from this generator carries the same pool-draw attribution.
+    assert cases[0].meta.pool_draws == (
+        PoolDraw(
+            location=ParameterLocation.PATH.value,
+            parameter_name="albumId",
+            resource_name="Album",
+            resource_field="id",
+            source_operation="POST /albums",
+            source_status=201,
+        ),
+    )
+
+
+def test_pool_inventory_respects_operation_filters(ctx):
+    # When the user filters operations, the inventory must intersect with the selected set —
+    # otherwise the analyzer's coverage ratios treat intentionally excluded operations as
+    # missing producers/consumers.
+    item_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}},
+        "required": ["id"],
+    }
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "operationId": "createItem",
+                    "responses": {"201": {"content": {"application/json": {"schema": item_schema}}}},
+                }
+            },
+            "/items/{itemId}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [{"name": "itemId", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+            "/widgets": {
+                "post": {
+                    "operationId": "createWidget",
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"id": {"type": "string"}},
+                                        "required": ["id"],
+                                    }
+                                }
+                            }
+                        }
+                    },
+                }
+            },
+            "/widgets/{widgetId}": {
+                "get": {
+                    "operationId": "getWidget",
+                    "parameters": [{"name": "widgetId", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    full_inventory = schema._measure_statistic().resource_pool
+    # Sanity: without filters the inventory holds both resource families.
+    assert set(full_inventory.producer_labels) == {"POST /items", "POST /widgets"}
+    assert set(full_inventory.consumer_labels) == {"GET /items/{itemId}", "GET /widgets/{widgetId}"}
+
+    filtered = schema.include(path_regex="/items")._measure_statistic().resource_pool
+    # The widget producers/consumers are excluded by the filter; coverage denominators
+    # should follow the filter, not the full schema.
+    assert filtered.producer_labels == ["POST /items"]
+    assert filtered.consumer_labels == ["GET /items/{itemId}"]
+    assert filtered.resources == 1
+
+
+def test_coverage_pool_draws_survive_numeric_id_serialization(ctx):
+    # Pooled numeric id arrives at the case as a stringified wire value; the analyzer must
+    # see the draw attached anyway, otherwise chain-rate is under-reported for numeric APIs.
+    item_schema = {
+        "type": "object",
+        "properties": {"id": {"type": "integer"}},
+        "required": ["id"],
+    }
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "operationId": "createItem",
+                    "responses": {"201": {"content": {"application/json": {"schema": item_schema}}}},
+                }
+            },
+            "/items/{itemId}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [{"name": "itemId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    data_source = schema.create_extra_data_source()
+    data_source.repository.record_response(operation="POST /items", status_code=201, payload={"id": 42})
+
+    consumer = schema["/items/{itemId}"]["GET"]
+    cases = list(
+        iter_coverage_cases(
+            operation=consumer,
+            generation_modes=[GenerationMode.POSITIVE],
+            generate_duplicate_query_parameters=False,
+            unexpected_methods=set(),
+            generation_config=schema.config.generation,
+            extra_data_source=data_source,
+        )
+    )
+    assert cases
+    # Wire form is `"42"` (string) but the draw still attributes back to the integer producer.
+    assert cases[0].meta.pool_draws == (
+        PoolDraw(
+            location=ParameterLocation.PATH.value,
+            parameter_name="itemId",
+            resource_name="Item",
+            resource_field="id",
+            source_operation="POST /items",
+            source_status=201,
+        ),
+    )
+
+
+def test_multipart_body_with_binary_ref_completes_coverage(ctx):
+    # Multipart bodies whose schema referenced a nested $ref aborted with a validator error mid-iteration.
+    schema = ctx.openapi.from_full_schema(
+        {
+            "openapi": "3.0.0",
+            "info": {"title": "t", "version": "1"},
+            "components": {
+                "schemas": {
+                    "Upload": {
+                        "nullable": True,
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string"},
+                            "owner": {"$ref": "#/components/schemas/Owner"},
+                        },
+                    },
+                    "Owner": {"type": "object", "properties": {"id": {"type": "string"}}},
+                }
+            },
+            "paths": {
+                "/upload": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {"multipart/form-data": {"schema": {"$ref": "#/components/schemas/Upload"}}},
+                        },
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+            },
+        }
+    )
+    operation = schema["/upload"]["POST"]
+    config = SanitizationConfig(enabled=False)
+    count = 0
+    for case in iter_coverage_cases(
+        operation=operation,
+        generation_modes=list(GenerationMode),
+        generate_duplicate_query_parameters=False,
+        unexpected_methods=set(),
+        generation_config=operation.schema.config.generation,
+    ):
+        prepare_request(case, headers=None, config=config)
+        count += 1
+    assert count > 0

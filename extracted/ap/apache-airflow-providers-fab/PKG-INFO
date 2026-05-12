@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-fab
-Version: 3.6.2
+Version: 3.6.3
 Summary: Provider package apache-airflow-providers-fab for Apache Airflow
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.2
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.3
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.3/changelog.html
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
@@ -80,7 +80,7 @@ Description-Content-Type: text/x-rst
 
 Package ``apache-airflow-providers-fab``
 
-Release: ``3.6.2``
+Release: ``3.6.3``
 
 
 `Flask App Builder <https://flask-appbuilder.readthedocs.io/>`__
@@ -93,7 +93,7 @@ This is a provider package for ``fab`` provider. All classes for this provider p
 are in ``airflow.providers.fab`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.2/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.3/>`_.
 
 Installation
 ------------
@@ -161,4 +161,4 @@ Extra         Dependencies
 ============  ===================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.2/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.6.3/changelog.html>`_.

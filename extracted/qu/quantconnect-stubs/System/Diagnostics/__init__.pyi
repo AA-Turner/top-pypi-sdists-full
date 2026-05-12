@@ -434,10 +434,6 @@ class Debug(System.Object):
             ...
 
         @overload
-        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
-            ...
-
-        @overload
         def append_formatted(self, value: System.ReadOnlySpan[str]) -> None:
             ...
 
@@ -451,6 +447,10 @@ class Debug(System.Object):
 
         @overload
         def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> None:
+            ...
+
+        @overload
+        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
             ...
 
         def append_literal(self, value: str) -> None:
@@ -463,10 +463,6 @@ class Debug(System.Object):
             ...
 
         @overload
-        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
-            ...
-
-        @overload
         def append_formatted(self, value: System.ReadOnlySpan[str]) -> None:
             ...
 
@@ -480,6 +476,10 @@ class Debug(System.Object):
 
         @overload
         def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> None:
+            ...
+
+        @overload
+        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
             ...
 
         def append_literal(self, value: str) -> None:
@@ -567,17 +567,12 @@ class Debug(System.Object):
 
     @staticmethod
     @overload
-    def write(value: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write(value: typing.Any, category: str) -> None:
-        ...
-
-    @staticmethod
-    @overload
     def write(message: str) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write(value: typing.Any) -> None:
         ...
 
     @staticmethod
@@ -587,12 +582,7 @@ class Debug(System.Object):
 
     @staticmethod
     @overload
-    def write_if(condition: bool, value: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_if(condition: bool, value: typing.Any, category: str) -> None:
+    def write(value: typing.Any, category: str) -> None:
         ...
 
     @staticmethod
@@ -607,6 +597,11 @@ class Debug(System.Object):
 
     @staticmethod
     @overload
+    def write_if(condition: bool, value: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
     def write_if(condition: bool, message: str, category: str) -> None:
         ...
 
@@ -617,17 +612,22 @@ class Debug(System.Object):
 
     @staticmethod
     @overload
+    def write_if(condition: bool, value: typing.Any, category: str) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def write_line(message: str) -> None:
+        ...
+
+    @staticmethod
+    @overload
     def write_line(value: typing.Any) -> None:
         ...
 
     @staticmethod
     @overload
     def write_line(value: typing.Any, category: str) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def write_line(message: str) -> None:
         ...
 
     @staticmethod

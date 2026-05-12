@@ -1,11 +1,13 @@
-from gramforge import init_grammar, generate, generate_with_choices
+from gramforge import init_grammar, generate_with_choices
+from gramforge import generate as gramforge_generate
 from tqdm.auto import tqdm
 from functools import cache
+from contextlib import contextmanager
 from nltk.parse.generate import generate as nltk_generate
 from nltk import CFG, ChartParser
 from nltk.parse.earleychart import EarleyChartParser
 import sys
-from reasoning_core.template import Task, Problem, Config, register_dataset
+from reasoning_core.template import Task, Problem, Config
 import random
 from pathlib import Path
 from nltk.data import path as nltk_path
@@ -16,10 +18,11 @@ import re
 from nltk.tree import Tree
 from collections import defaultdict
 from gramforge.grammars import simple_english_grammar, arith_grammar, dyck_grammar
-from gramforge import gramforge_to_nltk, unigram_to_nltk
+from gramforge import gramforge_to_nltk
 from rapidfuzz.distance import Levenshtein
 from itertools import islice
 from nltk.grammar import CFG, Nonterminal
+from itertools import islice, combinations
 
 
 fake = Faker()
@@ -40,6 +43,7 @@ class GrammarConfig(Config):
     n_terminals: int = 5
     perturbation_rate: float = 0.5
 
+    gramforge_algorithm="sequential"
     min_depth:int =5
     max_depth:int =8
 
@@ -50,11 +54,24 @@ class GrammarConfig(Config):
     tagging_prob: float = 0.5
     target_num_rules=10
 
+    n_resampled_grammars: int=200
+    prob_resampling_grammar: float=0.6
+    max_tokens:int =16
+
+    min_k: int = 3
+    max_k: int = 5
+    min_blanks: int = 2
+    max_blanks: int = 3
+    min_options: int = 4
+    max_options: int = 25
+
     def update(self, c):
         self.n_types += c
         self.n_terminals += c
         self.min_depth += c
         self.max_depth += c
+        self.prob_resampling_grammar = max(0.0, self.prob_resampling_grammar - 0.1 * c)
+        self.max_tokens += 2*c
 
 def meta_grammar(config):
     R=init_grammar(['cfg'])
@@ -224,32 +241,102 @@ def trim_grammar(grammar, target_size=10, retries=10, shrink_tries=1000, seed=No
 
 
 
-def sample_cfg(config=GrammarConfig):
-    if random.random()>config.random_grammar_prob:
+def prune_cfg(grammar):
+    prods = list(grammar.productions())
+
+    by_lhs = defaultdict(list)
+    for p in prods:
+        by_lhs[p.lhs()].append(p)
+
+    # reachable from start
+    reachable = {grammar.start()}
+    stack = [grammar.start()]
+    while stack:
+        lhs = stack.pop()
+        for p in by_lhs.get(lhs, []):
+            for s in p.rhs():
+                if isinstance(s, Nonterminal) and s not in reachable:
+                    reachable.add(s)
+                    stack.append(s)
+
+    prods = [p for p in prods if p.lhs() in reachable]
+
+    # productive NTs
+    productive = set()
+    changed = True
+    while changed:
+        changed = False
+        for p in prods:
+            if all((isinstance(s, str) or s in productive) for s in p.rhs()):
+                if p.lhs() not in productive:
+                    productive.add(p.lhs())
+                    changed = True
+
+    if grammar.start() not in productive:
+        return None
+
+    prods = [
+        p for p in prods
+        if p.lhs() in productive
+        and all((isinstance(s, str) or s in productive) for s in p.rhs())
+    ]
+
+    return CFG(grammar.start(), prods)
+
+def sample_cfg(config=GrammarConfig, productive_only=False):
+    if random.random() > config.random_grammar_prob:
         g = random.choice(existing_grammars)
-        # Only trim if grammar is larger than target
         if len(g.productions()) > config.target_num_rules:
-            return trim_grammar(g, config.target_num_rules)
+            g = trim_grammar(g, config.target_num_rules)
+        if productive_only:
+            g = prune_cfg(g)
+            if g is None:
+                raise ValueError("Existing grammar became unproductive")
         return g
-        
+
     for _ in range(1000):
         MG = meta_grammar(config).start()
-        for _ in range(100): 
-            x=generate(MG,depth=config.max_depth,min_depth=config.min_depth)
-            g = CFG.fromstring(x@"cfg")
+        for _ in range(100):
             try:
-                prods=list(islice(nltk_generate(g ,depth=config.max_prod_depth), 10))
+                x = gramforge_generate(MG, depth=config.max_depth, min_depth=config.min_depth, mode=config.gramforge_algorithm)
+                g = CFG.fromstring(x@"cfg")
+            except ValueError:
+                continue
+
+            if productive_only:
+                g = prune_cfg(g)
+                if g is None:
+                    continue
+
+            try:
+                prods = list(islice(nltk_generate(g, depth=config.max_prod_depth), 10))
             except (RecursionError, ValueError):
                 continue
-            if len(prods)>3:
+
+            if len(prods) > 3:
                 return g
+
+    raise ValueError("Failed to sample CFG")
+
+@contextmanager
+def resampled_grammar(config, **kw):
+    if random.random() < config.prob_resampling_grammar:
+        seed = random.randint(0, config.n_resampled_grammars - 1)
+        state = random.getstate()
+        try:
+            random.seed(seed)
+            yield sample_cfg(config, productive_only=True)
+        finally:
+            random.setstate(state)
+    else:
+        yield sample_cfg(config, **kw)
 
 def perturb(tokens, config=GrammarConfig):
     return random.choice([
         lambda t: random.sample(t, len(t)),
         lambda t: (lambda i: t[:i]+t[i+1:])(random.randrange(len(t))) if len(t)>1 else t,
-        #lambda _: (generate(nltk_to_unigram(sample_cfg(config)).get_rules('s', shuffle=True)[0], depth=5) @ 'lang').split()
-        lambda _: (generate(nltk_to_gramforge(sample_cfg(config)), depth=5) @ 'lang').split()
+        #lambda _: (gramforge_generate(nltk_to_unigram(sample_cfg(config)).get_rules('s', shuffle=True)[0], depth=5, mode=config.gramforge_algorithm) @ 'lang').split()
+        lambda _: (gramforge_generate(nltk_to_gramforge(sample_cfg(config)), depth=5, mode=config.gramforge_algorithm) @ 'lang').split()
 
     ])(tokens)
 
@@ -265,33 +352,38 @@ def make_cot(g, tokens):
             path = [t[idx[:k]].label() for k in range(len(idx))]
             lines.append(f"'{t[idx]}': {' > '.join(path)} (Depth: {len(path)})")
 
-
-    return "\n".join(lines), [str(p) for p in ps]
+    return "\n".join(lines), ps
 
 def generate_parse(config=GrammarConfig):
     meta = edict()
     while True:
-        g = sample_cfg(config)
-        g_u = nltk_to_gramforge(g)
-        
-        try:
-            tokens = (generate(g_u, depth=config.max_prod_depth, min_depth=config.min_prod_depth) @ "lang").split()
-        except ValueError: continue
+        with resampled_grammar(config) as g:
+            g_u = nltk_to_gramforge(g)
+            
+            try:
+                tokens = (gramforge_generate(g_u, depth=config.max_prod_depth, min_depth=config.min_prod_depth, mode=config.gramforge_algorithm) @ "lang").split()
+            except ValueError: continue
 
-        if random.random() < config.perturbation_rate:
-            tokens = perturb(tokens, config)
+            if random.random() < config.perturbation_rate:
+                try:
+                    tokens = perturb(tokens, config)
+                except ValueError:
+                    continue
+            
+            if len(tokens) > config.max_tokens:
+                continue
 
-        try:
-            meta.cot, meta.parses = make_cot(g, tokens)
-        except (RecursionError, ValueError):
-            continue
+            try:
+                meta.cot, meta.parses = make_cot(g, tokens)
+            except (RecursionError, ValueError):
+                continue
 
-        meta.label = ("unparsable" if not meta.parses else 
-                     "ambiguous"   if len(meta.parses) > 1 else 
-                     "unambiguous")
-        meta.tokens = tokens
-        meta.g = "\n".join(str(p) for p in g.productions())
-        return meta
+            meta.label = ("unparsable" if not meta.parses else 
+                         "ambiguous"   if len(meta.parses) > 1 else 
+                         "unambiguous")
+            meta.tokens = tokens
+            meta.g = "\n".join(str(p) for p in g.productions())
+            return meta
 
 
 class Parsability(Task):
@@ -310,7 +402,7 @@ class Parsability(Task):
             f"(GRAMMAR)\n{g}\n\n"
             f"(STRING)\n{' '.join(tokens)}\n\n"
             f"(QUESTION)\nWhat is the parsability of this string?\n"
-            f"Answer with exactly one word, unambiguous|ambiguous|unparsable"
+            f"The answer is exactly one word: unambiguous, ambiguous, or unparsable."
         )
 
 
@@ -323,13 +415,14 @@ class Parsing(Task):
         while True:
             meta = generate_parse(self.config)
             if meta.label != 'unambiguous': continue
-            meta.cot = meta.cot.split('\n',1)[1]  # Remove first line
+            _, _, tail = meta.cot.partition('\n')
+            if not tail: continue  # Skip if cot has no content after header
+            meta.cot = tail
 
-            tree_str = meta.parses[0] # Get the Lisp-style string
-            #meta.cot = make_tree_cot(meta.parses[0])
+            t = meta.parses[0] # Get the Tree object directly
+
             if random.random() < self.config.tagging_prob:
                 meta.mode = 'tagging'
-                t = Tree.fromstring(tree_str)
                 leaves = []
                 for idx in t.treepositions('leaves'):
                     token = t[idx]
@@ -339,7 +432,8 @@ class Parsing(Task):
                 return Problem(meta, " ".join(leaves))
             else:
                 meta.mode = 'parsing'
-                return Problem(meta, " ".join(tree_str.split()))
+                tree_str = " ".join(str(t).split())
+                return Problem(meta, tree_str)
 
     def prompt(self, meta):
         g, tokens = meta.g, meta.tokens
@@ -353,7 +447,7 @@ class Parsing(Task):
         
         ex = """Given G_ex: S -> NP VP, NP -> 'd' N, N -> 'n', VP -> 'v' and "d n v", correct is (S (NP d (N n)) (VP v))."""
         return (head + 
-            "Return the fully parenthesized parse tree of STRING in Lisp style.\n"
+            "The answer is the fully parenthesized parse tree of STRING in Lisp style.\n"
             f"{ex}")
 
 
@@ -366,100 +460,67 @@ class Parsing(Task):
         return Levenshtein.normalized_similarity(norm(answer), norm(reference))
 
 
+def _edge_str(edge):
+    rhs = [str(s) for s in edge.rhs()]
+    dot = edge.dot()
+    rhs = rhs[:dot] + ['•'] + rhs[dot:]
+    return f"{edge.lhs()}→{' '.join(rhs)}"
+
 def get_valid_next_tokens(grammar, prefix):
     """
-    Given a CFG and a prefix (list of tokens), return:
-    - set of valid next terminals
-    - whether STOP is valid (prefix is a complete sentence)
-    - dict mapping each token to its justification from the chart edge
-    
-    Uses EarleyChartParser to consider ALL possible parse interpretations.
+    Exact next-token oracle for prefix-safe grammars:
+    - valid next terminals
+    - whether STOP is valid
+    - lightweight edge-based justifications
     """
-    from functools import lru_cache
-    
     parser = EarleyChartParser(grammar)
-    
-    @lru_cache(maxsize=None)
-    def first_with_path(symbol, depth=0):
-        """Return dict mapping terminals to derivation paths from symbol (max 2 levels)"""
-        if depth > 2:
-            return {}
-        if isinstance(symbol, str):
-            return {symbol: symbol}
-        result = {}
-        for prod in grammar.productions(lhs=symbol):
-            if not prod.rhs():
-                continue
-            first_sym = prod.rhs()[0]
-            if isinstance(first_sym, str):
-                result[first_sym] = f"{symbol}→{first_sym}"
-            else:
-                for tok, path in first_with_path(first_sym, depth+1).items():
-                    if tok not in result:
-                        # Show one level of derivation instead of →..→
-                        result[tok] = f"{symbol}→{first_sym}→{tok}"
-        return result
-    
-    chart = parser.chart_parse(prefix)
-    
+    nullable, first = _compute_nullable_and_first(grammar)
+
+    try:
+        chart = parser.chart_parse(list(prefix))
+    except ValueError:
+        return set(), False, {}
+
+    n = len(prefix)
     valid_tokens = set()
     justifications = {}
     can_stop = False
-    n = len(prefix)
-    # Use chart.select for efficiency - only look at boundary edges
+
     for edge in chart.select(end=n):
+        edge_txt = _edge_str(edge)
+
         if edge.is_complete():
             if edge.start() == 0 and edge.lhs() == grammar.start():
                 can_stop = True
-                justifications['STOP'] = f"{edge.lhs()}•"
-        else:
-            nextsym = edge.nextsym()
-            if nextsym:
-                # Format edge as "A→α•β" style
-                lhs = edge.lhs()
-                rhs = edge.rhs()
-                dot_pos = edge.dot()
-                before = ' '.join(str(s) for s in rhs[:dot_pos])
-                after = ' '.join(str(s) for s in rhs[dot_pos:])
-                edge_str = f"{lhs}→{before}•{after}" if before else f"{lhs}→•{after}"
-                
-                if isinstance(nextsym, str):
-                    valid_tokens.add(nextsym)
-                    if nextsym not in justifications:
-                        justifications[nextsym] = edge_str
-                else:
-                    for tok, path in first_with_path(nextsym).items():
-                        valid_tokens.add(tok)
-                        if tok not in justifications:
-                            justifications[tok] = f"{edge_str}, {path}"
-    
+                justifications.setdefault("STOP", edge_txt)
+            continue
+
+        remainder = edge.rhs()[edge.dot():]
+        toks, _ = _first_of_sequence(remainder, first, nullable)
+
+        for tok in toks:
+            valid_tokens.add(tok)
+            justifications.setdefault(tok, edge_txt)
+
     return valid_tokens, can_stop, justifications
 
 
 def _build_cot(tokens, can_stop, justifications):
-    """Build CoT string, grouping tokens that share the same edge."""
     parts = []
-    
-    # Handle STOP first
+
     if can_stop and 'STOP' in justifications:
         parts.append(f"{justifications['STOP']}⇒STOP")
-    
-    # Group tokens by their edge (everything before the final →tok)
-    edge_to_tokens = defaultdict(list)
+
+    grouped = defaultdict(list)
     for tok in sorted(tokens):
-        if tok in justifications:
-            j = justifications[tok]
-            # Extract the edge part (before the last →tok)
-            edge_key = j.rsplit('→', 1)[0] if '→' in j else j
-            edge_to_tokens[edge_key].append(tok)
-    
-    # Build parts: group if >3 tokens share same edge, else individual
-    for edge, toks in sorted(edge_to_tokens.items()):
+        grouped[justifications.get(tok, "continuation")].append(tok)
+
+    for reason, toks in sorted(grouped.items()):
         if len(toks) > 3:
-            parts.append(f"{edge}→{{{','.join(toks)}}}")
+            parts.append(f"{reason}⇒{{{','.join(toks)}}}")
         else:
-            parts.extend(f"{justifications[t]}⇒{t}" for t in toks)
-    
+            parts.extend(f"{reason}⇒{tok}" for tok in toks)
+
     return "\n".join(parts) if parts else "continuation"
 
 
@@ -472,54 +533,484 @@ class Continuation(Task):
         
     def generate(self):
         for _ in range(100):
-            g = sample_cfg(self.config)
-            
-            try:
-                sentences = list(islice(nltk_generate(g, depth=self.config.max_depth), 50))
-                if not sentences:
+            with resampled_grammar(self.config, productive_only=True) as g:
+                try:
+                    sentences = list(islice(nltk_generate(g, depth=self.config.max_depth), 50))
+                    if not sentences:
+                        continue
+                    sentence = random.choice(sentences)
+                except (RecursionError, ValueError):
                     continue
-                sentence = random.choice(sentences)
-            except (RecursionError, ValueError):
-                continue
-            
-            if len(sentence) < 2:
-                continue
-            
-            max_prefix = min(len(sentence) - 1, 5)
-            min_prefix = min(2, max_prefix)
-            if min_prefix > max_prefix:
-                continue
-            prefix_len = random.randint(min_prefix, max_prefix)
-            prefix = list(sentence[:prefix_len])
-            
-            try:
-                tokens, can_stop, justifications = get_valid_next_tokens(g, prefix)
-            except Exception:
-                continue
-            
-            if not tokens and not can_stop:
-                continue
-            
-            answer = '|'.join(sorted(tokens))
-            if can_stop:
-                answer = (answer + '|STOP') if answer else 'STOP'
-            
-            cot = _build_cot(tokens, can_stop, justifications)
-            
-            return Problem(
-                edict(g="\n".join(str(p) for p in g.productions()), 
-                      prefix=prefix, depth=len(prefix), cot=cot),
-                answer
-            )
+                
+                if len(sentence) < 2:
+                    continue
+                
+                max_prefix = min(len(sentence) - 1, 5)
+                min_prefix = min(2, max_prefix)
+                if min_prefix > max_prefix:
+                    continue
+                prefix_len = random.randint(min_prefix, max_prefix)
+                prefix = list(sentence[:prefix_len])
+                
+                try:
+                    tokens, can_stop, justifications = get_valid_next_tokens(g, prefix)
+                except Exception:
+                    continue
+                
+                if not tokens and not can_stop:
+                    continue
+                
+                answer = '|'.join(sorted(tokens))
+                if can_stop:
+                    answer = (answer + '|STOP') if answer else 'STOP'
+                
+                cot = _build_cot(tokens, can_stop, justifications)
+                
+                return Problem(
+                    edict(g="\n".join(str(p) for p in g.productions()), 
+                          prefix=prefix, depth=len(prefix), cot=cot),
+                    answer
+                )
         raise ValueError("Failed to generate continuation after 100 attempts")
     
     def prompt(self, meta):
         pfx = ' '.join(meta.prefix) if meta.prefix else '<empty>'
         return (f"List all valid next tokens for this prefix. "
-                f"Answer sorted alphabetically separated by |, with STOP at the end if complete.\n"
+                f"The answer is the list of valid tokens sorted alphabetically and separated by |, with STOP at the end if the prefix forms a complete string.\n"
                 f"(GRAMMAR)\n{meta.g}\n(PREFIX)\n{pfx}")
 
     def score_answer(self, answer, entry):
-        if not answer: return 0.0
-        ref, ans = set(entry['answer'].split('|')), set(answer.strip().split('|'))
-        return len(ref & ans) / max(len(ref | ans), 1)
+        prepr = lambda x: {e.strip() for e in x.split('|')}
+        try:
+            ref, ans = prepr(entry['answer']), prepr(answer)
+            inter = len(ref & ans)
+            # Jaccard
+            return inter / max(len(ref | ans), 1)
+        except Exception:  # also: bare except catches KeyboardInterrupt
+            return 0
+
+
+# --- Error Detection Task ---
+
+def _span_hits(seq, span):
+    k = len(span)
+    return [i for i in range(len(seq) - k + 1) if seq[i:i+k] == span]
+
+def min_context(tokens, idx):
+    for start in range(idx, -1, -1):
+        if len(_span_hits(tokens, tokens[start:idx+1])) == 1:
+            return ' '.join([*tokens[start:idx], f'>>{tokens[idx]}<<'])
+    return ' '.join([*tokens[:idx], f'>>{tokens[idx]}<<'])
+
+def grammar_terminals(g):
+    return sorted({s for p in g.productions() for s in p.rhs() if isinstance(s, str)})
+
+def prefix_has_completion(g, prefix):
+    valid, can_stop, _ = get_valid_next_tokens(g, prefix)
+    return can_stop or bool(valid)
+
+def first_error_marked(g, tokens):
+    lines = []
+    for i, tok in enumerate(tokens):
+        prev_valid, _, _ = get_valid_next_tokens(g, tokens[:i])
+
+        if not prefix_has_completion(g, tokens[:i+1]):
+            lines.append(f"{tok} ∉ {{{','.join(sorted(prev_valid)[:8])}}}")
+            ans = min_context(tokens, i)
+            lines.append(f"Answer: {ans}")
+            return ans, i, '\n'.join(lines)
+
+        lines.append(f"{tok} ✓")
+
+    _, can_stop, _ = get_valid_next_tokens(g, tokens)
+    return ('OK' if can_stop else 'INCOMPLETE'), -1, '\n'.join(lines)
+
+def corrupt_once(g, tokens):
+    terms = grammar_terminals(g)
+    if len(terms) < 2:
+        raise ValueError("Need ≥2 terminals")
+    for _ in range(80):
+        op = random.choices(['substitute', 'insert', 'delete'], weights=[6, 2, 2])[0]
+        if op == 'delete' and len(tokens) < 3:
+            continue
+        if op == 'delete':
+            pos = random.randrange(len(tokens))
+            out = tokens[:pos] + tokens[pos+1:]
+        elif op == 'insert':
+            pos = random.randrange(len(tokens) + 1)
+            valid, _, _ = get_valid_next_tokens(g, tokens[:pos])
+            bad = [t for t in terms if t not in valid]
+            if not bad:
+                continue
+            out = tokens[:pos] + [random.choice(bad)] + tokens[pos:]
+        else:  # substitute
+            pos = random.randrange(len(tokens))
+            valid, _, _ = get_valid_next_tokens(g, tokens[:pos])
+            # prefer terminals valid elsewhere but invalid here
+            bad = [t for t in terms if t not in valid and t != tokens[pos]]
+            if not bad:
+                continue
+            out = list(tokens)
+            out[pos] = random.choice(bad)
+
+        answer, idx, cot = first_error_marked(g, out)
+        if answer not in ('OK', 'INCOMPLETE'):
+            return out, answer, idx, cot
+    raise ValueError("Failed to corrupt")
+
+def get_marked_index(toks):
+    for i, t in enumerate(toks):
+        if t.startswith('>>') and t.endswith('<<'):
+            return i
+    return -1
+
+def _norm_marked(s):
+    s = re.sub(r'>>\s+', '>>', str(s).strip())
+    s = re.sub(r'\s+<<', '<<', s)
+    return re.sub(r'\s+', ' ', s)
+
+class LocateError(Task):
+    def __init__(self, config: GrammarConfig = GrammarConfig()):
+        config.perturbation_rate = 0.0
+        super().__init__(config=config)
+
+    def generate(self):
+        for _ in range(100):
+            with resampled_grammar(self.config, productive_only=True) as g:
+                if len(grammar_terminals(g)) < 2:
+                    continue
+                try:
+                    toks = (gramforge_generate(
+                        nltk_to_gramforge(g),
+                        depth=self.config.max_prod_depth,
+                        min_depth=self.config.min_prod_depth,
+                        mode=self.config.gramforge_algorithm
+                    ) @ "lang").split()
+                except ValueError:
+                    continue
+                if len(toks) < 3:
+                    continue
+
+                roll = random.random()
+                if roll < 0.15:
+                    ans, idx, cot = first_error_marked(g, toks)
+                    if ans != 'OK':
+                        continue
+                    out = toks
+                elif roll < 0.30:
+                    out = toks[:random.randint(1, len(toks) - 1)]
+                    ans, idx, cot = first_error_marked(g, out)
+                    if ans != 'INCOMPLETE':
+                        continue
+                else:
+                    try:
+                        out, ans, idx, cot = corrupt_once(g, toks)
+                    except ValueError:
+                        continue
+
+                return Problem(
+                    edict(g="\n".join(str(p) for p in g.productions()),
+                          tokens=out, error_index=idx, cot=cot),
+                    ans
+                )
+        raise ValueError("Failed to generate locate-error task")
+
+    def prompt(self, meta):
+        return (
+            f"(GRAMMAR)\n{meta.g}\n\n"
+            f"(STRING)\n{' '.join(meta.tokens)}\n\n"
+            f"The answer is the shortest contiguous span from STRING that ends at the first invalid token "
+            f"and occurs only once in STRING.\n"
+            f"Mark the invalid token as >>token<<.\n"
+            f"If the token alone is enough, answer just >>token<<.\n"
+            f"If STRING is fully grammatical, answer OK.\n"
+            f"If all shown tokens are valid but more are needed, answer INCOMPLETE.\n"
+            f"One line only."
+        )
+
+    def score_answer(self, answer, entry):
+            if not answer: return 0.0
+            a, r = _norm_marked(answer), _norm_marked(entry['answer'])
+            if a == r: return 1.0
+            if {'OK', 'INCOMPLETE'} & {a, r}: return 0.0
+
+            a_toks = a.split()
+            marked = [t.startswith('>>') and t.endswith('<<') for t in a_toks]
+            if marked.count(True) != 1 or not marked[-1]:
+                return 0.0
+
+            span = [t.replace('>>', '').replace('<<', '') for t in a_toks]
+            hits = _span_hits(entry.metadata['tokens'], span)
+            
+            if entry.metadata['error_index'] not in {h + len(span) - 1 for h in hits}:
+                return 0.0
+
+            # Strict penalty: the span is correct but occurs multiple times in the text
+            if len(hits) > 1:
+                return 0.5 
+
+            # Unambiguous location: minimum 0.9, scales to 1.0 based on how concise the prefix is
+            efficiency = len(r.split()) / len(a_toks)
+            return min(1.0, max(0.9, efficiency))
+
+
+# --- Constrained Generation ---
+
+
+def _compute_nullable_and_first(grammar):
+    """Exact nullable + FIRST sets via fixed-point iteration (no depth cutoff)."""
+    nts = {p.lhs() for p in grammar.productions()}
+
+    nullable = set()
+    changed = True
+    while changed:
+        changed = False
+        for p in grammar.productions():
+            rhs = p.rhs()
+            if not rhs or all(
+                isinstance(s, Nonterminal) and s in nullable for s in rhs
+            ):
+                if p.lhs() not in nullable:
+                    nullable.add(p.lhs())
+                    changed = True
+
+    first = {nt: set() for nt in nts}
+    changed = True
+    while changed:
+        changed = False
+        for p in grammar.productions():
+            add, _ = _first_of_sequence(p.rhs(), first, nullable)
+            before = len(first[p.lhs()])
+            first[p.lhs()].update(add)
+            if len(first[p.lhs()]) != before:
+                changed = True
+
+    return nullable, first
+
+
+def _first_of_sequence(seq, first, nullable):
+    """FIRST terminals reachable from a symbol sequence + whether it's all-nullable."""
+    out = set()
+    all_nullable = True
+    for sym in seq:
+        if isinstance(sym, str):
+            out.add(sym)
+            all_nullable = False
+            break
+        out.update(first.get(sym, set()))
+        if sym not in nullable:
+            all_nullable = False
+            break
+    return out, all_nullable
+
+
+def _exact_next_tokens_and_stop(grammar, prefix, parser=None, nullable=None, first=None):
+    """
+    Sound next-token discovery via Earley boundary edges + exact FIRST/nullable.
+    Returns (valid_tokens: set[str], can_stop: bool).
+    """
+    parser = parser or EarleyChartParser(grammar)
+    if nullable is None or first is None:
+        nullable, first = _compute_nullable_and_first(grammar)
+
+    try:
+        chart = parser.chart_parse(list(prefix))
+    except ValueError:
+        return set(), False
+
+    n = len(prefix)
+    valid_tokens = set()
+    can_stop = False
+
+    for edge in chart.select(end=n):
+        if edge.is_complete():
+            if edge.start() == 0 and edge.lhs() == grammar.start():
+                can_stop = True
+            continue
+        remainder = edge.rhs()[edge.dot():]
+        toks, _ = _first_of_sequence(remainder, first, nullable)
+        valid_tokens.update(toks)
+
+    return valid_tokens, can_stop
+
+
+def exact_completions(grammar, prefix, k, max_states=1024):
+    """
+    All distinct k-length suffixes making prefix+suffix a complete sentence.
+    Returns [] (safe skip) if state space overflows — never produces wrong results.
+    """
+    prefix = list(prefix)
+    parser = EarleyChartParser(grammar)
+    nullable, first = _compute_nullable_and_first(grammar)
+
+    frontier = {()}
+    for _ in range(k):
+        nxt = set()
+        for suf in frontier:
+            toks, _ = _exact_next_tokens_and_stop(
+                grammar, prefix + list(suf), parser, nullable, first
+            )
+            for tok in toks:
+                nxt.add(suf + (tok,))
+        if not nxt or len(nxt) > max_states:
+            return []
+        frontier = nxt
+
+    return [
+        list(suf)
+        for suf in sorted(frontier)
+        if _exact_next_tokens_and_stop(
+            grammar, prefix + list(suf), parser, nullable, first
+        )[1]
+    ]
+
+def sample_blanking(target, cands, min_blanks, max_blanks, tries=20):
+    """Sample a random valid hint set; falls back to greedy minimal."""
+    k = len(target)
+    max_blanks = min(max_blanks, k - 1)
+    if min_blanks > max_blanks:
+        return None
+
+    unique = lambda hints: sum(
+        all(c[i] == t for i, t in hints.items()) for c in cands
+    ) == 1
+
+    for _ in range(tries):
+        n = random.randint(min_blanks, max_blanks)
+        blanks = set(random.sample(range(k), n))
+        hints = {i: target[i] for i in range(k) if i not in blanks}
+        if unique(hints):
+            return list(target), hints
+
+    hinted = set(range(k))
+    for pos in random.sample(range(k), k):
+        if k - len(hinted) >= max_blanks:
+            break
+        trial = hinted - {pos}
+        if unique({i: target[i] for i in trial}):
+            hinted = trial
+    if min_blanks <= k - len(hinted) <= max_blanks:
+        return list(target), {i: target[i] for i in sorted(hinted)}
+    return None
+
+def _format_template(k, hints):
+    return " ".join(hints.get(i, "___") for i in range(k))
+
+class ConstrainedContinuation(Task):
+    """Fill-in-the-blanks grammar continuation.
+
+    Given a grammar, a prefix, and a mostly-revealed continuation
+    template, find the unique completion that forms a grammatical
+    sentence.  Revealed tokens are fixed; ___ marks blanks to fill.
+    """
+
+    def __init__(
+        self,
+        config: GrammarConfig = GrammarConfig()
+    ):
+        config.prob_resampling_grammar=0.0 # needed for speed
+        config.min_k = max(3, config.min_k)
+        super().__init__(config=config)
+        self.balancing_key_ratio = 0.25
+
+    def generate(self):
+        for _ in range(200):
+            with resampled_grammar(self.config, productive_only=True) as g:
+                try:
+                    sent = (gramforge_generate(
+                        nltk_to_gramforge(g),
+                        depth=self.config.max_prod_depth,
+                        min_depth=self.config.min_prod_depth,
+                        mode=self.config.gramforge_algorithm,
+                    ) @ "lang").split()
+                except (ValueError, RecursionError):
+                    continue
+                if len(sent) < self.config.min_k + 1:
+                    continue
+
+                slots = [(plen, k)
+                        for plen in range(1, min(5, len(sent) - self.config.min_k) + 1)
+                        for k in range(self.config.min_k, min(self.config.max_k, len(sent) - plen) + 1)]
+                random.shuffle(slots)
+
+                for plen, k in slots:
+                    prefix = sent[:plen]
+                    cands = exact_completions(g, prefix, k)
+                    if not (self.config.min_options <= len(cands) <= self.config.max_options):
+                        continue
+
+                    target = list(random.choice(cands))
+                    result = sample_blanking(target, cands, self.config.min_blanks, self.config.max_blanks)
+                    if result is None:
+                        continue
+                    target, hints = result
+                    blanks = sorted(set(range(k)) - set(hints.keys()))
+
+                    return Problem(
+                        edict(
+                            g="\n".join(str(p) for p in g.productions()),
+                            k=k,
+                            prefix=prefix,
+                            hints={str(i): tok for i, tok in hints.items()},
+                            template=_format_template(k, hints),
+                            blanks=blanks,
+                            n_blanks=len(blanks),
+                            n_hints=len(hints),
+                            n_options=len(cands),
+                        ),
+                        " ".join(target),
+                    )
+
+        raise ValueError("Failed to generate constrained continuation after 200 attempts")
+
+    def prompt(self, meta):
+        pfx = " ".join(meta.prefix) if meta.prefix else "<empty>"
+        nb = meta.n_blanks
+        bw = "blank" if nb == 1 else "blanks"
+        return (
+            f"(GRAMMAR)\n{meta.g}\n\n"
+            f"(PREFIX)\n{pfx}\n\n"
+            f"(TEMPLATE)\n{meta.template}\n\n"
+            f"Fill in the {nb} {bw} (___) to form a grammatical continuation "
+            f"of PREFIX using exactly {meta.k} tokens.\n"
+            f"Fixed tokens must remain in place. "
+            f"The answer is all {meta.k} tokens space-separated."
+        )
+
+    def score_answer(self, answer, entry):
+        if not answer:
+            return 0.0
+
+        ans = answer.strip().split()
+        ref = entry["answer"].split()
+
+        if ans == ref:
+            return 1.0
+        if len(ans) != len(ref):
+            return 0.0
+
+        # Revealed positions are hard constraints stated in the prompt
+        hints = entry.metadata["hints"]
+        for i, tok in hints.items():
+            idx = int(i)
+            if idx >= len(ans) or ans[idx] != tok:
+                return 0.0
+
+        # Partial credit based on blank accuracy
+        blanks = [int(b) for b in entry.metadata["blanks"]]
+        if not blanks:
+            return 0.0
+        blank_correct = sum(1 for b in blanks if ans[b] == ref[b]) / len(blanks)
+
+        # Grammaticality bonus
+        try:
+            g = CFG.fromstring(entry.metadata["g"])
+            _, can_stop = _exact_next_tokens_and_stop(
+                g, list(entry.metadata["prefix"]) + ans
+            )
+        except Exception:
+            can_stop = False
+
+        if can_stop:
+            return 0.3 + 0.6 * blank_correct   # 0.3 – 0.9
+        return 0.15 * blank_correct             # 0.0 – 0.15

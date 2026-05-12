@@ -82,7 +82,7 @@ def get_environments_workspace_base_environments(page_size: Optional[_builtins.i
                                                  provider_config: Optional[Union['GetEnvironmentsWorkspaceBaseEnvironmentsProviderConfigArgs', 'GetEnvironmentsWorkspaceBaseEnvironmentsProviderConfigArgsDict']] = None,
                                                  opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetEnvironmentsWorkspaceBaseEnvironmentsResult:
     """
-    [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
+    [![GA](https://img.shields.io/badge/Release_Stage-GA-green)](https://docs.databricks.com/aws/en/release-notes/release-types)
 
     This data source retrieves the list of all Workspace Base Environments in the workspace.
     The list can be accessed via the data object's `workspace_base_environments` field.
@@ -113,11 +113,11 @@ def get_environments_workspace_base_environments(page_size: Optional[_builtins.i
         page_size=pulumi.get(__ret__, 'page_size'),
         provider_config=pulumi.get(__ret__, 'provider_config'),
         workspace_base_environments=pulumi.get(__ret__, 'workspace_base_environments'))
-def get_environments_workspace_base_environments_output(page_size: Optional[pulumi.Input[Optional[_builtins.int]]] = None,
-                                                        provider_config: Optional[pulumi.Input[Optional[Union['GetEnvironmentsWorkspaceBaseEnvironmentsProviderConfigArgs', 'GetEnvironmentsWorkspaceBaseEnvironmentsProviderConfigArgsDict']]]] = None,
+def get_environments_workspace_base_environments_output(page_size: pulumi.Input[Optional[Optional[_builtins.int]]] = None,
+                                                        provider_config: pulumi.Input[Optional[Optional[Union['GetEnvironmentsWorkspaceBaseEnvironmentsProviderConfigArgs', 'GetEnvironmentsWorkspaceBaseEnvironmentsProviderConfigArgsDict']]]] = None,
                                                         opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetEnvironmentsWorkspaceBaseEnvironmentsResult]:
     """
-    [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
+    [![GA](https://img.shields.io/badge/Release_Stage-GA-green)](https://docs.databricks.com/aws/en/release-notes/release-types)
 
     This data source retrieves the list of all Workspace Base Environments in the workspace.
     The list can be accessed via the data object's `workspace_base_environments` field.

@@ -12,6 +12,8 @@ from types import MappingProxyType
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 import requests
+import requests.adapters
+import urllib3
 
 from singer_sdk.helpers._compat import SingerSDKDeprecationWarning, deprecated
 from singer_sdk.helpers._util import utc_now
@@ -98,10 +100,7 @@ def _get_stream_param(*args: t.Any, **kwargs: t.Any) -> _HTTPStream | None:
 
 def _warn_stream_param_deprecation() -> None:
     warnings.warn(
-        (
-            "The `stream` parameter is deprecated and will be removed in a "
-            "future version"
-        ),
+        "The `stream` parameter will be removed in v0.58.",
         SingerSDKDeprecationWarning,
         stacklevel=2,
     )
@@ -139,10 +138,7 @@ class APIAuthenticatorBase:
 
     @property
     @deprecated(
-        (
-            "The `tap_name` property is deprecated and will be removed in a "
-            "future version"
-        ),
+        "The `tap_name` property will be removed in v0.58.",
         category=SingerSDKDeprecationWarning,
     )
     def tap_name(self) -> str:
@@ -156,7 +152,7 @@ class APIAuthenticatorBase:
 
     @property
     @deprecated(
-        "The `config` property is deprecated and will be removed in a future version",
+        "The `config` property will be removed in v0.58. Use existing authenticator properties or override the `__init__` method.",  # noqa: E501
         category=SingerSDKDeprecationWarning,
     )
     def config(self) -> t.Mapping[str, t.Any]:
@@ -230,7 +226,7 @@ class SimpleAuthenticator(APIAuthenticatorBase):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore",
-                    message=r"The `stream` parameter is deprecated.*",
+                    message=r"The `stream` parameter will be removed.*",
                     category=SingerSDKDeprecationWarning,
                 )
                 super().__init__(stream=stream)
@@ -277,7 +273,7 @@ class APIKeyAuthenticator(APIAuthenticatorBase):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore",
-                    message=r"The `stream` parameter is deprecated.*",
+                    message=r"The `stream` parameter will be removed.*",
                     category=SingerSDKDeprecationWarning,
                 )
                 super().__init__(stream=stream)
@@ -301,10 +297,7 @@ class APIKeyAuthenticator(APIAuthenticatorBase):
 
     @classmethod
     @deprecated(
-        (
-            "The `create_for_stream` method is deprecated and will be removed in a "
-            "future version"
-        ),
+        "The `create_for_stream` method will be removed in v0.58. Instantiate the authenticator directly instead.",  # noqa: E501
         category=SingerSDKDeprecationWarning,
     )
     def create_for_stream(
@@ -350,7 +343,7 @@ class BearerTokenAuthenticator(APIAuthenticatorBase):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore",
-                    message=r"The `stream` parameter is deprecated.*",
+                    message=r"The `stream` parameter will be removed.*",
                     category=SingerSDKDeprecationWarning,
                 )
                 super().__init__(stream=stream)
@@ -365,10 +358,7 @@ class BearerTokenAuthenticator(APIAuthenticatorBase):
 
     @classmethod
     @deprecated(
-        (
-            "The `create_for_stream` method is deprecated and will be removed in a "
-            "future version"
-        ),
+        "The `create_for_stream` method will be removed in v0.58. Instantiate the authenticator directly instead.",  # noqa: E501
         category=SingerSDKDeprecationWarning,
     )
     def create_for_stream(
@@ -389,16 +379,8 @@ class BearerTokenAuthenticator(APIAuthenticatorBase):
         return cls(stream=stream, token=token)
 
 
-@deprecated(
-    "BasicAuthenticator is deprecated and will be removed by 2026-01-01. "
-    "Use `requests.auth.HTTPBasicAuth` instead.",
-    category=SingerSDKDeprecationWarning,
-)
 class BasicAuthenticator(APIAuthenticatorBase):
     """Implements basic authentication for REST Streams.
-
-    .. deprecated:: 0.36.0
-       Use :class:`requests.auth.HTTPBasicAuth` instead.
 
     This Authenticator implements basic authentication by concatenating a
     username and password then base64 encoding the string. The resulting
@@ -425,7 +407,7 @@ class BasicAuthenticator(APIAuthenticatorBase):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore",
-                    message=r"The `stream` parameter is deprecated.*",
+                    message=r"The `stream` parameter will be removed.*",
                     category=SingerSDKDeprecationWarning,
                 )
                 super().__init__(stream=stream)
@@ -442,18 +424,15 @@ class BasicAuthenticator(APIAuthenticatorBase):
 
     @classmethod
     @deprecated(
-        (
-            "The `create_for_stream` method is deprecated and will be removed in a "
-            "future version"
-        ),
+        "The `create_for_stream` method will be removed in v0.58. Instantiate the authenticator directly instead.",  # noqa: E501
         category=SingerSDKDeprecationWarning,
     )
     def create_for_stream(
-        cls: type[BasicAuthenticator],  # ty: ignore[deprecated]
+        cls: type[BasicAuthenticator],
         stream: _HTTPStream,
         username: str,
         password: str,
-    ) -> BasicAuthenticator:  # ty: ignore[deprecated]
+    ) -> BasicAuthenticator:
         """Create an Authenticator object specific to the Stream class.
 
         Args:
@@ -500,7 +479,7 @@ class OAuthAuthenticator(APIAuthenticatorBase):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore",
-                    message=r"The `stream` parameter is deprecated.*",
+                    message=r"The `stream` parameter will be removed.*",
                     category=SingerSDKDeprecationWarning,
                 )
                 super().__init__(stream=stream)
@@ -521,6 +500,16 @@ class OAuthAuthenticator(APIAuthenticatorBase):
         self.refresh_token: str | None = None
         self.last_refreshed: datetime.datetime | None = None
         self.expires_in: int | None = None
+        self._session = requests.Session()
+        self._session.mount(
+            "https://",
+            requests.adapters.HTTPAdapter(
+                max_retries=urllib3.Retry(
+                    backoff_factor=0.1,
+                    allowed_methods=["POST"],
+                )
+            ),
+        )
 
     def authenticate_request(
         self,
@@ -639,7 +628,7 @@ class OAuthAuthenticator(APIAuthenticatorBase):
         self.logger.info("Requesting new access token")
         request_time = utc_now()
         auth_request_payload = self.oauth_request_payload
-        token_response = requests.post(
+        token_response = self._session.post(
             self.auth_endpoint,
             headers=self._oauth_headers,
             data=auth_request_payload,
@@ -648,11 +637,16 @@ class OAuthAuthenticator(APIAuthenticatorBase):
         try:
             token_response.raise_for_status()
         except requests.HTTPError as ex:
-            self.handle_error(
-                content=ex.response.text,
-                status_code=ex.response.status_code,
+            text, status_code = (
+                (ex.response.text, ex.response.status_code)
+                if ex.response is not None
+                else ("Error", None)
             )
-            msg = f"Failed to update access token (status={ex.response.status_code})"
+            self.handle_error(
+                content=text,
+                status_code=status_code,
+            )
+            msg = f"Failed to update access token (status={status_code or 'Unknown'})"
             raise RuntimeError(msg) from ex
 
         self.logger.debug("OAuth authorization attempt was successful")
@@ -669,7 +663,7 @@ class OAuthAuthenticator(APIAuthenticatorBase):
             )
         self.last_refreshed = request_time
 
-    def handle_error(self, *, content: str, status_code: int) -> None:
+    def handle_error(self, *, content: str, status_code: int | None) -> None:
         """Handle an OAuth error.
 
         Args:
@@ -679,8 +673,8 @@ class OAuthAuthenticator(APIAuthenticatorBase):
         limit = 1000
         snippet = f"{content[:limit]}..." if len(content) > limit else content
         self.logger.error(
-            "Failed OAuth login with status code %d, response was '%s'",
-            status_code,
+            "Failed OAuth login with status code %s, response was '%s'",
+            status_code or "Unknown",
             snippet,
         )
 
@@ -701,7 +695,7 @@ class OAuthJWTAuthenticator(OAuthAuthenticator):
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore",
-                    message=r"The `stream` parameter is deprecated.*",
+                    message=r"The `stream` parameter will be removed.*",
                     category=SingerSDKDeprecationWarning,
                 )
                 super().__init__(stream=stream)
@@ -769,15 +763,21 @@ class OAuthJWTAuthenticator(OAuthAuthenticator):
             msg = "Missing 'private_key' property for OAuth payload."
             raise ValueError(msg)
 
-        private_key: bytes | t.Any = bytes(self.private_key, "UTF-8")
+        private_key_bytes = bytes(self.private_key, "UTF-8")
         if self.private_key_passphrase:
             passphrase = bytes(self.private_key_passphrase, "UTF-8")
-            private_key = serialization.load_pem_private_key(
-                private_key,
+            pkey = serialization.load_pem_private_key(
+                private_key_bytes,
                 password=passphrase,
                 backend=default_backend(),
             )
-        private_key_string: str | t.Any = private_key.decode("UTF-8")  # ty:ignore[unresolved-attribute]
+            private_key_bytes = pkey.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+
+        private_key_string: str | t.Any = private_key_bytes.decode("UTF-8")
         return {
             "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
             "assertion": jwt.encode(

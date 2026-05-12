@@ -5,7 +5,7 @@ import inspect
 import os
 import re
 import typing
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Type, Union
 
 import click
 import yaml
@@ -636,6 +636,8 @@ class MarkdownGenerator:
             for param in options:
                 if param["name"] in CLI_OPTIONS_TO_SKIP:
                     continue
+                if param.get("hidden"):
+                    continue
 
                 name = "/".join(param["opts"] + param.get("secondary_opts", []))
                 help_str = param.get("help", None)
@@ -672,12 +674,16 @@ class MarkdownGenerator:
         md += _escape_mdx_content(strip_sphinx_docstring(c.__doc__)) + "\n"
 
         signature = inspect.signature(c)
+        hidden_args: Set[str] = getattr(c, "__hidden_args__", set())
         if len(signature.parameters) > 0:
             # TODO: add (optional) tag or `= None`.
             md += "\n**Arguments**\n\n"
             for name, param in signature.parameters.items():
                 # Skip private arguments.
                 if name.startswith("_"):
+                    continue
+                # Skip args explicitly hidden via @sdk_command(hidden_args=...).
+                if name in hidden_args:
                     continue
 
                 assert (

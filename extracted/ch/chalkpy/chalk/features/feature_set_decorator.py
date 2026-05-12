@@ -160,10 +160,14 @@ def _merge_auxiliary_classes_into(
     This runs before `_process_class` so the target's normal pipeline picks up
     the merged annotations as if they had been declared inline.
     """
-    target_annotations = target.__dict__.get("__annotations__")
-    if target_annotations is None:
-        target_annotations = {}
-        target.__annotations__ = target_annotations
+    if HAS_PEP_649:
+        # Triggers __annotate__ and caches the result back into target.__dict__.
+        target_annotations = target.__annotations__
+    else:
+        target_annotations = target.__dict__.get("__annotations__")
+        if target_annotations is None:
+            target_annotations = {}
+            target.__annotations__ = target_annotations
 
     origins: Dict[str, _AuxiliaryFieldOrigin] = {}
     for aux in auxiliaries:
@@ -179,7 +183,7 @@ def _merge_auxiliary_classes_into(
             feature_class_ast=aux_class_ast,
             error_builder=aux_error_builder,
         )
-        aux_annotations = aux.__dict__.get("__annotations__", {})
+        aux_annotations = aux.__annotations__ if HAS_PEP_649 else aux.__dict__.get("__annotations__", {})
         for attr_name, annotation in aux_annotations.items():
             if attr_name in target_annotations:
                 raise ValueError(
@@ -223,7 +227,11 @@ def _apply_auxiliary_origins(
             continue
         seen_aux_classes.add(id(origin.aux_class))
         # For each unique auxiliary class, mirror every wrapper for *its* fields.
-        aux_fields = origin.aux_class.__dict__.get("__annotations__", {})
+        aux_fields = (
+            origin.aux_class.__annotations__
+            if HAS_PEP_649
+            else origin.aux_class.__dict__.get("__annotations__", {})
+        )
         for aux_attr in aux_fields:
             wrapper = getattr(target, aux_attr, None)
             if wrapper is not None:
@@ -1256,14 +1264,34 @@ def _process_class(
                         additional_inits.append(alias)
                         alias_from_to[get_name_with_duration(name_or_fqn=name, duration=bucket_s)] = alias
 
-                # Set up the root feature with window_durations for all buckets
+                # Build a per-version root_feat for every enumerated version, mirroring
+                # the per-bucket version_reference construction above. Without this, the
+                # version-expansion pass below (~line 1505) only sees `reference={}` on
+                # the root and never emits a `name@N` stem feature for non-default
+                # versions. That breaks `chalk aggregate backfill --feature foo@2`,
+                # which walks `mat_agg_service.get_window_materializations_for_feature_names`
+                # → stem fqn → `windowed_pseudo_features` iteration; the per-bucket
+                # pseudofeatures are emitted per-version (above), but with no stem they're
+                # unreachable through the standard backfill lookup path.
+                root_version_reference: dict[int, Feature | Windowed] = {}
+                for ver, v_wind in windowed_versions.items():
+                    ver_root = v_wind._to_feature(bucket=None)
+                    ver_root.window_durations = tuple(sorted(v_wind.buckets_seconds))
+                    # Match the per-bucket pattern: clear `name` so version expansion
+                    # below assigns it via name_for_version (`base_name` for v1,
+                    # `base_name@N` for non-default versions). _to_feature always
+                    # sets name, so no guard needed.
+                    del ver_root.name
+                    root_version_reference[ver] = ver_root
+
+                # Set up the root feature with window_durations across all buckets.
                 root_feat = default_wind._to_feature(bucket=None)
                 root_feat.window_durations = tuple(sorted(all_bucket_seconds))
                 root_feat.version = VersionInfo(
                     version=default_ver,
                     maximum=max_ver,
                     default=default_ver,
-                    reference={},
+                    reference=root_version_reference,
                     explicitly_enumerated=True,
                     base_name=name,
                 )

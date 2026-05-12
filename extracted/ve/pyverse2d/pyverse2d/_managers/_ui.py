@@ -6,20 +6,24 @@ from ..abc import Manager
 
 from ._context import ContextManager
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
     from ..abc import Widget
 
 # ======================================== GESTIONNAIRE ========================================
 class UiManager(Manager):
-    """Gestionnaire de l'ui"""
+    """Gestionnaire de l'ui
+
+    Args:
+        context_manager: ``Manager`` gérant le contexte d'initialisation
+    """
     __slots__ = (
         "_ctx",
         "_hovered", "_focused",
     )
 
-    _ID: str = "ui"
+    _ID: ClassVar[str] = "ui"
 
     def __init__(self, context_manager: ContextManager):
         # Contexte de managers

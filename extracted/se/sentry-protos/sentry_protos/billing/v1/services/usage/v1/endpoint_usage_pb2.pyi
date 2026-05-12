@@ -108,6 +108,7 @@ class GetUsageResponse(google.protobuf.message.Message):
     DAYS_FIELD_NUMBER: builtins.int
     SEAT_DAYS_FIELD_NUMBER: builtins.int
     SEATS_FIELD_NUMBER: builtins.int
+    LAST_USAGE_TS_FIELD_NUMBER: builtins.int
     @property
     def days(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___DailyUsage]:
         """Usage broken down by day, each containing per-category usage."""
@@ -118,14 +119,25 @@ class GetUsageResponse(google.protobuf.message.Message):
     def seats(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___CategorySeatUsage]:
         """DEPRECATED: use seat_days"""
 
+    @property
+    def last_usage_ts(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """The latest timestamp of usage data included in this response (inclusive
+        — there is at least one row at exactly this timestamp). Callers persist
+        this as the contract's watermark; subsequent queries should resume
+        strictly after this timestamp to avoid double-counting the boundary.
+        """
+
     def __init__(
         self,
         *,
         days: collections.abc.Iterable[global___DailyUsage] | None = ...,
         seat_days: collections.abc.Iterable[global___DailySeatUsage] | None = ...,
         seats: collections.abc.Iterable[global___CategorySeatUsage] | None = ...,
+        last_usage_ts: google.protobuf.timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["days", b"days", "seat_days", b"seat_days", "seats", b"seats"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_last_usage_ts", b"_last_usage_ts", "last_usage_ts", b"last_usage_ts"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_last_usage_ts", b"_last_usage_ts", "days", b"days", "last_usage_ts", b"last_usage_ts", "seat_days", b"seat_days", "seats", b"seats"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_last_usage_ts", b"_last_usage_ts"]) -> typing.Literal["last_usage_ts"] | None: ...
 
 global___GetUsageResponse = GetUsageResponse
 

@@ -1,1 +1,0 @@
-(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[8295],{10538:(_,n,u)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/login",function(){return u(46730)}])}},_=>{_.O(0,[636,6593,8792],()=>_(_.s=10538)),_N_E=_.O()}]);

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import collections
 import concurrent.futures
 import contextlib
 import dataclasses
@@ -159,6 +160,37 @@ class UnloadedStorageFileResultHandle(ResultHandle):
 
         chalk_logger.info(f"Loading table from {self.uri}")
         return pl.read_parquet(source=self.uri).to_arrow()
+
+
+def _align_table_to_expected_schema(tbl: pa.Table, expected_output_schema: pa.Schema) -> list[pa.Array]:
+    """Project tbl onto expected_output_schema.
+
+    Falls back to case-insensitive name matching for Snowflake's uppercase-folded identifiers; missing or ambiguously-cased columns become nulls.
+    """
+    exact_names = set(tbl.schema.names)
+    ci_groups: dict[str, list[str]] = collections.defaultdict(list)
+    for name in tbl.schema.names:
+        ci_groups[name.lower()].append(name)
+
+    def resolve(name: str) -> str | None:
+        if name in exact_names:
+            return name
+        matches = ci_groups.get(name.lower(), [])
+        return matches[0] if len(matches) == 1 else None
+
+    arrays: list[pa.Array] = []
+    for field in expected_output_schema:
+        actual_name = resolve(field.name)
+        if actual_name is None:
+            arrays.append(pa.nulls(len(tbl), field.type))
+            continue
+        col = tbl.column(actual_name)
+        if col.type != field.type:
+            col = pc.cast(col, field.type)
+        if isinstance(col, pa.ChunkedArray):
+            col = col.combine_chunks()
+        arrays.append(col)
+    return arrays
 
 
 _SNOWFLAKE_ACCOUNT_ID_NAME = "SNOWFLAKE_ACCOUNT_ID"
@@ -701,7 +733,6 @@ class SnowflakeSourceImpl(BaseSQLSource):
         query_execution_parameters: QueryExecutionParameters,
     ) -> typing.Iterable[pa.RecordBatch]:
         """Execute query efficiently for Snowflake and return raw PyArrow RecordBatches."""
-        import pyarrow.compute as pc
         import snowflake.connector
         from sqlalchemy.sql import Select
 
@@ -785,21 +816,7 @@ class SnowflakeSourceImpl(BaseSQLSource):
                 if len(tbl) == 0:
                     continue
 
-                # Map columns to expected schema
-                arrays: list[pa.Array] = []
-                for field in expected_output_schema:
-                    if field.name in tbl.schema.names:
-                        col = tbl.column(field.name)
-                        # Cast to expected type if needed
-                        if col.type != field.type:
-                            col = pc.cast(col, field.type)
-                        if isinstance(col, pa.ChunkedArray):
-                            col = col.combine_chunks()
-                        arrays.append(col)
-                    else:
-                        # Column not found, create null array
-                        arrays.append(pa.nulls(len(tbl), field.type))
-
+                arrays = _align_table_to_expected_schema(tbl, expected_output_schema)
                 batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
                 yield batch
             except queue.Empty:

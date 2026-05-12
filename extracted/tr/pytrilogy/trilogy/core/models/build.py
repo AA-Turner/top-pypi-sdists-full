@@ -1749,6 +1749,16 @@ class BuildDatasource:
     def __hash__(self):
         return self.identifier.__hash__()
 
+    def __eq__(self, other):
+        # Align with __hash__: identity is the (namespace, name) identifier.
+        # The dataclass-generated default recurses through columns /
+        # column_level_partial_addresses, which is needlessly expensive in
+        # set/dict lookups (datasources land in QueryDatasource.source_map
+        # sets alongside QueryDatasource).
+        if type(other) is not BuildDatasource:
+            return NotImplemented
+        return self.identifier == other.identifier
+
     def __add__(self, other):
         if not other == self:
             raise ValueError(
@@ -1876,7 +1886,15 @@ class BuildUnionDatasource:
 
     @property
     def columns(self) -> List[BuildColumnAssignment]:
-        return self.children[0].columns
+        # Only columns whose concept appears in every child can be safely
+        # projected through the union — anything else would produce a NULL
+        # branch and break the "common output" contract enum unions rely on.
+        if not self.children:
+            return []
+        common = set(c.concept.address for c in self.children[0].columns)
+        for child in self.children[1:]:
+            common &= {c.concept.address for c in child.columns}
+        return [c for c in self.children[0].columns if c.concept.address in common]
 
     @property
     def grain(self) -> BuildGrain:
@@ -1957,6 +1975,7 @@ class Factory:
         pseudonym_map: dict[str, set[str]] | None = None,
         build_cache: dict[str, BuildConcept] | None = None,
         grain_build_cache: dict[tuple, "BuildGrain"] | None = None,
+        canonical_build_cache: dict[str, BuildConcept] | None = None,
     ):
         self.grain = grain or Grain()
         self.environment = environment
@@ -1972,6 +1991,15 @@ class Factory:
         # reuse the same normalized grains.
         self.grain_build_cache: dict[tuple, BuildGrain] = (
             {} if grain_build_cache is None else grain_build_cache
+        )
+        # Cache of BuildConcepts for "grain-stable" base concepts (no lineage
+        # + explicit grain). Their BuildConcept is determined entirely by the
+        # source Concept + env state and so is identical across every factory
+        # in the call tree, regardless of the factory's grain context. Keyed
+        # by base.address. Lifetime is one get_query_node call — created by
+        # the caller and threaded through.
+        self.canonical_build_cache: dict[str, BuildConcept] = (
+            {} if canonical_build_cache is None else canonical_build_cache
         )
         self.build_grain = self.build(self.grain) if self.grain else None
 
@@ -2214,6 +2242,58 @@ class Factory:
 
         if base.address in self.local_concepts:
             return self.local_concepts[base.address]
+        # Fast path for grain-stable concepts: a concept with no lineage and
+        # an explicit grain produces a BuildConcept fully determined by the
+        # source Concept + env state (the factory's own grain is irrelevant —
+        # get_select_grain_and_keys would just return base.grain). Cache by
+        # address so every factory in this get_query_node call reuses one
+        # entry — there are typically O(thousands) of these across O(hundreds)
+        # of datasource factories.
+        if base.lineage is None and base.grain.components:
+            cached = self.canonical_build_cache.get(base.address)
+            if cached is not None:
+                self.local_concepts[base.address] = cached
+                return cached
+            new_grain = self._build_grain(base.grain)
+            derivation = Concept.calculate_derivation(None, base.purpose)
+            granularity = Concept.calculate_granularity(derivation, base.grain, None)
+            if (
+                base.granularity == Granularity.SINGLE_ROW
+                and base.purpose == Purpose.PROPERTY
+                and base.keys
+                == {
+                    f"{INTERNAL_NAMESPACE}.{ALL_ROWS_CONCEPT}",
+                }
+            ):
+                granularity = Granularity.SINGLE_ROW
+            if base.address in self.environment.alias_origin_lookup:
+                lookup_address = self.environment.concepts[base.address].address
+                base_pseudonyms = {lookup_address}
+            else:
+                base_pseudonyms = {
+                    x
+                    for x in self.pseudonym_map.get(base.address, set())
+                    if x != base.address
+                }
+            rval = BuildConcept(
+                name=base.name,
+                canonical_name=base.name,
+                datatype=base.datatype,
+                purpose=base.purpose,
+                metadata=base.metadata,
+                lineage=None,
+                grain=new_grain,
+                namespace=base.namespace,
+                keys=base.keys,
+                modifiers=base.modifiers,
+                pseudonyms=base_pseudonyms,
+                derivation=derivation,
+                granularity=granularity,
+                build_is_aggregate=False,
+            )
+            self.local_concepts[base.address] = rval
+            self.canonical_build_cache[base.address] = rval
+            return rval
         new_lineage, final_grain, _ = base.get_select_grain_and_keys(
             self.grain, self.environment
         )
@@ -2441,6 +2521,21 @@ class Factory:
     def _(self, base: NavigationWindowItem) -> BuildNavigationWindowItem:
         return self._build_navigation_window_item(base)
 
+    def _build_over_items(self, over: list) -> list[BuildConcept]:
+        # `over` may contain arbitrary expressions from `partition by expr, …`;
+        # materialize anything that isn't already a reference into a
+        # factory-local concept so we can treat partitioning columns uniformly.
+        out: list[BuildConcept] = []
+        for x in over:
+            if isinstance(x, ConceptRef):
+                out.append(self._build_concept_ref(x))
+            elif isinstance(x, Concept):
+                out.append(self._build_concept(x))
+            else:
+                _, built = self.instantiate_concept(x)
+                out.append(built)
+        return out
+
     def _build_numbering_window_item(
         self, base: NumberingWindowItem
     ) -> BuildNumberingWindowItem:
@@ -2460,7 +2555,7 @@ class Factory:
             type=base.type,
             arguments=[self._build_concept_ref(x) for x in base.arguments],
             order_by=[self.build(x) for x in final_by],
-            over=[self._build_concept_ref(x) for x in base.over],
+            over=self._build_over_items(list(base.over)),
         )
 
     def _build_navigation_window_item(
@@ -2483,7 +2578,7 @@ class Factory:
             type=base.type,
             content=self.build(content),
             order_by=[self.build(x) for x in final_by],
-            over=[self._build_concept_ref(x) for x in base.over],
+            over=self._build_over_items(list(base.over)),
             offset=base.offset,
         )
 
@@ -2610,6 +2705,9 @@ class Factory:
             local_concepts={},
             grain=base.rowset.select.grain,
             pseudonym_map=self.pseudonym_map,
+            build_cache=self.build_cache,
+            grain_build_cache=self.grain_build_cache,
+            canonical_build_cache=self.canonical_build_cache,
         )
         return BuildRowsetItem(
             content=factory._build_concept_ref(base.content),
@@ -2669,6 +2767,7 @@ class Factory:
             pseudonym_map=self.pseudonym_map,
             build_cache=self.build_cache,
             grain_build_cache=self.grain_build_cache,
+            canonical_build_cache=self.canonical_build_cache,
         )
         where = factory._build_where_clause(base.where_clause)
         normalized = set()
@@ -2738,6 +2837,7 @@ class Factory:
             pseudonym_map=self.pseudonym_map,
             build_cache=self.build_cache,
             grain_build_cache=self.grain_build_cache,
+            canonical_build_cache=self.canonical_build_cache,
         )
         for k, v in base.local_concepts.items():
             materialized[k] = factory.build(v)
@@ -2748,6 +2848,7 @@ class Factory:
             pseudonym_map=self.pseudonym_map,
             build_cache=self.build_cache,
             grain_build_cache=self.grain_build_cache,
+            canonical_build_cache=self.canonical_build_cache,
         )
         where_clause = (
             where_factory.build(base.where_clause) if base.where_clause else None
@@ -2809,20 +2910,23 @@ class Factory:
         final_grain = self.build(base.grain)
         derived_base = []
         for k in base.derived_concepts:
-            base_concept = self.environment.concepts[k]
-            x = BuildConcept(
-                name=base_concept.name,
-                canonical_name=base_concept.name,
-                datatype=base_concept.datatype,
-                purpose=base_concept.purpose,
-                build_is_aggregate=False,
-                derivation=Derivation.MULTISELECT,
-                lineage=None,
-                grain=final_grain,
-                keys=base_concept.keys,
-                namespace=base_concept.namespace,
-            )
-            local_build_cache[k] = x
+            if k in local_build_cache:
+                x = local_build_cache[k]
+            else:
+                base_concept = self.environment.concepts[k]
+                x = BuildConcept(
+                    name=base_concept.name,
+                    canonical_name=base_concept.name,
+                    datatype=base_concept.datatype,
+                    purpose=base_concept.purpose,
+                    build_is_aggregate=False,
+                    derivation=Derivation.MULTISELECT,
+                    lineage=None,
+                    grain=final_grain,
+                    keys=base_concept.keys,
+                    namespace=base_concept.namespace,
+                )
+                local_build_cache[k] = x
             derived_base.append(x)
         all_input: list[BuildConcept] = []
         for parent in parents:
@@ -2843,9 +2947,16 @@ class Factory:
             environment=self.environment,
             local_concepts=local_build_cache,
             pseudonym_map=self.pseudonym_map,
+            build_cache=self.build_cache,
+            grain_build_cache=self.grain_build_cache,
+            canonical_build_cache=self.canonical_build_cache,
         )
         where_factory = Factory(
-            environment=self.environment, pseudonym_map=self.pseudonym_map
+            environment=self.environment,
+            pseudonym_map=self.pseudonym_map,
+            build_cache=self.build_cache,
+            grain_build_cache=self.grain_build_cache,
+            canonical_build_cache=self.canonical_build_cache,
         )
         lineage = BuildMultiSelectLineage(
             # we don't build selects here; they'll be built automatically in query discovery
@@ -2980,6 +3091,7 @@ class Factory:
                 if CONFIG.generation.datasource_build_cache
                 else None
             ),
+            canonical_build_cache=self.canonical_build_cache,
         )
         # Filter out columns with undefined concepts (e.g., at max import depth)
         columns = [

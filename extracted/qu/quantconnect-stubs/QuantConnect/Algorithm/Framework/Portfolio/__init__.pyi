@@ -1998,6 +1998,17 @@ class PortfolioTargetCollection(System.Object, System.Collections.Generic.IDicti
         ...
 
     @overload
+    def add(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget) -> None:
+        """
+        Adds the specified target to the collection. If a target for the same symbol
+        already exists it wil be overwritten.
+        
+        :param symbol: The symbol key
+        :param target: The portfolio target to add
+        """
+        ...
+
+    @overload
     def add(self, target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget) -> None:
         """
         Adds the specified target to the collection. If a target for the same symbol
@@ -2013,17 +2024,6 @@ class PortfolioTargetCollection(System.Object, System.Collections.Generic.IDicti
         Adds the specified target to the collection. If a target for the same symbol
         already exists it wil be overwritten.
         
-        :param target: The portfolio target to add
-        """
-        ...
-
-    @overload
-    def add(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget) -> None:
-        """
-        Adds the specified target to the collection. If a target for the same symbol
-        already exists it wil be overwritten.
-        
-        :param symbol: The symbol key
         :param target: The portfolio target to add
         """
         ...

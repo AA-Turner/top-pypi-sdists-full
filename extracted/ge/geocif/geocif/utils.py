@@ -1075,3 +1075,122 @@ def filter_cid_columns(df, fixed_cols, target, stat_cols):
         col for col in df.columns
         if col not in exclude and not col.startswith(skip_prefixes)
     ]
+
+
+def get_pre_season_init_months(
+    planting_month: int,
+    *,
+    extend_to_month: int | None = None,
+    max_lead: int = 6,
+) -> list[int]:
+    """Return ordered list of init months whose forecasts can reach the season.
+
+    Single source of truth for the pre-season month sequence used by both the
+    CID stage (``cid.indices._get_pre_season_months``) and the ML stage
+    (``geocif._get_pre_season_init_months``).  Keeping the logic in one place
+    so the two stages don't drift apart (which previously caused the CID file
+    to contain ``PS_7..PS_12`` while the ML loop iterated ``PS_5..PS_10``,
+    leaving only their 4-month overlap usable).
+
+    Args:
+        planting_month: First month of the growing season (1-12).
+        extend_to_month: If given, walk past ``planting_month - 1`` through
+            this calendar month (forecast-only mode where in-season months
+            also need init-month rows).  ``None`` = stop at ``planting_month - 1``.
+        max_lead: Longest forecast lead in months.  Default ``6`` = the cap
+            shared by FLDAS LEAD0..5 and NOAA S2S LEAD1..6.
+
+    Returns:
+        Ordered list of int calendar months ``[earliest .. stop_month]``,
+        wrapping across the year boundary when needed.
+    """
+    earliest = (planting_month - max_lead - 1) % 12 + 1
+    if extend_to_month is not None:
+        stop_month = extend_to_month
+    else:
+        stop_month = (planting_month - 1) if planting_month > 1 else 12
+
+    months = []
+    m = earliest
+    while True:
+        months.append(m)
+        if m == stop_month:
+            break
+        m = m % 12 + 1
+        if len(months) > 12:
+            break
+    return months
+
+
+# CID types that come from forecast products rather than observed data.
+# Used by both the CID stage (when deciding the pre-season month range)
+# and the ML stage (when picking which run_time_steps to execute).
+_FORECAST_CID_TYPES = frozenset({"FLDAS", "S2S"})
+
+
+def is_forecast_only(use_cids) -> bool:
+    """``True`` iff ``use_cids`` is non-empty and every entry is a forecast type.
+
+    Centralised so the CID, ML, and outlook stages all answer the same way.
+    """
+    return "all" not in use_cids and all(c in _FORECAST_CID_TYPES for c in use_cids)
+
+
+def has_forecast(use_cids) -> bool:
+    """``True`` if ``use_cids`` includes any forecast type (or the ``'all'`` token)."""
+    return "all" in use_cids or any(c in _FORECAST_CID_TYPES for c in use_cids)
+
+
+def load_country_boundary_gdf(parser, shapefile_path, *, country=None):
+    """Read a boundary shapefile, apply config-driven column renames, fix the
+    Tanzania short-name, drop columns that would duplicate after rename, and
+    optionally filter to a single country.
+
+    Single home for the load+rename pattern so per-country corrections (e.g.
+    ``Tanzania`` -> ``United Republic of Tanzania``) and conflict-drop rules
+    stay consistent across analysis, geocif, agmet, and yield_outlook.
+
+    Per-call-site extras (Alaska/Hawaii exclusion, antimeridian clipping,
+    dissolve to admin_1) remain in the caller — only the load+rename block
+    is centralised.
+
+    Args:
+        parser: ConfigParser carrying the boundary-column mapping sections.
+        shapefile_path: Path or str to the shapefile.
+        country: If given, filter to rows whose ADM0_NAME matches this
+            (case- and underscore-insensitive).
+
+    Returns:
+        GeoDataFrame with standardised column names.
+    """
+    import geopandas as gpd
+    from geoprepare.georegion import get_boundary_col_mapping
+
+    gdf = gpd.read_file(shapefile_path, engine="pyogrio")
+    rename = get_boundary_col_mapping(parser, shapefile_path)
+
+    # Apply country-name corrections BEFORE renaming so we find the source column
+    adm0_src = next((k for k, v in rename.items() if v == "ADM0_NAME"), "ADM0_NAME")
+    if adm0_src in gdf.columns:
+        gdf[adm0_src] = gdf[adm0_src].replace(
+            "Tanzania", "United Republic of Tanzania"
+        )
+
+    # Drop columns that would create duplicates after rename
+    # (e.g. shapefile has both name0 and ADM0_NAME; renaming name0->ADM0_NAME would duplicate)
+    targets = set(rename.values())
+    sources = set(rename.keys())
+    conflicting = [c for c in gdf.columns if c in targets and c not in sources]
+    if conflicting:
+        gdf = gdf.drop(columns=conflicting)
+    gdf = gdf.rename(columns=rename)
+
+    if country is not None:
+        country_norm = country.replace("_", " ").lower()
+        adm0_col = next(
+            (c for c in ("ADM0_NAME", "ADMIN0", "name0") if c in gdf.columns), None
+        )
+        if adm0_col:
+            mask = gdf[adm0_col].str.lower().str.replace("_", " ") == country_norm
+            gdf = gdf[mask].copy()
+    return gdf

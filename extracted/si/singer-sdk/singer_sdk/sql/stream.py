@@ -24,7 +24,7 @@ if t.TYPE_CHECKING:
 __all__ = ["SQLStream"]
 
 
-class SQLStream(Stream, metaclass=abc.ABCMeta):
+class SQLStream(Stream, abc.ABC):
     """Base class for SQLAlchemy-based streams."""
 
     connector_class = SQLConnector
@@ -133,11 +133,11 @@ class SQLStream(Stream, metaclass=abc.ABCMeta):
     def fully_qualified_name(self) -> FullyQualifiedName:
         """Generate the fully qualified version of the table name.
 
-        Raises:
-            ValueError: If table_name is not able to be detected.
-
         Returns:
             The fully qualified name.
+
+        Raises:
+            ValueError: If table_name is not able to be detected.
         """
         catalog_entry = self._singer_catalog_entry
         if not catalog_entry.table:

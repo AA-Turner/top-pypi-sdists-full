@@ -172,13 +172,33 @@ export async function humanClick(
 // Human idle / drift
 // ---------------------------------------------------------------------------
 
-export async function humanIdle(
+export function humanIdle(
+  raw: RawMouse,
+  cx: number,
+  cy: number,
+  cfg: HumanConfig,
+): Promise<void>;
+export function humanIdle(
   raw: RawMouse,
   seconds: number,
   cx: number,
   cy: number,
   cfg: HumanConfig,
+): Promise<void>;
+export async function humanIdle(
+  raw: RawMouse,
+  secondsOrCx: number,
+  cxOrCy: number,
+  cyOrCfg: number | HumanConfig,
+  maybeCfg?: HumanConfig,
 ): Promise<void> {
+  const hasExplicitSeconds = maybeCfg !== undefined;
+  const seconds = hasExplicitSeconds
+    ? secondsOrCx
+    : rand((cyOrCfg as HumanConfig).idle_between_duration[0], (cyOrCfg as HumanConfig).idle_between_duration[1]);
+  const cx = hasExplicitSeconds ? cxOrCy : secondsOrCx;
+  const cy = hasExplicitSeconds ? (cyOrCfg as number) : cxOrCy;
+  const cfg = hasExplicitSeconds ? maybeCfg! : (cyOrCfg as HumanConfig);
   const endTime = Date.now() + seconds * 1000;
   let x = cx;
   let y = cy;

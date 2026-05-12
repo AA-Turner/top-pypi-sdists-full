@@ -173,6 +173,10 @@ class ConnectorOptions:
 
     jira_options: Optional[JiraConnectorOptions] = None
 
+    kafka_options: Optional[KafkaOptions] = None
+
+    meta_ads_options: Optional[MetaMarketingOptions] = None
+
     outlook_options: Optional[OutlookOptions] = None
 
     sharepoint_options: Optional[SharepointOptions] = None
@@ -180,6 +184,8 @@ class ConnectorOptions:
     smartsheet_options: Optional[SmartsheetOptions] = None
 
     tiktok_ads_options: Optional[TikTokAdsOptions] = None
+
+    zendesk_support_options: Optional[ZendeskSupportOptions] = None
 
     def as_dict(self) -> dict:
         """Serializes the ConnectorOptions into a dictionary suitable for use as a JSON request body."""
@@ -192,6 +198,10 @@ class ConnectorOptions:
             body["google_ads_options"] = self.google_ads_options.as_dict()
         if self.jira_options:
             body["jira_options"] = self.jira_options.as_dict()
+        if self.kafka_options:
+            body["kafka_options"] = self.kafka_options.as_dict()
+        if self.meta_ads_options:
+            body["meta_ads_options"] = self.meta_ads_options.as_dict()
         if self.outlook_options:
             body["outlook_options"] = self.outlook_options.as_dict()
         if self.sharepoint_options:
@@ -200,6 +210,8 @@ class ConnectorOptions:
             body["smartsheet_options"] = self.smartsheet_options.as_dict()
         if self.tiktok_ads_options:
             body["tiktok_ads_options"] = self.tiktok_ads_options.as_dict()
+        if self.zendesk_support_options:
+            body["zendesk_support_options"] = self.zendesk_support_options.as_dict()
         return body
 
     def as_shallow_dict(self) -> dict:
@@ -213,6 +225,10 @@ class ConnectorOptions:
             body["google_ads_options"] = self.google_ads_options
         if self.jira_options:
             body["jira_options"] = self.jira_options
+        if self.kafka_options:
+            body["kafka_options"] = self.kafka_options
+        if self.meta_ads_options:
+            body["meta_ads_options"] = self.meta_ads_options
         if self.outlook_options:
             body["outlook_options"] = self.outlook_options
         if self.sharepoint_options:
@@ -221,6 +237,8 @@ class ConnectorOptions:
             body["smartsheet_options"] = self.smartsheet_options
         if self.tiktok_ads_options:
             body["tiktok_ads_options"] = self.tiktok_ads_options
+        if self.zendesk_support_options:
+            body["zendesk_support_options"] = self.zendesk_support_options
         return body
 
     @classmethod
@@ -231,10 +249,13 @@ class ConnectorOptions:
             gdrive_options=_from_dict(d, "gdrive_options", GoogleDriveOptions),
             google_ads_options=_from_dict(d, "google_ads_options", GoogleAdsOptions),
             jira_options=_from_dict(d, "jira_options", JiraConnectorOptions),
+            kafka_options=_from_dict(d, "kafka_options", KafkaOptions),
+            meta_ads_options=_from_dict(d, "meta_ads_options", MetaMarketingOptions),
             outlook_options=_from_dict(d, "outlook_options", OutlookOptions),
             sharepoint_options=_from_dict(d, "sharepoint_options", SharepointOptions),
             smartsheet_options=_from_dict(d, "smartsheet_options", SmartsheetOptions),
             tiktok_ads_options=_from_dict(d, "tiktok_ads_options", TikTokAdsOptions),
+            zendesk_support_options=_from_dict(d, "zendesk_support_options", ZendeskSupportOptions),
         )
 
 
@@ -1471,7 +1492,9 @@ class IngestionSourceType(Enum):
     FOREIGN_CATALOG = "FOREIGN_CATALOG"
     GA4_RAW_DATA = "GA4_RAW_DATA"
     GOOGLE_DRIVE = "GOOGLE_DRIVE"
+    JIRA = "JIRA"
     MANAGED_POSTGRESQL = "MANAGED_POSTGRESQL"
+    META_MARKETING = "META_MARKETING"
     MYSQL = "MYSQL"
     NETSUITE = "NETSUITE"
     ORACLE = "ORACLE"
@@ -1482,6 +1505,7 @@ class IngestionSourceType(Enum):
     SQLSERVER = "SQLSERVER"
     TERADATA = "TERADATA"
     WORKDAY_RAAS = "WORKDAY_RAAS"
+    ZENDESK = "ZENDESK"
 
 
 @dataclass
@@ -1509,6 +1533,143 @@ class JiraConnectorOptions:
     def from_dict(cls, d: Dict[str, Any]) -> JiraConnectorOptions:
         """Deserializes the JiraConnectorOptions from a dictionary."""
         return cls(include_jira_spaces=d.get("include_jira_spaces", None))
+
+
+@dataclass
+class JsonTransformerOptions:
+    as_variant: Optional[bool] = None
+    """Parse the entire value as a single Variant column."""
+
+    schema: Optional[str] = None
+    """Inline schema string for JSON parsing (Spark DDL format)."""
+
+    schema_evolution_mode: Optional[FileIngestionOptionsSchemaEvolutionMode] = None
+    """(Optional) Schema evolution mode for schema inference."""
+
+    schema_file_path: Optional[str] = None
+    """Path to a schema file (.ddl)."""
+
+    schema_hints: Optional[str] = None
+    """(Optional) Schema hints as a comma-separated string of "column_name type" pairs."""
+
+    def as_dict(self) -> dict:
+        """Serializes the JsonTransformerOptions into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.as_variant is not None:
+            body["as_variant"] = self.as_variant
+        if self.schema is not None:
+            body["schema"] = self.schema
+        if self.schema_evolution_mode is not None:
+            body["schema_evolution_mode"] = self.schema_evolution_mode.value
+        if self.schema_file_path is not None:
+            body["schema_file_path"] = self.schema_file_path
+        if self.schema_hints is not None:
+            body["schema_hints"] = self.schema_hints
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the JsonTransformerOptions into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.as_variant is not None:
+            body["as_variant"] = self.as_variant
+        if self.schema is not None:
+            body["schema"] = self.schema
+        if self.schema_evolution_mode is not None:
+            body["schema_evolution_mode"] = self.schema_evolution_mode
+        if self.schema_file_path is not None:
+            body["schema_file_path"] = self.schema_file_path
+        if self.schema_hints is not None:
+            body["schema_hints"] = self.schema_hints
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> JsonTransformerOptions:
+        """Deserializes the JsonTransformerOptions from a dictionary."""
+        return cls(
+            as_variant=d.get("as_variant", None),
+            schema=d.get("schema", None),
+            schema_evolution_mode=_enum(d, "schema_evolution_mode", FileIngestionOptionsSchemaEvolutionMode),
+            schema_file_path=d.get("schema_file_path", None),
+            schema_hints=d.get("schema_hints", None),
+        )
+
+
+@dataclass
+class KafkaOptions:
+    client_config: Optional[Dict[str, str]] = None
+    """Undocumented backdoor mechanism for overriding parameters to pass to the Kafka client. This is
+    not supported and may break at any time."""
+
+    key_transformer: Optional[Transformer] = None
+    """(Optional) Transformer for the message key. If not specified, the key is left as raw bytes."""
+
+    max_offsets_per_trigger: Optional[int] = None
+    """Internal option to control the maximum number of offsets to process per trigger."""
+
+    starting_offset: Optional[str] = None
+    """(Optional) Where to begin reading when no checkpoint exists. Valid values: "latest" and
+    "earliest". Defaults to "latest"."""
+
+    topic_pattern: Optional[str] = None
+    """Java regex pattern to subscribe to matching topics. Only one of topics or topic_pattern must be
+    specified."""
+
+    topics: Optional[List[str]] = None
+    """Topics to subscribe to. Only one of topics or topic_pattern must be specified."""
+
+    value_transformer: Optional[Transformer] = None
+    """(Optional) Transformer for the message value. If not specified, the value is left as raw bytes."""
+
+    def as_dict(self) -> dict:
+        """Serializes the KafkaOptions into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.client_config:
+            body["client_config"] = self.client_config
+        if self.key_transformer:
+            body["key_transformer"] = self.key_transformer.as_dict()
+        if self.max_offsets_per_trigger is not None:
+            body["max_offsets_per_trigger"] = self.max_offsets_per_trigger
+        if self.starting_offset is not None:
+            body["starting_offset"] = self.starting_offset
+        if self.topic_pattern is not None:
+            body["topic_pattern"] = self.topic_pattern
+        if self.topics:
+            body["topics"] = [v for v in self.topics]
+        if self.value_transformer:
+            body["value_transformer"] = self.value_transformer.as_dict()
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the KafkaOptions into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.client_config:
+            body["client_config"] = self.client_config
+        if self.key_transformer:
+            body["key_transformer"] = self.key_transformer
+        if self.max_offsets_per_trigger is not None:
+            body["max_offsets_per_trigger"] = self.max_offsets_per_trigger
+        if self.starting_offset is not None:
+            body["starting_offset"] = self.starting_offset
+        if self.topic_pattern is not None:
+            body["topic_pattern"] = self.topic_pattern
+        if self.topics:
+            body["topics"] = self.topics
+        if self.value_transformer:
+            body["value_transformer"] = self.value_transformer
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> KafkaOptions:
+        """Deserializes the KafkaOptions from a dictionary."""
+        return cls(
+            client_config=d.get("client_config", None),
+            key_transformer=_from_dict(d, "key_transformer", Transformer),
+            max_offsets_per_trigger=d.get("max_offsets_per_trigger", None),
+            starting_offset=d.get("starting_offset", None),
+            topic_pattern=d.get("topic_pattern", None),
+            topics=d.get("topics", None),
+            value_transformer=_from_dict(d, "value_transformer", Transformer),
+        )
 
 
 @dataclass
@@ -1655,6 +1816,94 @@ class MaturityLevel(Enum):
     DEPRECATED = "DEPRECATED"
     EVOLVING = "EVOLVING"
     STABLE = "STABLE"
+
+
+@dataclass
+class MetaMarketingOptions:
+    """Meta Marketing (Meta Ads) specific options for ingestion"""
+
+    action_attribution_windows: Optional[List[str]] = None
+    """(Optional) Action attribution windows for insights reporting (e.g. "28d_click", "1d_view")"""
+
+    action_breakdowns: Optional[List[str]] = None
+    """(Optional) Action breakdowns to configure for data aggregation"""
+
+    action_report_time: Optional[str] = None
+    """(Optional) Timing used to report action statistics (impression, conversion, mixed, or lifetime)"""
+
+    breakdowns: Optional[List[str]] = None
+    """(Optional) Breakdowns to configure for data aggregation"""
+
+    custom_insights_lookback_window: Optional[int] = None
+    """(Optional) Window in days to revisit data during sync to capture updated conversion data from
+    the API."""
+
+    level: Optional[str] = None
+    """(Optional) Granularity of data to pull (account, ad, adset, campaign)"""
+
+    start_date: Optional[str] = None
+    """(Optional) Start date in yyyy-MM-dd format (e.g. 2025-01-15). Data added after this date will be
+    ingested"""
+
+    time_increment: Optional[str] = None
+    """(Optional) Value in string by which to aggregate statistics (can take all_days, monthly or
+    number of days)"""
+
+    def as_dict(self) -> dict:
+        """Serializes the MetaMarketingOptions into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.action_attribution_windows:
+            body["action_attribution_windows"] = [v for v in self.action_attribution_windows]
+        if self.action_breakdowns:
+            body["action_breakdowns"] = [v for v in self.action_breakdowns]
+        if self.action_report_time is not None:
+            body["action_report_time"] = self.action_report_time
+        if self.breakdowns:
+            body["breakdowns"] = [v for v in self.breakdowns]
+        if self.custom_insights_lookback_window is not None:
+            body["custom_insights_lookback_window"] = self.custom_insights_lookback_window
+        if self.level is not None:
+            body["level"] = self.level
+        if self.start_date is not None:
+            body["start_date"] = self.start_date
+        if self.time_increment is not None:
+            body["time_increment"] = self.time_increment
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the MetaMarketingOptions into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.action_attribution_windows:
+            body["action_attribution_windows"] = self.action_attribution_windows
+        if self.action_breakdowns:
+            body["action_breakdowns"] = self.action_breakdowns
+        if self.action_report_time is not None:
+            body["action_report_time"] = self.action_report_time
+        if self.breakdowns:
+            body["breakdowns"] = self.breakdowns
+        if self.custom_insights_lookback_window is not None:
+            body["custom_insights_lookback_window"] = self.custom_insights_lookback_window
+        if self.level is not None:
+            body["level"] = self.level
+        if self.start_date is not None:
+            body["start_date"] = self.start_date
+        if self.time_increment is not None:
+            body["time_increment"] = self.time_increment
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> MetaMarketingOptions:
+        """Deserializes the MetaMarketingOptions from a dictionary."""
+        return cls(
+            action_attribution_windows=d.get("action_attribution_windows", None),
+            action_breakdowns=d.get("action_breakdowns", None),
+            action_report_time=d.get("action_report_time", None),
+            breakdowns=d.get("breakdowns", None),
+            custom_insights_lookback_window=d.get("custom_insights_lookback_window", None),
+            level=d.get("level", None),
+            start_date=d.get("start_date", None),
+            time_increment=d.get("time_increment", None),
+        )
 
 
 @dataclass
@@ -3529,7 +3778,8 @@ class RewindSpec:
     """If true, this is a dry run and we should emit the RewindSummary but not perform the rewind."""
 
     rewind_timestamp: Optional[str] = None
-    """The base timestamp to rewind to. Must be specified."""
+    """The base timestamp to rewind to. Exactly one of rewind_timestamp or rewind_point_id must be
+    specified."""
 
     def as_dict(self) -> dict:
         """Serializes the RewindSpec into a dictionary suitable for use as a JSON request body."""
@@ -4324,6 +4574,48 @@ class TikTokAdsOptionsTikTokReportType(Enum):
 
 
 @dataclass
+class Transformer:
+    """Specifies how to transform binary data into structured data."""
+
+    format: Optional[TransformerFormat] = None
+    """Required: the wire format of the data."""
+
+    json_options: Optional[JsonTransformerOptions] = None
+
+    def as_dict(self) -> dict:
+        """Serializes the Transformer into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.format is not None:
+            body["format"] = self.format.value
+        if self.json_options:
+            body["json_options"] = self.json_options.as_dict()
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the Transformer into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.format is not None:
+            body["format"] = self.format
+        if self.json_options:
+            body["json_options"] = self.json_options
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> Transformer:
+        """Deserializes the Transformer from a dictionary."""
+        return cls(
+            format=_enum(d, "format", TransformerFormat),
+            json_options=_from_dict(d, "json_options", JsonTransformerOptions),
+        )
+
+
+class TransformerFormat(Enum):
+
+    JSON = "JSON"
+    STRING = "STRING"
+
+
+@dataclass
 class Truncation:
     """Information about truncations applied to this event."""
 
@@ -4580,6 +4872,34 @@ class UpdateStateInfoState(Enum):
     SETTING_UP_TABLES = "SETTING_UP_TABLES"
     STOPPING = "STOPPING"
     WAITING_FOR_RESOURCES = "WAITING_FOR_RESOURCES"
+
+
+@dataclass
+class ZendeskSupportOptions:
+    """Zendesk Support specific options for ingestion"""
+
+    start_date: Optional[str] = None
+    """(Optional) Start date in YYYY-MM-DD format for the initial sync. This determines the earliest
+    date from which to sync historical data."""
+
+    def as_dict(self) -> dict:
+        """Serializes the ZendeskSupportOptions into a dictionary suitable for use as a JSON request body."""
+        body = {}
+        if self.start_date is not None:
+            body["start_date"] = self.start_date
+        return body
+
+    def as_shallow_dict(self) -> dict:
+        """Serializes the ZendeskSupportOptions into a shallow dictionary of its immediate attributes."""
+        body = {}
+        if self.start_date is not None:
+            body["start_date"] = self.start_date
+        return body
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> ZendeskSupportOptions:
+        """Deserializes the ZendeskSupportOptions from a dictionary."""
+        return cls(start_date=d.get("start_date", None))
 
 
 class PipelinesAPI:

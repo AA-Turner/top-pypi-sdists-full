@@ -9,7 +9,7 @@ import uuid
 from collections.abc import AsyncIterator, Callable
 from dataclasses import asdict, dataclass, is_dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, MutableMapping
 from urllib.parse import urlparse
 
 from .constants import (
@@ -97,6 +97,54 @@ class _TrackedList(list):
     def reverse(self):
         super().reverse()
         self._changed()
+
+
+SESSION_DATA_REVISION_KEY = "__cpsl_session_rev"
+SESSION_DATA_CHECKSUM_KEY = "__cpsl_session_checksum"
+SESSION_DATA_NONCE_KEY = "__cpsl_session_nonce"
+
+
+def _coerce_revision(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def session_data_revision(data: MutableMapping[str, Any]) -> int:
+    """Return the server-assigned session data revision."""
+    return _coerce_revision(data.get(SESSION_DATA_REVISION_KEY))
+
+
+def _without_session_metadata(data: MutableMapping[str, Any]) -> dict[str, Any]:
+    return {
+        str(key): value
+        for key, value in data.items()
+        if key not in {SESSION_DATA_REVISION_KEY, SESSION_DATA_CHECKSUM_KEY, SESSION_DATA_NONCE_KEY}
+    }
+
+
+def session_data_payload_json(data: MutableMapping[str, Any]) -> str:
+    """Encode session data without server-owned metadata."""
+    return session_data_json(_without_session_metadata(data))
+
+
+def session_data_checksum(data: MutableMapping[str, Any]) -> str:
+    """Return the checksum for the canonical session data payload."""
+    payload = json.dumps(
+        _json_safe_value(_without_session_metadata(data)),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return "sha256:" + hashlib.sha256(payload.encode()).hexdigest()
+
+
+def session_data_base_checksum(data: MutableMapping[str, Any]) -> str:
+    """Return the server-assigned checksum, computing one for legacy snapshots."""
+    raw = data.get(SESSION_DATA_CHECKSUM_KEY)
+    if isinstance(raw, str) and raw:
+        return raw
+    return session_data_checksum(data)
 
 
 class SessionData(dict):
@@ -858,6 +906,7 @@ class Session:
         "_notify_callback",
         "_block_callback",
         "_data_change_callback",
+        "_data_flush_callback",
         "_db_proxy",
         "_collections_proxy",
         "_runner",
@@ -886,6 +935,7 @@ class Session:
         self._notify_callback: Any = None
         self._block_callback: Any = None
         self._data_change_callback: Any = None
+        self._data_flush_callback: Any = None
         self._db_proxy: ScopedDatabaseProxy | None = None
         self._collections_proxy: CollectionManager | None = None
         self._runner: Any = None
@@ -939,16 +989,29 @@ class Session:
         return self._collections_proxy
 
     async def publish(self, key: str, value: Any) -> Any:
-        """Alias for ``await session.data.set(key, value)``.
+        """Set a session data value and immediately publish a snapshot.
 
-        ``session.data`` is the durable source of truth; publishing a value
-        stores it and broadcasts the updated session data snapshot.
+        Use this for intentional intermediate UI states. Plain
+        ``session.data.set`` calls are batched and published once when the
+        handler completes.
         """
         setter = getattr(self.data, "set", None)
         if setter is not None:
-            return await setter(key, value)
-        self.data[key] = value
-        return self.data[key]
+            result = await setter(key, value)
+        else:
+            self.data[key] = value
+            result = self.data[key]
+        await self.flush_data()
+        return result
+
+    async def flush_data(self) -> None:
+        """Persist and broadcast the current session data snapshot immediately."""
+        cb = getattr(self, "_data_flush_callback", None)
+        if cb is None:
+            return
+        result = cb()
+        if asyncio.iscoroutine(result):
+            await result
 
     async def emit(self, event: str, payload: dict[str, Any] | None = None) -> None:
         """Emit a transient session event to subscribed clients."""

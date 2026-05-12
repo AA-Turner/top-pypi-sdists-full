@@ -144,8 +144,14 @@ class Node(models.Model):
         return cls.get_root_nodes().last()
 
     @classmethod
-    def find_problems(cls):  # pragma: no cover
-        """Checks for problems in the tree structure."""
+    def find_problems(cls, parent=None):  # pragma: no cover
+        """Checks for problems in the tree structure.
+
+        :param parent:
+
+            If provided, limits the check to the descendants of this node.
+            If not provided, the entire tree will be checked.
+        """
         raise NotImplementedError
 
     @classmethod
@@ -383,7 +389,7 @@ class Node(models.Model):
 
     def is_root(self):
         """:returns: True if the node is a root node (else, returns False)"""
-        return self.get_root().pk == self.pk
+        raise NotImplementedError
 
     def is_leaf(self):
         """:returns: True if the node is a leaf node (else, returns False)"""
@@ -507,6 +513,8 @@ class Node(models.Model):
         This function is based on _insertion_target_filters from django-mptt
         (MIT licensed) by Jonathan Buchanan:
         https://github.com/django-mptt/django-mptt/blob/0.3.0/mptt/signals.py
+
+        See LICENSE-THIRD-PARTY
         """
 
         fields, filters = [], []

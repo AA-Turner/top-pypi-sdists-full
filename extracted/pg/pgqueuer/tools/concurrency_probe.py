@@ -12,9 +12,9 @@ try:
 except ImportError:
     from asyncio import run as asyncio_run  # type: ignore[assignment]
 
-from pgqueuer.db import AsyncpgDriver, dsn
+from pgqueuer.db import AsyncpgDriver
+from pgqueuer.domain.settings import DBSettings
 from pgqueuer.models import Job
-from pgqueuer.qb import DBSettings
 from pgqueuer.qm import QueueManager
 from pgqueuer.queries import Queries
 
@@ -42,15 +42,15 @@ async def producer(driver: AsyncpgDriver) -> None:
 
 
 async def consumer(driver: AsyncpgDriver) -> None:
-    qm = QueueManager(driver)
+    qm = QueueManager(Queries(driver))
 
     for i in range(1, 10):
 
-        @qm.entrypoint(f"fetch_{i}", retry_timer=timedelta(minutes=2), concurrency_limit=1)
+        @qm.entrypoint(f"fetch_{i}", concurrency_limit=1)
         async def process_message(job: Job) -> None:
             await asyncio.sleep(3)
 
-    @qm.entrypoint("fetch_0", retry_timer=timedelta(minutes=3), concurrency_limit=1)
+    @qm.entrypoint("fetch_0", concurrency_limit=1)
     async def fetch2(job: Job) -> None:
         assert job.payload
         print("fetch_0 start", job.payload.decode(), datetime.now().astimezone())
@@ -61,7 +61,7 @@ async def consumer(driver: AsyncpgDriver) -> None:
 
 
 async def main() -> None:
-    connection = await asyncpg.connect(dsn())
+    connection = await asyncpg.connect()
     driver = AsyncpgDriver(connection)
 
     await producer(driver)

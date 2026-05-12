@@ -75,10 +75,6 @@ class DefaultValueAttribute(System.Attribute):
         ...
 
     @overload
-    def __init__(self, value: typing.Any) -> None:
-        ...
-
-    @overload
     def __init__(self, type: typing.Type, value: str) -> None:
         ...
 
@@ -96,6 +92,10 @@ class DefaultValueAttribute(System.Attribute):
 
     @overload
     def __init__(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any) -> None:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -772,19 +772,19 @@ class PropertyDescriptor(System.ComponentModel.MemberDescriptor, metaclass=abc.A
         ...
 
     @overload
-    def get_child_properties(self, instance: typing.Any) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    @overload
-    def get_child_properties(self, instance: typing.Any, filter: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    @overload
     def get_child_properties(self) -> System.ComponentModel.PropertyDescriptorCollection:
         ...
 
     @overload
     def get_child_properties(self, filter: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    @overload
+    def get_child_properties(self, instance: typing.Any) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    @overload
+    def get_child_properties(self, instance: typing.Any, filter: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
         ...
 
     def get_editor(self, editor_base_type: typing.Type) -> System.Object:
@@ -964,10 +964,6 @@ class AmbientValueAttribute(System.Attribute):
         ...
 
     @overload
-    def __init__(self, value: typing.Any) -> None:
-        ...
-
-    @overload
     def __init__(self, type: typing.Type, value: str) -> None:
         ...
 
@@ -985,6 +981,10 @@ class AmbientValueAttribute(System.Attribute):
 
     @overload
     def __init__(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any) -> None:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -1249,12 +1249,12 @@ class LicenseManager(System.Object):
 
     @staticmethod
     @overload
-    def is_valid(type: typing.Type, instance: typing.Any, license: typing.Optional[System.ComponentModel.License]) -> typing.Tuple[bool, System.ComponentModel.License]:
+    def is_valid(type: typing.Type) -> bool:
         ...
 
     @staticmethod
     @overload
-    def is_valid(type: typing.Type) -> bool:
+    def is_valid(type: typing.Type, instance: typing.Any, license: typing.Optional[System.ComponentModel.License]) -> typing.Tuple[bool, System.ComponentModel.License]:
         ...
 
     @staticmethod
@@ -1267,12 +1267,12 @@ class LicenseManager(System.Object):
 
     @staticmethod
     @overload
-    def validate(type: typing.Type, instance: typing.Any) -> System.ComponentModel.License:
+    def validate(type: typing.Type) -> None:
         ...
 
     @staticmethod
     @overload
-    def validate(type: typing.Type) -> None:
+    def validate(type: typing.Type, instance: typing.Any) -> System.ComponentModel.License:
         ...
 
 
@@ -2020,6 +2020,10 @@ class TypeDescriptionProvider(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
+    def get_reflection_type(self, object_type: typing.Type) -> typing.Type:
+        ...
+
+    @overload
     def get_reflection_type(self, instance: typing.Any) -> typing.Type:
         ...
 
@@ -2027,11 +2031,11 @@ class TypeDescriptionProvider(System.Object, metaclass=abc.ABCMeta):
     def get_reflection_type(self, object_type: typing.Type, instance: typing.Any) -> typing.Type:
         ...
 
-    @overload
-    def get_reflection_type(self, object_type: typing.Type) -> typing.Type:
+    def get_runtime_type(self, reflection_type: typing.Type) -> typing.Type:
         ...
 
-    def get_runtime_type(self, reflection_type: typing.Type) -> typing.Type:
+    @overload
+    def get_type_descriptor(self, object_type: typing.Type) -> System.ComponentModel.ICustomTypeDescriptor:
         ...
 
     @overload
@@ -2043,7 +2047,7 @@ class TypeDescriptionProvider(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
-    def get_type_descriptor(self, object_type: typing.Type) -> System.ComponentModel.ICustomTypeDescriptor:
+    def get_type_descriptor_from_registered_type(self, object_type: typing.Type) -> System.ComponentModel.ICustomTypeDescriptor:
         ...
 
     @overload
@@ -2052,10 +2056,6 @@ class TypeDescriptionProvider(System.Object, metaclass=abc.ABCMeta):
 
     @overload
     def get_type_descriptor_from_registered_type(self, object_type: typing.Type, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
-        ...
-
-    @overload
-    def get_type_descriptor_from_registered_type(self, object_type: typing.Type) -> System.ComponentModel.ICustomTypeDescriptor:
         ...
 
     def is_registered_type(self, type: typing.Type) -> bool:
@@ -2078,21 +2078,16 @@ class TypeDescriptor(System.Object):
 
     @staticmethod
     @overload
-    def add_attributes(instance: typing.Any, *attributes: typing.Union[System.Attribute, typing.Iterable[System.Attribute]]) -> System.ComponentModel.TypeDescriptionProvider:
-        ...
-
-    @staticmethod
-    @overload
     def add_attributes(type: typing.Type, *attributes: typing.Union[System.Attribute, typing.Iterable[System.Attribute]]) -> System.ComponentModel.TypeDescriptionProvider:
         ...
 
     @staticmethod
-    def add_editor_table(editor_base_type: typing.Type, table: System.Collections.Hashtable) -> None:
+    @overload
+    def add_attributes(instance: typing.Any, *attributes: typing.Union[System.Attribute, typing.Iterable[System.Attribute]]) -> System.ComponentModel.TypeDescriptionProvider:
         ...
 
     @staticmethod
-    @overload
-    def add_provider(provider: System.ComponentModel.TypeDescriptionProvider, instance: typing.Any) -> None:
+    def add_editor_table(editor_base_type: typing.Type, table: System.Collections.Hashtable) -> None:
         ...
 
     @staticmethod
@@ -2102,12 +2097,17 @@ class TypeDescriptor(System.Object):
 
     @staticmethod
     @overload
-    def add_provider_transparent(provider: System.ComponentModel.TypeDescriptionProvider, instance: typing.Any) -> None:
+    def add_provider(provider: System.ComponentModel.TypeDescriptionProvider, instance: typing.Any) -> None:
         ...
 
     @staticmethod
     @overload
     def add_provider_transparent(provider: System.ComponentModel.TypeDescriptionProvider, type: typing.Type) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def add_provider_transparent(provider: System.ComponentModel.TypeDescriptionProvider, instance: typing.Any) -> None:
         ...
 
     @staticmethod
@@ -2148,17 +2148,17 @@ class TypeDescriptor(System.Object):
 
     @staticmethod
     @overload
+    def get_attributes(component_type: typing.Type) -> System.ComponentModel.AttributeCollection:
+        ...
+
+    @staticmethod
+    @overload
     def get_attributes(component: typing.Any) -> System.ComponentModel.AttributeCollection:
         ...
 
     @staticmethod
     @overload
     def get_attributes(component: typing.Any, no_custom_type_desc: bool) -> System.ComponentModel.AttributeCollection:
-        ...
-
-    @staticmethod
-    @overload
-    def get_attributes(component_type: typing.Type) -> System.ComponentModel.AttributeCollection:
         ...
 
     @staticmethod
@@ -2213,6 +2213,11 @@ class TypeDescriptor(System.Object):
 
     @staticmethod
     @overload
+    def get_default_event(component_type: typing.Type) -> System.ComponentModel.EventDescriptor:
+        ...
+
+    @staticmethod
+    @overload
     def get_default_event(component: typing.Any) -> System.ComponentModel.EventDescriptor:
         ...
 
@@ -2223,7 +2228,7 @@ class TypeDescriptor(System.Object):
 
     @staticmethod
     @overload
-    def get_default_event(component_type: typing.Type) -> System.ComponentModel.EventDescriptor:
+    def get_default_property(component_type: typing.Type) -> System.ComponentModel.PropertyDescriptor:
         ...
 
     @staticmethod
@@ -2234,11 +2239,6 @@ class TypeDescriptor(System.Object):
     @staticmethod
     @overload
     def get_default_property(component: typing.Any, no_custom_type_desc: bool) -> System.ComponentModel.PropertyDescriptor:
-        ...
-
-    @staticmethod
-    @overload
-    def get_default_property(component_type: typing.Type) -> System.ComponentModel.PropertyDescriptor:
         ...
 
     @staticmethod
@@ -2254,6 +2254,16 @@ class TypeDescriptor(System.Object):
     @staticmethod
     @overload
     def get_editor(type: typing.Type, editor_base_type: typing.Type) -> System.Object:
+        ...
+
+    @staticmethod
+    @overload
+    def get_events(component_type: typing.Type) -> System.ComponentModel.EventDescriptorCollection:
+        ...
+
+    @staticmethod
+    @overload
+    def get_events(component_type: typing.Type, attributes: typing.List[System.Attribute]) -> System.ComponentModel.EventDescriptorCollection:
         ...
 
     @staticmethod
@@ -2277,21 +2287,21 @@ class TypeDescriptor(System.Object):
         ...
 
     @staticmethod
-    @overload
-    def get_events(component_type: typing.Type) -> System.ComponentModel.EventDescriptorCollection:
-        ...
-
-    @staticmethod
-    @overload
-    def get_events(component_type: typing.Type, attributes: typing.List[System.Attribute]) -> System.ComponentModel.EventDescriptorCollection:
-        ...
-
-    @staticmethod
     def get_events_from_registered_type(component_type: typing.Type) -> System.ComponentModel.EventDescriptorCollection:
         ...
 
     @staticmethod
     def get_full_component_name(component: typing.Any) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def get_properties(component_type: typing.Type) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    @staticmethod
+    @overload
+    def get_properties(component_type: typing.Type, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
         ...
 
     @staticmethod
@@ -2316,12 +2326,7 @@ class TypeDescriptor(System.Object):
 
     @staticmethod
     @overload
-    def get_properties(component_type: typing.Type) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    @staticmethod
-    @overload
-    def get_properties(component_type: typing.Type, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+    def get_properties_from_registered_type(component_type: typing.Type) -> System.ComponentModel.PropertyDescriptorCollection:
         ...
 
     @staticmethod
@@ -2331,7 +2336,7 @@ class TypeDescriptor(System.Object):
 
     @staticmethod
     @overload
-    def get_properties_from_registered_type(component_type: typing.Type) -> System.ComponentModel.PropertyDescriptorCollection:
+    def get_provider(type: typing.Type) -> System.ComponentModel.TypeDescriptionProvider:
         ...
 
     @staticmethod
@@ -2341,17 +2346,12 @@ class TypeDescriptor(System.Object):
 
     @staticmethod
     @overload
-    def get_provider(type: typing.Type) -> System.ComponentModel.TypeDescriptionProvider:
+    def get_reflection_type(type: typing.Type) -> typing.Type:
         ...
 
     @staticmethod
     @overload
     def get_reflection_type(instance: typing.Any) -> typing.Type:
-        ...
-
-    @staticmethod
-    @overload
-    def get_reflection_type(type: typing.Type) -> typing.Type:
         ...
 
     @staticmethod
@@ -2384,22 +2384,22 @@ class TypeDescriptor(System.Object):
 
     @staticmethod
     @overload
-    def remove_provider(provider: System.ComponentModel.TypeDescriptionProvider, instance: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
     def remove_provider(provider: System.ComponentModel.TypeDescriptionProvider, type: typing.Type) -> None:
         ...
 
     @staticmethod
     @overload
-    def remove_provider_transparent(provider: System.ComponentModel.TypeDescriptionProvider, instance: typing.Any) -> None:
+    def remove_provider(provider: System.ComponentModel.TypeDescriptionProvider, instance: typing.Any) -> None:
         ...
 
     @staticmethod
     @overload
     def remove_provider_transparent(provider: System.ComponentModel.TypeDescriptionProvider, type: typing.Type) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def remove_provider_transparent(provider: System.ComponentModel.TypeDescriptionProvider, instance: typing.Any) -> None:
         ...
 
     @staticmethod
@@ -3309,6 +3309,10 @@ class LicenseException(System.SystemException):
         ...
 
     @overload
+    def __init__(self, type: typing.Type) -> None:
+        ...
+
+    @overload
     def __init__(self, type: typing.Type, instance: typing.Any) -> None:
         ...
 
@@ -3318,10 +3322,6 @@ class LicenseException(System.SystemException):
 
     @overload
     def __init__(self, type: typing.Type, instance: typing.Any, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type) -> None:
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
@@ -3591,11 +3591,11 @@ class AddingNewEventArgs(System.EventArgs):
         ...
 
     @overload
-    def __init__(self, new_object: typing.Any) -> None:
+    def __init__(self) -> None:
         ...
 
     @overload
-    def __init__(self) -> None:
+    def __init__(self, new_object: typing.Any) -> None:
         ...
 
 

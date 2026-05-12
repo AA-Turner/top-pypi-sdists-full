@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pandas
-Version: 3.0.2
+Version: 3.0.3
 Summary: Powerful data structures for data analysis, time series, and statistics
 Author-Email: The Pandas Development Team <pandas-dev@python.org>
 License: BSD 3-Clause License
@@ -122,7 +122,7 @@ Requires-Dist: qtpy>=2.4.2; extra == "clipboard"
 Provides-Extra: compression
 Requires-Dist: zstandard>=0.23.0; extra == "compression"
 Provides-Extra: timezone
-Requires-Dist: pytz>=2024.2; extra == "timezone"
+Requires-Dist: pytz>=2020.1; extra == "timezone"
 Provides-Extra: all
 Requires-Dist: adbc-driver-postgresql>=1.2.0; extra == "all"
 Requires-Dist: adbc-driver-sqlite>=1.2.0; extra == "all"
@@ -149,7 +149,7 @@ Requires-Dist: pyreadstat>=1.2.8; extra == "all"
 Requires-Dist: pytest>=8.3.4; extra == "all"
 Requires-Dist: pytest-xdist>=3.6.1; extra == "all"
 Requires-Dist: python-calamine>=0.3.0; extra == "all"
-Requires-Dist: pytz>=2024.2; extra == "all"
+Requires-Dist: pytz>=2020.1; extra == "all"
 Requires-Dist: pyxlsb>=1.0.10; extra == "all"
 Requires-Dist: qtpy>=2.4.2; extra == "all"
 Requires-Dist: scipy>=1.14.1; extra == "all"

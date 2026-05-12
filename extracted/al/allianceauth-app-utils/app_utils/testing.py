@@ -28,11 +28,15 @@ from allianceauth.eveonline.models import (
 from allianceauth.groupmanagement.models import AuthGroup
 from allianceauth.tests.auth_utils import AuthUtils
 from app_utils.datetime import dt_eveformat
-from app_utils.esi_testing import (  # noqa: F401
-    BravadoOperationStub,
-    BravadoResponseStub,
-)
 from app_utils.helpers import random_string
+
+try:
+    from app_utils.esi_testing import (  # noqa: F401
+        BravadoOperationStub,
+        BravadoResponseStub,
+    )
+except ImportError:
+    pass
 
 
 def generate_invalid_pk(MyModel: Any) -> int:

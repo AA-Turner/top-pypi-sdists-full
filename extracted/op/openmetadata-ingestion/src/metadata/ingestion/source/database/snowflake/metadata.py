@@ -358,7 +358,7 @@ class SnowflakeSource(
         return self.service_connection.database
 
     def get_database_names_raw(self) -> Iterable[str]:
-        results = self.connection.execute(SNOWFLAKE_GET_DATABASES).fetchall()
+        results = self.connection.execute(SNOWFLAKE_GET_DATABASES)
         for res in results:
             row = list(res)
             yield row[1]

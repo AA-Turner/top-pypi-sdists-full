@@ -129,6 +129,11 @@ def mpsmallstep_model(request):
     return request.param
 
 
+@pytest.fixture(scope="function", params=[models.NS_TestNode])
+def ns_model(request):
+    return request.param
+
+
 class TestTreeBase:
     def got(self, model):
         if model in [models.NS_TestNode, models.NS_TestNode_Proxy]:
@@ -149,6 +154,10 @@ class TestTreeBase:
         got = [(obj[0].desc, obj[1]["open"], obj[1]["close"], obj[1]["level"]) for obj in results]
         assert expected == got
         assert all(isinstance(obj[0], model) for obj in results)
+
+    def _assert_no_tree_problems(self, model):
+        if issubclass(model, (MP_Node, NS_Node)):
+            assert not any(model.find_problems())
 
 
 @pytest.mark.django_db
@@ -237,7 +246,7 @@ class TestClassMethods(TestNonEmptyTree):
         assert self.got(model) == expected
 
     def test_get_tree_all(self, model, django_assert_max_num_queries):
-        max_queries = 11 if issubclass(model, AL_Node) else 1
+        max_queries = 4 if issubclass(model, AL_Node) else 1
         with django_assert_max_num_queries(max_queries):
             nodes = model.get_tree()
         got = [(o.desc, o.get_depth(), o.get_children_count()) for o in nodes]
@@ -254,7 +263,7 @@ class TestClassMethods(TestNonEmptyTree):
         # the tree was modified by load_bulk, so we reload our node object
         node = model.objects.get(pk=node.pk)
 
-        max_queries = 13 if issubclass(model, AL_Node) else 1
+        max_queries = 7 if issubclass(model, AL_Node) else 1
         with django_assert_max_num_queries(max_queries):
             nodes = model.get_tree(node)
 
@@ -300,7 +309,7 @@ class TestClassMethods(TestNonEmptyTree):
             ("4", False, [], 0),
             ("41", True, [0, 1], 1),
         ]
-        max_queries = 11 if issubclass(model, AL_Node) else 1
+        max_queries = 4 if issubclass(model, AL_Node) else 1
         with django_assert_max_num_queries(max_queries):
             self._assert_get_annotated_list(model, expected)
 
@@ -314,7 +323,7 @@ class TestClassMethods(TestNonEmptyTree):
             ("231", True, [0], 2),
             ("24", False, [0, 1], 1),
         ]
-        max_queries = 6 if issubclass(model, AL_Node) else 1
+        max_queries = 3 if issubclass(model, AL_Node) else 1
         with django_assert_max_num_queries(max_queries):
             self._assert_get_annotated_list(model, expected, node)
 
@@ -432,8 +441,7 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         ]
         for desc, expected in data:
             node = model.objects.get(desc=desc)
-            max_queries = 2 if issubclass(model, AL_Node) else 0
-            with django_assert_max_num_queries(max_queries):
+            with django_assert_max_num_queries(0):
                 got = node.is_root()
             assert got == expected
 
@@ -679,7 +687,7 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         ]
         for desc, expected in data:
             parent = model.objects.get(desc=desc)
-            max_queries = 6 if issubclass(model, AL_Node) else 1
+            max_queries = 3 if issubclass(model, AL_Node) else 1
             with django_assert_max_num_queries(max_queries):
                 nodes = parent.get_descendants()
             assert [node.desc for node in nodes] == expected
@@ -695,7 +703,7 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         ]
         for desc, expected in data:
             parent = model.objects.get(desc=desc)
-            max_queries = 6 if issubclass(model, AL_Node) else 1
+            max_queries = 3 if issubclass(model, AL_Node) else 1
             with django_assert_max_num_queries(max_queries):
                 nodes = parent.get_descendants(include_self=True)
             assert [node.desc for node in nodes] == expected
@@ -711,7 +719,7 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         ]
         for desc, expected in data:
             parent = model.objects.get(desc=desc)
-            max_queries = 6 if issubclass(model, AL_Node) else 1
+            max_queries = 3 if issubclass(model, AL_Node) else 1
             with django_assert_max_num_queries(max_queries):
                 got = parent.get_descendant_count()
             assert got == expected
@@ -729,7 +737,7 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         for desc1, desc2, expected in data:
             node1 = model.objects.get(desc=desc1)
             node2 = model.objects.get(desc=desc2)
-            max_queries = 2 if issubclass(model, (NS_Node, AL_Node)) else 0
+            max_queries = 2 if issubclass(model, NS_Node) else 0
             with django_assert_max_num_queries(max_queries):
                 assert node1.is_sibling_of(node2) == expected
 
@@ -745,7 +753,7 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         for desc1, desc2, expected in data:
             node1 = model.objects.get(desc=desc1)
             node2 = model.objects.get(desc=desc2)
-            max_queries = 1 if issubclass(model, (NS_Node, AL_Node)) else 0
+            max_queries = 1 if issubclass(model, NS_Node) else 0
             with django_assert_max_num_queries(max_queries):
                 assert node1.is_child_of(node2) == expected
 
@@ -761,7 +769,7 @@ class TestSimpleNodeMethods(TestNonEmptyTree):
         for desc1, desc2, expected in data:
             node1 = model.objects.get(desc=desc1)
             node2 = model.objects.get(desc=desc2)
-            max_queries = 6 if issubclass(model, AL_Node) else 0
+            max_queries = 3 if issubclass(model, AL_Node) else 0
             with django_assert_max_num_queries(max_queries):
                 assert node1.is_descendant_of(node2) == expected
 
@@ -2098,6 +2106,7 @@ class TestInheritedModels(TestTreeBase):
 
         assert [node.desc for node in node1.get_children()] == ["21"]
         assert [node.desc for node in node21.get_children()] == ["211", "212"]
+        self._assert_no_tree_problems(base_model)
 
     def test_get_descendants_group_count(self, inherited_model):
         base_model = inherited_model.__bases__[0]
@@ -2118,6 +2127,42 @@ class TestInheritedModels(TestTreeBase):
         inherited_model.add_root(val1=2, val2=3, desc="A")
         inherited_model.add_root(val1=2, val2=3, desc="B")
         assert list(inherited_model.objects.values_list("desc", flat=True)) == ["B", "A"]
+        self._assert_no_tree_problems(inherited_model)
+
+    def test_add_child(self, inherited_model):
+        """
+        Calling add_child on an inherited model should update tree-related fields across all
+        nodes of the tree, not just ones that match the inherited model.
+        """
+        base_model = inherited_model.__bases__[0]
+
+        # We need a leaf node of inherited_model to test against, as non-leaves will delegate to add_sibling instead
+        node21 = inherited_model.objects.get(desc="21")
+        node213 = inherited_model(desc="213")
+        node21.add_child(instance=node213)
+
+        node213.add_child(desc="2131")
+
+        assert [node.desc for node in node213.get_children()] == ["2131"]
+        self._assert_no_tree_problems(base_model)
+
+    def test_add_sibling_to_root(self, inherited_model):
+        base_model = inherited_model.__bases__[0]
+
+        node3 = inherited_model.objects.get(desc="3")
+        node3.add_sibling("first-sibling", desc="0")
+
+        assert [node.desc for node in base_model.get_root_nodes()] == ["0", "1", "2", "3"]
+        self._assert_no_tree_problems(base_model)
+
+    def test_add_sibling_to_nonroot(self, inherited_model):
+        base_model = inherited_model.__bases__[0]
+
+        node21 = inherited_model.objects.get(desc="21")
+        node21.add_sibling("first-sibling", desc="20")
+
+        assert [node.desc for node in base_model.objects.get(desc="2").get_children()] == ["20", "21", "22"]
+        self._assert_no_tree_problems(base_model)
 
 
 @pytest.mark.django_db
@@ -2307,6 +2352,128 @@ class TestMP_TreeFindProblems(TestTreeBase):
         assert ["0201", "020201"] == got(orphans)
         assert ["03", "0301", "030102"] == got(wrong_numchild)
         assert ["04", "0401"] == got(wrong_depth)
+
+    def test_find_problems_with_root_clean(self, mpalphabet_model):
+        mpalphabet_model.alphabet = "01234"
+        mpalphabet_model(path="01", depth=1, numchild=1, numval=0).save()
+        mpalphabet_model(path="0101", depth=2, numchild=0, numval=0).save()
+        root = mpalphabet_model.objects.get(path="01")
+        result = mpalphabet_model.find_problems(parent=root)
+        assert all(not group for group in result)
+
+    def test_find_problems_with_root_scoped_to_single_tree(self, mpalphabet_model):
+        """Problems in one tree should not appear when checking another tree."""
+        mpalphabet_model.alphabet = "01234"
+        # Tree 1: clean
+        mpalphabet_model(path="01", depth=1, numchild=1, numval=0).save()
+        mpalphabet_model(path="0101", depth=2, numchild=0, numval=0).save()
+        # Tree 2: root is valid but children have problems (wrong depth, wrong numchild)
+        mpalphabet_model(path="02", depth=1, numchild=5, numval=0).save()
+        mpalphabet_model(path="0201", depth=20, numchild=0, numval=0).save()
+
+        root1 = mpalphabet_model.objects.get(path="01")
+        root2 = mpalphabet_model.objects.get(path="02")
+
+        # Tree 1 should be clean
+        result1 = mpalphabet_model.find_problems(parent=root1)
+        assert all(not group for group in result1)
+
+        # Tree 2 should have problems
+        result2 = mpalphabet_model.find_problems(parent=root2)
+        evil_chars, bad_steplen, orphans, wrong_depth, wrong_numchild = result2
+        assert not evil_chars
+        assert not bad_steplen
+        assert not orphans
+        # child "0201" has wrong depth (20 instead of 2)
+        assert len(wrong_depth) == 1
+        # root "02" reports numchild=5 but only has 1 child
+        assert len(wrong_numchild) == 1
+
+    def test_find_problems_with_root_detects_all_problem_types(self, mpalphabet_model):
+        """Verify all five problem categories are detected within a single tree."""
+        mpalphabet_model.alphabet = "01234"
+        # Another clean tree to ensure isolation
+        mpalphabet_model(path="01", depth=1, numchild=0, numval=0).save()
+
+        # Tree with various problems rooted at "03"
+        mpalphabet_model(path="03", depth=1, numchild=2, numval=0).save()
+        mpalphabet_model(path="0301", depth=2, numchild=0, numval=0).save()
+        mpalphabet_model(path="030102", depth=3, numchild=10, numval=0).save()
+
+        def got(ids):
+            return [o.path for o in mpalphabet_model.objects.filter(pk__in=ids)]
+
+        root = mpalphabet_model.objects.get(path="03")
+        evil_chars, bad_steplen, orphans, wrong_depth, wrong_numchild = mpalphabet_model.find_problems(parent=root)
+        # "03" reports numchild=2 but only has 1 direct child -> wrong_numchild
+        assert "03" in got(wrong_numchild)
+        # "030102" reports numchild=10 which is wrong
+        assert "030102" in got(wrong_numchild)
+
+
+@pytest.mark.django_db
+class TestNS_TreeFindProblems(TestTreeBase):
+    def test_find_problems_all_ok(self, ns_model):
+        ns_model(tree_id=1, lft=1, rgt=8, depth=1).save()
+        ns_model(tree_id=1, lft=2, rgt=5, depth=2).save()
+        ns_model(tree_id=1, lft=3, rgt=4, depth=3).save()
+        ns_model(tree_id=1, lft=6, rgt=7, depth=2).save()
+        ns_model(tree_id=2, lft=1, rgt=2, depth=1).save()
+
+        result = ns_model.find_problems()
+        assert result == ([], [], [], [])
+
+    def test_find_problems_reversed_lft_rgt(self, ns_model):
+        bad_node = ns_model(tree_id=1, lft=2, rgt=1, depth=1)
+        bad_node.save()
+
+        result = ns_model.find_problems()
+        assert result == ([bad_node.pk], [], [], [])
+
+    def test_find_problems_overlapping_nodes(self, ns_model):
+        ns_model(tree_id=1, lft=1, rgt=6, depth=1).save()
+        ns_model(tree_id=1, lft=2, rgt=4, depth=2).save()
+        bad_node = ns_model(tree_id=1, lft=3, rgt=5, depth=3)
+        bad_node.save()
+
+        result = ns_model.find_problems()
+        assert result == ([], [bad_node.pk], [], [])
+
+    def test_find_problems_duplicate_root(self, ns_model):
+        ns_model(tree_id=1, lft=1, rgt=8, depth=1).save()
+        ns_model(tree_id=1, lft=2, rgt=5, depth=2).save()
+        ns_model(tree_id=1, lft=3, rgt=4, depth=3).save()
+        ns_model(tree_id=1, lft=6, rgt=7, depth=2).save()
+        bad_node = ns_model(tree_id=1, lft=9, rgt=12, depth=1)
+        bad_node.save()
+        ns_model(tree_id=1, lft=10, rgt=11, depth=2).save()
+
+        result = ns_model.find_problems()
+        assert result == ([], [], [bad_node.pk], [])
+
+    def test_find_problems_wrong_depth(self, ns_model):
+        ns_model(tree_id=1, lft=1, rgt=8, depth=1).save()
+        bad_node_1 = ns_model(tree_id=1, lft=2, rgt=5, depth=1)
+        bad_node_1.save()
+        ns_model(tree_id=1, lft=3, rgt=4, depth=3).save()
+        ns_model(tree_id=1, lft=6, rgt=7, depth=2).save()
+        bad_node_2 = ns_model(tree_id=2, lft=1, rgt=2, depth=2)
+        bad_node_2.save()
+
+        result = ns_model.find_problems()
+        assert result == ([], [], [], [bad_node_1.pk, bad_node_2.pk])
+
+    def test_find_problems_within_parent(self, ns_model):
+        ns_model(tree_id=1, lft=1, rgt=8, depth=99).save()  # ignored
+        parent_node = ns_model(tree_id=1, lft=2, rgt=5, depth=2)
+        parent_node.save()
+        bad_node = ns_model(tree_id=1, lft=3, rgt=4, depth=99)
+        bad_node.save()
+        ns_model(tree_id=1, lft=6, rgt=7, depth=2).save()
+        ns_model(tree_id=2, lft=1, rgt=2, depth=99).save()  # ignored
+
+        result = ns_model.find_problems(parent=parent_node)
+        assert result == ([], [], [], [bad_node.pk])
 
 
 @pytest.mark.django_db

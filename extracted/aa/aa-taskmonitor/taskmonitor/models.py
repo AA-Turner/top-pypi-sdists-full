@@ -75,7 +75,7 @@ class TaskReport(models.Model):
 class TaskStatistic(models.Model):
     """Statistics for a task.
 
-    This is a fake model, which we need to this data on the admin site.
+    This is a fake model, which we need to show this data on the admin site.
     """
 
     class Meta:

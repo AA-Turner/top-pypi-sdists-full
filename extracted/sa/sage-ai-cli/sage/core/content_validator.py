@@ -133,6 +133,245 @@ def _detect_prose_mass(filepath: str, content: str) -> ContentValidationResult:
     return ContentValidationResult(ok=True)
 
 
+_PLACEHOLDER_PATTERNS_PY = (
+    re.compile(r"\braise\s+NotImplementedError\b"),
+    re.compile(r"^\s*#\s*TODO\s*:.*$", re.MULTILINE),
+    re.compile(r"^\s*#\s*FIXME\s*:.*$", re.MULTILINE),
+    re.compile(r"^\s*#\s*implement\s*(this|me|here)?\b", re.MULTILINE | re.IGNORECASE),
+)
+
+_PLACEHOLDER_PATTERNS_JS = (
+    re.compile(r"//\s*TODO\b"),
+    re.compile(r"//\s*FIXME\b"),
+    re.compile(r"//\s*implement(?:\s+(?:this|me|here))?\b", re.IGNORECASE),
+    re.compile(r"\bthrow\s+new\s+Error\(['\"]not\s+implemented['\"]\)", re.IGNORECASE),
+)
+
+_PLACEHOLDER_PATTERNS_RUST = (
+    re.compile(r"\btodo!\s*\("),
+    re.compile(r"\bunimplemented!\s*\("),
+    re.compile(r"//\s*TODO\b"),
+)
+
+_PLACEHOLDER_PATTERNS_GO = (
+    re.compile(r'panic\(\s*"(?:TODO|FIXME|not\s+implemented)', re.IGNORECASE),
+    re.compile(r"//\s*TODO\b"),
+)
+
+_PLACEHOLDER_PATTERNS_JAVA = (
+    re.compile(r"throw\s+new\s+UnsupportedOperationException", re.IGNORECASE),
+    re.compile(r"//\s*TODO\b"),
+    re.compile(r"//\s*FIXME\b"),
+)
+
+_PLACEHOLDER_PATTERNS_CSHARP = (
+    re.compile(r"throw\s+new\s+NotImplementedException", re.IGNORECASE),
+    re.compile(r"//\s*TODO\b"),
+)
+
+_PLACEHOLDER_PATTERNS_RUBY = (
+    re.compile(r"raise\s+NotImplementedError\b"),
+    re.compile(r"#\s*TODO\b"),
+)
+
+_PLACEHOLDER_PATTERNS_PHP = (
+    re.compile(r'throw\s+new\s+\\?\\?Exception\(\s*["\'](?:not\s+implemented|TODO|FIXME)', re.IGNORECASE),
+    re.compile(r"//\s*TODO\b"),
+    re.compile(r"#\s*TODO\b"),
+)
+
+_PLACEHOLDER_PATTERNS_SWIFT = (
+    re.compile(r"fatalError\(\s*[\"'](?:not\s+implemented|TODO|FIXME)", re.IGNORECASE),
+    re.compile(r"preconditionFailure\("),
+    re.compile(r"//\s*TODO\b"),
+)
+
+
+def _py_function_is_stub(body_lines: list[str]) -> bool:
+    """Return True iff a Python function body is *only* placeholder content
+    (`pass`, `...`, a single TODO comment, or NotImplementedError).
+    Multi-statement bodies that happen to contain a TODO are not stubs."""
+    # Strip docstring + blank lines
+    real_stmts = []
+    in_docstring = False
+    docstring_marker = None
+    for line in body_lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if in_docstring:
+            if docstring_marker and docstring_marker in stripped:
+                in_docstring = False
+            continue
+        if stripped.startswith(('"""', "'''")):
+            marker = stripped[:3]
+            # Single-line docstring like """foo"""
+            if stripped.endswith(marker) and len(stripped) > 5:
+                continue
+            in_docstring = True
+            docstring_marker = marker
+            continue
+        real_stmts.append(stripped)
+    if len(real_stmts) != 1:
+        return False
+    stmt = real_stmts[0]
+    if stmt == "pass":
+        return True
+    if stmt == "...":
+        return True
+    if stmt.startswith("#"):
+        return True
+    if stmt.startswith("raise NotImplementedError"):
+        return True
+    if stmt == "return None" or stmt == "return":
+        return False  # ambiguous — could be legit
+    return False
+
+
+def _detect_placeholder_python(content: str) -> ContentValidationResult:
+    """Find Python function/method definitions whose entire body is a stub.
+
+    A function defined inside a class decorated with @abstractmethod is
+    intentionally a stub — those are allowed.
+    """
+    lines = content.split("\n")
+    i = 0
+    n = len(lines)
+    flagged: list[str] = []
+    while i < n:
+        line = lines[i]
+        stripped = line.strip()
+        if not (stripped.startswith("def ") or stripped.startswith("async def ")):
+            i += 1
+            continue
+        # Check if previous non-blank line is @abstractmethod
+        j = i - 1
+        is_abstract = False
+        while j >= 0:
+            prev = lines[j].strip()
+            if not prev:
+                j -= 1
+                continue
+            if prev.startswith("@abstractmethod") or prev.startswith("@abc.abstractmethod"):
+                is_abstract = True
+            break
+        # Capture the function body by indentation
+        base_indent = len(line) - len(line.lstrip())
+        body: list[str] = []
+        k = i + 1
+        while k < n:
+            cur = lines[k]
+            if cur.strip() == "":
+                body.append(cur)
+                k += 1
+                continue
+            cur_indent = len(cur) - len(cur.lstrip())
+            if cur_indent <= base_indent:
+                break
+            body.append(cur)
+            k += 1
+        if not is_abstract and _py_function_is_stub(body):
+            fname = stripped.split("(")[0].replace("async def ", "").replace("def ", "")
+            flagged.append(fname)
+            if len(flagged) >= 2:
+                break
+        i = k
+    if flagged:
+        return ContentValidationResult(
+            ok=False, signal="placeholder",
+            reason=f"function(s) with stub-only bodies: {', '.join(flagged)} — write complete implementation",
+        )
+    # Also check for explicit raise NotImplementedError, TODO/FIXME at top level
+    for pat in _PLACEHOLDER_PATTERNS_PY:
+        m = pat.search(content)
+        if m:
+            return ContentValidationResult(
+                ok=False, signal="placeholder",
+                reason=f"placeholder marker found: {m.group(0).strip()!r}",
+            )
+    return ContentValidationResult(ok=True)
+
+
+def _detect_placeholder_js(content: str) -> ContentValidationResult:
+    """Find JavaScript/TypeScript stub patterns: empty fn bodies, TODOs,
+    `throw new Error('not implemented')`."""
+    # Empty function body: `... () {}` or `() => {}`
+    if re.search(r"function\s+\w+\s*\([^)]*\)\s*\{\s*\}", content):
+        m = re.search(r"function\s+(\w+)\s*\(", content)
+        fname = m.group(1) if m else "<anonymous>"
+        return ContentValidationResult(
+            ok=False, signal="placeholder",
+            reason=f"empty function body for `{fname}` — write complete implementation",
+        )
+    if re.search(r"=>\s*\{\s*\}", content):
+        return ContentValidationResult(
+            ok=False, signal="placeholder",
+            reason="empty arrow-function body — write complete implementation",
+        )
+    for pat in _PLACEHOLDER_PATTERNS_JS:
+        m = pat.search(content)
+        if m:
+            return ContentValidationResult(
+                ok=False, signal="placeholder",
+                reason=f"placeholder marker found: {m.group(0).strip()!r}",
+            )
+    return ContentValidationResult(ok=True)
+
+
+def _detect_placeholder_rust(content: str) -> ContentValidationResult:
+    for pat in _PLACEHOLDER_PATTERNS_RUST:
+        m = pat.search(content)
+        if m:
+            return ContentValidationResult(
+                ok=False, signal="placeholder",
+                reason=f"placeholder marker found: {m.group(0).strip()!r} — write real implementation",
+            )
+    return ContentValidationResult(ok=True)
+
+
+def _detect_placeholder_by_patterns(
+    content: str,
+    patterns: tuple,
+) -> ContentValidationResult:
+    for pat in patterns:
+        m = pat.search(content)
+        if m:
+            return ContentValidationResult(
+                ok=False, signal="placeholder",
+                reason=f"placeholder marker found: {m.group(0).strip()!r} — write real implementation",
+            )
+    return ContentValidationResult(ok=True)
+
+
+def _detect_placeholder(filepath: str, content: str) -> ContentValidationResult:
+    """Reject obvious stub code: empty bodies, TODOs, NotImplementedError.
+
+    Why: the user wants sage to write COMPLETE code, not scaffolding. A
+    function body of just `pass` or `// TODO` defeats the purpose of
+    asking sage to implement something.
+    """
+    suffix = Path(filepath).suffix.lower()
+    if suffix == ".py":
+        return _detect_placeholder_python(content)
+    if suffix in (".js", ".jsx", ".ts", ".tsx", ".mjs"):
+        return _detect_placeholder_js(content)
+    if suffix == ".rs":
+        return _detect_placeholder_rust(content)
+    if suffix == ".go":
+        return _detect_placeholder_by_patterns(content, _PLACEHOLDER_PATTERNS_GO)
+    if suffix == ".java":
+        return _detect_placeholder_by_patterns(content, _PLACEHOLDER_PATTERNS_JAVA)
+    if suffix in (".cs", ".fs"):
+        return _detect_placeholder_by_patterns(content, _PLACEHOLDER_PATTERNS_CSHARP)
+    if suffix == ".rb":
+        return _detect_placeholder_by_patterns(content, _PLACEHOLDER_PATTERNS_RUBY)
+    if suffix == ".php":
+        return _detect_placeholder_by_patterns(content, _PLACEHOLDER_PATTERNS_PHP)
+    if suffix == ".swift":
+        return _detect_placeholder_by_patterns(content, _PLACEHOLDER_PATTERNS_SWIFT)
+    return ContentValidationResult(ok=True)
+
+
 def _detect_prompt_echo(content: str) -> ContentValidationResult:
     has_task = bool(re.search(r"^\s*## TASK:", content, re.MULTILINE))
     has_plan = bool(re.search(r"^\s*Plan ID:\s*plan_", content, re.MULTILINE))
@@ -150,6 +389,7 @@ _DETECTORS = (
     ("prompt_echo",   lambda fp, c: _detect_prompt_echo(c)),
     ("json_poison",   _detect_json_poison),
     ("prose_mass",    _detect_prose_mass),
+    ("placeholder",   _detect_placeholder),
 )
 
 

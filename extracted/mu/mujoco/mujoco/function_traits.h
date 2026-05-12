@@ -3256,6 +3256,17 @@ struct mju_sparse2dense {
   }
 };
 
+struct mju_sym2dense {
+  static constexpr char name[] = "mju_sym2dense";
+  static constexpr char doc[] = "Convert lower-triangular symmetric CSR matrix to full dense matrix.";
+  using type = void (mjtNum *, const mjtNum *, int, const int *, const int *, const int *);
+  static constexpr auto param_names = std::make_tuple("res", "mat", "n", "rownnz", "rowadr", "colind");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mju_sym2dense;
+  }
+};
+
 struct mju_rotVecQuat {
   static constexpr char name[] = "mju_rotVecQuat";
   static constexpr char doc[] = "Rotate vector by quaternion.";
@@ -4722,7 +4733,7 @@ struct mjs_makeMesh {
 struct mjs_getSpec {
   static constexpr char name[] = "mjs_getSpec";
   static constexpr char doc[] = "Get spec from body.";
-  using type = mjSpec * (mjsElement *);
+  using type = mjSpec * (const mjsElement *);
   static constexpr auto param_names = std::make_tuple("element");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4730,10 +4741,21 @@ struct mjs_getSpec {
   }
 };
 
+struct mjs_getOriginSpec {
+  static constexpr char name[] = "mjs_getOriginSpec";
+  static constexpr char doc[] = "get spec that originally defined an element contrary to mjs_getSpec, this does not change after attachment";
+  using type = mjSpec * (const mjsElement *);
+  static constexpr auto param_names = std::make_tuple("element");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_getOriginSpec;
+  }
+};
+
 struct mjs_getCompiler {
   static constexpr char name[] = "mjs_getCompiler";
   static constexpr char doc[] = "Get compiler associated with element's origin spec.";
-  using type = mjsCompiler * (mjsElement *);
+  using type = mjsCompiler * (const mjsElement *);
   static constexpr auto param_names = std::make_tuple("element");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4744,7 +4766,7 @@ struct mjs_getCompiler {
 struct mjs_findSpec {
   static constexpr char name[] = "mjs_findSpec";
   static constexpr char doc[] = "Find spec (model asset) by name.";
-  using type = mjSpec * (mjSpec *, const char *);
+  using type = mjSpec * (const mjSpec *, const char *);
   static constexpr auto param_names = std::make_tuple("spec", "name");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4755,7 +4777,7 @@ struct mjs_findSpec {
 struct mjs_findBody {
   static constexpr char name[] = "mjs_findBody";
   static constexpr char doc[] = "Find body in spec by name.";
-  using type = mjsBody * (mjSpec *, const char *);
+  using type = mjsBody * (const mjSpec *, const char *);
   static constexpr auto param_names = std::make_tuple("s", "name");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4766,7 +4788,7 @@ struct mjs_findBody {
 struct mjs_findElement {
   static constexpr char name[] = "mjs_findElement";
   static constexpr char doc[] = "Find element in spec by name.";
-  using type = mjsElement * (mjSpec *, mjtObj, const char *);
+  using type = mjsElement * (const mjSpec *, mjtObj, const char *);
   static constexpr auto param_names = std::make_tuple("s", "type", "name");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4777,7 +4799,7 @@ struct mjs_findElement {
 struct mjs_findChild {
   static constexpr char name[] = "mjs_findChild";
   static constexpr char doc[] = "Find child body by name.";
-  using type = mjsBody * (mjsBody *, const char *);
+  using type = mjsBody * (const mjsBody *, const char *);
   static constexpr auto param_names = std::make_tuple("body", "name");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4788,7 +4810,7 @@ struct mjs_findChild {
 struct mjs_getParent {
   static constexpr char name[] = "mjs_getParent";
   static constexpr char doc[] = "Get parent body.";
-  using type = mjsBody * (mjsElement *);
+  using type = mjsBody * (const mjsElement *);
   static constexpr auto param_names = std::make_tuple("element");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4799,7 +4821,7 @@ struct mjs_getParent {
 struct mjs_getFrame {
   static constexpr char name[] = "mjs_getFrame";
   static constexpr char doc[] = "Get parent frame.";
-  using type = mjsFrame * (mjsElement *);
+  using type = mjsFrame * (const mjsElement *);
   static constexpr auto param_names = std::make_tuple("element");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4810,7 +4832,7 @@ struct mjs_getFrame {
 struct mjs_findFrame {
   static constexpr char name[] = "mjs_findFrame";
   static constexpr char doc[] = "Find frame by name.";
-  using type = mjsFrame * (mjSpec *, const char *);
+  using type = mjsFrame * (const mjSpec *, const char *);
   static constexpr auto param_names = std::make_tuple("s", "name");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4821,7 +4843,7 @@ struct mjs_findFrame {
 struct mjs_getDefault {
   static constexpr char name[] = "mjs_getDefault";
   static constexpr char doc[] = "Get default corresponding to an element.";
-  using type = mjsDefault * (mjsElement *);
+  using type = mjsDefault * (const mjsElement *);
   static constexpr auto param_names = std::make_tuple("element");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4832,7 +4854,7 @@ struct mjs_getDefault {
 struct mjs_findDefault {
   static constexpr char name[] = "mjs_findDefault";
   static constexpr char doc[] = "Find default in model by class name.";
-  using type = mjsDefault * (mjSpec *, const char *);
+  using type = mjsDefault * (const mjSpec *, const char *);
   static constexpr auto param_names = std::make_tuple("s", "classname");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4843,7 +4865,7 @@ struct mjs_findDefault {
 struct mjs_getSpecDefault {
   static constexpr char name[] = "mjs_getSpecDefault";
   static constexpr char doc[] = "Get global default from model.";
-  using type = mjsDefault * (mjSpec *);
+  using type = mjsDefault * (const mjSpec *);
   static constexpr auto param_names = std::make_tuple("s");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4854,7 +4876,7 @@ struct mjs_getSpecDefault {
 struct mjs_getId {
   static constexpr char name[] = "mjs_getId";
   static constexpr char doc[] = "Get element id.";
-  using type = int (mjsElement *);
+  using type = int (const mjsElement *);
   static constexpr auto param_names = std::make_tuple("element");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4865,7 +4887,7 @@ struct mjs_getId {
 struct mjs_firstChild {
   static constexpr char name[] = "mjs_firstChild";
   static constexpr char doc[] = "Return body's first child of given type. If recurse is nonzero, also search the body's subtree.";
-  using type = mjsElement * (mjsBody *, mjtObj, int);
+  using type = mjsElement * (const mjsBody *, mjtObj, int);
   static constexpr auto param_names = std::make_tuple("body", "type", "recurse");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4876,7 +4898,7 @@ struct mjs_firstChild {
 struct mjs_nextChild {
   static constexpr char name[] = "mjs_nextChild";
   static constexpr char doc[] = "Return body's next child of the same type; return NULL if child is last. If recurse is nonzero, also search the body's subtree.";
-  using type = mjsElement * (mjsBody *, mjsElement *, int);
+  using type = mjsElement * (const mjsBody *, const mjsElement *, int);
   static constexpr auto param_names = std::make_tuple("body", "child", "recurse");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4887,7 +4909,7 @@ struct mjs_nextChild {
 struct mjs_firstElement {
   static constexpr char name[] = "mjs_firstElement";
   static constexpr char doc[] = "Return spec's first element of selected type.";
-  using type = mjsElement * (mjSpec *, mjtObj);
+  using type = mjsElement * (const mjSpec *, mjtObj);
   static constexpr auto param_names = std::make_tuple("s", "type");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4898,7 +4920,7 @@ struct mjs_firstElement {
 struct mjs_nextElement {
   static constexpr char name[] = "mjs_nextElement";
   static constexpr char doc[] = "Return spec's next element; return NULL if element is last.";
-  using type = mjsElement * (mjSpec *, mjsElement *);
+  using type = mjsElement * (const mjSpec *, const mjsElement *);
   static constexpr auto param_names = std::make_tuple("s", "element");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4909,7 +4931,7 @@ struct mjs_nextElement {
 struct mjs_getWrapTarget {
   static constexpr char name[] = "mjs_getWrapTarget";
   static constexpr char doc[] = "Get wrapped element in tendon path.";
-  using type = mjsElement * (mjsWrap *);
+  using type = mjsElement * (const mjsWrap *);
   static constexpr auto param_names = std::make_tuple("wrap");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4920,7 +4942,7 @@ struct mjs_getWrapTarget {
 struct mjs_getWrapSideSite {
   static constexpr char name[] = "mjs_getWrapSideSite";
   static constexpr char doc[] = "Get wrapped element side site in tendon path if it has one, nullptr otherwise.";
-  using type = mjsSite * (mjsWrap *);
+  using type = mjsSite * (const mjsWrap *);
   static constexpr auto param_names = std::make_tuple("wrap");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4931,7 +4953,7 @@ struct mjs_getWrapSideSite {
 struct mjs_getWrapDivisor {
   static constexpr char name[] = "mjs_getWrapDivisor";
   static constexpr char doc[] = "Get divisor of mjsWrap wrapping a puller.";
-  using type = double (mjsWrap *);
+  using type = double (const mjsWrap *);
   static constexpr auto param_names = std::make_tuple("wrap");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -4942,7 +4964,7 @@ struct mjs_getWrapDivisor {
 struct mjs_getWrapCoef {
   static constexpr char name[] = "mjs_getWrapCoef";
   static constexpr char doc[] = "Get coefficient of mjsWrap wrapping a joint.";
-  using type = double (mjsWrap *);
+  using type = double (const mjsWrap *);
   static constexpr auto param_names = std::make_tuple("wrap");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {

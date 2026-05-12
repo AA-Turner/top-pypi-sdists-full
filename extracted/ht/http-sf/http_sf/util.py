@@ -1,14 +1,14 @@
 import base64
-from datetime import datetime
-from decimal import Decimal
 import json
 import re
+from datetime import datetime, timezone
+from decimal import Decimal
 from string import ascii_lowercase, ascii_uppercase, digits
 from typing import Any
 
-from .types import StructuredType, Token, DisplayString, JsonDict
-from .state import ParserState
 from .errors import StructuredFieldError
+from .state import ParserState
+from .types import DisplayString, JsonDict, StructuredType, Token
 
 SPACE = ord(b" ")
 HTTP_OWS = set(b" \t")
@@ -115,7 +115,10 @@ def json_load(inobj: JsonDict) -> Any:
     if objtype == "binary":
         return base64.b32decode(inobj["value"])
     if objtype == "date":
-        return datetime.fromtimestamp(inobj["value"])
+        try:
+            return datetime.fromtimestamp(inobj["value"], tz=timezone.utc)
+        except (ValueError, OSError):
+            return int(inobj["value"])
     if objtype == "displaystring":
         return DisplayString(inobj["value"])
     raise ValueError(f"Unknown object type - {inobj}")

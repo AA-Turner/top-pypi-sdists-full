@@ -364,6 +364,35 @@ class TestLeak(support.TestCase):
 
         self.aseq(nrcprobe, rcprobe)
 
+    def test_nytuplelike(self):
+        # Test that nytuplelike behaves as all expected tntries are in the
+        # tuple, and entries are decrefed when the nytuplelike is freed
+
+        import gc
+        from sys import getrefcount as grc
+
+        TestCase.setUp(self)
+
+        hv = self.hv
+        rg = self.nodegraph()
+        li = rg, {}, {}
+
+        rchv = grc(hv)
+        rcli = [grc(x) for x in li]
+
+        cli = hv.cli_inrel(*li)
+
+        nytuplelike = cli.self
+        self.aseq(nytuplelike[:2] + nytuplelike[3:], (hv, *li))
+
+        del cli, nytuplelike
+        gc.collect()
+
+        nrchv = grc(hv)
+        nrcli = [grc(x) for x in li]
+        self.aseq(rchv, nrchv)
+        self.aseq(rcli, nrcli)
+
 
 class TestNodeGraph(TestCase):
     def test_constructor_and_methods(self):
@@ -564,6 +593,13 @@ class TestClassifiers(TestCase):
             r = {str(i): x}
             rg.add_edge(x, r)
         c = cli.classify(x)
+
+    def test_partition(self):
+        hv = self.hv
+        cli = hv.cli_type()
+
+        part = cli.partition([1, 2, 'a', 3, 'b', 'c', 4])
+        self.aseq(part, {int: [1, 2, 3, 4], str: ['a', 'b', 'c']})
 
     def test_nodetuple_richcompare(self):
         hv = self.hv

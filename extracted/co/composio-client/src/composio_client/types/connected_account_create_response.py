@@ -713,6 +713,8 @@ class ConnectionDataUnionMember1ValUnionMember2(BaseModel):
 
     extension: Optional[str] = None
 
+    extra_token_data: Optional[Dict[str, Optional[object]]] = None
+
     form_api_base_url: Optional[str] = None
 
     id_token: Optional[str] = None
@@ -803,6 +805,8 @@ class ConnectionDataUnionMember1ValUnionMember3(BaseModel):
     expires_in: Union[float, str, None] = None
 
     extension: Optional[str] = None
+
+    extra_token_data: Optional[Dict[str, Optional[object]]] = None
 
     form_api_base_url: Optional[str] = None
 
@@ -5260,6 +5264,13 @@ class Deprecated(BaseModel):
 class ConnectedAccountCreateResponse(BaseModel):
     id: str
     """The id of the connected account"""
+
+    account_type: Literal["PRIVATE", "SHARED"]
+    """The persisted sharing model for this connected account (PRIVATE | SHARED).
+
+    Echoes back the value supplied at creation time so callers can confirm what
+    landed without a follow-up GET.
+    """
 
     connection_data: ConnectionData = FieldInfo(alias="connectionData")
     """The connection data of the connected account"""

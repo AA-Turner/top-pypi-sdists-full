@@ -194,11 +194,15 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
     """Represents a piece of data at a specific time"""
 
     @overload
+    def __ge__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
+        ...
+
+    @overload
     def __ge__(self, other: typing.Any) -> bool:
         ...
 
     @overload
-    def __ge__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
+    def __gt__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
         ...
 
     @overload
@@ -206,7 +210,14 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
         ...
 
     @overload
-    def __gt__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], value: float) -> None:
+        """
+        Initializes a new instance of the DataPoint type using the specified time/data
+        
+        :param symbol: The symbol associated with this data
+        :param time: The time this data was produced
+        :param value: The data
+        """
         ...
 
     @overload
@@ -228,14 +239,7 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
         ...
 
     @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time: typing.Union[datetime.datetime, datetime.date], value: float) -> None:
-        """
-        Initializes a new instance of the DataPoint type using the specified time/data
-        
-        :param symbol: The symbol associated with this data
-        :param time: The time this data was produced
-        :param value: The data
-        """
+    def __le__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
         ...
 
     @overload
@@ -243,25 +247,11 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
         ...
 
     @overload
-    def __le__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
     def __lt__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
         ...
 
     @overload
-    def compare_to(self, obj: typing.Any) -> int:
-        """
-        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
-        
-        :param obj: An object to compare with this instance.
-        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings: Value Meaning Less than zero This instance precedes obj in the sort order. Zero This instance occurs in the same position in the sort order as obj. Greater than zero This instance follows obj in the sort order.
-        """
+    def __lt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -275,12 +265,12 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def compare_to(self, obj: typing.Any) -> int:
         """
-        Indicates whether this instance and a specified object are equal.
+        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
         
-        :param obj: Another object to compare to.
-        :returns: true if obj and this instance are the same type and represent the same value; otherwise, false.
+        :param obj: An object to compare with this instance.
+        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings: Value Meaning Less than zero This instance precedes obj in the sort order. Zero This instance occurs in the same position in the sort order as obj. Greater than zero This instance follows obj in the sort order.
         """
         ...
 
@@ -291,6 +281,16 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Indicates whether this instance and a specified object are equal.
+        
+        :param obj: Another object to compare to.
+        :returns: true if obj and this instance are the same type and represent the same value; otherwise, false.
         """
         ...
 
@@ -9666,22 +9666,22 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         ...
 
     @overload
-    def compare_to(self, obj: typing.Any) -> int:
-        """
-        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
-        
-        :param obj: An object to compare with this instance.
-        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings: Value Meaning Less than zero This instance precedes obj in the sort order. Zero This instance occurs in the same position in the sort order as obj. Greater than zero This instance follows obj in the sort order.
-        """
-        ...
-
-    @overload
     def compare_to(self, other: QuantConnect.Indicators.IIndicator) -> int:
         """
         Compares the current object with another object of the same type.
         
         :param other: An object to compare with this object.
         :returns: A value that indicates the relative order of the objects being compared. The return value has the following meanings: Value Meaning Less than zero This object is less than the other parameter.Zero This object is equal to other. Greater than zero This object is greater than other.
+        """
+        ...
+
+    @overload
+    def compare_to(self, obj: typing.Any) -> int:
+        """
+        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
+        
+        :param obj: An object to compare with this instance.
+        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings: Value Meaning Less than zero This instance precedes obj in the sort order. Zero This instance occurs in the same position in the sort order as obj. Greater than zero This instance follows obj in the sort order.
         """
         ...
 

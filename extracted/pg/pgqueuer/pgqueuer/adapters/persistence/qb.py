@@ -19,6 +19,7 @@ from pgqueuer.domain.settings import (
     DurabilityPolicy,
     add_prefix,
 )
+from pgqueuer.domain.types import SortOrder
 
 # Re-export for backward compatibility within the adapter layer
 __all__ = [
@@ -57,7 +58,7 @@ class QueryBuilderEnvironment:
         """
         durability_policy = self.settings.durability.config
 
-        return f"""CREATE TYPE {self.settings.queue_status_type} AS ENUM ('queued', 'picked', 'successful', 'exception', 'canceled', 'deleted');
+        return f"""CREATE TYPE {self.settings.queue_status_type} AS ENUM ('queued', 'picked', 'successful', 'exception', 'canceled', 'deleted', 'failed');
     CREATE {durability_policy.queue_table} TABLE {self.settings.queue_table} (
         id SERIAL PRIMARY KEY,
         priority INT NOT NULL,
@@ -70,7 +71,8 @@ class QueryBuilderEnvironment:
         entrypoint TEXT NOT NULL,
         dedupe_key TEXT,
         payload BYTEA,
-        headers JSONB
+        headers JSONB,
+        attempts INT NOT NULL DEFAULT 0
     );
     CREATE INDEX {self.settings.queue_table}_priority_id_id1_idx ON {self.settings.queue_table} (priority ASC, id DESC)
         INCLUDE (id) WHERE status = 'queued';
@@ -178,7 +180,7 @@ class QueryBuilderEnvironment:
     DROP TABLE      IF EXISTS   {self.settings.schedules_table};
     DROP TABLE      IF EXISTS   {self.settings.queue_table_log};
     DROP TYPE       IF EXISTS   {self.settings.queue_status_type};
-    DROP TYPE       IF EXISTS   {self.settings.statistics_table_status_type};
+    DROP TYPE       IF EXISTS   {add_prefix("pgqueuer_statistics_status")};
     """  # noqa
 
     def build_upgrade_queries(self) -> Generator[str, None, None]:
@@ -263,6 +265,8 @@ class QueryBuilderEnvironment:
         yield f"CREATE UNIQUE INDEX IF NOT EXISTS {self.settings.queue_table}_unique_dedupe_key ON {self.settings.queue_table} (dedupe_key) WHERE ((status IN ('queued', 'picked') AND dedupe_key IS NOT NULL));"  # noqa
         yield f"CREATE INDEX IF NOT EXISTS {self.settings.queue_table_log}_job_id_status ON {self.settings.queue_table_log} (job_id, created DESC);"  # noqa: E501
         yield f"ALTER TABLE {self.settings.queue_table} ADD COLUMN IF NOT EXISTS headers JSONB;"  # noqa: E501
+        yield f"ALTER TABLE {self.settings.queue_table} ADD COLUMN IF NOT EXISTS attempts INT NOT NULL DEFAULT 0;"  # noqa: E501
+        yield f"ALTER TYPE {self.settings.queue_status_type} ADD VALUE IF NOT EXISTS 'failed';"  # noqa: E501
 
     def build_table_has_column_query(self) -> str:
         return """SELECT EXISTS (
@@ -399,119 +403,95 @@ class QueryQueueBuilder:
     settings: DBSettings = dataclasses.field(default_factory=DBSettings)
 
     def build_dequeue_query(self) -> str:
+        t = self.settings.queue_table
+        t_log = self.settings.queue_table_log
         return f"""WITH
-    entrypoint_execution_params AS (
-        SELECT
-            UNNEST($2::text[])      AS entrypoint,
-            UNNEST($3::interval[])  AS retry_after,
-            UNNEST($4::boolean[])   AS serialized,
-            UNNEST($5::bigint[])    AS concurrency_limit
-    ),
-    jobs_by_queue_manager_entrypoint AS (
-        SELECT COUNT(*), entrypoint
-        FROM {self.settings.queue_table}
-        WHERE
-                queue_manager_id IS NOT NULL
-            AND queue_manager_id = $6
-            AND entrypoint = ANY($2)
-        GROUP BY entrypoint
-    ),
-    jobs_by_queue_manager AS (
-        SELECT
-            COUNT(*) AS qm_count
-        FROM {self.settings.queue_table}
-        WHERE
-                queue_manager_id IS NOT NULL
-            AND queue_manager_id = $6
-            AND entrypoint = ANY($2)
-    ),
-    next_job_queued AS (
-        SELECT {self.settings.queue_table}.id
-        FROM {self.settings.queue_table}
-        INNER JOIN entrypoint_execution_params
-        ON entrypoint_execution_params.entrypoint = {self.settings.queue_table}.entrypoint
-        LEFT JOIN jobs_by_queue_manager_entrypoint
-        ON jobs_by_queue_manager_entrypoint.entrypoint = {self.settings.queue_table}.entrypoint
-        WHERE
-                {self.settings.queue_table}.entrypoint = ANY($2)
-            AND {self.settings.queue_table}.status = 'queued'
-            AND {self.settings.queue_table}.execute_after < NOW()
-            AND ($7::BIGINT IS NULL OR (SELECT qm_count FROM jobs_by_queue_manager) < $7)
-            AND NOT (
-                entrypoint_execution_params.serialized AND EXISTS (
-                    SELECT 1
-                    FROM {self.settings.queue_table} existing_job
-                    WHERE existing_job.entrypoint = {self.settings.queue_table}.entrypoint
-                    AND existing_job.status = 'picked'
-                )
-            )
-            AND (
-                entrypoint_execution_params.concurrency_limit <= 0
-                OR jobs_by_queue_manager_entrypoint.count IS NULL
-                OR jobs_by_queue_manager_entrypoint.count < entrypoint_execution_params.concurrency_limit
-            )
-        ORDER BY {self.settings.queue_table}.priority DESC, {self.settings.queue_table}.id ASC
-        FOR UPDATE SKIP LOCKED
-        LIMIT $1
-    ),
-    next_job_retry AS (
-        SELECT {self.settings.queue_table}.id
-        FROM {self.settings.queue_table}
-        INNER JOIN entrypoint_execution_params
-        ON entrypoint_execution_params.entrypoint = {self.settings.queue_table}.entrypoint
-        WHERE
-                {self.settings.queue_table}.entrypoint = ANY($2)
-            AND {self.settings.queue_table}.status = 'picked'
-            AND {self.settings.queue_table}.execute_after < NOW()
-            AND entrypoint_execution_params.retry_after > interval '0'
-            AND {self.settings.queue_table}.heartbeat < NOW() - entrypoint_execution_params.retry_after
-            AND ($7::BIGINT IS NULL OR (SELECT qm_count FROM jobs_by_queue_manager) < $7)
-            AND NOT (
-                entrypoint_execution_params.serialized AND EXISTS (
-                    SELECT 1
-                    FROM {self.settings.queue_table} existing_job
-                    WHERE existing_job.entrypoint = {self.settings.queue_table}.entrypoint
-                    AND existing_job.status = 'picked'
-                )
-            )
-            AND (
-                entrypoint_execution_params.concurrency_limit <= 0
-                OR COALESCE(
-                    (
-                        SELECT SUM(j.count)
-                        FROM jobs_by_queue_manager_entrypoint j
-                        WHERE j.entrypoint = {self.settings.queue_table}.entrypoint
-                    ),
-                    0
-                ) < entrypoint_execution_params.concurrency_limit
-            )
-        ORDER BY {self.settings.queue_table}.heartbeat DESC, {self.settings.queue_table}.id ASC
-        FOR UPDATE SKIP LOCKED
-        LIMIT $1
-    ),
-    combined_jobs AS (
-        SELECT DISTINCT id
-        FROM (
-            SELECT id FROM next_job_queued
-            UNION ALL
-            SELECT id FROM next_job_retry
-        ) AS combined
-    ),
-    updated AS (
-        UPDATE {self.settings.queue_table}
-        SET status = 'picked', updated = NOW(), heartbeat = NOW(), queue_manager_id = $6
-        WHERE id = ANY(SELECT id FROM combined_jobs)
-        RETURNING *
-    ), queue_log AS (
-        INSERT INTO {self.settings.queue_table_log} (
-            job_id,
-            status,
-            entrypoint,
-            priority
-        ) SELECT id, status, entrypoint, priority FROM updated
-    )
-    SELECT * FROM updated ORDER BY priority DESC, id ASC;
-    """  # noqa
+-- Unpack per-entrypoint parameters; concurrency_limit 0 means unlimited.
+params AS (
+    SELECT
+        UNNEST($2::text[])   AS entrypoint,
+        UNNEST($3::bigint[]) AS concurrency_limit
+),
+
+-- Per-entrypoint count of picked jobs (global, all workers).
+picked AS (
+    SELECT entrypoint, COUNT(*) AS total
+    FROM {t}
+    WHERE queue_manager_id IS NOT NULL
+      AND entrypoint = ANY($2)
+    GROUP BY entrypoint
+),
+
+-- This worker's total picked jobs (scalar, for max_concurrent_tasks).
+worker_load AS (
+    SELECT COUNT(*) AS total
+    FROM {t}
+    WHERE queue_manager_id = $4
+      AND entrypoint = ANY($2)
+),
+
+-- New queued jobs (uses partial index WHERE status = 'queued').
+next_queued AS (
+    SELECT q.id
+    FROM {t} q
+    JOIN      params p  ON p.entrypoint  = q.entrypoint
+    LEFT JOIN picked pk ON pk.entrypoint = q.entrypoint
+    WHERE q.status = 'queued'
+      AND q.execute_after < NOW()
+      AND ($5::BIGINT IS NULL
+           OR (SELECT total FROM worker_load) < $5)
+      AND (p.concurrency_limit <= 0
+           OR COALESCE(pk.total, 0) < p.concurrency_limit)
+    ORDER BY q.priority DESC, q.id ASC
+    FOR UPDATE SKIP LOCKED
+    LIMIT $1
+),
+
+-- Stale picked jobs whose heartbeat timed out (uses partial index WHERE status = 'picked').
+next_stale AS (
+    SELECT q.id
+    FROM {t} q
+    JOIN      params p  ON p.entrypoint  = q.entrypoint
+    LEFT JOIN picked pk ON pk.entrypoint = q.entrypoint
+    WHERE q.status = 'picked'
+      AND q.heartbeat < NOW() - $6::interval
+      AND q.execute_after < NOW()
+      AND ($5::BIGINT IS NULL
+           OR (SELECT total FROM worker_load) < $5)
+      AND (p.concurrency_limit <= 0
+           OR COALESCE(pk.total, 0) < p.concurrency_limit)
+    ORDER BY q.priority DESC, q.id ASC
+    FOR UPDATE SKIP LOCKED
+    LIMIT $1
+),
+
+-- Merge both sets, keeping priority order, capped to batch size.
+eligible AS (
+    SELECT id FROM (
+        SELECT id, 0 AS src FROM next_queued
+        UNION ALL
+        SELECT id, 1 AS src FROM next_stale
+    ) combined
+    ORDER BY src, id
+    LIMIT $1
+),
+
+-- Atomically claim the jobs and log the pick event.
+claimed AS (
+    UPDATE {t}
+    SET status = 'picked',
+        updated   = NOW(),
+        heartbeat = NOW(),
+        queue_manager_id = $4
+    WHERE id IN (SELECT id FROM eligible)
+    RETURNING *
+),
+log_pick AS (
+    INSERT INTO {t_log} (job_id, status, entrypoint, priority)
+    SELECT id, status, entrypoint, priority FROM claimed
+)
+SELECT * FROM claimed ORDER BY priority DESC, id ASC;
+"""  # noqa
 
     def build_has_queued_work(self) -> str:
         return f"""
@@ -574,25 +554,34 @@ class QueryQueueBuilder:
     """
 
     def build_log_job_query(self) -> str:
-        return f"""WITH deleted AS (
-            DELETE FROM {self.settings.queue_table}
-            WHERE id = ANY($1::integer[])
-            RETURNING id, entrypoint, priority
-        ), job_status AS (
+        return f"""WITH job_status AS (
             SELECT
                 UNNEST($1::integer[])                           AS id,
                 UNNEST($2::{self.settings.queue_status_type}[]) AS status,
                 UNNEST($3::JSONB[])                             AS traceback
+        ), deleted AS (
+            DELETE FROM {self.settings.queue_table}
+            WHERE id = ANY(SELECT js.id FROM job_status js WHERE js.status != 'failed')
+            RETURNING id, entrypoint, priority
+        ), held AS (
+            UPDATE {self.settings.queue_table}
+            SET status = 'failed', updated = NOW(), queue_manager_id = NULL
+            WHERE id = ANY(SELECT js.id FROM job_status js WHERE js.status = 'failed')
+            RETURNING id, entrypoint, priority
+        ), all_resolved AS (
+            SELECT id, entrypoint, priority FROM deleted
+            UNION ALL
+            SELECT id, entrypoint, priority FROM held
         ), merged AS (
             SELECT
                 job_status.id           AS id,
                 job_status.status       AS status,
                 job_status.traceback    AS traceback,
-                deleted.entrypoint      AS entrypoint,
-                deleted.priority        AS priority
+                all_resolved.entrypoint AS entrypoint,
+                all_resolved.priority   AS priority
             FROM job_status
-            INNER JOIN deleted
-                ON deleted.id = job_status.id
+            INNER JOIN all_resolved
+                ON all_resolved.id = job_status.id
         )
         INSERT INTO {self.settings.queue_table_log} (
             job_id,
@@ -622,9 +611,6 @@ class QueryQueueBuilder:
     ORDER BY id DESC
     LIMIT $1
     """
-
-    def build_notify_query(self) -> str:
-        return f"""SELECT pg_notify('{self.settings.channel}', $1)"""
 
     def build_update_heartbeat_query(self) -> str:
         return f"""UPDATE {self.settings.queue_table} SET heartbeat = NOW() WHERE id = ANY($1::integer[])"""  # noqa: E501
@@ -673,11 +659,144 @@ class QueryQueueBuilder:
             count = {self.settings.statistics_table}.count + EXCLUDED.count
         """  # noqa
 
+    def build_retry_job_query(self) -> str:
+        return f"""WITH retry AS (
+            UPDATE {self.settings.queue_table}
+            SET
+                status = 'queued',
+                execute_after = NOW() + $2::interval,
+                attempts = attempts + 1,
+                updated = NOW(),
+                queue_manager_id = NULL
+            WHERE id = $1::integer
+            RETURNING id, entrypoint, priority
+        )
+        INSERT INTO {self.settings.queue_table_log} (job_id, status, entrypoint, priority, traceback)
+        SELECT id, 'queued', entrypoint, priority, $3::JSONB FROM retry
+        """  # noqa: E501
+
+    def build_requeue_jobs_query(self) -> str:
+        return f"""WITH requeued AS (
+            UPDATE {self.settings.queue_table}
+            SET status = 'queued', execute_after = NOW(), updated = NOW(),
+                attempts = 0, queue_manager_id = NULL
+            WHERE id = ANY($1::integer[]) AND status = 'failed'
+            RETURNING id, entrypoint, priority
+        )
+        INSERT INTO {self.settings.queue_table_log} (job_id, status, entrypoint, priority)
+        SELECT id, 'queued', entrypoint, priority FROM requeued
+        """
+
+    def build_list_failed_jobs_query(self, order: SortOrder = "DESC") -> str:
+        return f"""SELECT * FROM {self.settings.queue_table}
+        WHERE status = 'failed'
+        ORDER BY created {order}
+        LIMIT $1
+        """
+
+    def build_queue_table_browse_query(self) -> str:
+        return f"""SELECT * FROM {self.settings.queue_table}
+        ORDER BY priority DESC, id ASC
+        LIMIT $1 OFFSET $2
+        """
+
+    def build_failed_jobs_query(self) -> str:
+        return f"""SELECT * FROM {self.settings.queue_table_log}
+        WHERE status = 'exception'::{self.settings.queue_status_type}
+        ORDER BY created DESC
+        LIMIT $1
+        """
+
+    def build_queue_log_query(self) -> str:
+        return f"""SELECT * FROM {self.settings.queue_table_log}
+        ORDER BY created DESC
+        LIMIT $1
+        """
+
+    def build_stale_jobs_query(self) -> str:
+        return f"""SELECT id, priority, queue_manager_id, created, updated, heartbeat,
+            execute_after, status, entrypoint,
+            EXTRACT(EPOCH FROM NOW() - heartbeat) AS seconds_since_heartbeat
+        FROM {self.settings.queue_table}
+        WHERE status = 'picked'::{self.settings.queue_status_type}
+          AND heartbeat < NOW() - $1::interval
+        ORDER BY heartbeat ASC
+        LIMIT $2
+        """
+
+    def build_queue_age_query(self) -> str:
+        return f"""SELECT
+            entrypoint,
+            COUNT(*) AS queued_count,
+            MIN(created) AS oldest_created,
+            EXTRACT(EPOCH FROM NOW() - MIN(created)) AS oldest_age_seconds,
+            AVG(EXTRACT(EPOCH FROM NOW() - created)) AS avg_age_seconds
+        FROM {self.settings.queue_table}
+        WHERE status = 'queued'::{self.settings.queue_status_type}
+        GROUP BY entrypoint
+        ORDER BY oldest_age_seconds DESC
+        """
+
+    def build_throughput_summary_query(self) -> str:
+        return f"""SELECT
+            entrypoint,
+            status,
+            SUM(count) AS total_count
+        FROM {self.settings.statistics_table}
+        WHERE ($1::interval IS NULL OR created > NOW() - $1)
+        GROUP BY entrypoint, status
+        ORDER BY entrypoint, status
+        """
+
+    def build_active_workers_query(self) -> str:
+        return f"""SELECT
+            queue_manager_id,
+            COUNT(*) AS active_jobs,
+            MIN(heartbeat) AS oldest_heartbeat,
+            MAX(heartbeat) AS newest_heartbeat,
+            array_agg(DISTINCT entrypoint) AS entrypoints
+        FROM {self.settings.queue_table}
+        WHERE status = 'picked'::{self.settings.queue_status_type}
+          AND queue_manager_id IS NOT NULL
+        GROUP BY queue_manager_id
+        ORDER BY active_jobs DESC
+        """
+
+    def build_schema_info_query(self) -> str:
+        return f"""SELECT
+            c.relname AS table_name,
+            CASE WHEN c.relpersistence = 'u' THEN 'UNLOGGED'
+                 WHEN c.relpersistence = 'p' THEN 'LOGGED'
+                 ELSE c.relpersistence::text
+            END AS persistence,
+            c.reltuples::bigint AS estimated_rows,
+            pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = current_schema()
+          AND c.relname IN (
+            '{self.settings.queue_table}',
+            '{self.settings.queue_table_log}',
+            '{self.settings.statistics_table}',
+            '{self.settings.schedules_table}'
+          )
+          AND c.relkind = 'r'
+        ORDER BY c.relname
+        """
+
     def build_job_status_query(self) -> str:
         return f"""SELECT DISTINCT ON (job_id) job_id, status
         FROM   {self.settings.queue_table_log}
         WHERE  job_id = ANY($1)
         ORDER  BY job_id, created DESC, id DESC;
+        """
+
+    def build_next_deferred_eta_query(self) -> str:
+        return f"""SELECT MIN(execute_after) - NOW() AS eta
+        FROM {self.settings.queue_table}
+        WHERE status = 'queued'
+          AND execute_after > NOW()
+          AND entrypoint = ANY($1)
         """
 
 
@@ -733,7 +852,7 @@ class QuerySchedulerBuilder:
     def build_update_schedule_heartbeat(self) -> str:
         return f"""UPDATE {self.settings.schedules_table} SET heartbeat = NOW(), updated = NOW() WHERE id = ANY($1);"""  # noqa: E501
 
-    def build_peak_schedule_query(self) -> str:
+    def build_peek_schedule_query(self) -> str:
         return f"""SELECT * FROM {self.settings.schedules_table} ORDER BY last_run ASC"""
 
     def build_delete_schedule_query(self) -> str:

@@ -630,23 +630,23 @@ class BasePythonWrapper(typing.Generic[QuantConnect_Python_BasePythonWrapper_TIn
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is an instance of BasePythonWrapper{TInterface}
-        and wraps the same Python object reference as this instance, which would indicate that they are equal.
-        
-        :param obj: The other object to compare this with
-        :returns: True if both instances are equal, that is if both wrap the same Python object reference.
-        """
-        ...
-
-    @overload
     def equals(self, other: QuantConnect.Python.BasePythonWrapper[QuantConnect_Python_BasePythonWrapper_TInterface]) -> bool:
         """
         Determines whether the specified instance wraps the same Python object reference as this instance,
         which would indicate that they are equal.
         
         :param other: The other object to compare this with
+        :returns: True if both instances are equal, that is if both wrap the same Python object reference.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is an instance of BasePythonWrapper{TInterface}
+        and wraps the same Python object reference as this instance, which would indicate that they are equal.
+        
+        :param obj: The other object to compare this with
         :returns: True if both instances are equal, that is if both wrap the same Python object reference.
         """
         ...

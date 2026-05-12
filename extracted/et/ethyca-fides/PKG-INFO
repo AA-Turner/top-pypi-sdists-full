@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ethyca-fides
-Version: 2.84.5
+Version: 2.85.0
 Summary: Open-source ecosystem for data privacy as code.
 Project-URL: Homepage, https://github.com/ethyca/fides
 Author-email: "Ethyca, Inc." <fidesteam@ethyca.com>
@@ -34,7 +34,7 @@ Requires-Dist: click==8.1.7
 Requires-Dist: cloud-sql-python-connector==1.9.2
 Requires-Dist: cloudpickle~=3.1.2
 Requires-Dist: colorama~=0.4.6
-Requires-Dist: cryptography~=46.0.5
+Requires-Dist: cryptography~=46.0.7
 Requires-Dist: dask==2025.11.0
 Requires-Dist: deepdiff==8.6.2
 Requires-Dist: defusedxml==0.7.1
@@ -64,7 +64,6 @@ Requires-Dist: nh3==0.2.15
 Requires-Dist: numpy~=2.3.5
 Requires-Dist: oauthlib==3.3.1
 Requires-Dist: objgraph==3.6.0
-Requires-Dist: okta==3.1.0
 Requires-Dist: onepassword-sdk==0.3.0
 Requires-Dist: openpyxl==3.0.9
 Requires-Dist: ordered-set==4.1.0
@@ -80,7 +79,7 @@ Requires-Dist: pydantic-settings==2.3.3
 Requires-Dist: pydantic==2.12.4
 Requires-Dist: pydash~=8.0.2
 Requires-Dist: pygtrie==2.5.0
-Requires-Dist: pyinstrument==4.5.1
+Requires-Dist: pyinstrument==4.7.2
 Requires-Dist: pyjwt~=2.12.0
 Requires-Dist: pymongo[srv]==4.7.3
 Requires-Dist: pymysql==1.1.1

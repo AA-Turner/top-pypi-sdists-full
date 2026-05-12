@@ -1,12 +1,23 @@
 import asyncio
 import inspect
 from contextlib import asynccontextmanager, suppress
+from datetime import datetime, timezone
 from typing import AsyncContextManager, AsyncGenerator, Callable
 
 import asyncpg
 import psycopg
 import pytest
 
+from pgqueuer.adapters.persistence.qb import (
+    QueryBuilderEnvironment,
+    QueryQueueBuilder,
+    QuerySchedulerBuilder,
+)
+from pgqueuer.core.listeners import (
+    PGNoticeEventListener,
+    default_event_router,
+    initialize_notice_event_listener,
+)
 from pgqueuer.db import (
     AsyncpgDriver,
     AsyncpgPoolDriver,
@@ -15,19 +26,7 @@ from pgqueuer.db import (
     SyncDriver,
     SyncPsycopgDriver,
 )
-from pgqueuer.helpers import utc_now
-from pgqueuer.listeners import (
-    PGNoticeEventListener,
-    default_event_router,
-    initialize_notice_event_listener,
-)
 from pgqueuer.models import TableChangedEvent
-from pgqueuer.qb import (
-    DBSettings,
-    QueryBuilderEnvironment,
-    QueryQueueBuilder,
-    QuerySchedulerBuilder,
-)
 from pgqueuer.types import Channel
 
 
@@ -120,12 +119,7 @@ async def test_notify(
 
         # Send from a separate connection to avoid self-notify edge cases.
         async with driver(dsn) as ad:
-            await ad.execute(
-                QueryQueueBuilder(
-                    DBSettings(channel=channel),
-                ).build_notify_query(),
-                payload,
-            )
+            await ad.notify(channel, payload)
 
         assert await asyncio.wait_for(event, timeout=1) == payload
 
@@ -187,7 +181,7 @@ async def test_event_listener(
         payload = TableChangedEvent(
             channel=channel,
             operation="update",
-            sent_at=utc_now(),
+            sent_at=datetime.now(timezone.utc),
             table="foo",
             type="table_changed_event",
         )
@@ -198,7 +192,6 @@ async def test_event_listener(
             channel,
             default_event_router(
                 notice_event_queue=listener,
-                statistics={},
                 canceled={},
                 pending_health_check={},
             ),
@@ -206,10 +199,7 @@ async def test_event_listener(
 
         # Send from a separate connection to avoid self-notify edge cases.
         async with driver(dsn) as dd:
-            await dd.execute(
-                QueryQueueBuilder(DBSettings(channel=channel)).build_notify_query(),
-                payload.model_dump_json(),
-            )
+            await dd.notify(channel, payload.model_dump_json())
 
         assert (await asyncio.wait_for(listener.get(), timeout=1)) == payload
 

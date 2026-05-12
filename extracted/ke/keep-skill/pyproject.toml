@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "keep-skill"
-version = "0.145.0"
+version = "0.148.0"
 description = "Reflective memory - remember and search documents by meaning"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -32,7 +32,8 @@ dependencies = [
     "openai>=1.0",
     "anthropic>=0.40.0",
     "google-genai>=1.0.0",
-    "mistralai>=1.0",
+    # Mistral providers (embeddings, chat, OCR) use the REST API directly via httpx
+    # — no mistralai SDK dependency.
     # Document extraction
     "pyjwt>=2.12.0",
     "pypdf>=6.10.0",  # GHSA-3crg-w4f6-42mx and CVE-2026-33699 fixes
@@ -47,6 +48,8 @@ dependencies = [
     "Pillow>=10.0",
     # Remote API client
     "httpx>=0.27,<1.0",
+    # Security floor for transitive users of requests/google-auth stacks.
+    "urllib3>=2.7.0",
     # MCP stdio server
     "mcp>=1.0,<2.0",
     "pydantic>=2.0,<3.0",

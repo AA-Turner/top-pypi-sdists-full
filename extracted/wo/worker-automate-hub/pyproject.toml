@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "worker-automate-hub"
-version = "0.5.1057"
+version = "0.5.1058"
 description = "Worker Automate HUB é uma aplicação para automatizar rotinas de RPA nos ambientes Argenta."
 authors = ["Joel Paim"]
 readme = "README.md"

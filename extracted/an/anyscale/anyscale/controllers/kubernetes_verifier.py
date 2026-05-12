@@ -50,6 +50,12 @@ PORT_FORWARD_WAIT_TIME = 3  # seconds to wait for port forward to establish
 HTTP_REQUEST_TIMEOUT = 10  # seconds for HTTP requests to operator
 PORT_FORWARD_TERMINATION_TIMEOUT = 5  # seconds to wait for graceful termination
 
+# HTTP retry configuration for operator endpoints. Brief connection
+# refused/dropped errors are common right after the port forward starts
+# (the local socket may not be listening yet) and during operator restarts.
+OPERATOR_REQUEST_MAX_ATTEMPTS = 5
+OPERATOR_REQUEST_RETRY_BASE_DELAY = 1.0  # seconds; doubles per retry (1, 2, 4)
+
 OPERATOR_LABEL_SELECTOR = "app=anyscale-operator"
 
 # Gateway resource types to check
@@ -786,11 +792,36 @@ class OperatorVerifier:
             port = s.getsockname()[1]
         return port
 
+    def _get_with_retry(self, url: str) -> requests.Response:
+        """
+        GET ``url`` with retries on transient connection errors.
+
+        Retries only on ``requests.ConnectionError`` and ``requests.Timeout``
+        -- HTTP-level errors (4xx, 5xx) are returned to the caller so it can
+        decide whether they're real failures (e.g. 401 from a misconfigured
+        operator should not be papered over with retries).
+        """
+        last_exc: Optional[requests.RequestException] = None
+        for attempt in range(OPERATOR_REQUEST_MAX_ATTEMPTS):
+            try:
+                return requests.get(url, timeout=HTTP_REQUEST_TIMEOUT)
+            except (requests.ConnectionError, requests.Timeout) as e:
+                last_exc = e
+                if attempt < OPERATOR_REQUEST_MAX_ATTEMPTS - 1:
+                    delay = OPERATOR_REQUEST_RETRY_BASE_DELAY * (2 ** attempt)
+                    self.log.info(
+                        f"Transient error reaching operator endpoint "
+                        f"({type(e).__name__}); retrying in {delay:.1f}s "
+                        f"(attempt {attempt + 1}/{OPERATOR_REQUEST_MAX_ATTEMPTS})"
+                    )
+                    time.sleep(delay)
+        assert last_exc is not None
+        raise last_exc
+
     def _fetch_health_data(self, local_port: int) -> OperatorHealthData:
         """Fetch health data from operator."""
-        response = requests.get(
+        response = self._get_with_retry(
             f"http://localhost:{local_port}{OPERATOR_HEALTH_ENDPOINT}",
-            timeout=HTTP_REQUEST_TIMEOUT,
         )
 
         return OperatorHealthData(
@@ -804,9 +835,8 @@ class OperatorVerifier:
         retry_delay = 5
 
         for attempt in range(max_retries):
-            response = requests.get(
+            response = self._get_with_retry(
                 f"http://localhost:{local_port}{OPERATOR_CONFIG_ENDPOINT}",
-                timeout=HTTP_REQUEST_TIMEOUT,
             )
 
             config_data = None

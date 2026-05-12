@@ -142,7 +142,7 @@ class WinDivert:
                 import ctypes.wintypes
 
                 buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
-                length = ctypes.windll.kernel32.GetSystemDirectoryW(buf, ctypes.wintypes.MAX_PATH)  # type: ignore[attr-defined]
+                length = ctypes.windll.kernel32.GetSystemDirectoryW(buf, ctypes.wintypes.MAX_PATH)
                 if 0 < length <= ctypes.wintypes.MAX_PATH:
                     system32 = buf.value
                 else:
@@ -151,7 +151,7 @@ class WinDivert:
                 system32 = "C:\\Windows\\System32"
 
             sc_path = os.path.join(system32, "sc.exe")
-            subprocess.run([sc_path, "stop", "WinDivert"], capture_output=True)
+            subprocess.run([sc_path, "stop", "WinDivert"], capture_output=True, check=True)
 
     @staticmethod
     def check_filter(filter: str, layer: Layer = Layer.NETWORK) -> tuple[bool, int, str]:
@@ -174,7 +174,7 @@ class WinDivert:
         """
         res, pos, msg = False, c_uint(), c_char_p()
         try:
-            res = windivert_dll.WinDivertHelperCompileFilter(filter.encode(), layer, None, 0, byref(msg), byref(pos))  # type: ignore[attr-defined]
+            res = windivert_dll.WinDivertHelperCompileFilter(filter.encode(), layer, None, 0, byref(msg), byref(pos))
         except OSError as e:
             logger.warning("WinDivertHelperCompileFilter failed: %s", e)
         return res, pos.value, msg.value.decode() if msg.value else ""
@@ -198,8 +198,8 @@ class WinDivert:
         """
         if self.is_open:
             raise RuntimeError("WinDivert handle is already open.")
-        self._handle = windivert_dll.WinDivertOpen(self._filter, self._layer, self._priority, self._flags)  # type: ignore[attr-defined]
-        self._event = windivert_dll.CreateEventW(None, False, False, None)  # type: ignore[attr-defined]
+        self._handle = windivert_dll.WinDivertOpen(self._filter, self._layer, self._priority, self._flags)
+        self._event = windivert_dll.CreateEventW(None, False, False, None)
 
     @property
     def is_open(self):
@@ -222,11 +222,11 @@ class WinDivert:
         """
         if not self.is_open:
             raise RuntimeError("WinDivert handle is not open.")
-        windivert_dll.WinDivertClose(self._handle)  # type: ignore[attr-defined]
+        windivert_dll.WinDivertClose(self._handle)
         self._handle = None
         self._pending_ops.clear()
         if self._event:
-            windivert_dll.CloseHandle(self._event)  # type: ignore[attr-defined]
+            windivert_dll.CloseHandle(self._event)
             self._event = None
 
     def recv(self, bufsize: int = DEFAULT_PACKET_BUFFER_SIZE) -> Packet:
@@ -258,7 +258,7 @@ class WinDivert:
         packet_ = self._recv_buf_c
         address = WinDivertAddress()
         recv_len = c_uint(0)
-        windivert_dll.WinDivertRecv(self._handle, packet_, bufsize, byref(recv_len), byref(address))  # type: ignore[attr-defined]
+        windivert_dll.WinDivertRecv(self._handle, packet_, bufsize, byref(recv_len), byref(address))
 
         return self._parse_packet(packet[: recv_len.value], recv_len.value, address)
 
@@ -290,7 +290,7 @@ class WinDivert:
             # Call the async version from DLL
             res = windivert_dll.WinDivertRecvEx(
                 self._handle, packet_, bufsize, byref(recv_len), 0, byref(address), None, byref(overlapped)
-            )  # type: ignore[attr-defined]
+            )
 
             if not res:
                 error = windivert_dll.GetLastError()
@@ -334,6 +334,7 @@ class WinDivert:
             flow=address.Flow if address.Layer == Layer.FLOW else None,
             socket=address.Socket if address.Layer == Layer.SOCKET else None,
             reflect=address.Reflect if address.Layer == Layer.REFLECT else None,
+            wd_addr=address,
         )
 
     def recv_ex(
@@ -382,7 +383,7 @@ class WinDivert:
         addr_len = c_uint(ctypes.sizeof(WinDivertAddress))
 
         try:
-            windivert_dll.WinDivertRecvEx(  # type: ignore[attr-defined]
+            windivert_dll.WinDivertRecvEx(
                 self._handle, packet_, bufsize, byref(recv_len), flags, byref(address), byref(addr_len), overlapped
             )
         except OSError as e:
@@ -430,7 +431,7 @@ class WinDivert:
         send_len = c_uint(0)
         raw = packet.raw
         buff = (c_char * len(packet.raw)).from_buffer(raw)
-        windivert_dll.WinDivertSend(self._handle, buff, len(packet.raw), byref(send_len), byref(packet.wd_addr))  # type: ignore[attr-defined]
+        windivert_dll.WinDivertSend(self._handle, buff, len(packet.raw), byref(send_len), byref(packet.wd_addr))
         return send_len.value
 
     async def send_async(self, packet: Packet, recalculate_checksum: bool = True) -> int:
@@ -468,7 +469,7 @@ class WinDivert:
                 byref(wd_addr),
                 ctypes.sizeof(WinDivertAddress),
                 byref(overlapped),
-            )  # type: ignore[attr-defined]
+            )
 
             if not res:
                 error = windivert_dll.GetLastError()
@@ -535,7 +536,7 @@ class WinDivert:
         addr_len = ctypes.sizeof(WinDivertAddress)
 
         try:
-            windivert_dll.WinDivertSendEx(  # type: ignore[attr-defined]
+            windivert_dll.WinDivertSendEx(
                 self._handle, buff, len(packet.raw), byref(send_len), flags, byref(wd_addr), addr_len, overlapped
             )
         except OSError as e:
@@ -569,7 +570,7 @@ class WinDivert:
             raise RuntimeError("WinDivert handle is not open")
 
         value = c_uint64(0)
-        windivert_dll.WinDivertGetParam(self._handle, name, byref(value))  # type: ignore[attr-defined]
+        windivert_dll.WinDivertGetParam(self._handle, name, byref(value))
         return value.value
 
     def set_param(self, name: Param, value: int) -> int:
@@ -589,4 +590,4 @@ class WinDivert:
         if self._handle is None:
             raise RuntimeError("WinDivert handle is not open")
 
-        return windivert_dll.WinDivertSetParam(self._handle, name, value)  # type: ignore[attr-defined]
+        return windivert_dll.WinDivertSetParam(self._handle, name, value)

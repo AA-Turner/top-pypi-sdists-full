@@ -8,13 +8,10 @@ and statistical data structures for logging and monitoring.
 
 from __future__ import annotations
 
-import asyncio
 import dataclasses
 import traceback
 import uuid
-from collections import deque
 from collections.abc import MutableMapping
-from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal, NamedTuple
 
@@ -33,6 +30,12 @@ from pgqueuer.domain.types import (
     ScheduleId,
 )
 
+
+def utc_now() -> datetime:
+    """Return the current time in UTC."""
+    return datetime.now(timezone.utc)
+
+
 ###### Events ######
 
 
@@ -43,7 +46,7 @@ class Event(BaseModel):
     Attributes:
         channel: The PostgreSQL channel the event belongs to.
         sent_at: The timestamp when the event was sent.
-        type: "table_changed_event" or "requests_per_second_event"
+        type: The event type discriminator.
         received_at: The timestamp when the event was received.
     """
 
@@ -79,18 +82,6 @@ class TableChangedEvent(Event):
     table: str
 
 
-class RequestsPerSecondEvent(Event):
-    """
-    A class representing an event in a PostgreSQL channel.
-
-    Attributes:
-        entrypoint: The entrypoint to debounce
-    """
-
-    type: Literal["requests_per_second_event"]
-    entrypoint_count: dict[str, int]
-
-
 class CancellationEvent(Event):
     """
     A class representing an cancellation event in a PostgreSQL channel.
@@ -119,7 +110,7 @@ class HealthCheckEvent(Event):
 class AnyEvent(
     RootModel[
         Annotated[
-            TableChangedEvent | RequestsPerSecondEvent | CancellationEvent | HealthCheckEvent,
+            TableChangedEvent | CancellationEvent | HealthCheckEvent,
             Field(discriminator="type"),
         ]
     ]
@@ -144,6 +135,7 @@ class Job(BaseModel):
     status: JOB_STATUS
     entrypoint: str
     payload: bytes | None
+    attempts: int = 0
     queue_manager_id: uuid.UUID | None
     headers: Annotated[
         dict[str, Any] | None,
@@ -173,10 +165,7 @@ class Job(BaseModel):
 
 
 class Log(BaseModel):
-    """
-    Represents a job with attributes such as ID, priority,
-    creation time, status, entrypoint, and optional payload.
-    """
+    """Represents a job status log entry recording a state transition."""
 
     created: AwareDatetime
     job_id: JobId
@@ -231,9 +220,17 @@ class Context:
 
 
 @dataclasses.dataclass
-class EntrypointStatistics:
-    samples: deque[tuple[int, datetime]]
-    concurrency_limiter: asyncio.Semaphore | nullcontext
+class ScheduleContext:
+    """
+    Runtime context for scheduled tasks, mirroring Context for queue jobs.
+
+    Attributes:
+        resources: A mutable mapping for user-provided, pre-initialized shared
+            resources (e.g. DB pools, HTTP clients, ML models, caches). Always a
+            mapping; never None. Users can mutate this at runtime if needed.
+    """
+
+    resources: MutableMapping = dataclasses.field(default_factory=dict)
 
 
 ###### Schedules ######
@@ -276,7 +273,7 @@ class TracebackRecord(BaseModel):
     ) -> TracebackRecord:
         return cls(
             job_id=job_id,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=utc_now(),
             exception_type=exc.__class__.__name__,
             exception_message=str(exc),
             traceback="".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),

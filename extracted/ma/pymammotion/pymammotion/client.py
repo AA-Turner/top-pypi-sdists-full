@@ -1597,6 +1597,7 @@ class MammotionClient:
                     _logger.debug(f"Restoring root_hash_lists for {device.map} from saga result")
                     _logger.debug(f"Restoring root_hash_lists for {saga.result} from saga result")
                     device.map.root_hash_lists = saga.result.root_hash_lists
+                device.map.update_hash_lists(device.map.hashlist)
                 if device.location.RTK.latitude != 0:
                     device.map.generate_geojson(device.location.RTK, device.location.dock)
                 # Notify map_updated subscribers after a successful saga, matching
@@ -1958,6 +1959,14 @@ class MammotionClient:
         is_yuka = DeviceType.is_yuka(device_name)
         subscription = await http.get_stream_subscription(iot_id, is_yuka)
 
+        if handle := self._device_registry.get_by_name(device_name):
+            try:
+                new_fpv = handle.snapshot.raw.report_data.dev.fpv_info is not None
+            except AttributeError:
+                new_fpv = False
+            if not new_fpv:
+                await self._send_agora_join_over_mqtt(handle)
+
         return subscription
 
     async def refresh_stream_subscription(self, device_name: str, iot_id: str) -> Any:
@@ -1976,7 +1985,24 @@ class MammotionClient:
         is_yuka = DeviceType.is_yuka(device_name)
         subscription = await http.get_stream_subscription(iot_id, is_yuka)
 
+        if handle := self._device_registry.get_by_name(device_name):
+            try:
+                new_fpv = handle.snapshot.raw.report_data.dev.fpv_info is not None
+            except AttributeError:
+                new_fpv = False
+            if not new_fpv:
+                await self._send_agora_join_over_mqtt(handle)
+
         return subscription
+
+    async def _send_agora_join_over_mqtt(self, handle: DeviceHandle) -> None:
+        """Fire the Agora join-channel command over MQTT only, without waiting for an ack."""
+        command_bytes = handle.commands.device_agora_join_channel_with_position(enter_state=1)
+        for transport_type in (TransportType.CLOUD_ALIYUN, TransportType.CLOUD_MAMMOTION):
+            mqtt_transport = handle.get_transport(transport_type)
+            if mqtt_transport is not None and mqtt_transport.is_connected:
+                await handle._send_marked(mqtt_transport, command_bytes)
+                break
 
     # ------------------------------------------------------------------
     # Commands
@@ -2062,6 +2088,7 @@ class MammotionClient:
         expected_field: str,
         *,
         send_timeout: float = 5.0,
+        prefer_ble: bool = True,
         **kwargs: Any,
     ) -> Any:
         """Send a command and wait for the matching protobuf response.
@@ -2079,6 +2106,7 @@ class MammotionClient:
         Raises:
             KeyError:             if *name* is not a registered device.
             CommandTimeoutError:  if no response after retries.
+            :param prefer_ble:
 
         """
         handle = self._device_registry.get_by_name(name)
@@ -2092,7 +2120,7 @@ class MammotionClient:
 
         async def _send() -> None:
             await self._send_with_auth_retry(
-                lambda: handle.send_raw(payload=command_bytes),
+                lambda: handle.send_raw(payload=command_bytes, prefer_ble=prefer_ble),
                 _session,
             )
 

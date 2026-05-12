@@ -5,7 +5,13 @@ import funcy as fc
 from tqdm.auto import tqdm
 import random, re, exrex
 import itertools
-from gramforge.solver_utils.tptp import split_clauses, run, to_tptp, extract_inferences_and_formulas
+from gramforge.solver_utils.tptp import split_clauses, run as _run, to_tptp, extract_inferences_and_formulas
+
+AXIOMS = "fof(anywhere_ax, axiom, ![X]:anywhere(X))."
+
+def run(expr, **kw):
+    return _run(AXIOMS + "\n" + expr, **kw)
+
 from gramforge.assets import fol_nli_verbalization
 
 import sys
@@ -44,7 +50,8 @@ def sample_hyps(hyps, hyps_weights, k=2000):
 
 
 def generate_N_premises(n, G, mode="sequential"):
-    gen = lambda n: generate(G(n), mode=mode)
+    empty_room = random.choice([True, False])
+    gen = lambda n: generate(G(n, empty_room=empty_room), mode=mode)
     if n<=16:
         while True:
             x=gen(n)
@@ -62,22 +69,32 @@ def generate_N_premises(n, G, mode="sequential"):
 
 preds_pattern = list(exrex.generate('pred[a-z]'))
 npreds_pattern = list(exrex.generate('~pred[a-z]'))
+prop_pattern = list(exrex.generate('proposition[a-z]'))
+nprop_pattern = list(exrex.generate('~proposition[a-z]'))
 
 
-def verbalize_predicates(x, seed=None, strip_underscores=True):
+def predicate_mapping(seed):
     rng = random.Random(seed)
     source = sorted(list(fol_nli_verbalization.predicates))
     preds = rng.sample(source, len(preds_pattern))
-    
-    mapping = {**dict(zip(npreds_pattern, [fol_nli_verbalization.negate_predicate(p) for p in preds])), 
-               **dict(zip(preds_pattern, preds))}
-    
+    npreds = [fol_nli_verbalization.negate_predicate(p) for p in preds]
+    prop_pairs = list(zip(fol_nli_verbalization.short_propositions,
+                          fol_nli_verbalization.neg_short_propositions))
+    rng.shuffle(prop_pairs)
+    props, nprops = zip(*prop_pairs)
+    return {**dict(zip(npreds_pattern, npreds)),
+            **dict(zip(preds_pattern, preds)),
+            **dict(zip(nprop_pattern, nprops)),
+            **dict(zip(prop_pattern, props))}
+
+def verbalize_predicates(x, seed=None, strip_underscores=True):  # now thin wrapper
+    mapping = predicate_mapping(seed)
     for k in sorted(mapping, key=len, reverse=True):
-        v = mapping[k].replace(' ', '_') if not strip_underscores else mapping[k]
+        v = mapping[k] if strip_underscores else mapping[k].replace(' ', '_')
         x = x.replace(k, v)
-        
     return x.replace('_', ' ') if strip_underscores else x
 
+    
 def valid(x):
     for p in "", "~":
         status= run(f"fof(f,axiom,{p}({x@tptp})).").status
@@ -91,9 +108,9 @@ def valid(x):
 class LogicConfig(Config):
     n_formulas: int = 6
     generation_algorithm: str = "sequential"
-    n_names: int = 2
-    n_adjectives: int = 2
-
+    n_names: int = 3
+    n_adjectives: int = 3
+    bloat_skip_rate:float = 0.90
     def update(self, c):
         self.n_formulas *= (1 + c)
         self.n_names += c
@@ -116,6 +133,8 @@ def get_cot(text: str) -> str:
 
         if 'input' in meta:
             input_num = re.search(r'\d+', meta)
+            if input_num is None:
+                continue
             ctx = "assumption" if "hyp" in meta else f"input {input_num.group()}"
         else:
             ctx = f"{meta.split()[0]} {', '.join(parents)}"
@@ -125,18 +144,31 @@ def get_cot(text: str) -> str:
 
     return "\n".join(lines)
 
-    
+
+
+def is_bloat(meta, label):
+    rules = tuple(meta.proof['rules']) if meta.proof else ()
+    bloat_signatures = {
+        ('input', 'input', 'cnf', 'cnf', 'subsumption'),                     
+        ('input', 'input', 'pure', 'cnf', 'cnf', 'subsumption'),             
+        ('input', 'input', 'pure', 'pure', 'cnf', 'cnf', 'subsumption')      
+    }
+    return rules in bloat_signatures
+
 class LogicNLI(Task):
 
     def __init__(self, config=LogicConfig()):
         super().__init__(config=config)
         self.names = NAMES[:self.config.n_names]
         self.adjectives = ADJECTIVES[:self.config.n_adjectives]
-        self.G = fc.partial(FOL_grammar, names=self.names, adjs=self.adjectives)
-        self.hyps, self.hyps_weights=make_hyps(self.G)
+        G_hyp = fc.partial(FOL_grammar, names=self.names, adjs=self.adjectives, include_propositional=True, empty_room=False)
+        self.hyps, self.hyps_weights=make_hyps(G_hyp)
         self.balancing_key_ratio=1/3
 
     def generate(self):
+        include_propositional = random.choice([True, False])
+        empty_room = random.choice([True, False])
+        self.G = fc.partial(FOL_grammar, names=self.names, adjs=self.adjectives, empty_room=empty_room, include_propositional=include_propositional)
         meta = edict()
         for _ in range(100):    
             # generate premise
@@ -171,6 +203,11 @@ class LogicNLI(Task):
             if label=="other":
                 print("WARNING","\n".join(proofs))
                 continue
+
+            if is_bloat(meta, label):
+                if random.random()<self.config.bloat_skip_rate:
+                    continue
+            
             meta.prem, meta.hyp = x.dict(), hyp.dict()
             return Problem(meta, label)
 
@@ -182,7 +219,7 @@ class LogicNLI(Task):
             "If the Premise entails the Hypothesis, the label is 'entailment'.\n"
             "If the Premise contradicts the Hypothesis, the label is 'contradiction'.\n"
             "If neither, the label is 'neutral'.\n"
-            "Answer with exactly one word, neutral|contradiction|entailment"
+            "The answer is exactly one word: neutral, contradiction, or entailment."
         )
 
         P=verbalize_predicates(P, seed=meta.verbalize_seed)
@@ -190,6 +227,13 @@ class LogicNLI(Task):
 
     def balancing_key(self, problem):
         return problem.answer
+
+
+
+
+@dataclass
+class EvidenceRetrievalConfig(LogicConfig):
+    bloat_skip_rate: float= 0.2
 
 class EvidenceRetrieval(Task):
     def __init__(self, config=LogicConfig()):
@@ -228,7 +272,7 @@ class EvidenceRetrieval(Task):
             f"Premise:\n{prem}\n"
             f"Hypothesis:\n{hyp}\n\n"
             f"Which statements in the premise {verb} the hypothesis?\n"
-            f"Only answer the list of supporting statements, e.g. [0, 6, 7]."
+            f"The answer is the list of supporting statements, e.g. [0, 6, 7]."
         )
         P=verbalize_predicates(P, seed=meta.verbalize_seed)
         return P
@@ -243,5 +287,57 @@ class EvidenceRetrieval(Task):
 
     def balancing_key(self, problem):
         return None
-        return len(problem.metadata.proof.indices)
+        #return len(problem.metadata.proof.indices) # too slow
 
+
+
+class LogicFormalization(Task):
+    def __init__(self, config=LogicConfig()):
+        super().__init__(config=config)
+        self.names = NAMES[:self.config.n_names]
+        self.adjectives = ADJECTIVES[:self.config.n_adjectives]
+
+    def generate(self):
+        include_propositional = random.choice([True, False])
+        empty_room = False
+        G = fc.partial(FOL_grammar, names=self.names, adjs=self.adjectives,
+                       empty_room=empty_room, include_propositional=include_propositional)
+        x = generate_N_premises(self.config.n_formulas, G,
+                                mode=self.config.generation_algorithm)
+        meta = edict(prem=x.dict(), verbalize_seed=random.randint(0, int(1e6)))
+        answer = (x@tptp).replace('room(','in_the_room(')
+        return Problem(meta, answer)
+
+    def prompt(self, meta):
+        meta = edict(meta)
+        eng = verbalize_predicates(meta.prem.eng, seed=meta.verbalize_seed)
+        mapping = predicate_mapping(meta.verbalize_seed)
+        # only show symbols that actually appear; positive forms only (negations follow)
+        used = [k for k in preds_pattern + prop_pattern if k in meta.prem.tptp]
+        glossary = "\n".join(f"  {mapping[k]!r} -> {k}" for k in used)
+        return (
+            f"Premise:\n{eng}\n\n"
+            f"Glossary (English phrase -> TPTP symbol):\n{glossary}\n\n"
+            "Translate the premise into a single TPTP first-order-logic formula, "
+            "joining the lines with '&'.\n"
+            "Connectives: '&', '|', '~', '=>', '<=>'. "
+            "Quantifiers: '![X]:...' (forall) and '?[X]:...' (exists). Equality: '='.\n"
+            "Use the symbols from the glossary for verbalized predicates. "
+            "Names (mary, paul, ...), 'in_the_room', 'person', and adjectives (old, tall, ...) "
+            "appear as-is.\n"
+            "The answer is the TPTP formula only (no fof(...) wrapper, no commentary)."
+        )
+
+    def score_answer(self, answer, entry):
+        answer = answer.strip()
+        m = re.match(r'^fof\([^,]+,\s*[^,]+,\s*(.*)\)\s*\.\s*$', answer, re.DOTALL)
+        if m: answer = m.group(1).strip()
+        gold = entry.answer
+        try:
+            status = run(f"fof(eq, axiom, ~(({answer}) <=> ({gold}))).").status
+        except Exception:
+            return 0.0
+        return float(status == "Unsatisfiable")
+
+    def balancing_key(self, problem):
+        return None

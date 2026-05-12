@@ -45,7 +45,13 @@ from ..modules.layers.lora import apply_lora_to_named_linear_modules
 from ..modules.locdit import CfmConfig, UnifiedCFM, VoxCPMLocDiTV2
 from ..modules.locenc import VoxCPMLocEnc
 from ..modules.minicpm4 import MiniCPM4Config, MiniCPMModel
-from .utils import get_dtype, mask_multichar_chinese_tokens
+from .utils import (
+    get_dtype,
+    mask_multichar_chinese_tokens,
+    next_and_close,
+    pick_runtime_dtype,
+    resolve_runtime_device,
+)
 
 
 # A simple function to trim audio silence using VAD, not used default
@@ -151,18 +157,22 @@ class VoxCPM2Model(nn.Module):
         tokenizer: LlamaTokenizerFast,
         audio_vae: AudioVAEV2,
         lora_config: LoRAConfig = None,
+        device: str | None = None,
     ):
         super().__init__()
         self.config = config
         self.lora_config = lora_config
         self.feat_dim = config.feat_dim
         self.patch_size = config.patch_size
-        self.device = config.device
-        if not torch.cuda.is_available():
-            if torch.backends.mps.is_available():
-                self.device = "mps"
-            else:
-                self.device = "cpu"
+        self.device = resolve_runtime_device(device, config.device)
+        self.config.device = self.device
+        resolved_dtype = pick_runtime_dtype(self.device, self.config.dtype)
+        if resolved_dtype != self.config.dtype:
+            print(
+                f"[voxcpm2] adjusted dtype {self.config.dtype} -> {resolved_dtype} for device {self.device}",
+                file=sys.stderr,
+            )
+            self.config.dtype = resolved_dtype
         print(f"Running on device: {self.device}, dtype: {self.config.dtype}", file=sys.stderr)
 
         # Text-Semantic LM
@@ -275,6 +285,7 @@ class VoxCPM2Model(nn.Module):
             self.residual_lm.forward_step = torch.compile(
                 self.residual_lm.forward_step, mode="reduce-overhead", fullgraph=True
             )
+            self._feat_encoder_raw = self.feat_encoder
             self.feat_encoder = torch.compile(self.feat_encoder, mode="reduce-overhead", fullgraph=True)
             self.feat_decoder.estimator = torch.compile(
                 self.feat_decoder.estimator, mode="reduce-overhead", fullgraph=True
@@ -443,7 +454,7 @@ class VoxCPM2Model(nn.Module):
         return tokens, feats, t_mask, a_mask
 
     def generate(self, *args, **kwargs) -> torch.Tensor:
-        return next(self._generate(*args, streaming=False, **kwargs))
+        return next_and_close(self._generate(*args, streaming=False, **kwargs))
 
     def generate_streaming(self, *args, **kwargs) -> Generator[torch.Tensor, None, None]:
         return self._generate(*args, streaming=True, **kwargs)
@@ -636,14 +647,14 @@ class VoxCPM2Model(nn.Module):
                 streaming_prefix_len=streaming_prefix_len,
             )
             if streaming:
-                decode_patch_len = self.patch_size * self._decode_chunk_size
-                for latent_pred, _, _ctx in inference_result:
-                    decode_audio = self.audio_vae.decode(latent_pred.to(torch.float32))
-                    decode_audio = decode_audio[..., -decode_patch_len:].squeeze(1).cpu()
-                    yield decode_audio
+                with self.audio_vae.streaming_decode() as vae_dec:
+                    for latent_pred, _, _ctx in inference_result:
+                        decode_audio = vae_dec.decode_chunk(latent_pred.to(torch.float32))
+                        decode_audio = decode_audio.squeeze(1).cpu()
+                        yield decode_audio
                 break
             else:
-                latent_pred, pred_audio_feat, context_len = next(inference_result)
+                latent_pred, pred_audio_feat, context_len = next_and_close(inference_result)
                 if retry_badcase:
                     if pred_audio_feat.shape[0] >= target_text_length * retry_badcase_ratio_threshold:
                         print(
@@ -761,7 +772,7 @@ class VoxCPM2Model(nn.Module):
         return merged
 
     def generate_with_prompt_cache(self, *args, **kwargs) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        return next(self._generate_with_prompt_cache(*args, streaming=False, **kwargs))
+        return next_and_close(self._generate_with_prompt_cache(*args, streaming=False, **kwargs))
 
     def generate_with_prompt_cache_streaming(
         self, *args, **kwargs
@@ -923,14 +934,14 @@ class VoxCPM2Model(nn.Module):
                 streaming_prefix_len=streaming_prefix_len,
             )
             if streaming:
-                decode_patch_len = self.patch_size * self._decode_chunk_size
-                for latent_pred, pred_audio_feat, _ctx in inference_result:
-                    decode_audio = self.audio_vae.decode(latent_pred.to(torch.float32))
-                    decode_audio = decode_audio[..., -decode_patch_len:].squeeze(1).cpu()
-                    yield (decode_audio, target_text_token, pred_audio_feat)
+                with self.audio_vae.streaming_decode() as vae_dec:
+                    for latent_pred, pred_audio_feat, _ctx in inference_result:
+                        decode_audio = vae_dec.decode_chunk(latent_pred.to(torch.float32))
+                        decode_audio = decode_audio.squeeze(1).cpu()
+                        yield (decode_audio, target_text_token, pred_audio_feat)
                 break
             else:
-                latent_pred, pred_audio_feat, context_len = next(inference_result)
+                latent_pred, pred_audio_feat, context_len = next_and_close(inference_result)
                 if retry_badcase:
                     if pred_audio_feat.shape[0] >= target_text_length * retry_badcase_ratio_threshold:
                         print(
@@ -953,7 +964,7 @@ class VoxCPM2Model(nn.Module):
             yield (decode_audio, target_text_token, pred_audio_feat)
 
     def inference(self, *args, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
-        feat_pred, generated_feat, _ = next(self._inference(*args, streaming=False, **kwargs))
+        feat_pred, generated_feat, _ = next_and_close(self._inference(*args, streaming=False, **kwargs))
         return feat_pred, generated_feat
 
     def inference_streaming(self, *args, **kwargs) -> Generator[Tuple[torch.Tensor, List[torch.Tensor]], None, None]:
@@ -997,7 +1008,8 @@ class VoxCPM2Model(nn.Module):
         """
         B, T, P, D = feat.shape
 
-        feat_embed = self.feat_encoder(feat)  # [b, t, h_feat]
+        prefill_encoder = getattr(self, "_feat_encoder_raw", self.feat_encoder)
+        feat_embed = prefill_encoder(feat)  # [b, t, h_feat]
         feat_embed = self.enc_to_lm_proj(feat_embed)
 
         if self.config.lm_config.use_mup:
@@ -1067,8 +1079,8 @@ class VoxCPM2Model(nn.Module):
             prefix_feat_cond = pred_feat
 
             if streaming:
-                pred_feat_chunk = torch.cat(pred_feat_seq[-streaming_prefix_len:], dim=1)
-                feat_pred = rearrange(pred_feat_chunk, "b t p d -> b d (t p)", b=B, p=self.patch_size)
+                # Yield only the newest patch latent for stateful VAE decode
+                feat_pred = rearrange(pred_feat.unsqueeze(1), "b t p d -> b d (t p)", b=B, p=self.patch_size)
 
                 yield feat_pred, pred_feat_seq, context_len
 
@@ -1096,8 +1108,16 @@ class VoxCPM2Model(nn.Module):
             yield feat_pred, generated_feat, context_len
 
     @classmethod
-    def from_local(cls, path: str, optimize: bool = True, training: bool = False, lora_config: LoRAConfig = None):
-        config = VoxCPMConfig.model_validate_json(open(os.path.join(path, "config.json")).read())
+    def from_local(
+        cls,
+        path: str,
+        optimize: bool = True,
+        training: bool = False,
+        device: str | None = None,
+        lora_config: LoRAConfig = None,
+    ):
+        with open(os.path.join(path, "config.json"), "r", encoding="utf-8") as _cfg_f:
+            config = VoxCPMConfig.model_validate_json(_cfg_f.read())
         tokenizer = LlamaTokenizerFast.from_pretrained(path)
         audio_vae_config = getattr(config, "audio_vae_config", None)
         audio_vae = AudioVAEV2(config=audio_vae_config) if audio_vae_config else AudioVAEV2()
@@ -1119,7 +1139,7 @@ class VoxCPM2Model(nn.Module):
             raise FileNotFoundError(
                 f"AudioVAE checkpoint not found. Expected either {audiovae_safetensors_path} or {audiovae_pth_path}"
             )
-        model = cls(config, tokenizer, audio_vae, lora_config)
+        model = cls(config, tokenizer, audio_vae, lora_config, device=device)
         if not training:
             lm_dtype = get_dtype(model.config.dtype)
             model = model.to(lm_dtype)
@@ -1201,7 +1221,7 @@ class VoxCPM2Model(nn.Module):
         if safetensors_file and safetensors_file.exists() and SAFETENSORS_AVAILABLE:
             state_dict = load_file(str(safetensors_file), device=device)
         elif ckpt_file and ckpt_file.exists():
-            ckpt = torch.load(ckpt_file, map_location=device, weights_only=False)
+            ckpt = torch.load(ckpt_file, map_location=device, weights_only=True)
             state_dict = ckpt.get("state_dict", ckpt)
         else:
             raise FileNotFoundError(f"LoRA checkpoint not found. Expected either {safetensors_file} or {ckpt_file}")

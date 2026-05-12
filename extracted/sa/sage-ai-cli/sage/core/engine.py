@@ -200,6 +200,50 @@ class ConversationEngine:
 
         return removed
 
+    def maybe_compress_for_model(
+        self,
+        model_id: str,
+        budget_chars: int = 8000,
+    ) -> int:
+        """Compress history if (1) serving a small model AND (2) over budget.
+
+        Used at engine call sites to opt into small-model strategy without
+        forcing callers to do the model-detection themselves. Returns the
+        number of messages removed (0 = no-op).
+        """
+        from sage.core.engine_helpers import is_small_model
+        if not is_small_model(model_id):
+            return 0
+        return self.compact_for_small_model(budget_chars)
+
+    def compact_for_small_model(self, budget_chars: int) -> int:
+        """Compress history to fit a tight char budget (small-model strategy).
+
+        Unlike `compact`, this targets *character* count rather than token
+        count and uses chain-of-density compression: keep recent turns
+        verbatim, collapse older ones into a one-paragraph digest. Used
+        when serving a 3B-7B local model that can't reliably reason over
+        long histories.
+
+        Returns the number of messages removed (compressed turns count as
+        removed). Returns 0 if no compression was needed.
+        """
+        from sage.core.small_model_strategy import compress_history
+        before = len(self._messages)
+        if not self._messages:
+            return 0
+        # compress_history operates on the full message list including the
+        # system prompt; we apply it to history only so the system prompt
+        # is preserved verbatim.
+        current_chars = sum(len(m.content) for m in self._messages)
+        if current_chars <= budget_chars:
+            return 0
+        compressed = compress_history(self._messages, budget_chars)
+        if len(compressed) >= before:
+            return 0  # nothing to do
+        self._messages = compressed
+        return before - len(self._messages)
+
     def compact(self, target_tokens: int | None = None) -> int:
         """Compact context to fit within token budget.
 

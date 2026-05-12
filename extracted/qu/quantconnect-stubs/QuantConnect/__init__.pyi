@@ -1781,19 +1781,19 @@ class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityI
         ...
 
     @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
     def __ge__(self, other: QuantConnect.SecurityIdentifier) -> bool:
         ...
 
     @overload
-    def __gt__(self, other: typing.Any) -> bool:
+    def __ge__(self, other: typing.Any) -> bool:
         ...
 
     @overload
     def __gt__(self, other: QuantConnect.SecurityIdentifier) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
@@ -1820,33 +1820,23 @@ class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityI
         ...
 
     @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
     def __le__(self, other: QuantConnect.SecurityIdentifier) -> bool:
         ...
 
     @overload
-    def __lt__(self, other: typing.Any) -> bool:
+    def __le__(self, other: typing.Any) -> bool:
         ...
 
     @overload
     def __lt__(self, other: QuantConnect.SecurityIdentifier) -> bool:
         ...
 
-    def __ne__(self, right: QuantConnect.SecurityIdentifier) -> bool:
-        """Override not equals operator"""
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
         ...
 
-    @overload
-    def compare_to(self, obj: typing.Any) -> int:
-        """
-        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
-        
-        :param obj: An object to compare with this instance.
-        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings: Value Meaning Less than zero This instance precedes obj in the sort order. Zero This instance occurs in the same position in the sort order as obj. Greater than zero This instance follows obj in the sort order.
-        """
+    def __ne__(self, right: QuantConnect.SecurityIdentifier) -> bool:
+        """Override not equals operator"""
         ...
 
     @overload
@@ -1860,12 +1850,12 @@ class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityI
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def compare_to(self, obj: typing.Any) -> int:
         """
-        Determines whether the specified System.Object is equal to the current System.Object.
+        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
         
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
+        :param obj: An object to compare with this instance.
+        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings: Value Meaning Less than zero This instance precedes obj in the sort order. Zero This instance occurs in the same position in the sort order as obj. Greater than zero This instance follows obj in the sort order.
         """
         ...
 
@@ -1876,6 +1866,16 @@ class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityI
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified System.Object is equal to the current System.Object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
         """
         ...
 
@@ -2188,27 +2188,27 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         ...
 
     @overload
+    def __eq__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Equals operator
+        
+        :param right: The right operand
+        :returns: True if both symbols are equal, otherwise false.
+        """
+        ...
+
+    @overload
+    def __eq__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Equals operator
+        
+        :param right: The right operand
+        :returns: True if both symbols are equal, otherwise false.
+        """
+        ...
+
+    @overload
     def __eq__(self, right: typing.Any) -> bool:
-        """
-        Equals operator
-        
-        :param right: The right operand
-        :returns: True if both symbols are equal, otherwise false.
-        """
-        ...
-
-    @overload
-    def __eq__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Equals operator
-        
-        :param right: The right operand
-        :returns: True if both symbols are equal, otherwise false.
-        """
-        ...
-
-    @overload
-    def __eq__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
         """
         Equals operator
         
@@ -2239,27 +2239,27 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         ...
 
     @overload
+    def __ne__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Not equals operator
+        
+        :param right: The right operand
+        :returns: True if both symbols are not equal, otherwise false.
+        """
+        ...
+
+    @overload
+    def __ne__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Not equals operator
+        
+        :param right: The right operand
+        :returns: True if both symbols are not equal, otherwise false.
+        """
+        ...
+
+    @overload
     def __ne__(self, right: typing.Any) -> bool:
-        """
-        Not equals operator
-        
-        :param right: The right operand
-        :returns: True if both symbols are not equal, otherwise false.
-        """
-        ...
-
-    @overload
-    def __ne__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Not equals operator
-        
-        :param right: The right operand
-        :returns: True if both symbols are not equal, otherwise false.
-        """
-        ...
-
-    @overload
-    def __ne__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
         """
         Not equals operator
         
@@ -2380,25 +2380,6 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
 
     @staticmethod
     @overload
-    def create_option(underlying: str, market: str, style: QuantConnect.OptionStyle, right: QuantConnect.OptionRight, strike: float, expiry: typing.Union[datetime.datetime, datetime.date], alias: str = None, map_symbol: bool = True) -> QuantConnect.Symbol:
-        """
-        Provides a convenience method for creating an option Symbol.
-        
-        :param underlying: The underlying ticker
-        :param market: The market the underlying resides in
-        :param style: The option style (American, European, ect..)
-        :param right: The option right (Put/Call)
-        :param strike: The option strike price
-        :param expiry: The option expiry date
-        :param alias: An alias to be used for the symbol cache. Required when
-        adding the same security from different markets
-        :param map_symbol: Specifies if symbol should be mapped using map file provider
-        :returns: A new Symbol object for the specified option contract.
-        """
-        ...
-
-    @staticmethod
-    @overload
     def create_option(underlying_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], market: str, style: QuantConnect.OptionStyle, right: QuantConnect.OptionRight, strike: float, expiry: typing.Union[datetime.datetime, datetime.date], alias: str = None) -> QuantConnect.Symbol:
         """
         Provides a convenience method for creating an option Symbol using SecurityIdentifier.
@@ -2447,19 +2428,28 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         """
         ...
 
+    @staticmethod
+    @overload
+    def create_option(underlying: str, market: str, style: QuantConnect.OptionStyle, right: QuantConnect.OptionRight, strike: float, expiry: typing.Union[datetime.datetime, datetime.date], alias: str = None, map_symbol: bool = True) -> QuantConnect.Symbol:
+        """
+        Provides a convenience method for creating an option Symbol.
+        
+        :param underlying: The underlying ticker
+        :param market: The market the underlying resides in
+        :param style: The option style (American, European, ect..)
+        :param right: The option right (Put/Call)
+        :param strike: The option strike price
+        :param expiry: The option expiry date
+        :param alias: An alias to be used for the symbol cache. Required when
+        adding the same security from different markets
+        :param map_symbol: Specifies if symbol should be mapped using map file provider
+        :returns: A new Symbol object for the specified option contract.
+        """
+        ...
+
     def ends_with(self, value: str) -> bool:
         """Symbol.EndsWith is a pass-through for Symbol.Value.EndsWith"""
         warnings.warn("Symbol.EndsWith is a pass-through for Symbol.Value.EndsWith", DeprecationWarning)
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified System.Object is equal to the current System.Object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
 
     @overload
     def equals(self, other: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
@@ -2468,6 +2458,16 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         
         :param other: An object to compare with this object.
         :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified System.Object is equal to the current System.Object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
         """
         ...
 
@@ -2771,6 +2771,16 @@ class Chart(System.Object):
         ...
 
     @overload
+    def __init__(self, name: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """
+        Constructor for a chart
+        
+        :param name: String name of the chart
+        :param symbol: Associated symbol if any
+        """
+        ...
+
+    @overload
     def __init__(self) -> None:
         """Default constructor for chart:"""
         ...
@@ -2781,16 +2791,6 @@ class Chart(System.Object):
         Constructor for a chart
         
         :param name: String name of the chart
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
-        """
-        Constructor for a chart
-        
-        :param name: String name of the chart
-        :param symbol: Associated symbol if any
         """
         ...
 
@@ -6297,16 +6297,16 @@ class Holding(System.Object):
         ...
 
     @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
     def __init__(self, security: QuantConnect.Securities.Security) -> None:
         """
         Create a simple JSON holdings from a Security holding class.
         
         :param security: The security instance
         """
+        ...
+
+    @overload
+    def __init__(self) -> None:
         ...
 
     def clone(self) -> QuantConnect.Holding:

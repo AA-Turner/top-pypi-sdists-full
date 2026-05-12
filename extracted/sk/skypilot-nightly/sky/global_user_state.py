@@ -223,6 +223,12 @@ class ClusterEventType(enum.Enum):
     """Used to denote events that are directly related to
     a cluster's termination."""
 
+    # Progress milestones emitted during a cluster launch
+    # (e.g. 'Launching (Kubernetes cluster is autoscaling)',
+    # 'Launching (1 pod(s) pending due to Pulling)'). Read for the
+    # LAUNCHING-state badge tooltip on the dashboard.
+    LAUNCH_PROGRESS = 'LAUNCH_PROGRESS'
+
 
 # Table for cluster status change events.
 # starting_status: Status of the cluster at the start of the event.
@@ -1013,13 +1019,48 @@ def _get_last_or_terminal_cluster_event_multiple(
             cluster_event_table.c.cluster_hash, cluster_event_table.c.reason,
             row_number).filter(
                 cluster_event_table.c.cluster_hash.in_(cluster_hashes),
-                cluster_event_table.c.type !=
-                ClusterEventType.DEBUG.value).subquery()
+                cluster_event_table.c.type.notin_([
+                    ClusterEventType.DEBUG.value,
+                    ClusterEventType.LAUNCH_PROGRESS.value,
+                ])).subquery()
 
         # Select only the top-ranked event for each cluster
         rows = session.query(
             ranked_events.c.cluster_hash,
             ranked_events.c.reason).filter(ranked_events.c.rn == 1).all()
+
+    return {row.cluster_hash: row.reason for row in rows}
+
+
+def get_last_cluster_event_of_type_multiple(
+        cluster_hashes: Set[str],
+        event_type: ClusterEventType) -> Dict[str, str]:
+    """Returns the latest event of `event_type` per cluster_hash.
+
+    Mirrors _get_last_or_terminal_cluster_event_multiple but filters to a
+    single event type (no TERMINAL-priority ordering).
+    """
+    if not cluster_hashes:
+        return {}
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        row_number = sqlalchemy.func.row_number().over(
+            partition_by=cluster_event_table.c.cluster_hash,
+            order_by=cluster_event_table.c.transitioned_at.desc()).label('rn')
+
+        ranked = session.query(
+            cluster_event_table.c.cluster_hash,
+            cluster_event_table.c.reason,
+            row_number,
+        ).filter(
+            cluster_event_table.c.cluster_hash.in_(cluster_hashes),
+            cluster_event_table.c.type == event_type.value,
+        ).subquery()
+
+        rows = session.query(
+            ranked.c.cluster_hash,
+            ranked.c.reason,
+        ).filter(ranked.c.rn == 1).all()
 
     return {row.cluster_hash: row.reason for row in rows}
 
@@ -1064,6 +1105,11 @@ async def cluster_event_retention_daemon():
                              f'{debug_retention_hours} hours.')
                 cleanup_cluster_events_with_retention(debug_retention_hours,
                                                       ClusterEventType.DEBUG)
+                # LAUNCH_PROGRESS shares debug retention semantics: short-lived
+                # observability info, no business-record value once the launch
+                # is over.
+                cleanup_cluster_events_with_retention(
+                    debug_retention_hours, ClusterEventType.LAUNCH_PROGRESS)
             if terminal_retention_hours >= 0:
                 logger.debug(
                     'Cleaning up terminal cluster events with retention '
@@ -1902,9 +1948,27 @@ def get_clusters(
         current_user_name = (current_user.name
                              if current_user is not None else None)
 
+    # Hoisted: needed by both the new launch-progress fill (any response)
+    # and the existing last_event fill (summary_response=False only).
+    cluster_hashes = {row.cluster_hash for row in rows}
+
+    # Only fetch launch-progress events for clusters actually in INIT.
+    # Keeps the zero-overhead promise for non-INIT callers (e.g. SSH
+    # WebSocket validation uses summary_response=True specifically to
+    # avoid cluster-event queries on the hot path; see comment near
+    # `_get_cluster_and_validate` in server.py). The helper
+    # short-circuits on an empty set, so this is a no-op when no INIT
+    # clusters are in the result.
+    init_cluster_hashes = {
+        row.cluster_hash
+        for row in rows
+        if status_lib.ClusterStatus[row.status] is status_lib.ClusterStatus.INIT
+    }
+    launch_progress_dict = get_last_cluster_event_of_type_multiple(
+        init_cluster_hashes, ClusterEventType.LAUNCH_PROGRESS)
+
     # get last cluster event for each row
     if not summary_response:
-        cluster_hashes = {row.cluster_hash for row in rows}
         last_cluster_event_dict = _get_last_or_terminal_cluster_event_multiple(
             cluster_hashes)
 
@@ -1936,6 +2000,14 @@ def get_clusters(
                           if exclude_managed_clusters else bool(row.is_managed),
             'node_names': common_utils.get_display_node_names(row.node_names),
         }
+        # launch_status_reason is populated outside the summary_response
+        # gate so both the list page (summary_response=True) and detail
+        # page (summary_response=False) get the badge tooltip data.
+        if record['status'] is status_lib.ClusterStatus.INIT:
+            record['launch_status_reason'] = launch_progress_dict.get(
+                row.cluster_hash)
+        else:
+            record['launch_status_reason'] = None
         if not summary_response:
             record['last_creation_yaml'] = row.last_creation_yaml
             record['last_creation_command'] = row.last_creation_command

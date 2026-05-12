@@ -267,10 +267,8 @@ class BaseWorkflow(ABC, WorkflowStatusMixin):
         finally:
             ingestion_status = self.build_ingestion_status()
             self.set_ingestion_pipeline_status(pipeline_state, ingestion_status)
-            try:
-                self.print_status()
-            finally:
-                self.stop()
+            self.stop()
+            self.print_status()
 
     @property
     def run_id(self) -> str:

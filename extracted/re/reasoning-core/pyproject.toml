@@ -11,27 +11,26 @@ build-backend = "hatchling.build"
 name = "reasoning_core"
 dynamic = ["version"]
 readme = "README.md"
-description = "A RL env with procedurally generated symbolic reasoning data"
+description = "Procedural data generators for symbolic pre-training, also including RL environments"
 
 dependencies = [
+    "gramforge",
     "faker",
     "inflection",
     "rapidfuzz",
     "unified-planning[pyperplan]",
     "tarski",
-    "reasoning_gym",
     "tiktoken",
-    "prime",
     "networkx",
+    "z3-solver",
     "pooch",
     "requests",
     "beautifulsoup4",
     "easydict",
     "appdirs",
     "regex",
-    "num2words",
+    "greenery",
     "tqdm",
-    "timeout_decorator",
     "timeoutcontext",
     "pandas",
     "pyyaml",
@@ -41,16 +40,24 @@ dependencies = [
     "multiprocess",
     "xpflow",
     "exrex",
-    "gramforge",
     "nltk",
+    "wordfreq",
     "pgmpy",
+    "unification",
+    "toolz",
     "numpy",
     "sympy",
-    "verifiers",
     "pyparsing",
+    "whatthepatch",
     "lazy_object_proxy",
-    "udocker"
+    "udocker",
+    "wrapt",
+    "psutil"
 ]
+
+[project.optional-dependencies]
+prime = ["prime", "verifiers"]
+reasoning_gym = ["reasoning_gym"]
 
 [tool.setuptools.packages.find]
 include = ["reasoning_core*"]
@@ -60,3 +67,28 @@ include = ["reasoning_core*"]
 
 [tool.hatch.version]
 path = "reasoning_core/__init__.py"
+
+[tool.hatch.build]
+skip-excluded-dirs = true
+exclude = [
+    "/reasoning_core/**/__pycache__",
+    "/reasoning_core/**/.ipynb_checkpoints",
+    "/reasoning_core/.mountpoints/**",
+    "/reasoning_core/generated_data/**",
+    "/reasoning_core/index/**",
+    "/reasoning_core/score_cache/**",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["reasoning_core"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/GALLERY.md",
+    "/LICENSE",
+    "/README.md",
+    "/TASK_AUTHORING_GUIDE.md",
+    "/pyproject.toml",
+    "/reasoning_core",
+    "/tests",
+]

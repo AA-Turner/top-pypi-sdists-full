@@ -23,15 +23,6 @@ class Transform:
     )
 
     def __init__(self, position: Point = (0.0, 0.0), anchor: Point = (0.5, 0.5), rotation: Real = 0.0, scale: Real = 1.0):
-        # Transtypage et vérifications
-        position = Point(position)
-        anchor = Point(anchor)
-        rotation = float(rotation)
-        scale = float(scale)
-
-        if __debug__:
-            different_from(scale, 0.0)
-
         # Attributs publiques
         self._position: Point = position
         self._anchor: Point = anchor
@@ -132,8 +123,8 @@ class Transform:
         return self._rotation
     
     @rotation.setter
-    def rotation(self, value: Real) -> None:
-        self._rotation = float(value)
+    def rotation(self, value: float) -> None:
+        self._rotation = value
         self._version += 1
     
     @property
@@ -145,10 +136,7 @@ class Transform:
         return self._scale
     
     @scale.setter
-    def scale(self, value: Real) -> None:
-        value = float(value)
-        if __debug__:
-            different_from(value, 0.0)
+    def scale(self, value: float) -> None:
         self._scale = value
         self._version += 1
 

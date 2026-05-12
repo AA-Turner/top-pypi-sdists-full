@@ -1206,17 +1206,12 @@ class Sse41(System.Runtime.Intrinsics.X86.Ssse3, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def convert_to_vector_128_int_16(address: typing.Any) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    @overload
     def convert_to_vector_128_int_16(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
         ...
 
     @staticmethod
     @overload
-    def convert_to_vector_128_int_32(address: typing.Any) -> System.Runtime.Intrinsics.Vector128[int]:
+    def convert_to_vector_128_int_16(address: typing.Any) -> System.Runtime.Intrinsics.Vector128[int]:
         ...
 
     @staticmethod
@@ -1226,12 +1221,17 @@ class Sse41(System.Runtime.Intrinsics.X86.Ssse3, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def convert_to_vector_128_int_64(address: typing.Any) -> System.Runtime.Intrinsics.Vector128[int]:
+    def convert_to_vector_128_int_32(address: typing.Any) -> System.Runtime.Intrinsics.Vector128[int]:
         ...
 
     @staticmethod
     @overload
     def convert_to_vector_128_int_64(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_128_int_64(address: typing.Any) -> System.Runtime.Intrinsics.Vector128[int]:
         ...
 
     @staticmethod
@@ -1936,11 +1936,6 @@ class Avx2(System.Runtime.Intrinsics.X86.Avx, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def broadcast_scalar_to_vector_128(source: typing.Any) -> System.Runtime.Intrinsics.Vector128[int]:
-        ...
-
-    @staticmethod
-    @overload
     def broadcast_scalar_to_vector_128(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
         ...
 
@@ -1951,7 +1946,7 @@ class Avx2(System.Runtime.Intrinsics.X86.Avx, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def broadcast_scalar_to_vector_256(source: typing.Any) -> System.Runtime.Intrinsics.Vector256[int]:
+    def broadcast_scalar_to_vector_128(source: typing.Any) -> System.Runtime.Intrinsics.Vector128[int]:
         ...
 
     @staticmethod
@@ -1962,6 +1957,11 @@ class Avx2(System.Runtime.Intrinsics.X86.Avx, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def broadcast_scalar_to_vector_256(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector256[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def broadcast_scalar_to_vector_256(source: typing.Any) -> System.Runtime.Intrinsics.Vector256[int]:
         ...
 
     @staticmethod
@@ -1986,17 +1986,12 @@ class Avx2(System.Runtime.Intrinsics.X86.Avx, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def convert_to_vector_256_int_16(address: typing.Any) -> System.Runtime.Intrinsics.Vector256[int]:
-        ...
-
-    @staticmethod
-    @overload
     def convert_to_vector_256_int_16(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector256[int]:
         ...
 
     @staticmethod
     @overload
-    def convert_to_vector_256_int_32(address: typing.Any) -> System.Runtime.Intrinsics.Vector256[int]:
+    def convert_to_vector_256_int_16(address: typing.Any) -> System.Runtime.Intrinsics.Vector256[int]:
         ...
 
     @staticmethod
@@ -2006,12 +2001,17 @@ class Avx2(System.Runtime.Intrinsics.X86.Avx, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def convert_to_vector_256_int_64(address: typing.Any) -> System.Runtime.Intrinsics.Vector256[int]:
+    def convert_to_vector_256_int_32(address: typing.Any) -> System.Runtime.Intrinsics.Vector256[int]:
         ...
 
     @staticmethod
     @overload
     def convert_to_vector_256_int_64(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_vector_256_int_64(address: typing.Any) -> System.Runtime.Intrinsics.Vector256[int]:
         ...
 
     @staticmethod
@@ -7079,12 +7079,12 @@ class Bmi2(System.Runtime.Intrinsics.X86.X86Base, metaclass=abc.ABCMeta):
 
         @staticmethod
         @overload
-        def multiply_no_flags(left: int, right: int, low: typing.Any) -> int:
+        def multiply_no_flags(left: int, right: int) -> int:
             ...
 
         @staticmethod
         @overload
-        def multiply_no_flags(left: int, right: int) -> int:
+        def multiply_no_flags(left: int, right: int, low: typing.Any) -> int:
             ...
 
         @staticmethod
@@ -7103,12 +7103,12 @@ class Bmi2(System.Runtime.Intrinsics.X86.X86Base, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def multiply_no_flags(left: int, right: int, low: typing.Any) -> int:
+    def multiply_no_flags(left: int, right: int) -> int:
         ...
 
     @staticmethod
     @overload
-    def multiply_no_flags(left: int, right: int) -> int:
+    def multiply_no_flags(left: int, right: int, low: typing.Any) -> int:
         ...
 
     @staticmethod
